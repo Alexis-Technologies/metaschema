@@ -96,7 +96,7 @@ tests/
 scripts/size.js     bundle-size report (CI smoke)
 bench/              zero-dependency ops/sec harness
 docs/               VitePress site (metaschema.vercel.app), not published
-.claude/skills/     metaskills v1.0.5 skills (js-conventions adapted to this toolchain)
+.claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
 ```
 
 ## Architecture
@@ -201,10 +201,14 @@ skills: `js-conventions`, `js-data-structures`, `data-structures`, `metautil-dat
 
 - **`js-conventions` is adapted to this toolchain:** oxlint/oxfmt instead of ESLint/Prettier,
   pnpm, 100 columns, plus a Modules section (CommonJS, no `'use strict'`, `node:` prefix, `.js` in
-  relative requires). Its naming, best-practice and optimization rules are upstream's. Keep it in
-  sync with this file when conventions change.
-- **The other six are verbatim copies.** **This file wins on tooling and process.** Where they say
-  npm (`npm i`, `npm test`, `npm publish`), use pnpm and the release process below.
+  relative requires). Its naming, best-practice and optimization rules are upstream's.
+- **`npm-publish` is adapted to the release process below:** pnpm commands, the `prepublishOnly`
+  gates, this CHANGELOG's format (including the upstream-history section), docs and `pnpm pack`
+  checks, and `pnpm run release`.
+- **The other five are verbatim copies.**
+
+Keep the two adapted skills in sync with this file when conventions or the release process
+change. **This file wins** if they ever disagree.
 
 ## Testing notes
 
@@ -252,7 +256,7 @@ published to npm, and lint/format do not cover it.
 
 ## Release process
 
-Manual, as in the sibling repositories:
+Manual, as in the sibling repositories. The `npm-publish` skill walks through it step by step:
 
 1. Bump `version` in `package.json`.
 2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD` and add its link

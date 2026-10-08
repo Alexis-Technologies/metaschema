@@ -1,34 +1,42 @@
 ---
 name: npm-publish
-description: Prepare an npm package for publishing. Handles version bump, CHANGELOG update, typings check, test run, README refresh, package.json audit, and npm pack verification. Use when the user asks to prepare a release, bump version, publish a package, or do release prep.
+description: Prepare an @alexify package for publishing with pnpm. Handles version bump, CHANGELOG update, typings check, quality gates, README and docs refresh, package.json audit, and pnpm pack verification. Use when the user asks to prepare a release, bump version, publish a package, or do release prep.
 ---
+
+<!-- Adapted from metaskills v1.0.5 (skills/npm-publish) for the Alexis toolchain and release
+     process: pnpm instead of npm, the prepublishOnly gates, Keep a Changelog headings as used in
+     CHANGELOG.md, and `pnpm run release` for publishing. -->
 
 # npm Publish Preparation
 
-Systematic workflow for preparing an npm package for a new release. Every step must pass before proceeding to the next.
+Systematic workflow for preparing the package for a new release. Every step must pass before proceeding to the next. The package manager is pnpm (pinned in `packageManager`); never use `npm` commands and never create `package-lock.json`.
 
 ## Step 0: Gather Release Intent
 
-Ask the user (use AskQuestion if available):
+Ask the user (use AskUserQuestion if available):
 
 1. **Version bump type**: patch / minor / major / explicit version / prerelease tag
-2. **Prerelease label** (if any): e.g. `alpha`, `beta`, `rc`, `prerelease`
+2. **Prerelease label** (if any): e.g. `alpha`, `beta`, `rc`
 3. **Confirm changelog entries**: ask if the `[Unreleased]` section in CHANGELOG is complete, or if the user wants to draft entries from recent commits
 
-If the user already specified intent (e.g. "prepare 4.1.0 release"), skip the question and proceed.
+If the user already specified intent (e.g. "prepare 1.1.0 release"), skip the question and proceed.
 
 ## Step 1: Pre-flight Checks
 
 Run:
 
 ```bash
-npm i             # install deps
-npm test          # must exit 0 (lint + types + tests)
+pnpm install --frozen-lockfile   # install deps exactly as locked
+pnpm run lint                    # oxlint
+pnpm run format:check            # oxfmt
+pnpm run test:coverage           # tests under the c8 coverage gate
+pnpm run test:types              # tsd
+pnpm run check:dts               # tsc over index.d.ts
 ```
 
-Then in parallel: `npm outdated` and `npm audit` (report to user).
+These are the same gates `prepublishOnly` runs. Then in parallel: `pnpm outdated` and `pnpm audit` (report to user; devDependencies only, the package has no runtime dependencies).
 
-If `npm test` fails, stop and fix issues before continuing.
+If any gate fails, stop and fix issues before continuing.
 
 ## Step 2: Version Bump
 
@@ -42,82 +50,90 @@ Compute the new version based on user intent and semver rules:
 - **prerelease**: `1.2.3` → `1.2.4-<label>.0`, or `1.2.4-beta.0` → `1.2.4-beta.1`
 - **Removing prerelease tag**: `4.0.3-prerelease` → `4.0.3` (just strip the suffix)
 
-Update `"version"` in `package.json` using StrReplace (not `npm version` — we manage changelog manually).
+Update `"version"` in `package.json` with the Edit tool, not `pnpm version`: the bump is a plain edit, and the commit, tag and changelog are handled by hand in the steps below.
 
 ## Step 3: Update CHANGELOG.md
 
-The changelog uses:
+The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
-- **Sections**: `## [Unreleased]` at top; `## [Version] - YYYY-MM-DD` for releases (date in ISO 8601)
+- **Sections**: `## [Unreleased]` at top; `## [X.Y.Z] - YYYY-MM-DD` for releases (date in ISO 8601)
 - **Order**: newest first; every version gets an entry
-- **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`. Group same-type changes under each
-- **Entries**: bullet lists; past tense; capitalise first letter; human-readable, curated (no raw git diffs)
-- **Links**: footnote-style link block at bottom: `[unreleased]: ...`, `[version]: ...` (GitHub compare URLs)
-- **Principles**: changelog is for humans; omit empty sections; call out breaking changes and deprecations clearly
+- **Release body**: a short prose paragraph saying what the release is about, then subsections
+- **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`, plus `Tooling` and `Upgrading from X.Y` when they apply. Omit empty subsections
+- **Entries**: bullets starting with a **bold lead-in**, then the explanation; human-readable and curated (no raw git diffs); call out breaking changes clearly
+- **Links**: reference-style link block at the bottom: `[unreleased]: ...`, `[X.Y.Z]: ...`
+- **Upstream history**: the `## Upstream history (metarhia/metaschema)` section and its `[upstream-*]` links stay at the bottom unchanged
 
 ### 3a: Detect changelog structure
 
 Read the full `CHANGELOG.md`. Identify:
 
 - The `[Unreleased]` section
-- The previous version heading (to derive the comparison base)
+- The previous release heading (to derive the comparison base)
 - The links block at the bottom of the file
-- The GitHub repo URL from the existing links
+- The GitHub repo URL from `package.json` `repository`
+
+Release tags are `vX.Y.Z`. Tags `v2.2.2` and older come from upstream metarhia and are not releases of this package.
 
 ### 3b: Create the new version entry
 
-**Always** draft entries from `git log` since the last tag (fallback to `HEAD~20` if no tags):
+**Always** draft entries from `git log` since the previous release tag:
 
 ```bash
 git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~20")..HEAD --oneline
 ```
 
-Convert commits into changelog bullets: group by type (Added, Changed, Fixed, Removed, Deprecated, Security), past tense, capitalise. Merge with any existing `[Unreleased]` content if the user added manual entries.
+For the first release of the package, `git describe` returns the upstream fork point, which is the right range.
 
-Create the new version section with today's date (ISO 8601):
+Commits follow Conventional Commits: map `feat` → Added, `fix` → Fixed, `refactor!`/`feat!`/`fix!` → call out as breaking, `ci`/`chore` → Tooling (only when user-visible). Merge with the existing `[Unreleased]` content; it is usually already written.
+
+Turn `[Unreleased]` into the release and leave an empty `[Unreleased]` above it:
 
 ```markdown
-## [Unreleased][unreleased]
+## [Unreleased]
 
-## [NEW_VERSION][] - YYYY-MM-DD
+## [NEW_VERSION] - YYYY-MM-DD
 
-- Entry description
-- Another entry
+What the release is about, in one short paragraph.
+
+### Added
+
+- **Feature name.** What it does and why it matters.
 ```
 
 ### 3c: Update comparison links
 
-At the bottom of `CHANGELOG.md`, update the `[unreleased]` link and add the new version link:
+At the bottom of `CHANGELOG.md` (above the `[upstream-*]` links), update the `[unreleased]` link and add the new version link:
 
 ```markdown
 [unreleased]: https://github.com/OWNER/REPO/compare/vNEW_VERSION...HEAD
 [NEW_VERSION]: https://github.com/OWNER/REPO/compare/vPREVIOUS_VERSION...vNEW_VERSION
 ```
 
-Keep all existing links intact below.
+For the first release there is no previous version of this package: link it to `https://github.com/OWNER/REPO/releases/tag/vNEW_VERSION`.
+
+Keep all existing links intact.
 
 ## Step 4: TypeScript Declarations
 
-If `.d.ts` files exist:
+The types are hand-written in `index.d.ts`:
 
-1. Run `npx tsc` (or the project's `types` script) — must pass with no errors
-2. Verify the `.d.ts` public API surface matches the actual exports:
-   - Read the main JS entry point's `module.exports` or `export` statements
-   - Read the `.d.ts` file
-   - Confirm every exported class, function, type, and method is declared
-   - Confirm no private/internal fields leak into the declarations
-3. If the release includes API changes, update the `.d.ts` accordingly
+1. `pnpm run check:dts` and `pnpm run test:types` must pass with no errors
+2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js` and `browser.js` with the declared value exports; it must pass
+3. Read `src/index.js` and `index.d.ts` and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations
+4. If the release includes API changes, update `index.d.ts` and `tests/types/*.test-d.ts` accordingly
 
-## Step 5: README & License Review
+## Step 5: README, Docs & License Review
 
-**Update year** in `LICENSE` and `README.md` (copyright line) to the current year if changed.
+**Update the year** of the `Alexis Technologies` copyright line in `LICENSE` (e.g. `2026` → `2026-2027`). Never change the upstream `Metarhia contributors` line.
 
-Scan `README.md` for staleness:
+Scan for staleness:
 
-1. **Usage examples**: do they match the current API? Especially constructor options, method signatures
-2. **Badges**: do version badge URLs point to the correct package name?
-3. **Configuration tables**: do option names, types, and defaults match the source code?
-4. **API reference**: if the README has an API section, verify it against actual exports
+1. **README.md usage examples**: do they match the current API? Run them if in doubt; the documented outputs must be true
+2. **Badges**: do the URLs point to `@alexify/<name>` and the `Alexis-Technologies` repository?
+3. **docs/**: guide and API pages for anything the release changed; the nav version label is read from `package.json` automatically. `pnpm run docs:build` must pass (dead links fail it)
+4. **docs/public/llms.txt**: key facts (exports, Node.js version, size)
+5. **SECURITY.md**: the supported-versions table on a major release
 
 Only edit if something is factually wrong or outdated. Don't rewrite style or add unsolicited content.
 
@@ -127,34 +143,36 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 
 Check these fields are correct:
 
-- `"main"` / `"module"` / `"exports"` — points to existing files
-- `"types"` — points to the `.d.ts` file
-- `"files"` — includes all necessary files, excludes test/config files; cross-check with `.npmignore` if present
-- `"engines"` — matches the CI matrix (`.github/workflows/`)
+- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first
+- `"types"` — points to `index.d.ts`
+- `"files"` — the explicit allowlist includes everything that ships and nothing else (there is no `.npmignore`)
+- `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
+- `"dependencies"` — absent; the package has no runtime dependencies
 - `"keywords"` — no typos, relevant terms
-- `"license"`, `"repository"`, `"homepage"` — valid
+- `"license"`, `"repository"`, `"homepage"`, `"bugs"`, `"publishConfig"` (`access: public`) — valid
 
 ### 6b: Dry-run pack
 
 ```bash
-npm pack --dry-run
+pnpm pack --dry-run
+pnpm run size
 ```
 
 Review the file list:
 
-- Source files are included
+- Source files (`src/`) and root entry points are included
 - Type definitions are included
-- Test files, configs, CI files are excluded
+- Tests, docs, bench, scripts, configs and CI files are excluded
 - No unexpected large files
 
-Report the packed size to the user.
+Report the file count and the bundle sizes from `pnpm run size` to the user.
 
 ## Step 7: Final Verification
 
-Run the full test suite one more time after all edits:
+Run the gates one more time after all edits:
 
 ```bash
-npm test
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:types && pnpm run check:dts && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.
@@ -167,24 +185,20 @@ Present a summary to the user:
 Release preparation complete:
   Package:  <name>
   Version:  <old> → <new>
-  Tests:    ✓ passing
+  Tests:    ✓ passing (coverage gate met)
   Types:    ✓ valid
-  Packed:   <N> files, <size>
+  Packed:   <N> files, <min+gzip size>
 ```
 
 Then list remaining manual steps:
 
-1. `git add -A && git commit -m "Release vX.Y.Z"` (or ask the user if they want you to commit)
+1. `git add -A && git commit -m "chore(release): vX.Y.Z"` (or ask the user if they want you to commit)
 2. `git tag vX.Y.Z`
 3. `git push && git push --tags`
-4. `npm publish` (or `npm publish --tag <label>` for prereleases)
+4. `pnpm run release` (runs `pnpm publish`; `prepublishOnly` re-runs the gates). For prereleases: `pnpm publish --tag <label>`
 
-Do NOT run `npm publish` or `git push` automatically — always let the user do it or explicitly confirm.
+Do NOT run `pnpm publish`, `pnpm run release` or `git push` automatically — always let the user do it or explicitly confirm.
 
-## Step 9: Reinstall Dependencies
+## Step 9: Lockfile
 
-After all steps run to refresh package-lock.json:
-
-```bash
-npm i
-```
+Run `pnpm install` only if dependencies changed during the release; commit the updated `pnpm-lock.yaml` with the release. Never generate or commit `package-lock.json`.
