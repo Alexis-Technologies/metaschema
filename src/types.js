@@ -1,5 +1,3 @@
-'use strict';
-
 const { AbstractType } = require('./prototypes/abstract.js');
 const scalars = require('./prototypes/scalars.js');
 const collections = require('./prototypes/collections.js');
@@ -19,10 +17,8 @@ const PROTOTYPES = {
   json,
 };
 
-const CUSTOM_TYPE_HINT =
-  'Custom type must be an object with methods "construct" and "checkType"';
-const MISSING_METHODS =
-  'Custom type must contain "construct" and "checkType" methods';
+const CUSTOM_TYPE_HINT = 'Custom type must be an object with methods "construct" and "checkType"';
+const MISSING_METHODS = 'Custom type must contain "construct" and "checkType" methods';
 const NOT_FUNCTIONS = '"construct" and "checkType" must be functions';
 
 const createType = (name, prototype) => {

@@ -1,5 +1,3 @@
-'use strict';
-
 const { getKindMetadata } = require('./kinds.js');
 
 const ERR_PREFIX = 'Field';

@@ -1,5 +1,3 @@
-'use strict';
-
 const { toLowerCamel } = require('./metautil.js');
 
 const KIND_ENT = ['entity', 'registry', 'dictionary'];

@@ -1,5 +1,3 @@
-'use strict';
-
 const { ValidationResult } = require('../metadata.js');
 const { formatters, checks } = require('../util.js');
 

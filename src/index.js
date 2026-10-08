@@ -1,5 +1,3 @@
-'use strict';
-
 const { constants, getKindMetadata } = require('./kinds.js');
 const { saveTypes } = require('./runtime/node.js');
 const { Schema } = require('./schema.js');

@@ -1,18 +1,10 @@
-'use strict';
-
 const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
 const { formatters } = require('./util.js');
 
 const PARSERS = {
   string: ['stringShorthand'],
-  object: [
-    'schemaInstance',
-    'schemaWithKind',
-    'typeLongForm',
-    'typeShorthand',
-    'kindlessSchema',
-  ],
+  object: ['schemaInstance', 'schemaWithKind', 'typeLongForm', 'typeShorthand', 'kindlessSchema'],
   function: ['functionField'],
   array: ['tupleShorthand'],
 };
@@ -106,7 +98,6 @@ class Preprocessor {
     return { Type: types.tuple, defs };
   }
 
-  // eslint-disable-next-line class-methods-use-this
   functionField() {
     return {};
   }

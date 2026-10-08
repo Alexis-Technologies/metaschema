@@ -1,11 +1,10 @@
-'use strict';
-
 const scalar = {
   kind: 'scalar',
 
   construct() {},
 
   checkType(value, path) {
+    // oxlint-disable-next-line valid-typeof
     if (typeof value !== this.scalar) {
       return `Field "${path}" not of expected type: ${this.scalar}`;
     }

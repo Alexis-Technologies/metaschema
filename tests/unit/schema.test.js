@@ -1,5 +1,3 @@
-'use strict';
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 
@@ -149,9 +147,7 @@ test('Schema: validation function simple return', () => {
   const schema = Schema.from(definition);
 
   assert.strictEqual(schema.check({ field: '42' }).valid, true);
-  assert.deepStrictEqual(schema.check({ field: '43' }).errors, [
-    'Field "" validation error',
-  ]);
+  assert.deepStrictEqual(schema.check({ field: '43' }).errors, ['Field "" validation error']);
 });
 
 test('Schema: nested validation function', () => {
@@ -202,10 +198,7 @@ test('Schema: nested validation function', () => {
         field2: 'abc',
       },
     }).errors,
-    [
-      'Field "field2" is not expected',
-      'Field "nested" nested.field is required',
-    ],
+    ['Field "field2" is not expected', 'Field "nested" nested.field is required'],
   );
 
   assert.deepStrictEqual(
@@ -215,10 +208,7 @@ test('Schema: nested validation function', () => {
         throw: '42',
       },
     }).errors,
-    [
-      'Field "throw" is not expected',
-      'Field "nested" validation failed Error: 42',
-    ],
+    ['Field "throw" is not expected', 'Field "nested" validation failed Error: 42'],
   );
 });
 
@@ -297,14 +287,11 @@ test('Schema: custom validate on field', () => {
     'Field "email" not of expected type: string',
     'Field "email" validation failed TypeError: src.indexOf is not a function',
   ]);
-  assert.deepStrictEqual(schema1.check({ email: 'ab' }).errors, [
-    'Field "email" Not an Email',
-  ]);
+  assert.deepStrictEqual(schema1.check({ email: 'ab' }).errors, ['Field "email" Not an Email']);
   assert.strictEqual(schema1.check({ email: 'asd@asd.com' }).valid, true);
-  assert.deepStrictEqual(
-    schema1.check({ email: 'asdasdasdasdasdasd@asd.com' }).errors,
-    ['Field "email" exceeds the maximum length'],
-  );
+  assert.deepStrictEqual(schema1.check({ email: 'asdasdasdasdasdasd@asd.com' }).errors, [
+    'Field "email" exceeds the maximum length',
+  ]);
   const defs2 = {
     type: 'number',
     validate(num) {
@@ -328,15 +315,9 @@ test('Schema: custom validate on field', () => {
   const schema2 = Schema.from(defs2);
   const schema3 = Schema.from(defs3);
   const schema4 = Schema.from(defs4);
-  assert.deepStrictEqual(schema2.check(12).errors, [
-    'Field "" validation failed Error: Not a ten',
-  ]);
+  assert.deepStrictEqual(schema2.check(12).errors, ['Field "" validation failed Error: Not a ten']);
   assert.deepStrictEqual(schema3.check(12).errors, ['Field "" Not a ten']);
-  assert.deepStrictEqual(schema4.check(12).errors, [
-    'Field "" Not',
-    'Field "" a',
-    'Field "" ten',
-  ]);
+  assert.deepStrictEqual(schema4.check(12).errors, ['Field "" Not', 'Field "" a', 'Field "" ten']);
   assert.strictEqual(schema2.check(10).valid, true);
   assert.strictEqual(schema3.check(10).valid, true);
   assert.strictEqual(schema4.check(10).valid, true);
@@ -371,12 +352,6 @@ test('Schema: with number field name', () => {
 
 test('Schema: toString, JSON.stringify', () => {
   const schema = Schema.from({ a: 'string' });
-  assert.strictEqual(
-    schema.toString(),
-    '{"a":{"required":true,"type":"string"}}',
-  );
-  assert.strictEqual(
-    JSON.stringify(schema),
-    '{"a":{"required":true,"type":"string"}}',
-  );
+  assert.strictEqual(schema.toString(), '{"a":{"required":true,"type":"string"}}');
+  assert.strictEqual(JSON.stringify(schema), '{"a":{"required":true,"type":"string"}}');
 });

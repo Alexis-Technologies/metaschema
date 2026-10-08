@@ -1,5 +1,3 @@
-'use strict';
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 
@@ -327,14 +325,8 @@ test('Collections: nested object', () => {
   assert.strictEqual(sch2.check({ key: ['hello', 'there'] }).valid, true);
   assert.strictEqual(sch2.check({ key: 'hello' }).valid, false);
   assert.strictEqual(sch2.check({}).valid, false);
-  assert.strictEqual(
-    sch3.check({ key: [{ key: { key: { name: 'Georg' } } }] }).valid,
-    true,
-  );
-  assert.strictEqual(
-    sch3.check({ key: [{ key: { name: 'Georg' } }] }).valid,
-    false,
-  );
+  assert.strictEqual(sch3.check({ key: [{ key: { key: { name: 'Georg' } } }] }).valid, true);
+  assert.strictEqual(sch3.check({ key: [{ key: { name: 'Georg' } }] }).valid, false);
   assert.strictEqual(sch4.check({}).valid, true);
   assert.strictEqual(sch4.fields.required, false);
 });

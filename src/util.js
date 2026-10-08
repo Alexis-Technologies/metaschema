@@ -1,5 +1,3 @@
-'use strict';
-
 const formatters = {
   type: (type, req = true) => {
     const required = !type.startsWith('?');

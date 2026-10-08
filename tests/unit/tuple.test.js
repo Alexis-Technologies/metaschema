@@ -1,5 +1,3 @@
-'use strict';
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 
@@ -70,8 +68,7 @@ test('Tuple: usage with schema', () => {
   assert.strictEqual(schema.fields.field.value[1].required, true);
   assert.strictEqual(schema.fields.field.value[1].name, 'count');
   assert.strictEqual(schema.check({ field: [true, 123] }).valid, true);
-  assert.deepStrictEqual(
-    schema.check({ field: [false, { some: 'wrong data' }] }).errors,
-    ['Field "field(count1)" not of expected type: number'],
-  );
+  assert.deepStrictEqual(schema.check({ field: [false, { some: 'wrong data' }] }).errors, [
+    'Field "field(count1)" not of expected type: number',
+  ]);
 });

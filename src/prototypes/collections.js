@@ -1,5 +1,3 @@
-'use strict';
-
 const object = {
   rules: ['length'],
   kind: 'struct',
@@ -27,6 +25,7 @@ const object = {
     for (const pair of entries) {
       const field = pair[0];
       const fieldValue = pair[1];
+      // oxlint-disable-next-line valid-typeof
       if (typeof field !== this.key) {
         const hint = `type of key must be a ${this.key}`;
         return `In ${this.type} "${path}": ${hint}`;

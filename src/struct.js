@@ -1,5 +1,3 @@
-'use strict';
-
 const { isInstanceOf } = require('./metautil.js');
 
 const { ValidationResult } = require('./metadata.js');

@@ -1,5 +1,3 @@
-'use strict';
-
 const { isFirstUpper, isInstanceOf } = require('./metautil.js');
 
 const { TYPES } = require('./types.js');

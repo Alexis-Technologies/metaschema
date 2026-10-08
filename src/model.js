@@ -1,5 +1,3 @@
-'use strict';
-
 const { firstKey } = require('./metautil.js');
 
 const { Schema } = require('./schema.js');

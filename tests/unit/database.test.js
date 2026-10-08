@@ -1,5 +1,3 @@
-'use strict';
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 
@@ -58,22 +56,14 @@ test('Database: schema Registry', () => {
   assert.strictEqual(entity.name, expected.name);
   assert.strictEqual(entity.kind, expected.kind);
   assert.strictEqual(entity.store, expected.store);
-  assert.deepStrictEqual(
-    Object.keys(entity.fields),
-    Object.keys(expected.fields),
-  );
-  assert.deepStrictEqual(
-    Object.keys(entity.indexes),
-    Object.keys(expected.indexes),
-  );
+  assert.deepStrictEqual(Object.keys(entity.fields), Object.keys(expected.fields));
+  assert.deepStrictEqual(Object.keys(entity.indexes), Object.keys(expected.indexes));
   assert.deepStrictEqual(entity.references, expected.references);
   assert.deepStrictEqual(entity.relations, expected.relations);
 
   const warn = entity.checkConsistency();
-  const countryWarning =
-    'Warning: "Country" referenced by "Address" is not found';
-  const personWarning =
-    'Warning: "Person" referenced by "Address" is not found';
+  const countryWarning = 'Warning: "Country" referenced by "Address" is not found';
+  const personWarning = 'Warning: "Person" referenced by "Address" is not found';
   const expectedWarnings = [countryWarning, personWarning];
   assert.deepStrictEqual(warn, expectedWarnings);
 });

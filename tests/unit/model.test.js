@@ -1,5 +1,3 @@
-'use strict';
-
 const { test } = require('node:test');
 const assert = require('node:assert');
 
@@ -64,10 +62,7 @@ test('Model: from struct', () => {
   assert.strictEqual(name.unique, true);
 
   const warn = model.warnings[0];
-  assert.strictEqual(
-    warn,
-    'Warning: "Address" referenced by "Company" is not found',
-  );
+  assert.strictEqual(warn, 'Warning: "Address" referenced by "Company" is not found');
 });
 
 test('Model: many relation Schema for validation', () => {
@@ -112,10 +107,7 @@ test('Model: custom types with nested schema and realtion', () => {
   });
   const model = new Model(types, entities, database);
   const identifier = model.entities.get('Identifier');
-  assert.strictEqual(
-    identifier.check({ creation: Date.now().toLocaleString() }).valid,
-    true,
-  );
+  assert.strictEqual(identifier.check({ creation: Date.now().toLocaleString() }).valid, true);
   const tester = model.entities.get('Tester');
   assert.strictEqual(
     tester.check({
@@ -178,41 +170,14 @@ test('Model: from fixture schemas, projection', () => {
   assert.strictEqual(typeof model.database, 'object');
   const Projection = model.entities.get('Signin');
   assert.strictEqual(Projection.fields.login.type, Account.fields.login.type);
-  assert.strictEqual(
-    Projection.fields.login.required,
-    Account.fields.login.required,
-  );
-  assert.strictEqual(
-    Projection.fields.login.unique,
-    Account.fields.login.unique,
-  );
-  assert.strictEqual(
-    Projection.fields.password.type,
-    Account.fields.password.type,
-  );
-  assert.strictEqual(
-    Projection.fields.password.required,
-    Account.fields.password.required,
-  );
+  assert.strictEqual(Projection.fields.login.required, Account.fields.login.required);
+  assert.strictEqual(Projection.fields.login.unique, Account.fields.login.unique);
+  assert.strictEqual(Projection.fields.password.type, Account.fields.password.type);
+  assert.strictEqual(Projection.fields.password.required, Account.fields.password.required);
   const EarlyProjection = model.entities.get('Aaa');
-  assert.strictEqual(
-    Projection.fields.login.type,
-    EarlyProjection.fields.login.type,
-  );
-  assert.strictEqual(
-    Projection.fields.login.required,
-    EarlyProjection.fields.login.required,
-  );
-  assert.strictEqual(
-    Projection.fields.login.unique,
-    EarlyProjection.fields.login.unique,
-  );
-  assert.strictEqual(
-    Projection.fields.password.type,
-    EarlyProjection.fields.password.type,
-  );
-  assert.strictEqual(
-    Projection.fields.password.required,
-    EarlyProjection.fields.password.required,
-  );
+  assert.strictEqual(Projection.fields.login.type, EarlyProjection.fields.login.type);
+  assert.strictEqual(Projection.fields.login.required, EarlyProjection.fields.login.required);
+  assert.strictEqual(Projection.fields.login.unique, EarlyProjection.fields.login.unique);
+  assert.strictEqual(Projection.fields.password.type, EarlyProjection.fields.password.type);
+  assert.strictEqual(Projection.fields.password.required, EarlyProjection.fields.password.required);
 });

@@ -4,9 +4,7 @@ module.exports = {
   version: 4,
   driver: 'pg',
 
-  authors: [
-    { name: 'Timur Shemsedinov', email: 'timur.shemsedinov@gmail.com' },
-  ],
+  authors: [{ name: 'Timur Shemsedinov', email: 'timur.shemsedinov@gmail.com' }],
 
   extensions: ['hstore', 'postgis', 'postgis_topology', 'pg_trgm'],
 
