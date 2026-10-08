@@ -70,6 +70,8 @@ metaschema used are copied into the package.
 
 ## Changed
 
+- **Optional nested structs as collection elements.** `{ array: { type: 'schema', schema, required: false } }`
+  now accepts `null` elements; upstream ignored `required: false` there.
 - **Messages.** Typos in validation messages are fixed, and the old text is not kept. Update any
   test that matches it:
 

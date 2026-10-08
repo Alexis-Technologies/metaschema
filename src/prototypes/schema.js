@@ -7,7 +7,7 @@ const schema = {
 
   construct(defs, prep) {
     const { schema, required } = defs;
-    this.required = required || true;
+    this.required = required ?? true;
     const isStruct = isInstanceOf(schema, 'Struct');
     if (isStruct) this.schema = schema;
     else this.schema = new Struct(schema, prep);

@@ -43,6 +43,16 @@ const schema = Schema.from({
 Errors point at the element that failed: `Field "tags[1]" not of expected type: string`,
 `Field "counters.visits" not of expected type: number`.
 
+Elements are required. To allow `null` elements, mark the element optional: `{ array: '?string' }`
+for a scalar, or the long form for a nested struct:
+
+```js
+const schema = Schema.from({
+  stops: { array: { type: 'schema', schema: { city: 'string' }, required: false } },
+});
+schema.check({ stops: [null, { city: 'Lviv' }] }).valid; // true
+```
+
 ## Tuples
 
 An array definition is a tuple of scalars. Elements can be named, and the name shows up in errors:

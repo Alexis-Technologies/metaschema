@@ -55,6 +55,10 @@ the corrected error messages.
   - `Filed "..." is not a object` (and `is not a map`) →
     `Field "..." not of expected type: object` (and `map`), like every other type error;
   - `more then expected in tuple` → `more than expected in tuple`.
+- **Optional nested structs in collections.** A nested struct marked `required: false` (long form,
+  `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
+  element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
+  Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
 - **Typings.** `index.d.ts` matches the runtime:
   - the static `Schema.KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE` and `ALLOW` fields,
     which never existed, are removed;

@@ -234,9 +234,11 @@ change. **This file wins** if they ever disagree.
   package.
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
-- **`prototypes/schema.js` sets `this.required = required || true`**, which is always `true`. It
-  is known and not yet changed, because changing it alters nested-schema semantics. Discuss before
-  touching.
+- **Optional nested structs have two mechanisms.** Inside a struct, `Struct` lowers the flag with
+  `child.required &&= required` (from `'key?'` or `required: false`). `prototypes/schema.js` keeps
+  an explicit `required` with `required ?? true`, which is what makes a nested struct optional as a
+  collection element. Upstream had `required || true`, which ignored `false`; do not bring it back.
+  `tests/unit/structs.test.js` covers every form.
 - **`relations` labels**: a `many` field is recorded as `'many-to-one'`, any other reference as
   `'one-to-many'`. That is upstream's naming.
 

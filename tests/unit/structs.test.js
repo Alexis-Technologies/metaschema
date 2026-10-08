@@ -227,3 +227,54 @@ test('Struct: json type as any plain object', () => {
   assert.strictEqual(schema.check({ name: [] }).valid, true);
   assert.strictEqual(schema.check({ name: null }).valid, false);
 });
+
+test('Structs: every optional nested struct form accepts a missing or null value', () => {
+  const address = { city: 'string' };
+  const definitions = [
+    { 'address?': address },
+    { address: { type: 'schema', schema: address, required: false } },
+    { 'address?': Schema.from(address) },
+    { address: { type: 'schema', schema: Schema.from(address), required: false } },
+  ];
+  for (const definition of definitions) {
+    const schema = Schema.from(definition);
+    assert.strictEqual(schema.fields.address.required, false);
+    assert.deepStrictEqual(schema.check({}).errors, []);
+    assert.deepStrictEqual(schema.check({ address: null }).errors, []);
+    assert.deepStrictEqual(schema.check({ address: { city: 1 } }).errors, [
+      'Field "address.city" not of expected type: string',
+    ]);
+  }
+});
+
+test('Structs: a nested struct is required unless marked optional', () => {
+  const address = { city: 'string' };
+  for (const definition of [
+    { address },
+    { address: { type: 'schema', schema: address } },
+    { address: { type: 'schema', schema: address, required: true } },
+  ]) {
+    const schema = Schema.from(definition);
+    assert.strictEqual(schema.fields.address.required, true);
+    assert.deepStrictEqual(schema.check({}).errors, ['Field "address" is required']);
+  }
+});
+
+test('Structs: optional nested struct as a collection element', () => {
+  const item = { city: 'string' };
+  const optional = { type: 'schema', schema: item, required: false };
+
+  const list = Schema.from({ list: { array: optional } });
+  assert.strictEqual(list.fields.list.value.required, false);
+  assert.deepStrictEqual(list.check({ list: [null, { city: 'Kyiv' }] }).errors, []);
+  assert.deepStrictEqual(list.check({ list: [null, { city: 1 }] }).errors, [
+    'Field "list[1].city" not of expected type: string',
+  ]);
+
+  const byId = Schema.from({ byId: { object: { string: optional } } });
+  assert.deepStrictEqual(byId.check({ byId: { a: null, b: { city: 'Lviv' } } }).errors, []);
+
+  const required = Schema.from({ list: { array: item } });
+  assert.strictEqual(required.fields.list.value.required, true);
+  assert.strictEqual(required.check({ list: [null] }).valid, false);
+});
