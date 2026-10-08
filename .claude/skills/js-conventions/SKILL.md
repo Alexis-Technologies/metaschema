@@ -1,7 +1,10 @@
 ---
 name: js-conventions
-description: Apply Metarhia JavaScript style. Use when writing or editing .js, .mjs, .ts files (with certain corrections for typescript), formatting code, or when the user asks about code style or linting.
+description: Apply the Alexis JavaScript style (Metarhia-derived, linted by oxlint and formatted by oxfmt). Use when writing or editing .js, .mjs, .ts files (with certain corrections for typescript), formatting code, or when the user asks about code style or linting.
 ---
+
+<!-- Adapted from metaskills v1.0.5 (skills/js-conventions) for the Alexis toolchain:
+     oxlint + oxfmt instead of ESLint + Prettier, pnpm instead of npm, 100 columns instead of 80. -->
 
 # JavaScript Code Style
 
@@ -9,22 +12,30 @@ Use following conventions for JavaScript and TypeScript code.
 
 ## Preparations
 
-- Add to dev dependencies in package.json if not added:
-  - eslint-config-metarhia
-  - eslint, prettier
-- Add scripts in package.json if not added:
-  - "lint": "eslint . && prettier --check \"**/\*.js\" \"**/_.json\" \"\*\*/_.md\" \"\*_/_.ts\""
-  - "fix": "eslint . --fix && prettier --write \"**/\*.js\" \"**/_.json\" \"\*\*/_.md\" \"\*_/_.ts\""
-- Before and after code analysis with AI run `npm run lint` and `npm t`
-- Use `npm run fix` if errors/warnings detected to auto-fix when possible
+- Linting is oxlint (`.oxlintrc.json`) and formatting is oxfmt (`.oxfmtrc.json`, `.editorconfig`);
+  never add ESLint or Prettier
+- The package manager is pnpm; the scripts are already in package.json:
+  - `pnpm lint`: oxlint over the source, test, script and bench directories
+  - `pnpm format`: oxfmt rewrites those files in place
+  - `pnpm format:check`: oxfmt check only, as CI runs it
+- Before and after code analysis with AI run `pnpm lint` and `pnpm test`
+- Use `pnpm format` to fix formatting; fix lint errors in the code, and suppress a rule only for an
+  intentional construct with a targeted `// oxlint-disable-next-line <rule>`
 
 ## Formatting
 
 - Use single quotes and semicolons
-- Keep max line length 80 (ignore URLs)
+- Keep max line length 100 (ignore URLs)
 - Use trailing commas in multiline arrays, objects, and params
 - Keep one empty line between semantic blocks
-- Follow Prettier and eslint-config-metarhia for spacing, braces, and indentation
+- Follow oxfmt and `.editorconfig` for spacing, braces, and indentation (2 spaces, LF)
+
+## Modules
+
+- Use CommonJS: `require` and `module.exports`, no `import`/`export` in `.js` sources
+- Do not add `'use strict'`
+- Use the `node:` prefix for Node.js built-in modules (`require('node:fs')`)
+- Always include the `.js` extension in relative requires (`require('./schema.js')`)
 
 ## Naming
 

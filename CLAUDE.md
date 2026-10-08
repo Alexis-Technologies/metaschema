@@ -96,7 +96,7 @@ tests/
 scripts/size.js     bundle-size report (CI smoke)
 bench/              zero-dependency ops/sec harness
 docs/               VitePress site (metaschema.vercel.app), not published
-.claude/skills/     metaskills v1.0.5 skills, copied verbatim
+.claude/skills/     metaskills v1.0.5 skills (js-conventions adapted to this toolchain)
 ```
 
 ## Architecture
@@ -196,11 +196,15 @@ a runtime file means updating the `browser` map keys.
 ## Skills
 
 `.claude/skills/` holds the seven [metaskills](https://github.com/metarhia/metaskills) v1.0.5
-skills (`js-conventions`, `js-data-structures`, `data-structures`, `metautil-data-structures`,
-`js-gof`, `error-handling`, `npm-publish`), copied verbatim. Do not edit them. **This file wins
-on tooling and process.** Where a skill says ESLint/Prettier, 80 columns, `npm run fix`/`npm i`, or
-npm publishing steps, use oxlint/oxfmt, 100 columns, pnpm and the release process below instead.
-Their guidance on naming, best practices and optimizations applies.
+skills: `js-conventions`, `js-data-structures`, `data-structures`, `metautil-data-structures`,
+`js-gof`, `error-handling` and `npm-publish`.
+
+- **`js-conventions` is adapted to this toolchain:** oxlint/oxfmt instead of ESLint/Prettier,
+  pnpm, 100 columns, plus a Modules section (CommonJS, no `'use strict'`, `node:` prefix, `.js` in
+  relative requires). Its naming, best-practice and optimization rules are upstream's. Keep it in
+  sync with this file when conventions change.
+- **The other six are verbatim copies.** **This file wins on tooling and process.** Where they say
+  npm (`npm i`, `npm test`, `npm publish`), use pnpm and the release process below.
 
 ## Testing notes
 
@@ -224,7 +228,6 @@ Their guidance on naming, best practices and optimizations applies.
 - **Type checks use `constructor.name`** (`isInstanceOf(x, 'Schema')`, `value?.constructor?.name
   === 'Map'`) instead of `instanceof`. Keep it: it works across realms and duplicate copies of the
   package.
-- **`detouch`** is a deprecated alias of `detach`, kept for upstream compatibility.
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
 - **`prototypes/schema.js` sets `this.required = required || true`**, which is always `true`. It
