@@ -1,0 +1,61 @@
+/**
+ * Brand theme for metaschema: override VitePress CSS variables to restyle the
+ * default theme. Palette: violet #7C5CFF (light mark) / #9D85FF (dark mark).
+ *
+ * Contrast: in the light theme brand-1/-2 are a deeper violet so link text
+ * passes WCAG AA on white (#5A3EE6 is 6.4:1); the pure brand violet is kept
+ * for filled surfaces. In the dark theme #9D85FF is 5.9:1 on the page.
+ */
+
+:root {
+  --vp-c-brand-1: #5a3ee6;
+  --vp-c-brand-2: #6b4ff0;
+  --vp-c-brand-3: #7c5cff;
+  --vp-c-brand-soft: rgba(124, 92, 255, 0.14);
+
+  /* Default theme alias mappings (kept in sync with brand) */
+  --vp-c-tip-1: var(--vp-c-brand-1);
+  --vp-c-tip-2: var(--vp-c-brand-2);
+  --vp-c-tip-3: var(--vp-c-brand-3);
+  --vp-c-tip-soft: var(--vp-c-brand-soft);
+}
+
+.dark {
+  --vp-c-brand-1: #9d85ff;
+  --vp-c-brand-2: #8a6fff;
+  --vp-c-brand-3: #7c5cff;
+  --vp-c-brand-soft: rgba(124, 92, 255, 0.18);
+}
+
+/* ─── Buttons: white on violet ───────────────────────────────────── */
+:root {
+  --vp-button-brand-bg: #6b4ff0;
+  --vp-button-brand-hover-bg: #7c5cff;
+  --vp-button-brand-active-bg: #5a3ee6;
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-text: #ffffff;
+  --vp-button-brand-active-text: #ffffff;
+}
+
+/* ─── Home hero: gradient title + soft halo behind the mark ──────── */
+:root {
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #7c5cff 30%, #b9a8ff);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #7c5cff 40%, #3c2a99 100%);
+  --vp-home-hero-image-filter: blur(48px);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --vp-home-hero-image-filter: blur(72px);
+  }
+}
+
+@media (min-width: 960px) {
+  :root {
+    --vp-home-hero-image-filter: blur(96px);
+  }
+}
