@@ -1,10 +1,10 @@
-type Scope = 'global' | 'system' | 'local' | 'application';
+export type Scope = 'global' | 'local' | 'application';
 
-type Allow = 'read' | 'write' | 'append';
+export type Allow = 'read' | 'write' | 'append';
 
-type Store = 'persistent' | 'memory';
+export type Store = 'persistent' | 'memory';
 
-type Kind =
+export type Kind =
   | 'dictionary'
   | 'registry'
   | 'entity'
@@ -17,15 +17,15 @@ type Kind =
   | 'struct'
   | 'scalar';
 
-type Cardinality =
+export type Cardinality =
   'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
 
-interface Relation {
+export interface Relation {
   to: string;
   type: Cardinality;
 }
 
-interface ValidationResult {
+export interface ValidationResult {
   valid: boolean;
   errors: string[];
 }
@@ -45,14 +45,7 @@ export function getKindMetadata(
 export function saveTypes(outputFile: string, model: Model): Promise<void>;
 
 export class Schema {
-  static KIND: Array<string>;
-  static KIND_STORED: Array<string>;
-  static KIND_MEMORY: Array<string>;
-  static SCOPE: Array<string>;
-  static STORE: Array<string>;
-  static ALLOW: Array<string>;
-
-  static from(raw: object, namespaces?: Array<Model>): Schema;
+  static from(raw: string | object, namespaces?: Array<Model>): Schema;
   static extractSchema(def: object): Schema | null;
 
   kind: Kind;
@@ -74,27 +67,31 @@ export class Schema {
   references: Set<string>;
   relations: Set<Relation>;
 
-  constructor(name: string, raw: object, namespaces?: Array<Model>);
+  constructor(name: string, raw: string | object, namespaces?: Array<Model>);
   get types(): object;
   checkConsistency(): Array<string>;
-  findReference(name: string): Schema;
+  findReference(name: string): Schema | null;
   check(value: unknown, path?: string): ValidationResult;
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detouch(...namespaces: Array<Model>): void;
   toString(): string;
   toJSON(): object;
-  validate(value: unknown, path: string): ValidationResult;
+  validate(value: unknown, path: string): ValidationResult | null;
 }
 
 export class Model {
   types: object;
   entities: Map<string, Schema>;
-  database: object;
+  database: object | null;
   order: Set<string>;
   warnings: Array<string>;
 
-  constructor(types: object, entities: Map<string, object>, database?: object);
+  constructor(
+    types: object,
+    entities: Iterable<readonly [string, object]>,
+    database?: object | null,
+  );
   preprocess(): void;
   reorderEntity(name: string, base?: string): void;
   get dts(): string;
