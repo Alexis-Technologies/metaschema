@@ -93,7 +93,7 @@ test('Model: many relation Schema for validation', () => {
   assert.strictEqual(company.check(obj1).valid, false);
 });
 
-test('Model: custom types with nested schema and realtion', () => {
+test('Model: custom types with nested schema and relation', () => {
   const entities = new Map();
   entities.set('Identifier', { Entity: {}, creation: 'datetime' });
   entities.set('Tester', {

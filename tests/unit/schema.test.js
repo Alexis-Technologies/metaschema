@@ -69,8 +69,6 @@ test('Schema: namespaces', () => {
   assert.deepStrictEqual(schema.namespaces, new Set());
   schema.attach(model);
   assert.deepStrictEqual(schema.namespaces, new Set([model]));
-  schema.detouch(model);
-  assert.deepStrictEqual(schema.namespaces, new Set());
 });
 
 test('Schema: check with namespaces', () => {
@@ -243,7 +241,7 @@ test('Schema: custom function definition', () => {
   assert.strictEqual(schema.check({}).valid, true);
 });
 
-test('Schema: reserved fields permitted with Kind exept "required"', () => {
+test('Schema: reserved fields permitted with Kind except "required"', () => {
   const defs = {
     Struct: {},
     required: 'string',
@@ -255,13 +253,13 @@ test('Schema: reserved fields permitted with Kind exept "required"', () => {
     schema.check({
       required: 'yes',
       type: 'myType',
-      note: 'this is not vorbidden anymore',
+      note: 'this is not forbidden anymore',
     }).valid,
     true,
   );
   assert.strictEqual(
     schema.check({
-      note: 'this is not vorbidden anymore',
+      note: 'this is not forbidden anymore',
     }).valid,
     false,
   );

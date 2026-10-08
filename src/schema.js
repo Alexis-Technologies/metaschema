@@ -105,10 +105,6 @@ class Schema extends SchemaMetadata {
     for (const ns of namespaces) this.namespaces.delete(ns);
   }
 
-  detouch(...namespaces) {
-    this.detach(...namespaces);
-  }
-
   toString() {
     const replacer = (key, value) => (key === 'root' ? undefined : value);
     return JSON.stringify(this.fields, replacer);

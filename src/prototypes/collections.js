@@ -15,7 +15,7 @@ const object = {
 
   checkType(source, path) {
     if (!this.isInstance(source)) {
-      return `Field "${path}" is not a ${this.type}`;
+      return `Field "${path}" not of expected type: ${this.type}`;
     }
     const entries = this.entries(source);
     if (entries.length === 0 && this.required) {

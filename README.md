@@ -156,9 +156,10 @@ schema language and the validation rules are the same. What changed:
   `new Model(types, new Map([...]), database)`. Schema files written as `({ ... })` become modules
   (`module.exports = { ... }`).
 - **No runtime dependencies:** `metautil`, `metavm` and `metaskills` are gone.
-- **Fixed messages:** `Field "..."` instead of `Filed "..."`, and "more than" instead of
+- **Fixed messages, no old text kept:** `Field "..."` instead of `Filed "..."`,
+  `not of expected type: object` instead of `is not a object`, and "more than" instead of
   "more then".
-- **`Schema#detach`** replaces `detouch`, which remains as a deprecated alias.
+- **`detouch` is renamed to `detach`**, with no alias.
 - **`browser.js`** replaces `dist.js`, and an `exports` map closes deep imports.
 
 The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia)

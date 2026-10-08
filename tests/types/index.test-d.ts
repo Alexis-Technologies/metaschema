@@ -53,6 +53,6 @@ expectType<string>(model.dts);
 
 schema.attach(model);
 schema.detach(model);
-schema.detouch(model);
+expectError(schema.detouch(model));
 
 expectType<Promise<void>>(saveTypes('./model.d.ts', model));

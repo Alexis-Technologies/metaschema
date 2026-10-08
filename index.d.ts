@@ -75,8 +75,6 @@ export class Schema {
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;
-  /** @deprecated Use `detach`. */
-  detouch(...namespaces: Array<Model>): void;
   toString(): string;
   toJSON(): object;
   validate(value: unknown, path: string): ValidationResult | null;

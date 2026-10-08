@@ -70,9 +70,18 @@ metaschema used are copied into the package.
 
 ## Changed
 
-- **Messages.** Collection errors say `Field "..."` instead of `Filed "..."`, and tuple errors say
-  "more than expected" instead of "more then expected". Update any test that matches the old text.
-- **`Schema#detach`.** It replaces the misspelt `detouch`, which still works as a deprecated alias.
+- **Messages.** Typos in validation messages are fixed, and the old text is not kept. Update any
+  test that matches it:
+
+  | Before | After |
+  | --- | --- |
+  | `Filed "x" is required` | `Field "x" is required` |
+  | `Filed "x" is not a object` | `Field "x" not of expected type: object` |
+  | `Filed "x" is not a map` | `Field "x" not of expected type: map` |
+  | `value length is more then expected in tuple` | `value length is more than expected in tuple` |
+
+- **`Schema#detach`.** The misspelt `detouch` is renamed to `detach`. There is no alias: rename the
+  calls.
 - **Browser entry.** `dist.js` is now `browser.js` and exports the same names as the main entry,
   including `saveTypes`, which rejects in the browser. Bundlers pick it automatically.
 - **Exports map.** The package has an `exports` field, so deep imports such as

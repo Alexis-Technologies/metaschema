@@ -17,8 +17,8 @@ the runtime.
 
 Replace `metaschema` with `@alexify/metaschema`, then follow
 [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia). The
-breaking changes are the removed loader functions, the `exports` map and the corrected error
-messages.
+breaking changes are the removed loader functions, the renamed `detouch`, the `exports` map and
+the corrected error messages.
 
 ### Removed
 
@@ -28,6 +28,7 @@ messages.
 - **Runtime dependencies.** `metautil`, `metavm` and `metaskills` are no longer installed. The
   `metautil` helpers metaschema uses are copied into `src/metautil.js`.
 - **Deep imports.** The `exports` map exposes only the package root.
+- **`Schema#detouch`.** It is renamed to `detach`, with no alias for the old spelling.
 
 ### Changed
 
@@ -41,15 +42,19 @@ messages.
 
 ### Added
 
-- **`Schema#detach`.** It replaces the misspelt `detouch`, which stays as a deprecated alias.
+- **`Schema#detach`**, the correctly spelt replacement for `detouch`.
 - **Exported types:** `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
   `ValidationResult`.
 - **Documentation site** at [metaschema.vercel.app](https://metaschema.vercel.app/).
 
 ### Fixed
 
-- **Error messages.** Collection errors say `Field "..."` instead of `Filed "..."`, and tuple
-  errors say "more than expected" instead of "more then expected".
+- **Error messages.** Typos and grammar in validation messages are fixed, with no compatibility
+  for the old text:
+  - `Filed "..." is required` → `Field "..." is required`;
+  - `Filed "..." is not a object` (and `is not a map`) →
+    `Field "..." not of expected type: object` (and `map`), like every other type error;
+  - `more then expected in tuple` → `more than expected in tuple`.
 - **Typings.** `index.d.ts` matches the runtime:
   - the static `Schema.KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE` and `ALLOW` fields,
     which never existed, are removed;
