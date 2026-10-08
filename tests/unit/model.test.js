@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Model } = require('../metaschema.js');
+const { Model } = require('../../index.js');
 
 const database = {
   name: 'example',

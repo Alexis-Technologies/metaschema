@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Schema, Model } = require('../metaschema.js');
+const { Schema, Model } = require('../../index.js');
 
 test('Schema: constructor', () => {
   const definition = { field1: 'string' };

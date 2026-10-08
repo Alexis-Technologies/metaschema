@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { TYPES, typeFactory } = require('../lib/types.js');
+const { TYPES, typeFactory } = require('../../src/types.js');
 
 const types = {
   string: { metadata: { pg: 'varchar' } },
