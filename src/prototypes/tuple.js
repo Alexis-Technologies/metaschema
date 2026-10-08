@@ -21,7 +21,7 @@ const tuple = {
   checkType(source, path) {
     if (!Array.isArray(source)) return `not of expected type: ${this.type}`;
     if (source.length > this.value.length) {
-      return 'value length is more then expected in tuple';
+      return 'value length is more than expected in tuple';
     }
     for (let index = 0; index < this.value.length; index += 1) {
       const scalar = this.value[index];

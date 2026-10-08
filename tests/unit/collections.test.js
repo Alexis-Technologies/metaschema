@@ -330,3 +330,11 @@ test('Collections: nested object', () => {
   assert.strictEqual(sch4.check({}).valid, true);
   assert.strictEqual(sch4.fields.required, false);
 });
+
+test('Collections: error messages', () => {
+  const object = Schema.from({ field1: { object: { string: 'string' } } });
+  assert.deepStrictEqual(object.check({ field1: 5 }).errors, ['Field "field1" is not a object']);
+  const map = Schema.from({ field1: { map: { string: 'string' } } });
+  assert.deepStrictEqual(map.check({ field1: {} }).errors, ['Field "field1" is not a map']);
+  assert.deepStrictEqual(map.check({ field1: new Map() }).errors, ['Field "field1" is required']);
+});

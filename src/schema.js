@@ -101,8 +101,12 @@ class Schema extends SchemaMetadata {
     for (const ns of namespaces) this.namespaces.add(ns);
   }
 
-  detouch(...namespaces) {
+  detach(...namespaces) {
     for (const ns of namespaces) this.namespaces.delete(ns);
+  }
+
+  detouch(...namespaces) {
+    this.detach(...namespaces);
   }
 
   toString() {

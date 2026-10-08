@@ -20,7 +20,7 @@ test('Tuple: basic implementation', () => {
     'Field "(item1)" not of expected type: number',
   ]);
   assert.deepStrictEqual(schema1.check(['abc', 2, 2, 123]).errors, [
-    'Field "" value length is more then expected in tuple',
+    'Field "" value length is more than expected in tuple',
   ]);
 
   const short2 = { tuple: ['bigint', 'boolean'] };
@@ -35,7 +35,7 @@ test('Tuple: basic implementation', () => {
     'Field "(item0)" not of expected type: bigint',
   ]);
   assert.deepStrictEqual(schema2.check([bigIntValue, false, 123]).errors, [
-    'Field "" value length is more then expected in tuple',
+    'Field "" value length is more than expected in tuple',
   ]);
 
   const long = { type: 'tuple', value: ['string'] };

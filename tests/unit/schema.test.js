@@ -65,10 +65,12 @@ test('Schema: namespaces', () => {
 
   const schema = new Schema('Company', raw, [model]);
   assert.deepStrictEqual(schema.namespaces, new Set([model]));
-  schema.detouch(model);
+  schema.detach(model);
   assert.deepStrictEqual(schema.namespaces, new Set());
   schema.attach(model);
   assert.deepStrictEqual(schema.namespaces, new Set([model]));
+  schema.detouch(model);
+  assert.deepStrictEqual(schema.namespaces, new Set());
 });
 
 test('Schema: check with namespaces', () => {

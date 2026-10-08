@@ -15,11 +15,11 @@ const object = {
 
   checkType(source, path) {
     if (!this.isInstance(source)) {
-      return `Filed "${path}" is not a ${this.type}`;
+      return `Field "${path}" is not a ${this.type}`;
     }
     const entries = this.entries(source);
     if (entries.length === 0 && this.required) {
-      return `Filed "${path}" is required`;
+      return `Field "${path}" is required`;
     }
     const errors = [];
     for (const pair of entries) {
