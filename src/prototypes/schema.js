@@ -2,11 +2,18 @@ const { isInstanceOf } = require('../metautil.js');
 
 const { Struct } = require('../struct.js');
 
+const missingSchema = (type) =>
+  `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
+
+const isDefinition = (value) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 const schema = {
   kind: 'struct',
 
   construct(defs, prep) {
     const { schema, required } = defs;
+    if (!isDefinition(schema)) throw new TypeError(missingSchema(this.type));
     this.required = required ?? true;
     const isStruct = isInstanceOf(schema, 'Struct');
     if (isStruct) this.schema = schema;

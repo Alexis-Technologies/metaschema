@@ -59,6 +59,11 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **A schema type without a definition** (`data: 'schema'`, `{ type: 'schema' }`, or an alias
+  such as `{ js: 'schema' }` used as `'address'`) failed with
+  `Cannot convert undefined or null to object`, and a non-object `schema` with an unrelated
+  `Unknown type` error. It now throws
+  `TypeError: Type "address" needs a schema definition: { type: 'address', schema: { ... } }`.
 - **Typings.** `index.d.ts` matches the runtime:
   - the static `Schema.KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE` and `ALLOW` fields,
     which never existed, are removed;

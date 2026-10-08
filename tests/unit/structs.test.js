@@ -278,3 +278,22 @@ test('Structs: optional nested struct as a collection element', () => {
   assert.strictEqual(required.fields.list.value.required, true);
   assert.strictEqual(required.check({ list: [null] }).valid, false);
 });
+
+test('Structs: a schema type without a schema definition throws a clear error', () => {
+  const message = (type) =>
+    `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
+  const invalid = [
+    { data: 'schema' },
+    { data: { type: 'schema' } },
+    { data: { type: 'schema', schema: null } },
+    { data: { type: 'schema', schema: 'string' } },
+    { data: { type: 'schema', schema: ['string'] } },
+  ];
+  for (const definition of invalid) {
+    assert.throws(() => Schema.from(definition), { name: 'TypeError', message: message('schema') });
+  }
+  assert.strictEqual(
+    Schema.from({ data: { schema: { city: 'string' } } }).check({ data: { city: 'Lviv' } }).valid,
+    true,
+  );
+});

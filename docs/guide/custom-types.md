@@ -50,6 +50,21 @@ payment.check({ amount: 10.5, createdAt: 1 }).errors;
 | `{ js: '<builtin>', metadata }` | a new type that validates like `<builtin>` |
 | `{ construct, checkType, ...proto }` | a new type with its own logic |
 
+An alias takes the same arguments as the type it aliases. An alias of `schema` names a kind of
+nested struct, and every field of that type supplies its own fields in the long form:
+
+```js
+const types = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
+
+const entities = new Map([
+  ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],
+]);
+```
+
+Writing the field as just `delivery: 'address'` throws
+`TypeError: Type "address" needs a schema definition: { type: 'address', schema: { ... } }`.
+The same error is thrown for the built-in `'schema'` type without a definition.
+
 A prototype for a new type must have `construct(def, preprocessor)` and
 `checkType(value, path)` methods, or `Model` throws. `checkType` returns `null` when the value is
 valid, or an error string (or an array of them). `kind` (`'scalar'` or `'struct'`) and

@@ -181,3 +181,24 @@ test('Model: from fixture schemas, projection', () => {
   assert.strictEqual(Projection.fields.password.type, EarlyProjection.fields.password.type);
   assert.strictEqual(Projection.fields.password.required, EarlyProjection.fields.password.required);
 });
+
+test('Model: an alias of the schema type needs a schema definition', () => {
+  const types = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
+  const message = `Type "address" needs a schema definition: { type: 'address', schema: { ... } }`;
+  for (const field of [
+    'address',
+    '?address',
+    { address: { city: 'string' } },
+    { array: 'address' },
+  ]) {
+    const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
+    assert.throws(() => new Model(types, entities), { name: 'TypeError', message });
+  }
+  const entities = new Map([
+    ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],
+  ]);
+  const order = new Model(types, entities).entities.get('Order');
+  assert.deepStrictEqual(order.check({ delivery: { city: 1 } }).errors, [
+    'Field "Order.delivery.city" not of expected type: string',
+  ]);
+});
