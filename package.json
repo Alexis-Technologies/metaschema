@@ -28,7 +28,8 @@
   },
   "main": "index.js",
   "browser": {
-    "./index.js": "./browser.js"
+    "./index.js": "./browser.js",
+    "./src/runtime/node.js": "./src/runtime/browser.js"
   },
   "types": "index.d.ts",
   "files": [
@@ -46,11 +47,6 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "metaskills": "^1.0.5",
-    "metautil": "^5.4.0",
-    "metavm": "^1.4.5"
   },
   "devDependencies": {
     "@types/node": "^24.4.0",

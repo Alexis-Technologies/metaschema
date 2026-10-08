@@ -1,6 +1,6 @@
 'use strict';
 
-const { isInstanceOf } = require('metautil');
+const { isInstanceOf } = require('../metautil.js');
 
 const { Struct } = require('../struct.js');
 

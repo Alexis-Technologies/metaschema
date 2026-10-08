@@ -1,4 +1,4 @@
-({
+module.exports = {
   ip: {
     js: 'string',
     metadata: { pg: 'inet' },
@@ -27,4 +27,4 @@
       return 'Valid';
     },
   },
-});
+};

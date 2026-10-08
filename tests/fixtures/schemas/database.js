@@ -1,4 +1,4 @@
-({
+module.exports = {
   name: 'example',
   description: 'Example database schema',
   version: 4,
@@ -17,4 +17,4 @@
     user: 'postgres',
     password: 'postgres',
   },
-});
+};

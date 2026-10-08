@@ -1,12 +1,6 @@
 'use strict';
 
-const { constants, getKindMetadata } = require('./src/kinds.js');
-const schema = require('./src/schema.js');
-const model = require('./src/model.js');
-
-module.exports = {
-  ...constants,
-  getKindMetadata,
-  ...schema,
-  ...model,
-};
+// Intentionally mirrors index.js: bundlers resolve this file through the
+// package.json `browser` field and `exports` condition, and the same map swaps
+// src/runtime/node.js for src/runtime/browser.js. Do not deduplicate.
+module.exports = require('./src/index.js');

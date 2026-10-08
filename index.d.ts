@@ -42,13 +42,6 @@ export function getKindMetadata(
   meta?: object,
   root?: Schema,
 ): { defs: object; metadata: object };
-export function createSchema(name: string, src: string): Schema;
-export function loadSchema(fileName: string): Promise<Schema>;
-export function readDirectory(dirPath: string): Promise<Map<string, object>>;
-export function loadModel(
-  modelPath: string,
-  systemTypes?: object,
-): Promise<Model>;
 export function saveTypes(outputFile: string, model: Model): Promise<void>;
 
 export class Schema {

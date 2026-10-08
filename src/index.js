@@ -1,13 +1,7 @@
 'use strict';
 
 const { constants, getKindMetadata } = require('./kinds.js');
-const {
-  createSchema,
-  loadSchema,
-  readDirectory,
-  loadModel,
-  saveTypes,
-} = require('./loader.js');
+const { saveTypes } = require('./runtime/node.js');
 const { Schema } = require('./schema.js');
 const { Model } = require('./model.js');
 
@@ -21,10 +15,6 @@ module.exports = {
   STORE,
   ALLOW,
   getKindMetadata,
-  createSchema,
-  loadSchema,
-  readDirectory,
-  loadModel,
   saveTypes,
   Schema,
   Model,

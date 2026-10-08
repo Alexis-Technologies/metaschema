@@ -1,4 +1,4 @@
-({
+module.exports = {
   Registry: {},
 
   login: { type: 'string', unique: true },
@@ -18,4 +18,4 @@
   },
 
   addresses: { many: 'Address' },
-});
+};

@@ -1,6 +1,6 @@
 'use strict';
 
-const { isFirstUpper, toLowerCamel, firstKey } = require('metautil');
+const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
 const { formatters } = require('./util.js');
 

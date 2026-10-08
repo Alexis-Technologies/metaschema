@@ -1,6 +1,6 @@
 'use strict';
 
-const { firstKey } = require('metautil');
+const { firstKey } = require('./metautil.js');
 
 const { Schema } = require('./schema.js');
 const { typeFactory } = require('./types.js');

@@ -1,4 +1,4 @@
-({
+module.exports = {
   Entity: {},
 
   city: 'string',
@@ -6,4 +6,4 @@
   building: '?string',
 
   naturalKey: { unique: ['city', 'street', 'building'] },
-});
+};

@@ -1,6 +1,6 @@
 'use strict';
 
-const { toLowerCamel } = require('metautil');
+const { toLowerCamel } = require('./metautil.js');
 
 const KIND_ENT = ['entity', 'registry', 'dictionary'];
 const KIND_AUX = ['journal', 'details', 'relation', 'view'];

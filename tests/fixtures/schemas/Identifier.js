@@ -1,4 +1,4 @@
-({
+module.exports = {
   Registry: { scope: 'global' },
 
   storage: { enum: ['master', 'cache', 'backup', 'replica'], index: true },
@@ -8,4 +8,4 @@
   lock: { type: 'boolean', default: false },
   version: { type: 'number', default: 0 },
   hashsum: 'string',
-});
+};
