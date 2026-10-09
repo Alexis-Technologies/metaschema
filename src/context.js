@@ -27,14 +27,41 @@ const messagesOf = (messages) => {
   return messages;
 };
 
+const UNKNOWN = ['reject', 'ignore'];
+
+const unknownOf = (unknown) => {
+  if (!UNKNOWN.includes(unknown)) {
+    throw new TypeError(`unknown must be "reject" or "ignore", got ${JSON.stringify(unknown)}`);
+  }
+  return unknown;
+};
+
+const rootOf = (root) => {
+  if (typeof root !== 'string') throw new TypeError(`root must be a string, got ${root}`);
+  return root;
+};
+
+// The 1.x signature was check(value, path, options); a string here is that
+// path, and the message says where it went.
+const invalidOptions = (options) =>
+  new TypeError(
+    `check options must be an object, got ${typeof options}` +
+      (typeof options === 'string' ? ': the path is options.root now' : ''),
+  );
+
 // One object shape for every context: the keys are always present, in this
 // order, so the hot path sees a single hidden class.
-const createContext = (options, root = '') => {
+const createContext = (options, name = '') => {
   let limit = UNLIMITED;
   let messages = en;
+  let unknown = 'reject';
+  let root = name;
   if (options !== undefined) {
+    if (options === null || typeof options !== 'object') throw invalidOptions(options);
     if (options.maxErrors !== undefined) limit = maxErrorsOf(options.maxErrors);
     if (options.messages !== undefined) messages = messagesOf(options.messages);
+    if (options.unknown !== undefined) unknown = unknownOf(options.unknown);
+    if (options.root !== undefined) root = rootOf(options.root);
   }
   return {
     issues: NONE,
@@ -44,7 +71,7 @@ const createContext = (options, root = '') => {
     // The objects on the current path, created at the first object met so a
     // check over scalars never allocates it.
     seen: null,
-    unknown: 'reject',
+    unknown,
     root,
     messages,
   };

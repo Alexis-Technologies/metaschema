@@ -442,8 +442,8 @@ test('Collections: elements are reported by index or key, with the limit respect
     'Field "byId.b" not of expected type: number',
     'Field "byKey.c" not of expected type: number',
   ]);
-  assert.strictEqual(schema.check(value, '', { maxErrors: 1 }).errors.length, 1);
-  assert.strictEqual(schema.check(value, '', { maxErrors: 3 }).errors.length, 3);
+  assert.strictEqual(schema.check(value, { maxErrors: 1 }).errors.length, 1);
+  assert.strictEqual(schema.check(value, { maxErrors: 3 }).errors.length, 3);
   const many = Schema.from({ byKey: { object: { string: 'number' }, length: { max: 1 } } });
   assert.deepStrictEqual(many.check({ byKey: { a: 1, b: 2 } }).errors, [
     'Field "byKey" exceeds the maximum length',

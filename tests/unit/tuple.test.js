@@ -100,9 +100,8 @@ test('Tuple: a value that is not an array is a type error', () => {
   assert.deepStrictEqual(schema.check({ point: null }).errors, [
     'Field "point" not of expected type: tuple',
   ]);
-  assert.strictEqual(schema.check({ point: [1, 'x', 3] }, '', { maxErrors: 1 }).errors.length, 1);
-  assert.deepStrictEqual(
-    Schema.from(['number', 'string']).check([1, 2], '', { maxErrors: 1 }).errors,
-    ['Field "[1]" not of expected type: string'],
-  );
+  assert.strictEqual(schema.check({ point: [1, 'x', 3] }, { maxErrors: 1 }).errors.length, 1);
+  assert.deepStrictEqual(Schema.from(['number', 'string']).check([1, 2], { maxErrors: 1 }).errors, [
+    'Field "[1]" not of expected type: string',
+  ]);
 });

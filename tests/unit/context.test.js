@@ -42,7 +42,7 @@ test('Context: a check started by a validator does not affect the outer one', ()
     z: {
       type: 'string',
       validate: () => {
-        seen.push(inner.check({}, '', { maxErrors: 1 }).errors.length);
+        seen.push(inner.check({}, { maxErrors: 1 }).errors.length);
         return 'rejected';
       },
     },

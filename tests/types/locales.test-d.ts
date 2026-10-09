@@ -11,4 +11,4 @@ expectType<string>(uk.field('User.name'));
 expectType<string>(en.type({ expected: 'string', received: 'number' }));
 expectError(en.type({}));
 expectType<Schema>(Schema.from({ a: 'string' }));
-expectType<string[]>(Schema.from({ a: 'string' }).check({}, '', { messages: uk }).errors);
+expectType<string[]>(Schema.from({ a: 'string' }).check({}, { messages: uk }).errors);

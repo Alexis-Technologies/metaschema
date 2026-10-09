@@ -195,7 +195,7 @@ test('Issues: a validator may return { code, message } objects', () => {
 
 test('Issues: maxErrors stops collecting and walking', () => {
   const schema = Schema.from({ a: 'string', b: 'string', c: 'string', d: 'string' });
-  const limited = schema.check({}, 'S', { maxErrors: 2 });
+  const limited = schema.check({}, { root: 'S', maxErrors: 2 });
   assert.strictEqual(limited.valid, false);
   assert.deepStrictEqual(limited.errors, ['Field "S.a" is required', 'Field "S.b" is required']);
   assert.strictEqual(limited.issues.length, 2);
@@ -203,11 +203,11 @@ test('Issues: maxErrors stops collecting and walking', () => {
 
   const list = Schema.from({ items: { array: 'number' } });
   const items = Array.from({ length: 100000 }, () => 'x');
-  assert.strictEqual(list.check({ items }, '', { maxErrors: 3 }).errors.length, 3);
+  assert.strictEqual(list.check({ items }, { maxErrors: 3 }).errors.length, 3);
   assert.strictEqual(list.check({ items }).errors.length, 100000);
 
   const many = Schema.from({ a: { type: 'string', validate: () => ['1', '2', '3', '4'] } });
-  assert.strictEqual(many.check({ a: 'x' }, '', { maxErrors: 2 }).errors.length, 2);
+  assert.strictEqual(many.check({ a: 'x' }, { maxErrors: 2 }).errors.length, 2);
 
   const model = new Model({}, [
     ['Item', { Entity: {}, n: 'number' }],
@@ -215,9 +215,9 @@ test('Issues: maxErrors stops collecting and walking', () => {
   ]);
   const cart = model.entities.get('Cart');
   const bad = Array.from({ length: 50 }, () => ({ n: 'x' }));
-  assert.strictEqual(cart.check({ items: bad }, 'Cart', { maxErrors: 5 }).errors.length, 5);
+  assert.strictEqual(cart.check({ items: bad }, { root: 'Cart', maxErrors: 5 }).errors.length, 5);
 
   for (const maxErrors of [0, -1, '3', NaN, null]) {
-    assert.throws(() => schema.check({}, '', { maxErrors }), { name: 'TypeError' });
+    assert.throws(() => schema.check({}, { maxErrors }), { name: 'TypeError' });
   }
 });

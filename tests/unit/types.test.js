@@ -142,7 +142,8 @@ test('Types: a custom checkType that throws is an exception issue', () => {
   ]);
   assert.strictEqual(result.issues[0].code, 'exception');
   assert.ok(result.issues[0].params.error instanceof Error);
-  assert.deepStrictEqual(thing.check({ a: 'no', b: 'nope' }, 'Thing', { maxErrors: 1 }).errors, [
-    'Field "Thing.a" validation failed Error: bad no',
-  ]);
+  assert.deepStrictEqual(
+    thing.check({ a: 'no', b: 'nope' }, { root: 'Thing', maxErrors: 1 }).errors,
+    ['Field "Thing.a" validation failed Error: bad no'],
+  );
 });

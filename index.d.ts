@@ -103,8 +103,14 @@ export type Locale = {
 export type Messages = Locale | ((issue: ValidationIssue) => string);
 
 export interface CheckOptions {
+  // The label the error lines start with: the schema name by default, '' for
+  // none. Issue paths are relative to the value and do not include it.
+  root?: string;
   // Stop collecting after this many issues (at least 1).
   maxErrors?: number;
+  // What to do with keys the schema does not have: report them as one
+  // `unexpected` issue per struct (the default) or ignore them.
+  unknown?: 'reject' | 'ignore';
   // The locale of the messages, or a function that renders every message.
   messages?: Messages;
 }
@@ -277,7 +283,7 @@ export class Schema {
   get types(): TypeTable;
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
-  check(value: unknown, path?: string, options?: CheckOptions): ValidationResult;
+  check(value: unknown, options?: CheckOptions): ValidationResult;
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;

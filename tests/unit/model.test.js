@@ -408,7 +408,6 @@ test('Model: a reference checks its target with the value it gets', () => {
   assert.deepStrictEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
   const limited = person.check(
     { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
-    'Person',
     { maxErrors: 2 },
   );
   assert.deepStrictEqual(limited.errors, [

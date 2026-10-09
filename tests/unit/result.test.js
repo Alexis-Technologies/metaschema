@@ -187,7 +187,7 @@ test('Locales: messages are rendered through the locale of the check', () => {
     extra: 1,
   };
   value.parent = value;
-  const result = doc.check(value, 'Doc', { messages: uk });
+  const result = doc.check(value, { root: 'Doc', messages: uk });
   assert.deepStrictEqual(result.errors, [
     'Поле "Doc.title" значення закоротке',
     'Поле "Doc.status" значення не входить до переліку: a, b',
@@ -200,7 +200,7 @@ test('Locales: messages are rendered through the locale of the check', () => {
     'Поле "Doc.byId" ключі мають бути типу number',
     'Поле "Doc" має неочікувані ключі: extra',
   ]);
-  assert.deepStrictEqual(doc.check({ title: 1 }, 'Doc', { messages: uk }).issues[0], {
+  assert.deepStrictEqual(doc.check({ title: 1 }, { root: 'Doc', messages: uk }).issues[0], {
     code: 'type',
     path: ['title'],
     message: 'не відповідає типу: string',
@@ -210,7 +210,7 @@ test('Locales: messages are rendered through the locale of the check', () => {
   // back to English for the codes it does not have.
   assert.strictEqual(doc.check(value).errors[0], 'Field "Doc.title" value is too short');
   const partial = { required: () => 'required!' };
-  const mixed = doc.check({ title: 1, status: 'c' }, 'Doc', { messages: partial }).errors;
+  const mixed = doc.check({ title: 1, status: 'c' }, { root: 'Doc', messages: partial }).errors;
   assert.deepStrictEqual(mixed, [
     'Field "Doc.title" not of expected type: string',
     'Field "Doc.status" value is not of enum: a, b',
@@ -222,14 +222,14 @@ test('Locales: messages are rendered through the locale of the check', () => {
     'Field "Doc.byId" required!',
   ]);
   // A function renders every issue itself.
-  const codes = doc.check({ title: 1 }, 'Doc', { messages: (issue) => issue.code }).errors;
+  const codes = doc.check({ title: 1 }, { root: 'Doc', messages: (issue) => issue.code }).errors;
   assert.deepStrictEqual(codes.slice(0, 3), [
     'Field "Doc.title" type',
     'Field "Doc.status" required',
     'Field "Doc.owner" required',
   ]);
   for (const messages of [null, 42, 'uk']) {
-    assert.throws(() => doc.check({}, 'Doc', { messages }), {
+    assert.throws(() => doc.check({}, { root: 'Doc', messages }), {
       name: 'TypeError',
       message: 'messages must be a locale table or a function',
     });

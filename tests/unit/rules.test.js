@@ -135,7 +135,7 @@ test('Rules: an optional field with rules accepts a missing or null value', () =
     'Field "code" exceeds the maximum length',
   ]);
   assert.deepStrictEqual(schema.check({ code: 'bad' }).errors, ['Field "code" validation error']);
-  assert.deepStrictEqual(schema.check({ code: 'x' }, '', { maxErrors: 1 }).errors, [
+  assert.deepStrictEqual(schema.check({ code: 'x' }, { maxErrors: 1 }).errors, [
     'Field "code" value is too short',
   ]);
   const sized = Schema.from({

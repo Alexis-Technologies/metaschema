@@ -151,8 +151,12 @@ class Schema extends SchemaMetadata {
     return null;
   }
 
-  check(source, path = this.name, options) {
-    const context = createContext(options, path);
+  // Validates a value: every problem is collected as an issue, and the result
+  // never throws because of the value. `options`: root (the label of the
+  // error lines, the schema name by default), maxErrors, unknown ('reject'
+  // or 'ignore' keys the schema does not have), messages (a locale).
+  check(source, options) {
+    const context = createContext(options, this.name);
     if (this.#tracked && source !== null && typeof source === 'object') {
       context.seen = new Set();
       context.seen.add(source);

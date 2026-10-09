@@ -57,11 +57,16 @@ expectType<ValidationResult>(schema.check({ name: 'Marcus' }));
 expectType<boolean>(schema.check({}).valid);
 expectType<string[]>(schema.check({}).errors);
 expectType<ValidationIssue[]>(schema.check({}).issues);
-expectType<ValidationResult>(schema.check({}, 'User', { maxErrors: 3 }));
-expectError(schema.check({}, 'User', { maxErrors: '3' }));
-expectType<ValidationResult>(schema.check({}, 'User', { messages: { required: () => 'x' } }));
-expectType<ValidationResult>(schema.check({}, 'User', { messages: (issue) => issue.code }));
-expectError(schema.check({}, 'User', { messages: 'uk' }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', maxErrors: 3 }));
+expectError(schema.check({}, { root: 'User', maxErrors: '3' }));
+expectType<ValidationResult>(schema.check({}, { unknown: 'ignore' }));
+expectType<ValidationResult>(schema.check({}, { root: '' }));
+expectError(schema.check({}, { unknown: 'strip' }));
+expectError(schema.check({}, 'User'));
+expectError(schema.check({}, 'User', { maxErrors: 3 }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: { required: () => 'x' } }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: (issue) => issue.code }));
+expectError(schema.check({}, { root: 'User', messages: 'uk' }));
 expectAssignable<IssueCode>('required');
 expectAssignable<ValidationIssue['code']>('my-own-code');
 expectType<PropertyKey[]>(schema.check({}).issues[0].path);
@@ -91,7 +96,7 @@ const locale: Locale = {
   type: ({ expected }) => expected,
   length: ({ min, max, actual }) => `${min} ${max} ${actual}`,
 };
-expectType<ValidationResult>(schema.check({}, 'User', { messages: locale }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: locale }));
 expectError<Locale>({ required: () => 1 });
 const field = schema.fields.name as FieldType;
 expectType<void>(field.check('x', {} as CheckContext));
