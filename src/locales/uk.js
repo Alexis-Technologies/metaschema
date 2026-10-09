@@ -25,6 +25,8 @@ const length = ({ min, actual }) =>
 const range = ({ min, max, actual }) =>
   min !== undefined && actual < min ? `менше за ${min}` : `більше за ${max}`;
 
+const pattern = ({ pattern: source }) => `не відповідає шаблону ${source}`;
+
 const reference = ({ entity }) => `сутність "${entity}" не знайдено`;
 
 const circular = () => 'є циклічним посиланням';
@@ -41,6 +43,7 @@ module.exports = {
   enum: enumeration,
   length,
   range,
+  pattern,
   reference,
   circular,
   exception,

@@ -26,6 +26,8 @@ const length = ({ min, actual }) =>
 const range = ({ min, max, actual }) =>
   min !== undefined && actual < min ? `is less than ${min}` : `is greater than ${max}`;
 
+const pattern = ({ pattern: source }) => `does not match the pattern ${source}`;
+
 const reference = ({ entity }) => `Entity "${entity}" is not found`;
 
 const circular = () => 'is a circular reference';
@@ -42,6 +44,7 @@ module.exports = {
   enum: enumeration,
   length,
   range,
+  pattern,
   reference,
   circular,
   exception,

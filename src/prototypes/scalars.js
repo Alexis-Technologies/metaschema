@@ -74,7 +74,7 @@ const integer = {
   },
 };
 
-const string = { scalar: 'string', rules: ['length'], ...scalar };
+const string = { scalar: 'string', rules: ['length', 'pattern'], ...scalar };
 const number = { scalar: 'number', rules: ['min', 'max'], ...scalar };
 const bigint = { scalar: 'bigint', rules: ['min', 'max'], ...scalar };
 const boolean = { scalar: 'boolean', ...scalar };

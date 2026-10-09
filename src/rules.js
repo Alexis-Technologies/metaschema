@@ -33,11 +33,29 @@ const formatLimit = (name) => (value) => {
   return value;
 };
 
+// A pattern is compiled once, here, with the `u` flag (so `\p{L}` and
+// astral characters mean what they say), and without `g` and `y`, whose
+// lastIndex would make the same test give different answers in a row.
+const formatPattern = (value) => {
+  const isRegExp = value instanceof RegExp;
+  if (!isRegExp && typeof value !== 'string') {
+    throw invalidRule('Rule "pattern" needs a string or a RegExp');
+  }
+  const source = isRegExp ? value.source : value;
+  const given = isRegExp ? value.flags.replace(/[guy]/g, '') : '';
+  try {
+    return new RegExp(source, `${given}u`);
+  } catch (error) {
+    throw invalidRule(`Rule "pattern" is not a valid regular expression: ${error.message}`);
+  }
+};
+
 // The formatter of each rule, by name; the names are the rules that exist.
 const FORMAT = {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
+  pattern: formatPattern,
 };
 
 const notApplicable = (rule, type, rules) => {
@@ -105,6 +123,14 @@ const compileRange = (type) => {
   };
 };
 
+const compilePattern = (type) => {
+  const { pattern } = type;
+  const { source } = pattern;
+  return (value, context, key) => {
+    if (!pattern.test(value)) issues.pattern(context, source, key);
+  };
+};
+
 // The checks of the rules a field carries, in the order the type lists them.
 const compileRules = (type, rules) => {
   const checks = [];
@@ -112,6 +138,7 @@ const compileRules = (type, rules) => {
   for (const name of rules) {
     if (type[name] === undefined) continue;
     if (name === 'length') checks.push(compileLength(type));
+    else if (name === 'pattern') checks.push(compilePattern(type));
     else if (name === 'min' || name === 'max') range = true;
   }
   if (range) checks.push(compileRange(type));

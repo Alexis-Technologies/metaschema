@@ -4,7 +4,7 @@
 
 | Type | Accepts | Rules |
 | --- | --- | --- |
-| `string` | `typeof value === 'string'` | `length`, `unicode` |
+| `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern` |
 | `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max` |
 | `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |
@@ -141,6 +141,26 @@ schema.check({ age: 150 }).issues[0];
 ```
 
 A `max` below `min` throws `ERR_INVALID_RULE`.
+
+### `pattern`
+
+`pattern` tests a string against a regular expression, given as a string or a `RegExp`. It is
+compiled once, when the schema is built, with the `u` flag (so `\p{L}` and astral characters
+work) and without `g` and `y`, whose `lastIndex` would make repeated tests disagree. The field
+keeps the compiled `RegExp`, and a failed match is a `pattern` issue with the source in `params`:
+
+```js
+const schema = Schema.from({
+  slug: { type: 'string', pattern: '^[a-z0-9-]+$', length: { max: 64 } },
+  name: { type: 'string', pattern: /^\p{L}+$/i, length: { max: 64 } },
+});
+schema.fields.slug.pattern; // /^[a-z0-9-]+$/u
+schema.check({ slug: 'Hello World', name: 'Марк' }).issues;
+// [ { code: 'pattern', path: ['slug'], message: 'does not match the pattern ^[a-z0-9-]+$', params: { pattern: '^[a-z0-9-]+$' } } ]
+```
+
+A pattern that does not compile throws `ERR_INVALID_RULE` when the schema is built. Pair every
+`pattern` with a `length.max`; see [Patterns and ReDoS](/guide/validation#patterns-and-redos).
 
 ### `validate`
 

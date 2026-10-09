@@ -36,6 +36,7 @@ export type IssueCode =
   | 'enum'
   | 'length'
   | 'range'
+  | 'pattern'
   | 'reference'
   | 'circular'
   | 'exception'
@@ -51,6 +52,8 @@ export interface IssueParams {
   length: { min: number | undefined; max: number | undefined; actual: number };
   // A `min`/`max` rule failed; the bounds are what the definition gave.
   range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
+  // The source of the pattern the string did not match.
+  pattern: { pattern: string };
   reference: { entity: string };
   circular: {};
   exception: { error: unknown };
