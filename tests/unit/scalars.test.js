@@ -150,3 +150,27 @@ test('Scalars: the enum type needs a non-empty list of values', () => {
     message: `Type "status" needs a list of values: { type: 'status', enum: [...] } in "Job.state"`,
   });
 });
+
+test('Scalars: a large enum is checked through a Set', () => {
+  const values = Array.from({ length: 12 }, (_, index) => `v${index}`);
+  const schema = Schema.from({ 'state?': { enum: values } });
+  assert.strictEqual(schema.check({ state: 'v11' }).valid, true);
+  assert.strictEqual(schema.check({ state: null }).valid, true);
+  assert.strictEqual(schema.check({}).valid, true);
+  assert.deepStrictEqual(schema.check({ state: 'v12' }).issues, [
+    {
+      code: 'enum',
+      path: ['state'],
+      message: `value is not of enum: ${values.join(', ')}`,
+      params: { values },
+    },
+  ]);
+  assert.strictEqual(schema.fields.state.enum, values);
+  const required = Schema.from({ state: { enum: values } });
+  assert.deepStrictEqual(required.check({ state: null }).errors, [
+    `Field "state" value is not of enum: ${values.join(', ')}`,
+  ]);
+  const numbers = Schema.from({ n: { enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, NaN] } });
+  assert.strictEqual(numbers.check({ n: NaN }).valid, true);
+  assert.strictEqual(numbers.check({ n: '1' }).valid, false);
+});

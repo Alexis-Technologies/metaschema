@@ -121,3 +121,29 @@ test('Types: an isolated model keeps its types to itself', () => {
     message: 'Model option "registry" must be "shared" or "isolated", got "private"',
   });
 });
+
+test('Types: a custom checkType that throws is an exception issue', () => {
+  const boom = {
+    kind: 'scalar',
+    construct() {},
+    checkType(value) {
+      if (value === 'ok') return null;
+      throw new Error(`bad ${value}`);
+    },
+  };
+  const model = new Model({ boom }, [['Thing', { Struct: {}, a: 'boom', 'b?': 'boom' }]]);
+  const thing = model.entities.get('Thing');
+  assert.strictEqual(thing.check({ a: 'ok' }).valid, true);
+  assert.strictEqual(thing.check({ a: 'ok', b: null }).valid, true);
+  const result = thing.check({ a: 'no', b: 'nope' });
+  assert.deepStrictEqual(result.errors, [
+    'Field "Thing.a" validation failed Error: bad no',
+    'Field "Thing.b" validation failed Error: bad nope',
+  ]);
+  assert.strictEqual(result.issues[0].code, 'exception');
+  assert.ok(result.issues[0].params.error instanceof Error);
+  assert.deepStrictEqual(
+    thing.check({ a: 'no', b: 'nope' }, { root: 'Thing', maxErrors: 1 }).errors,
+    ['Field "Thing.a" validation failed Error: bad no'],
+  );
+});

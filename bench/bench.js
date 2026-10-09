@@ -22,6 +22,12 @@ const {
   FLAT_INVALID,
   NESTED_VALID,
   NESTED_INVALID,
+  MOLTAR_FLAT_SCHEMA,
+  MOLTAR_NESTED_SCHEMA,
+  MOLTAR_FLAT_VALUE,
+  MOLTAR_NESTED_VALUE,
+  MOLTAR_FLAT_LOOSE,
+  MOLTAR_NESTED_LOOSE,
   loadModelFixture,
 } = require('./helpers.js');
 
@@ -54,10 +60,22 @@ const compare = (results) => {
   }
 };
 
+const LOOSE = { unknown: 'ignore' };
+
+// The four modes of the moltar suite over one schema and its values.
+const modes = (label, schema, value, loose) => [
+  [`parseSafe — ${label}`, () => (schema.check(value, LOOSE).valid ? value : null)],
+  [`parseStrict — ${label}`, () => (schema.check(value).valid ? value : null)],
+  [`assertLoose — ${label}`, () => schema.check(loose, LOOSE).valid],
+  [`assertStrict — ${label}`, () => schema.check(value).valid],
+];
+
 const main = () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
+  const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
+  const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
   const model = new Model(types, entities, database);
 
@@ -68,6 +86,13 @@ const main = () => {
     ['check — flat struct, invalid', () => flat.check(FLAT_INVALID)],
     ['check — nested struct, valid', () => nested.check(NESTED_VALID)],
     ['check — nested struct, invalid', () => nested.check(NESTED_INVALID)],
+    ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
+    ...modes(
+      'moltar nested (6 + 3 fields)',
+      moltarNested,
+      MOLTAR_NESTED_VALUE,
+      MOLTAR_NESTED_LOOSE,
+    ),
     ['new Model — fixture model (6 entities)', () => new Model(types, entities, database)],
     ['model.dts — fixture model (6 entities)', () => model.dts],
   ];

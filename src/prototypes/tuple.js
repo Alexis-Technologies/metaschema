@@ -1,6 +1,5 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { ValidationResult } = require('../metadata.js');
-const { issue } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const notScalar = (element) => {
   const shown = typeof element === 'string' ? `"${element}"` : JSON.stringify(element);
@@ -26,19 +25,28 @@ const tuple = {
     });
   },
 
-  checkType(source, path) {
-    if (!Array.isArray(source)) return issue('type', path, `not of expected type: ${this.type}`);
-    if (source.length > this.value.length) {
-      return issue('length', path, 'value length is more than expected in tuple');
-    }
-    const result = new ValidationResult(path);
-    for (let index = 0; index < this.value.length; index += 1) {
-      if (result.full) break;
-      const scalar = this.value[index];
-      const itemName = scalar.name || 'item';
-      result.add(scalar.check(source[index], `${path}(${itemName}${index})`));
-    }
-    return result;
+  compile() {
+    const { required, type } = this;
+    const checks = this.value.map((element) => element.check);
+    const { length } = checks;
+    return (value, context, key) => {
+      if (!Array.isArray(value)) {
+        if (!required && value == null) return;
+        issues.type(context, type, value, key);
+        return;
+      }
+      if (value.length > length) {
+        issues.length(context, undefined, length, value.length, key);
+        return;
+      }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      for (let index = 0; index < length; index += 1) {
+        if (context.count >= context.limit) break;
+        checks[index](value[index], context, index);
+      }
+      if (nested) context.path.pop();
+    };
   },
 };
 

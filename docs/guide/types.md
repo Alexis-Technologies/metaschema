@@ -55,12 +55,13 @@ schema.check({ stops: [null, { city: 'Lviv' }] }).valid; // true
 
 ## Tuples
 
-An array definition is a tuple of scalars. Elements can be named, and the name shows up in errors:
+An array definition is a tuple of scalars. Elements can be named (the name is kept on the element
+type, `point.fields.position.value[1].name`); errors address them by index:
 
 ```js
 const point = Schema.from({ position: [{ x: 'number' }, { y: 'number' }] });
 point.check({ position: [1, '2'] }).errors;
-// [ 'Field "position(y1)" not of expected type: number' ]
+// [ 'Field "position[1]" not of expected type: number' ]
 ```
 
 Optional elements use the usual prefix (`['string', '?number']`). A tuple rejects arrays longer

@@ -40,8 +40,8 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `Schema.from(definition, namespaces?)` | an anonymous schema |
 | `new Schema(name, definition, namespaces?)` | a named schema; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
-| `schema.check(value, path?, options?)` | validates a value; returns `ValidationResult`; `options.maxErrors` stops collecting at that many messages |
-| `schema.validate(value, path)` | runs only the schema-level `validate`; `null` without one |
+| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
+| `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
 | `schema.toInterface()` | the schema as a TypeScript interface |
 | `schema.checkConsistency()` | warnings about references that cannot be resolved |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
@@ -70,13 +70,23 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 | Member | Description |
 | --- | --- |
-| `new ValidationResult(path?)` | an empty, valid result for `path` |
-| `result.valid` | `true` while there are no errors |
-| `result.errors` | the messages, each prefixed with `Field "<path>" ` unless it already starts with `Field` |
-| `result.issues` | `{ code, path, message }` per problem; see [Validation](/guide/validation#the-result) for the codes |
-| `result.add(error, code?)` | adds `false`, a string, a `{ code, message }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
-| `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce |
-| `ValidationResult.format(error, path?)` | the messages `add` would produce, or `null` |
+| `new ValidationResult(options?)` | an empty, valid result; `options.root` labels its error lines, `options.messages` is its locale |
+| `result.valid` | `true` while there are no issues |
+| `result.issues` | `{ code, path, message, params }` per problem, `path` being the keys from the root of the value; see [Validation](/guide/validation#the-result) for the codes |
+| `result.errors` | one line per issue, `Field "<root><path>" <message>`, rendered on first use; a message that already starts with `Field` is kept as it is |
+| `result.summary` | the error lines joined with newlines |
+| `result.flatten()` | `{ formErrors, fieldErrors }`: messages by dotted path |
+| `result.tree()` | `{ errors, properties?, items? }`: messages as a tree that follows the value |
+| `result.add(error, code?)` | adds `false`, a string, a `{ code, message, path?, params? }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
+| `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce, under the `path` keys |
+| `ValidationResult.isInstance(value)` | whether `value` is a result, from any copy of the package |
+
+## Locales
+
+`@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
+table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
+`reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
 
@@ -111,5 +121,7 @@ it; see [Validation](/guide/validation#the-result).
 `index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `Validator`, `ValidationReturn`,
-`ValidationIssue`, `IssueInput`, `IssueCode` and `DefinitionErrorCode`.
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`,
+`Validator`, `ValidationReturn`, `ValidationIssue` (a union by code), `IssueOf<Code>`,
+`IssueParams`, `IssueInput`, `IssueCode`, `Locale`, `Messages`, `FlatIssues`, `IssueTree` and
+`DefinitionErrorCode`.

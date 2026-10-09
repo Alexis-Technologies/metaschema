@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The validation core is rewritten for 2.0: every check is compiled into a closure when the schema
+is built, issues are data with array paths and params, messages are rendered through a locale at
+the end of a check, and `check` takes an options object. The schema language is unchanged.
+
+### Upgrading from 1.x
+
+- **`check(value, path, options)` → `check(value, options)`.** The root path is
+  `options.root`; a string in its place throws a `TypeError` that says so.
+  `schema.check(value, 'body', { maxErrors: 1 })` becomes
+  `schema.check(value, { root: 'body', maxErrors: 1 })`.
+- **`issue.path` is an array of keys** (`['tags', 1, 'name']`, as Standard Schema expects), not
+  a string, and it never includes the root. `issue.message` describes the problem without its
+  location (`is required`); the line with the location is `result.errors[i]`
+  (`Field "User.name" is required`). Issues carry `params`, and tuple elements are addressed by
+  index (`point[1]`, was `point(y1)`).
+- **Unknown keys are one issue per struct**, `{ code: 'unexpected', params: { keys } }` at the
+  path of the struct: `Field "" has unexpected keys: a, b` (was one `Field "a" is not expected`
+  per key). `check(value, { unknown: 'ignore' })` accepts them.
+- **A type failure cancels the rules and `validate` of the field**, and `validate` (of a field or
+  of a schema) runs only on a value that passed everything before it: a schema-level `validate`
+  therefore runs after the fields and not when a field failed. Rules run before `validate`.
+- **`new ValidationResult(path)` → `new ValidationResult(options?)`** (`root`, `messages`). A
+  result a `validate` function returns is relative to its field, so build it with no arguments
+  and `add` messages, or `{ message, path }` objects with a relative `path` (a key or keys). A
+  returned issue's `path` is relative to the field (it used to replace the path).
+  `ValidationResult.format` is gone; `ValidationResult.issuesOf(error, path?, code?)` takes the
+  path as keys.
+- **Cycle detection is at references.** A value that refers back to itself is reported as
+  `circular` where a reference (`'Category'`, `{ many }`) meets it again; a schema without
+  references cannot recurse, so such a value is walked as far as the schema goes and reported for
+  what it is (unexpected keys, wrong types) instead of as `circular`.
+- **`field.check(value, context)`** is the compiled check and records into the context of a
+  check; call `schema.check` instead. A field definition key named `compile` is reserved;
+  `entries` no longer is.
+- **The tuple length message** is `exceeds the maximum length` (was
+  `value length is more than expected in tuple`), with `params: { max, actual }`.
+
+### Added
+
+- **Issues with params.** `result.issues` is `{ code, path, message, params }`: `type { expected,
+  received }` (plus `key` for a wrong key type in an `object` or `map`), `unexpected { keys }`,
+  `enum { values }`, `length { min, max, actual }`, `reference { entity }`, `exception { error }`.
+  A `validate` function may return `{ code, message, path, params }` of its own.
+- **Locales.** Messages are rendered once, at the end of a check, from the code and params of
+  each issue through `options.messages`: a locale table (partial tables fall back to English) or
+  a function. English is built in, Ukrainian is exported as `@alexify/metaschema/locales/uk`
+  (and English as `@alexify/metaschema/locales/en`).
+- **`check` options** `root`, `maxErrors`, `unknown` (`'reject'` | `'ignore'`) and `messages`,
+  validated when the check starts.
+- **`result.summary`, `result.flatten()` and `result.tree()`** for CLIs and forms, and
+  `result.errors` as a lazy view rendered on first use.
+- **Types**: `IssueParams`, `IssueOf<Code>`, `Locale`, `Messages`, `ResultOptions`, `FlatIssues`,
+  `IssueTree` and `CheckContext`; `ValidationIssue` is a union by code.
+- **Benchmarks**: the four modes of the typescript-runtime-type-benchmarks suite (`parseSafe`,
+  `parseStrict`, `assertLoose`, `assertStrict`) over its object, flat and nested.
+
+### Changed
+
+- **Validation is compiled.** `createStruct` builds a frozen plan and a dictionary of known keys
+  and compiles the struct check as an index loop over the plan; every field's `check` is a closure
+  chosen when the field is built (one `typeof` for a scalar without rules, a `Set` for an `enum`
+  with more than eight values, `Map` and `Set` iterated directly, `object` through `for...in`).
+  A check runs in a context of its own (`{ issues, count, limit, path, seen, unknown, root,
+  messages }`) instead of module globals, so two checks can no longer interfere. On the flat
+  benchmark `check` goes from 2.1 M to about 11 M ops/s for a valid value and from 0.87 M to about
+  3.6 M for an invalid one, nested from 0.33 M to about 2.8 M; construction stays where it was.
+- **A field set to `undefined`** is missing when the field is optional and a type error when it
+  is required (`Object.hasOwn` is consulted only then).
+- **Bundle budget.** CI gates at 10 KB min+gzip (the entries are at 9.9 KB), and `pnpm bench`
+  reads the clock once per hundred calls.
+
 ## [1.0.0] - 2026-10-09
 
 The first release of `@alexify/metaschema`. It is a fork of

@@ -1,19 +1,16 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, INSPECT, hasBrand, ancestors, limits } = require('./util.js');
+const { BRAND, INSPECT, RUN, hasBrand } = require('./util.js');
+const { createContext } = require('./context.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
-const { SchemaMetadata, ValidationResult } = require('./metadata.js');
+const { SchemaMetadata } = require('./metadata.js');
+const { ValidationResult } = require('./result.js');
+const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
-const { createStruct, checkStruct } = require('./struct.js');
+const { createStruct, isStruct, checkOf } = require('./struct.js');
 
 const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
-
-const maxErrorsOf = ({ maxErrors }) => {
-  const valid = typeof maxErrors === 'number' && maxErrors >= 1;
-  if (!valid) throw new TypeError(`maxErrors must be a number of at least 1, got ${maxErrors}`);
-  return maxErrors;
-};
 
 const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
 
@@ -35,6 +32,28 @@ const tsType = (def) => {
   return 'string';
 };
 
+// The validation of a schema inside an existing context: `check` starts one,
+// and a reference field checks its target entity within the context of the
+// outer check, so the error limit and the cycle detection span the whole
+// value. The schema-level validate runs last, and only on a value whose
+// fields all passed, so it can rely on their shape. Built once per schema,
+// as Schema[RUN].
+const compileSchema = (schema) => {
+  const { fields, options } = schema;
+  const run = isStruct(fields) ? checkOf(fields) : fields.check;
+  return (value, context, key) => {
+    const before = context.count;
+    run(value, context, key);
+    const { validate } = options;
+    if (validate && context.count === before) {
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      runValidate(schema, validate, value, context);
+      if (nested) context.path.pop();
+    }
+  };
+};
+
 const tsFields = (fields) => {
   const lines = [];
   for (const pair of Object.entries(fields)) {
@@ -52,6 +71,10 @@ class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
   // change.
   #types = null;
+
+  // Whether the root value joins the cycle detection: only a struct with
+  // references can reach it again.
+  #tracked = false;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -91,6 +114,8 @@ class Schema extends SchemaMetadata {
       const combined = { ...fields, ...extras };
       this.fields = createStruct(combined, preprocessor);
     }
+    this.#tracked = isSchemaType && this.relations.size > 0;
+    this[RUN] = compileSchema(this);
   }
 
   get types() {
@@ -126,28 +151,19 @@ class Schema extends SchemaMetadata {
     return null;
   }
 
-  check(source, path = this.name, options = {}) {
-    const result = new ValidationResult(path);
-    const { fields } = this;
-    const isStruct = hasBrand(fields, 'Struct');
-    // The root of a struct joins the path too, unless a field check already put
-    // it there (a reference checks its target through this method). A schema
-    // of any other type delegates to that type's check, which tracks itself.
-    const isObject = typeof source === 'object' && source !== null;
-    const track = isStruct && isObject && !ancestors.has(source);
-    if (track) ancestors.add(source);
-    const previous = limits.maxErrors;
-    if (options.maxErrors !== undefined) limits.maxErrors = maxErrorsOf(options);
-    try {
-      const custom = this.validate(source, path);
-      result.add(custom);
-      if (result.full) return result;
-      const nested = isStruct ? checkStruct(fields, source, path) : fields.check(source, path);
-      return result.add(nested);
-    } finally {
-      limits.maxErrors = previous;
-      if (track) ancestors.delete(source);
+  // Validates a value: every problem is collected as an issue, and the result
+  // never throws because of the value. `options`: root (the label of the
+  // error lines, the schema name by default), maxErrors, unknown ('reject'
+  // or 'ignore' keys the schema does not have), messages (a locale).
+  check(source, options) {
+    const context = createContext(options, this.name);
+    if (this.#tracked && source !== null && typeof source === 'object') {
+      context.seen = new Set();
+      context.seen.add(source);
     }
+    this[RUN](source, context);
+    finalize(context.issues, context.messages);
+    return new ValidationResult(context);
   }
 
   toInterface() {

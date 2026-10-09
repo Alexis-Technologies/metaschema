@@ -109,8 +109,10 @@ metaschema used are copied into the package.
 
 - **Tuples in the short form are required.** `point: ['number', 'number']` was never required
   upstream; it is now, like every other field, and `'point?': [...]` makes it optional.
-- **`result.issues`.** Besides `errors`, a result carries `{ code, path, message }` per problem,
-  and `check(value, path, { maxErrors })` limits how many are collected.
+- **`result.issues`.** Besides `errors`, a result carries `{ code, path, message, params }` per
+  problem, with `path` as an array of keys, and `check(value, { maxErrors })` limits how many are
+  collected. The root path of 1.x and upstream (`check(value, path)`) is `check(value, { root })`.
+  See [Validation](/guide/validation) for the result and its options.
 - **`new Schema(name, instance)`.** A `Schema` instance is still returned as is, but the
   namespaces are attached to it and a different `name` is a definition error.
 - **`Model#preprocess` and `Model#reorderEntity`** are constructor internals and no longer

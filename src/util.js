@@ -9,20 +9,10 @@ const INSPECT = Symbol.for('nodejs.util.inspect.custom');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
-// The objects on the current validation path. Validation is synchronous, so
-// one set per process is enough; a value met again while it is still being
-// checked is a cycle and is reported instead of recursed into.
-const ancestors = new Set();
-
-// A result stops collecting once it holds this many messages. Schema#check
-// sets it from its options for the duration of the call (validation is
-// synchronous) and restores it afterwards.
-const limits = { maxErrors: Infinity };
-
-// A validation problem with a code, built by the library's own checks. A
-// message from a custom validator gets the code 'custom' (or 'type' from a
-// custom checkType) when the result adds it.
-const issue = (code, path, detail) => ({ code, path, message: `Field "${path}" ${detail}` });
+// The method that validates a value inside an existing context, shared by
+// Schema and the reference type that checks its target through it. A global
+// symbol like BRAND, so a schema from another copy of the package has it too.
+const RUN = Symbol.for('alexify.metaschema.run');
 
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
@@ -68,30 +58,11 @@ const formatters = {
   },
 };
 
-const checks = {
-  length: (src, type, path) => {
-    const { length, entries } = type;
-    const value = entries ? entries(src) : src;
-    const size = value?.size;
-    const count = value?.length;
-    let len = Number(value);
-    if (typeof size === 'number') len = size;
-    else if (typeof count === 'number') len = count;
-    const { min, max } = length;
-    if (min !== undefined && len < min) return issue('length', path, 'value is too short');
-    if (max !== undefined && len > max) return issue('length', path, 'exceeds the maximum length');
-    return null;
-  },
-};
-
 module.exports = {
   BRAND,
   INSPECT,
   hasBrand,
-  ancestors,
-  limits,
-  issue,
+  RUN,
   shorten,
   formatters,
-  checks,
 };

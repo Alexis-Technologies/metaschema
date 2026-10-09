@@ -40,17 +40,45 @@ export type IssueCode =
   | 'exception'
   | 'custom';
 
-export interface ValidationIssue {
-  code: IssueCode | (string & {});
-  path: string;
-  message: string;
+// The params of the issues the library produces, by code.
+export interface IssueParams {
+  required: {};
+  // `key` is set when a key of an `object` or `map`, not a value, has the wrong type.
+  type: { expected: string; received: string; key?: PropertyKey };
+  unexpected: { keys: string[] };
+  enum: { values: unknown[] };
+  length: { min: number | undefined; max: number | undefined; actual: number };
+  reference: { entity: string };
+  circular: {};
+  exception: { error: unknown };
+  // A validator's own issue carries the params it gave, if any.
+  custom: Record<string, unknown>;
 }
 
-// What a validator may return: an issue of its own needs only a message.
+// An issue is data: the code, the path of keys from the root of the value, the
+// message about the problem (without the location) and the params the message
+// was rendered from. A validator's own issue carries the code and params it
+// gave; `IssueOf<Code>` is the issue of one of the library's codes.
+export type ValidationIssue =
+  | {
+      [Code in IssueCode]: {
+        code: Code;
+        path: PropertyKey[];
+        message: string;
+        params: IssueParams[Code];
+      };
+    }[IssueCode]
+  | { code: string; path: PropertyKey[]; message: string; params: Record<string, unknown> };
+
+export type IssueOf<Code extends IssueCode> = Extract<ValidationIssue, { code: Code }>;
+
+// What a validator may return: an issue of its own needs only a message. Its
+// path is relative to the field the validator belongs to.
 export interface IssueInput {
   code?: string;
-  path?: string;
+  path?: PropertyKey | PropertyKey[];
   message: string;
+  params?: Record<string, unknown>;
 }
 
 export type ValidationReturn =
@@ -63,20 +91,74 @@ export type ValidationReturn =
   | undefined
   | void;
 
+// The messages of a locale: a renderer per issue code, from the params of the
+// issue to the text that follows the field, and `field` for the location
+// prefix of an error line. A partial table falls back to English.
+export type Locale = {
+  [Code in IssueCode]?: (params: IssueParams[Code], issue?: ValidationIssue) => string;
+} & {
+  field?: (path: string) => string;
+};
+
+export type Messages = Locale | ((issue: ValidationIssue) => string);
+
 export interface CheckOptions {
-  // Stop collecting after this many messages (at least 1).
+  // The label the error lines start with: the schema name by default, '' for
+  // none. Issue paths are relative to the value and do not include it.
+  root?: string;
+  // Stop collecting after this many issues (at least 1).
   maxErrors?: number;
+  // What to do with keys the schema does not have: report them as one
+  // `unexpected` issue per struct (the default) or ignore them.
+  unknown?: 'reject' | 'ignore';
+  // The locale of the messages, or a function that renders every message.
+  messages?: Messages;
+}
+
+export interface ResultOptions {
+  // The label the error lines start with (the schema name in a check).
+  root?: string;
+  messages?: Messages;
+}
+
+// Messages by dotted path: `formErrors` for the value itself, `fieldErrors`
+// for its fields.
+export interface FlatIssues {
+  formErrors: string[];
+  fieldErrors: Record<string, string[]>;
+}
+
+// Messages as a tree that follows the value.
+export interface IssueTree {
+  errors: string[];
+  properties?: Record<string, IssueTree>;
+  items?: IssueTree[];
 }
 
 export class ValidationResult {
-  valid: boolean;
-  errors: string[];
   issues: ValidationIssue[];
-  constructor(path?: string);
+  readonly valid: boolean;
+  // The messages with their location, rendered on first use.
+  readonly errors: string[];
+  readonly summary: string;
+  constructor(options?: ResultOptions);
   add(error: ValidationReturn, code?: IssueCode): this;
-  static issuesOf(error: ValidationReturn, path?: string, code?: IssueCode): ValidationIssue[];
-  static format(error: ValidationReturn, path?: string): string[] | null;
+  flatten(): FlatIssues;
+  tree(): IssueTree;
+  static issuesOf(error: ValidationReturn, path?: PropertyKey[], code?: IssueCode): ValidationIssue[];
   static isInstance(error: unknown): boolean;
+}
+
+// The state of one check, threaded through the `check` of every field.
+export interface CheckContext {
+  issues: ValidationIssue[];
+  count: number;
+  limit: number;
+  path: PropertyKey[];
+  seen: Set<object> | null;
+  unknown: 'reject' | 'ignore';
+  root: string;
+  messages: Messages;
 }
 
 export type Validator = (value: any, path: string) => ValidationReturn;
@@ -89,7 +171,8 @@ export interface FieldType {
   readonly type: string;
   required: boolean;
   validate?: Validator;
-  check(value: unknown, path: string): ValidationResult;
+  // Records the problems of a value into the context of the current check.
+  check(value: unknown, context: CheckContext): void;
   toJSON(): object;
   [key: string]: unknown;
 }
@@ -200,13 +283,13 @@ export class Schema {
   get types(): TypeTable;
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
-  check(value: unknown, path?: string, options?: CheckOptions): ValidationResult;
+  check(value: unknown, options?: CheckOptions): ValidationResult;
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;
   toString(): string;
   toJSON(): object;
-  validate(value: unknown, path: string): ValidationResult | null;
+  validate(value: unknown, path?: string): ValidationResult | null;
 }
 
 export class Model {

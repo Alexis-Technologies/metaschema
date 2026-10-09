@@ -36,14 +36,18 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
 - **Compact syntax.** `'?string'` is an optional string, `'tags?'` an optional key,
   `{ array: 'number' }` an array, `['number', 'number']` a tuple, `'Company'` a reference. The
   long form (`{ type: 'string', length: [3, 32] }`) is there when a field needs options.
-- **Errors, not exceptions.** `check` walks the whole value and returns every problem with its
-  path. Only a broken definition throws.
+- **Errors, not exceptions.** `check` walks the whole value and returns every problem as data:
+  a code, the path as an array of keys, the params it was made from, and a message rendered through
+  a locale (English built in, `@alexify/metaschema/locales/uk` shipped). Only a broken definition
+  throws.
 - **Domain models.** Entities, registries, dictionaries and projections, with references,
   relations and indexes, ordered by dependency and checked for missing references.
 - **TypeScript.** A model renders its entities as interfaces. The package ships hand-written
   typings for its own API.
-- **Zero dependencies, under 8 KB min+gzip.** CommonJS with ESM named imports, no build step, one
-  package for Node.js and browsers.
+- **Fast.** Every check is compiled into a closure when the schema is built: about 11 million
+  validations a second of a flat struct on Node 24 (`pnpm bench`).
+- **Zero dependencies, under 10 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers.
 
 ## Installation
 
@@ -72,7 +76,9 @@ Requires Node.js 18 or newer. Works in browsers through any bundler.
 
 Built-in types: `string`, `number`, `bigint`, `boolean`, `enum`, `array`, `set`, `object`, `map`,
 `tuple`, `json`. Fields can add a `validate(value, path)` function, and a schema can have a
-top-level `validate` for rules across fields. See
+top-level `validate` for rules across fields. `check(value, options)` takes `root` (the label of
+the error lines), `maxErrors`, `unknown: 'ignore'` (keys the schema does not have) and `messages`
+(a locale); the result has `issues`, `errors`, `summary`, `flatten()` and `tree()`. See
 [Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax) and
 [Validation](https://metaschema.vercel.app/guide/validation).
 

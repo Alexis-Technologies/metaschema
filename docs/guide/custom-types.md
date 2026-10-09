@@ -68,10 +68,14 @@ definition.
 
 A prototype for a new type must have `construct(def, preprocessor)` and
 `checkType(value, path)` methods, or `Model` throws `SchemaDefinitionError` (code
-`ERR_INVALID_CUSTOM_TYPE`). `checkType` returns `null` when the value is
-valid, or an error string (or an array of them). `kind` (`'scalar'` or `'struct'`) and
-`rules` (for example `['length']`) are optional. Other keys, like `symbols` below, are copied onto
-every field of the type and are available as `this.<key>` inside the methods:
+`ERR_INVALID_CUSTOM_TYPE`). `checkType` gets the value and the dotted path of the field and
+returns `null` (or `true`) when the value is valid, `false` for a `type` issue
+(`not of expected type: <name>`), or a message string, a `{ code, message }` object or an array of
+them, like a [`validate` function](/guide/validation#on-a-field); an exception becomes an
+`exception` issue. Its issues carry the code `type` unless they bring their own. `kind`
+(`'scalar'` or `'struct'`) and `rules` (for example `['length']`) are optional; the rules and a
+field's `validate` run only when `checkType` passed. Other keys, like `symbols` below, are copied
+onto every field of the type and are available as `this.<key>` inside the methods:
 
 ```js
 const types = {
