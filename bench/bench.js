@@ -1,11 +1,17 @@
 /**
  * Zero-dependency ops/sec benchmark for metaschema's hot paths.
  *
- * Run: pnpm bench (or: node bench/bench.js [filter])
+ * Run: pnpm bench [filter] [--json] [--save] [--compare]
  *
- * An optional argument runs only the scenarios whose name contains it, e.g.
- * `node bench/bench.js check`. Manual only, not part of CI.
+ * An optional filter runs only the scenarios whose name contains it, e.g.
+ * `pnpm bench check`. `--json` prints the results as JSON, `--save` writes
+ * them to bench/baseline.json, and `--compare` prints the change against
+ * that baseline (numbers are machine-specific: compare on one machine, before
+ * and after a change). Manual only, not part of CI.
  */
+
+const fs = require('node:fs');
+const path = require('node:path');
 
 const { Schema, Model } = require('../index.js');
 const {
@@ -19,10 +25,37 @@ const {
   loadModelFixture,
 } = require('./helpers.js');
 
-const filter = process.argv[2] || '';
+const BASELINE = path.join(__dirname, 'baseline.json');
+
+const args = process.argv.slice(2);
+const flags = new Set(args.filter((arg) => arg.startsWith('--')));
+const filter = args.find((arg) => !arg.startsWith('--')) || '';
+const json = flags.has('--json');
+
+const percent = (current, base) => {
+  const delta = ((current - base) / base) * 100;
+  const sign = delta >= 0 ? '+' : '';
+  return `${sign}${delta.toFixed(1)}%`;
+};
+
+const compare = (results) => {
+  if (!fs.existsSync(BASELINE)) {
+    console.error(`No baseline at ${BASELINE}; run with --save first`);
+    process.exitCode = 1;
+    return;
+  }
+  const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+  const base = new Map(baseline.results.map((row) => [row.name, row.opsPerSec]));
+  console.log(`\nAgainst baseline from ${baseline.date} (${baseline.node}):`);
+  for (const { name, opsPerSec } of results) {
+    const before = base.get(name);
+    const change = before ? percent(opsPerSec, before) : 'no baseline';
+    console.log(`${name.padEnd(52)} ${change.padStart(12)}`);
+  }
+};
 
 const main = () => {
-  console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
+  if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
@@ -39,9 +72,17 @@ const main = () => {
     ['model.dts — fixture model (6 entities)', () => model.dts],
   ];
 
+  const results = [];
   for (const [name, fn] of scenarios) {
-    if (name.includes(filter)) bench(name, fn);
+    if (name.includes(filter)) results.push(bench(name, fn, { quiet: json }));
   }
+  if (json) console.log(JSON.stringify(results, null, 2));
+  if (flags.has('--save')) {
+    const snapshot = { node: process.version, date: new Date().toISOString(), results };
+    fs.writeFileSync(BASELINE, `${JSON.stringify(snapshot, null, 2)}\n`);
+    if (!json) console.log(`\nSaved ${results.length} results to ${BASELINE}`);
+  }
+  if (flags.has('--compare')) compare(results);
 };
 
 main();

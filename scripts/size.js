@@ -1,5 +1,6 @@
 /**
- * Bundle-size report, run with `pnpm size`.
+ * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
+ * when either entry exceeds that min+gzip budget (CI uses it as a gate).
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -38,19 +39,39 @@ const bundle = async (entry, platform, minify) => {
 
 const kb = (bytes) => `${(bytes / 1024).toFixed(1)} KB`;
 
+const budget = () => {
+  const args = process.argv.slice(2);
+  const index = args.indexOf('--max-gzip');
+  if (index === -1) return null;
+  const limit = Number(args[index + 1]);
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new Error('--max-gzip needs a positive number of kilobytes');
+  }
+  return limit * 1024;
+};
+
 const main = async () => {
+  const maxGzip = budget();
   const rows = [];
   for (const { label, entry, platform } of ENTRIES) {
     const raw = await bundle(entry, platform, false);
     const min = await bundle(entry, platform, true);
     const gzip = gzipSync(min, { level: 9 });
-    rows.push({ label, raw: kb(raw.length), min: kb(min.length), gzip: kb(gzip.length) });
+    rows.push({ label, raw: raw.length, min: min.length, gzip: gzip.length });
   }
   console.log('| Entry | raw | min | min+gzip |');
   console.log('| ----- | ---:| ---:| --------:|');
   for (const row of rows) {
-    console.log(`| ${row.label} | ${row.raw} | ${row.min} | ${row.gzip} |`);
+    console.log(`| ${row.label} | ${kb(row.raw)} | ${kb(row.min)} | ${kb(row.gzip)} |`);
   }
+  if (maxGzip === null) return;
+  const over = rows.filter((row) => row.gzip > maxGzip);
+  for (const row of over) {
+    console.error(
+      `Bundle budget exceeded: ${row.label} is ${kb(row.gzip)} min+gzip, max ${kb(maxGzip)}`,
+    );
+  }
+  if (over.length > 0) process.exitCode = 1;
 };
 
 main().catch((error) => {

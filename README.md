@@ -42,7 +42,7 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
   relations and indexes, ordered by dependency and checked for missing references.
 - **TypeScript.** A model renders its entities as interfaces. The package ships hand-written
   typings for its own API.
-- **Zero dependencies, about 6 KB min+gzip.** CommonJS with ESM named imports, no build step, one
+- **Zero dependencies, about 7 KB min+gzip.** CommonJS with ESM named imports, no build step, one
   package for Node.js and browsers.
 
 ## Installation

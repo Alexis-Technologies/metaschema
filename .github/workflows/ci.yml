@@ -30,9 +30,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
-      # Smoke: keeps the bundle-size script working, and fails if a Node
-      # builtin ever reaches the browser bundle.
-      - run: pnpm size
+      # Smoke: keeps the bundle-size script working, fails if a Node builtin
+      # ever reaches the browser bundle, and fails over the min+gzip budget.
+      - run: pnpm size --max-gzip 8
 
   types:
     runs-on: ubuntu-latest
@@ -87,7 +87,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run test:coverage
+      - run: pnpm run test:coverage | tee coverage.txt
+      - name: Coverage summary
+        run: |
+          { echo '### Coverage'; echo '```'; grep '|' coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:

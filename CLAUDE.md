@@ -29,8 +29,8 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm run size                      # esbuild bundle sizes for index.js (node) and browser.js (browser)
-pnpm run bench                     # ops/sec harness (bench/bench.js [filter]), manual only
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 8 KB min+gzip
+pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual only; --save writes bench/baseline.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
@@ -94,8 +94,8 @@ tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
-scripts/size.js     bundle-size report (CI smoke)
-bench/              zero-dependency ops/sec harness
+scripts/size.js     bundle-size report and budget gate (CI smoke)
+bench/              zero-dependency ops/sec harness; baseline.json is a snapshot for --compare
 docs/               VitePress site (metaschema.vercel.app), not published
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
 ```

@@ -3,7 +3,8 @@ const { performance } = require('node:perf_hooks');
 const WARMUP_ITERATIONS = 2_000;
 const MEASURE_MS = 1_000;
 
-const bench = (name, fn, { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS } = {}) => {
+const bench = (name, fn, options = {}) => {
+  const { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS, quiet = false } = options;
   for (let i = 0; i < warmup; i++) fn();
   let iterations = 0;
   const start = performance.now();
@@ -14,7 +15,7 @@ const bench = (name, fn, { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS } 
   const elapsed = performance.now() - start;
   const opsPerSec = Math.round((iterations / elapsed) * 1000);
   const ops = opsPerSec.toLocaleString('en-US').padStart(12);
-  console.log(`${name.padEnd(52)} ${ops} ops/sec`);
+  if (!quiet) console.log(`${name.padEnd(52)} ${ops} ops/sec`);
   return { name, opsPerSec };
 };
 
