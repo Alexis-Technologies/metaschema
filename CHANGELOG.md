@@ -65,6 +65,12 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Ordinary bad input reported as an internal error.** `null` for a required `object` field
+  produced `validation failed TypeError: Cannot convert undefined or null to object`, an array was
+  accepted as an `object`, and a number for a `many` reference produced
+  `validation failed TypeError: source is not iterable`. They are now type errors like any other:
+  `Field "o" not of expected type: object` and
+  `Field "Person.companies" not of expected type: array of Company`.
 - **Broken definitions that only failed inside `check`.** `{ type: 'enum' }` without values
   reported `validation failed TypeError: Cannot read properties of undefined` for every value;
   `length: 'abc'` was silently ignored; `length: { max: 0 }` was ignored too because `0` is falsy;

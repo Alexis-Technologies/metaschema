@@ -342,3 +342,21 @@ test('Collections: error messages', () => {
   ]);
   assert.deepStrictEqual(map.check({ field1: new Map() }).errors, ['Field "field1" is required']);
 });
+
+test('Collections: an object field rejects null and arrays as type errors', () => {
+  const schema = Schema.from({ o: { object: { string: 'number' } } });
+  assert.deepStrictEqual(schema.check({ o: null }).errors, [
+    'Field "o" not of expected type: object',
+  ]);
+  assert.deepStrictEqual(schema.check({ o: [1, 2] }).errors, [
+    'Field "o" not of expected type: object',
+  ]);
+  assert.deepStrictEqual(schema.check({ o: 'x' }).errors, [
+    'Field "o" not of expected type: object',
+  ]);
+  assert.strictEqual(schema.check({ o: { a: 1 } }).valid, true);
+  assert.strictEqual(
+    Schema.from({ 'o?': { object: { string: 'number' } } }).check({ o: null }).valid,
+    true,
+  );
+});

@@ -301,3 +301,21 @@ test('Model: one and many need an entity name', () => {
     });
   }
 });
+
+test('Model: a many reference needs an array', () => {
+  const entities = new Map([
+    ['Company', { Entity: {}, name: 'string' }],
+    ['Person', { Entity: {}, companies: { many: 'Company' } }],
+  ]);
+  const person = new Model({}, entities).entities.get('Person');
+  for (const companies of [5, 'x', { name: 'Acme' }, new Set()]) {
+    assert.deepStrictEqual(person.check({ companies }).errors, [
+      'Field "Person.companies" not of expected type: array of Company',
+    ]);
+  }
+  assert.strictEqual(person.check({ companies: [] }).valid, true);
+  assert.strictEqual(person.check({ companies: [{ name: 'Acme' }] }).valid, true);
+  assert.deepStrictEqual(person.check({ companies: [{ name: 1 }] }).errors, [
+    'Field "Person.companies.name" not of expected type: string',
+  ]);
+});

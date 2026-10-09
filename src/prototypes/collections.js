@@ -39,7 +39,7 @@ const object = {
   },
 
   isInstance(value) {
-    return typeof value === 'object';
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
   },
 
   entries(value) {

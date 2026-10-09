@@ -25,6 +25,7 @@ const reference = {
     }
     const schema = root.findReference(many);
     if (!schema) return `Entity "${many}" is not found`;
+    if (!Array.isArray(source)) return `Field "${path}" not of expected type: array of ${many}`;
     for (const record of source) {
       const result = schema.check(record, path);
       if (!result.valid) return result;
