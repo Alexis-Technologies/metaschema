@@ -28,10 +28,10 @@ class Model {
       const schema = new Schema(name, entity, [this]);
       this.entities.set(name, schema);
     }
-    this.preprocess();
+    this.#preprocess();
   }
 
-  preprocess() {
+  #preprocess() {
     const { entities, order } = this;
     for (const pair of entities) {
       const name = pair[0];
@@ -43,22 +43,26 @@ class Model {
     if (entities.has('Identifier')) order.add('Identifier');
     for (const name of entities.keys()) {
       const isMeta = name.startsWith('.');
-      const alreadyOrdered = order.has(name);
-      if (!isMeta && !alreadyOrdered) this.reorderEntity(name);
+      if (!isMeta) this.#reorderEntity(name, new Set());
     }
   }
 
-  reorderEntity(name, base) {
+  // Depth-first ordering: an entity is added after everything it references.
+  // `visiting` holds the current path, so a reference back into it is a cycle
+  // of any length, not only one through the entity the walk started from.
+  #reorderEntity(name, visiting) {
     const entity = this.entities.get(name);
-    if (!entity) return;
+    if (!entity || this.order.has(name)) return;
+    visiting.add(name);
     for (const ref of entity.references) {
       if (ref === name) continue;
-      if (ref === base) {
-        this.warnings.push(`Recursive dependency: ${name}.${base}`);
+      if (visiting.has(ref)) {
+        this.warnings.push(`Recursive dependency: ${name}.${ref}`);
         continue;
       }
-      if (!this.order.has(ref)) this.reorderEntity(ref, base || name);
+      this.#reorderEntity(ref, visiting);
     }
+    visiting.delete(name);
     this.order.add(name);
   }
 

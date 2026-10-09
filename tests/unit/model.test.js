@@ -202,3 +202,54 @@ test('Model: an alias of the schema type needs a schema definition', () => {
     'Field "Order.delivery.city" not of expected type: string',
   ]);
 });
+
+test('Model: a two-entity cycle is a warning, not a crash', () => {
+  const entities = new Map([
+    ['A', { Entity: {}, b: 'B' }],
+    ['B', { Entity: {}, a: 'A' }],
+  ]);
+  const model = new Model({}, entities);
+  assert.deepStrictEqual([...model.order], ['B', 'A']);
+  assert.deepStrictEqual(model.warnings, ['Recursive dependency: B.A']);
+});
+
+test('Model: a cycle that does not pass through the first entity is a warning', () => {
+  const definitions = {
+    A: { Entity: {}, b: 'B' },
+    B: { Entity: {}, c: 'C' },
+    C: { Entity: {}, b: 'B' },
+  };
+  for (const names of [
+    ['A', 'B', 'C'],
+    ['B', 'C', 'A'],
+    ['C', 'A', 'B'],
+  ]) {
+    const entities = names.map((name) => [name, definitions[name]]);
+    const model = new Model({}, entities);
+    const order = [...model.order];
+    assert.deepStrictEqual([...order].sort(), ['A', 'B', 'C'], names.join());
+    // A -> B is not part of the cycle, so A always comes after B. Which edge of
+    // the B <-> C cycle is reported depends on where the walk entered it.
+    assert.ok(order.indexOf('A') > order.indexOf('B'), names.join());
+    assert.strictEqual(model.warnings.length, 1, names.join());
+    assert.match(model.warnings[0], /^Recursive dependency: (C\.B|B\.C)$/, names.join());
+  }
+});
+
+test('Model: a self-reference is neither a cycle nor a warning', () => {
+  const entities = new Map([['Category', { Entity: {}, parent: '?Category' }]]);
+  const model = new Model({}, entities);
+  assert.deepStrictEqual([...model.order], ['Category']);
+  assert.deepStrictEqual(model.warnings, []);
+});
+
+test('Model: Identifier comes first, dependencies before dependents', () => {
+  const entities = new Map([
+    ['Order', { Entity: {}, buyer: 'Customer', id: 'Identifier' }],
+    ['Customer', { Entity: {}, name: 'string' }],
+    ['Identifier', { Entity: {}, value: 'string' }],
+  ]);
+  const model = new Model({}, entities);
+  assert.deepStrictEqual([...model.order], ['Identifier', 'Customer', 'Order']);
+  assert.deepStrictEqual(model.warnings, []);
+});

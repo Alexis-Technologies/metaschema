@@ -59,6 +59,10 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Reference cycles that do not pass through the first entity** (`A → B → C → B`) made `new Model`
+  fail with `RangeError: Maximum call stack size exceeded`, and whether a cycle crashed or produced a
+  warning depended on the order of the entities. Every cycle is now a `Recursive dependency` warning.
+  `Model#preprocess` and `Model#reorderEntity` are constructor internals and are no longer public.
 - **A schema type without a definition** (`data: 'schema'`, `{ type: 'schema' }`, or an alias
   such as `{ js: 'schema' }` used as `'address'`) failed with
   `Cannot convert undefined or null to object`, and a non-object `schema` with an unrelated

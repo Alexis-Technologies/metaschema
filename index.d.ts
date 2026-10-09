@@ -92,7 +92,5 @@ export class Model {
     entities: Iterable<readonly [string, object]>,
     database?: object | null,
   );
-  preprocess(): void;
-  reorderEntity(name: string, base?: string): void;
   get dts(): string;
 }
