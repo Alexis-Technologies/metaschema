@@ -368,8 +368,9 @@ change. **This file wins** if they ever disagree.
   keeps an explicit `required` with `required ?? true`, which is what makes a nested struct
   optional as a collection element. Upstream had `required || true`, which ignored `false`; do not
   bring it back. `tests/unit/structs.test.js` covers every form.
-- **`relations` labels**: a `many` field is recorded as `'many-to-one'`, any other reference as
-  `'one-to-many'`. That is upstream's naming.
+- **`relations` labels are read from the referencing side**: a `many` field is `'one-to-many'`
+  (one record holds many targets), a single reference is `'many-to-one'`. Upstream had the two
+  swapped; 2.0 uses the conventional direction.
 
 ## Documentation site
 

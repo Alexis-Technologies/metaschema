@@ -57,15 +57,16 @@ A reference to an entity that is not in the model fails validation with
 Each schema records what it points at:
 
 - `schema.references` is a `Set` of every type and entity name the schema uses.
-- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field. A `many`
-  field is recorded as `'many-to-one'`, any other reference as `'one-to-many'`.
+- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field, read from
+  the referencing side: a `many` field is `'one-to-many'` (one record holds many of the target),
+  any other reference is `'many-to-one'` (many records point at one target).
 
 ```js
 person.relations;
 // Set {
-//   { to: 'Company', type: 'one-to-many' },
-//   { to: 'Address', type: 'one-to-many' },
-//   { to: 'Person', type: 'one-to-many' }
+//   { to: 'Company', type: 'many-to-one' },
+//   { to: 'Address', type: 'many-to-one' },
+//   { to: 'Person', type: 'many-to-one' }
 // }
 ```
 

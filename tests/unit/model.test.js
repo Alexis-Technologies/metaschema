@@ -359,7 +359,7 @@ test('Model: dts renders collections, enums, tuples, bigint and nested structs',
 
 interface Doc {
   tags: string[];
-  ids: bigint[];
+  ids: Set<bigint>;
   scores: Record<string, number>;
   byId: Map<number, boolean>;
   status: "open" | "done";

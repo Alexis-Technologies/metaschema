@@ -39,7 +39,8 @@ Rules of the conversion:
 | --- | --- |
 | `'string'`, `'number'`, `'boolean'`, `'bigint'`, and aliases of them (`{ js: 'string' }`) | the same scalar |
 | `{ enum: ['open', 'done'] }` | `"open" \| "done"` |
-| `{ array: T }`, `{ set: T }` | `T[]` |
+| `{ array: T }` | `T[]` |
+| `{ set: T }` | `Set<T>` |
 | `['number', 'number']` | `[number, number]` |
 | `{ object: { string: T } }` | `Record<string, T>` |
 | `{ map: { number: T } }` | `Map<number, T>` |

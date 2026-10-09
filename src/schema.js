@@ -27,7 +27,10 @@ const tsType = (def) => {
     const entries = `${def.key}, ${tsType(def.value)}`;
     return def.isInstance({}) ? `Record<${entries}>` : `Map<${entries}>`;
   }
-  if (def.value) return listOf(tsType(def.value));
+  if (def.value) {
+    const element = tsType(def.value);
+    return def.isInstance([]) ? listOf(element) : `Set<${element}>`;
+  }
   if (def.kind === 'struct') return 'unknown';
   return 'string';
 };

@@ -31,7 +31,9 @@ const reference = {
       const reason = `Reference "${key}" needs an entity name, got ${JSON.stringify(target)}`;
       throw new SchemaDefinitionError('ERR_INVALID_REFERENCE', reason);
     }
-    const relation = key === 'many' ? 'many-to-one' : 'one-to-many';
+    // Read from the referencing side: a `many` field holds the many end of
+    // a one-to-many relation, a single reference the many end of many-to-one.
+    const relation = key === 'many' ? 'one-to-many' : 'many-to-one';
     this[key] = target;
     this.type = target;
     this.root.relations.add({ to: target, type: relation });
