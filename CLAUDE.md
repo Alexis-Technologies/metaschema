@@ -269,12 +269,25 @@ with the JSON Schema export; that budget has to be revised again when D2 lands. 
 Node 24 (this machine, `bench/baseline.json` is still the Workstream A snapshot): flat valid
 ≈ 10.7 M ops/s, flat invalid ≈ 3.6 M, nested ≈ 2.7 M / 1.5 M, `Schema.from` and `new Model` at the
 1.0 level (`new Model` about 8% under A: every field now checks its rules against its type and a
-projection re-parses its parent's fields). The moltar strict modes are at ≈ 16.8 M, the loose
-modes (an options object on every call) at ≈ 14.8 M against ≈ 17 M after A, in the full run only;
-run alone (`pnpm bench moltar`) both modes are within a few percent of A, and the gap did not
-reproduce in an A/B of the two trees in one process. It is a per-call effect of about 3 ns tied
-to how V8 optimizes `check` after the plain path was hot first, not to the walk, and is the one
-open performance question of Workstream B. The roadmap's 2.0 targets were 12 M / 6 M: the valid
+projection re-parses its parent's fields). The moltar strict modes are at ≈ 17 M, the loose modes
+(an options object on every call) at ≈ 14.8 M against ≈ 17 M after A.
+
+**The moltar gap is the harness, not `check`.** `bench()` in `bench/helpers.js` lets V8 inline
+the scenario closure, `check`, `createContext`, the struct walk and `ValidationResult` into one
+optimized loop; in that fused loop a few bytes of bytecode in `check` (a third argument to
+`createContext`, a private-field read, frame size 32 → 40) swing the register allocation by
+10–20% in either direction, and which mode loses depends on the shape of `createContext` and on
+what ran before. Measured on 2026-10-09 with the two trees in separate processes: with the bench
+loop kept unoptimized (`%NeverOptimizeFunction`) every shape is within 2% of A on the strict modes
+and within 5% on the loose ones; with the scenario closures unoptimized too, so that `check` is a
+real callee as in any program, every shape is at parity with A on all four modes (≈ 13.5 M each,
+the harness overhead included). Swapping only `src/context.js` between the trees moves the whole
+gap, nothing else does. Two shapes of `createContext` do cost real time and are documented in the
+file: a string literal inside the context literal (`references: 'kind'`, 12–16% on its own,
+because V8 tracks the field as a constant) and writing the object after it is allocated. The
+split into `createContext` + `configure` is kept because it is the shape the harness punishes
+least; the harness itself should measure `check` as a callee, which changes every number in
+`bench/baseline.json` and is a separate decision. The roadmap's 2.0 targets were 12 M / 6 M: the valid
 path is within reach of the closure backend, the invalid path is bounded by the cost of plain
 issue objects (a params object, a path array and a rendered message each) and is where the JIT
 backend of Workstream E picks up.
