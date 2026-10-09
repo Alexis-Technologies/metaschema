@@ -191,7 +191,13 @@ test('Model: an alias of the schema type needs a schema definition', () => {
     { array: 'address' },
   ]) {
     const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
-    assert.throws(() => new Model(types, entities), { name: 'TypeError', message });
+    assert.throws(() => new Model(types, entities), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_MISSING_SCHEMA',
+      schema: 'Order',
+      field: 'delivery',
+      message: `${message} in "Order.delivery"`,
+    });
   }
   const entities = new Map([
     ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],

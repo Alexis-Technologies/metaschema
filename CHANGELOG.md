@@ -42,6 +42,12 @@ the corrected error messages.
 
 ### Added
 
+- **`SchemaDefinitionError`.** Every broken definition throws this `TypeError` subclass with a
+  `code` (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
+  `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`) and the `schema` and `field` it was found in, and
+  the message says where: `Unknown type "strng" in "Order.total"`. Previously a model with many
+  entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
+  `null` field definition threw `Cannot read properties of null`.
 - **`Schema#detach`**, the correctly spelt replacement for `detouch`.
 - **Exported types:** `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
   `ValidationResult`.

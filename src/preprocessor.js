@@ -1,6 +1,7 @@
 const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
 const { formatters } = require('./util.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 const PARSERS = {
   string: ['stringShorthand'],
@@ -10,6 +11,7 @@ const PARSERS = {
 };
 
 const sourceType = (src) => {
+  if (src === null) return 'null';
   if (Array.isArray(src)) return 'array';
   return typeof src;
 };
@@ -31,7 +33,7 @@ class Preprocessor {
       }
     }
     const msg = `Invalid definition: "${source}" of type ${srcType}`;
-    throw new Error(msg);
+    throw new SchemaDefinitionError('ERR_INVALID_DEFINITION', msg);
   }
 
   schemaInstance(source) {
@@ -57,7 +59,9 @@ class Preprocessor {
       const defs = { one: type, required, ...source };
       return { Type: types.reference, defs };
     }
-    if (!types[type]) throw new Error(`Unknown type ${type}`);
+    if (!types[type]) {
+      throw new SchemaDefinitionError('ERR_UNKNOWN_TYPE', `Unknown type "${type}"`);
+    }
     const defs = { required, ...source };
     return { Type: types[type], defs };
   }

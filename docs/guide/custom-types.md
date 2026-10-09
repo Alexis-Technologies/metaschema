@@ -62,11 +62,13 @@ const entities = new Map([
 ```
 
 Writing the field as just `delivery: 'address'` throws
-`TypeError: Type "address" needs a schema definition: { type: 'address', schema: { ... } }`.
-The same error is thrown for the built-in `'schema'` type without a definition.
+`SchemaDefinitionError: Type "address" needs a schema definition: { type: 'address', schema: { ... } } in "Order.delivery"`
+(code `ERR_MISSING_SCHEMA`). The same error is thrown for the built-in `'schema'` type without a
+definition.
 
 A prototype for a new type must have `construct(def, preprocessor)` and
-`checkType(value, path)` methods, or `Model` throws. `checkType` returns `null` when the value is
+`checkType(value, path)` methods, or `Model` throws `SchemaDefinitionError` (code
+`ERR_INVALID_CUSTOM_TYPE`). `checkType` returns `null` when the value is
 valid, or an error string (or an array of them). `kind` (`'scalar'` or `'struct'`) and
 `rules` (for example `['length']`) are optional. Other keys, like `symbols` below, are copied onto
 every field of the type and are available as `this.<key>` inside the methods:

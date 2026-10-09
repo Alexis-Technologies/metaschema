@@ -65,6 +65,7 @@ class Options {
 
 class Indexes {
   extract(key, field) {
+    if (field === null || typeof field !== 'object') return false;
     const { index, primary, unique, many } = field;
     const isIndex = Array.isArray(index || primary || unique);
     if (isIndex || many) this[key] = field;

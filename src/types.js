@@ -5,6 +5,7 @@ const { reference } = require('./prototypes/reference.js');
 const { schema } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
 const { json } = require('./prototypes/json.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 const PROTOTYPES = {
   ...scalars,
@@ -17,9 +18,8 @@ const PROTOTYPES = {
   json,
 };
 
-const CUSTOM_TYPE_HINT = 'Custom type must be an object with methods "construct" and "checkType"';
-const MISSING_METHODS = 'Custom type must contain "construct" and "checkType" methods';
-const NOT_FUNCTIONS = '"construct" and "checkType" must be functions';
+const customTypeError = (name, reason) =>
+  new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', `Custom type "${name}" ${reason}`);
 
 const createType = (name, prototype) => {
   class Type extends AbstractType {
@@ -63,19 +63,25 @@ const updateTypeMetadata = (Type, metadata = {}) => {
   }
 };
 
-const checkCustomType = (proto) => {
-  if (!proto) throw new Error(CUSTOM_TYPE_HINT);
+const checkCustomType = (name, proto) => {
   const { checkType, construct } = proto;
-  if (!checkType || !construct) throw new Error(MISSING_METHODS);
+  if (!checkType || !construct) {
+    throw customTypeError(name, 'must contain "construct" and "checkType" methods');
+  }
   const checkIsFn = typeof checkType === 'function';
   const constructIsFn = typeof construct === 'function';
-  if (!checkIsFn || !constructIsFn) throw new Error(NOT_FUNCTIONS);
+  if (!checkIsFn || !constructIsFn) {
+    throw customTypeError(name, 'methods "construct" and "checkType" must be functions');
+  }
 };
 
 const typeFactory = (customTypes) => {
   for (const pair of Object.entries(customTypes)) {
     const name = pair[0];
     const value = pair[1];
+    if (value === null || typeof value !== 'object') {
+      throw customTypeError(name, 'must be an object with methods "construct" and "checkType"');
+    }
     const { js, metadata, ...rest } = value;
     let Type = TYPES[name];
     if (Type) {
@@ -83,7 +89,7 @@ const typeFactory = (customTypes) => {
       continue;
     }
     const proto = PROTOTYPES[js] || rest;
-    checkCustomType(proto);
+    checkCustomType(name, proto);
     Type = createType(name, proto);
     updateTypeMetadata(Type, metadata);
     TYPES[name] = Type;

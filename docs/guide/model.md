@@ -66,8 +66,9 @@ broken.warnings;
 // [ 'Warning: "Customer" referenced by "Order" is not found' ]
 ```
 
-An unknown lowercase type name is different: it is a broken definition, so building the schema
-throws `Unknown type <name>`.
+An unknown lowercase type name is different: it is a broken definition, so building the model
+throws `SchemaDefinitionError: Unknown type "<name>" in "<Entity>.<field>"` (code
+`ERR_UNKNOWN_TYPE`).
 
 ## Loading schemas from files
 

@@ -290,7 +290,11 @@ test('Structs: a schema type without a schema definition throws a clear error', 
     { data: { type: 'schema', schema: ['string'] } },
   ];
   for (const definition of invalid) {
-    assert.throws(() => Schema.from(definition), { name: 'TypeError', message: message('schema') });
+    assert.throws(() => Schema.from(definition), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_MISSING_SCHEMA',
+      message: `${message('schema')} in "data"`,
+    });
   }
   assert.strictEqual(
     Schema.from({ data: { schema: { city: 'string' } } }).check({ data: { city: 'Lviv' } }).valid,

@@ -1,8 +1,11 @@
 const { hasBrand } = require('../util.js');
 const { Struct } = require('../struct.js');
+const { SchemaDefinitionError } = require('../errors.js');
 
-const missingSchema = (type) =>
-  `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
+const missingSchema = (type) => {
+  const hint = `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
+  return new SchemaDefinitionError('ERR_MISSING_SCHEMA', hint);
+};
 
 const isDefinition = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -12,7 +15,7 @@ const schema = {
 
   construct(defs, prep) {
     const { schema, required } = defs;
-    if (!isDefinition(schema)) throw new TypeError(missingSchema(this.type));
+    if (!isDefinition(schema)) throw missingSchema(this.type);
     this.required = required ?? true;
     const isStruct = hasBrand(schema, 'Struct');
     if (isStruct) this.schema = schema;

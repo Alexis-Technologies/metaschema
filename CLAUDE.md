@@ -86,6 +86,7 @@ src/
   types.js          TYPES registry, createType, typeFactory
   model.js          Model: entities, ordering, warnings, dts
   util.js           BRAND/hasBrand identity brand, formatters (type '?x', key 'x?', length), checks
+  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       type prototypes: abstract, scalars, collections, reference, schema, tuple, json
   runtime/          node.js (saveTypes via node:fs) and browser.js (same interface, rejects)
@@ -102,7 +103,8 @@ docs/               VitePress site (metaschema.vercel.app), not published
 ## Architecture
 
 Module graph (no cycles): `kinds → metadata → struct → prototypes/* → types → preprocessor →
-schema → model`. `src/index.js` adds `runtime/node.js`.
+schema → model`; `util.js` and `errors.js` are leaves required from several of them.
+`src/index.js` adds `runtime/node.js`.
 
 **Parsing a definition.** `new Schema(name, raw, namespaces)` builds a `Preprocessor`, and
 `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in `preprocessor.js`):
@@ -117,8 +119,15 @@ schema → model`. `src/index.js` adds `runtime/node.js`.
 - function → `functionField`: a calculated field, kept as is and never validated
 - array → `tupleShorthand`
 
-It returns `{ Type, defs, kindMeta }`. Unknown lowercase type names **throw** (`Unknown type x`),
-because a broken definition is a programming error. Capitalized names become `reference` fields.
+It returns `{ Type, defs, kindMeta }`. Unknown lowercase type names **throw**, because a broken
+definition is a programming error. Capitalized names become `reference` fields.
+
+**Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
+(`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
+`ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`), `schema` and `field`. Throw sites do not know where
+they are; `Struct` catches on the way up and calls `error.locate(root.name, field)`, which
+prepends nested keys, so the message ends with `in "Order.address.city"`. Never throw a bare
+`Error` for a definition problem.
 
 **Types.** `types.js` creates one class per prototype (`createType`): `class Type extends
 AbstractType` with static `type`, `kind`, `metadata`. `AbstractType#check` handles optional/null,
@@ -189,7 +198,8 @@ a runtime file means updating the `browser` map keys.
   - prefer `const`; no `var`;
   - private class members with `#`.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
-- Validators return messages; `throw` only for definition errors.
+- Validators return messages; `throw` only for definition errors, always a
+  `SchemaDefinitionError` with a code.
 - Self-descriptive code; comments explain *why*, not what.
 - Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
 

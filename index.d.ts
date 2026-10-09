@@ -30,6 +30,22 @@ export interface ValidationResult {
   errors: string[];
 }
 
+export type DefinitionErrorCode =
+  | 'ERR_INVALID_DEFINITION'
+  | 'ERR_UNKNOWN_TYPE'
+  | 'ERR_MISSING_SCHEMA'
+  | 'ERR_INVALID_TUPLE'
+  | 'ERR_PROJECTION'
+  | 'ERR_INVALID_CUSTOM_TYPE';
+
+export class SchemaDefinitionError extends TypeError {
+  code: DefinitionErrorCode;
+  schema: string;
+  field: string;
+  constructor(code: DefinitionErrorCode, reason: string);
+  locate(schema: string, field: string): this;
+}
+
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
 export const KIND_MEMORY: Array<string>;

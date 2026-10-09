@@ -1,5 +1,6 @@
 const { ValidationResult } = require('./metadata.js');
 const { BRAND, hasBrand, formatters } = require('./util.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 class Struct {
   constructor(defs, prep) {
@@ -7,16 +8,20 @@ class Struct {
     for (const pair of entries) {
       const key = pair[0];
       const entry = pair[1];
-      const { Type, defs: typeDefs } = prep.parse(entry);
-      if (!Type) {
-        this[key] = entry;
-        continue;
+      const { field, required } = formatters.key(key, entry?.required);
+      try {
+        const { Type, defs: typeDefs } = prep.parse(entry);
+        if (!Type) {
+          this[key] = entry;
+          continue;
+        }
+        const child = new Type(typeDefs, prep);
+        child.required &&= required;
+        this[field] = child;
+      } catch (error) {
+        if (error instanceof SchemaDefinitionError) error.locate(prep.root.name, field);
+        throw error;
       }
-      const parsed = formatters.key(key, entry.required);
-      const { field, required } = parsed;
-      const child = new Type(typeDefs, prep);
-      child.required &&= required;
-      this[field] = child;
     }
   }
 

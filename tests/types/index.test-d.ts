@@ -8,10 +8,11 @@ import {
   Model,
   saveTypes,
   Schema,
+  SchemaDefinitionError,
   SCOPE,
   STORE,
 } from '../../index.js';
-import type { Kind, Relation, Scope, ValidationResult } from '../../index.js';
+import type { DefinitionErrorCode, Kind, Relation, Scope, ValidationResult } from '../../index.js';
 
 expectType<Array<string>>(KIND);
 expectType<Array<string>>(KIND_STORED);
@@ -56,3 +57,11 @@ schema.detach(model);
 expectError(schema.detouch(model));
 
 expectType<Promise<void>>(saveTypes('./model.d.ts', model));
+
+const error = new SchemaDefinitionError('ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
+expectAssignable<TypeError>(error);
+expectType<DefinitionErrorCode>(error.code);
+expectType<string>(error.schema);
+expectType<string>(error.field);
+expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
+expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));

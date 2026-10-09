@@ -1,3 +1,11 @@
+const { SchemaDefinitionError } = require('../errors.js');
+
+const notScalar = (element) => {
+  const shown = typeof element === 'string' ? `"${element}"` : JSON.stringify(element);
+  const reason = `Tuple element ${shown} is not a scalar type`;
+  return new SchemaDefinitionError('ERR_INVALID_TUPLE', reason);
+};
+
 const tuple = {
   kind: 'struct',
 
@@ -9,9 +17,7 @@ const tuple = {
       const name = pair[0];
       const scalar = pair[1];
       const { Type, defs } = prep.parse(scalar);
-      if (!Type || Type.kind !== 'scalar') {
-        throw new TypeError(`Type ${scalar} is not a scalar`);
-      }
+      if (!Type || Type.kind !== 'scalar') throw notScalar(scalar);
       const type = new Type(defs, prep);
       if (name) type.name = name;
       return type;

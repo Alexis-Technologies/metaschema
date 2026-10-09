@@ -25,7 +25,15 @@ result.errors;
 
 `check` collects every problem it finds instead of stopping at the first one, and it never throws
 because of the value. An exception means the **definition** is broken (for example, an unknown
-type), and is raised when the schema is built, not when data is checked.
+type), and is raised when the schema is built, not when data is checked. It is a
+[`SchemaDefinitionError`](/api/exports#schemadefinitionerror): a `TypeError` with a `code` and the
+`schema` and `field` it was found in:
+
+```js
+new Schema('Order', { total: 'strng' });
+// SchemaDefinitionError: Unknown type "strng" in "Order.total"
+//   code: 'ERR_UNKNOWN_TYPE', schema: 'Order', field: 'total'
+```
 
 ## Paths
 

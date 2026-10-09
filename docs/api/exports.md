@@ -5,7 +5,7 @@ Everything is exported from the package root, in Node.js and in the browser.
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model,
+  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError,
 } = require('@alexify/metaschema');
 ```
 
@@ -64,7 +64,28 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `field
 | `model.warnings` | consistency warnings |
 | `model.dts` | TypeScript interfaces for every entity |
 
+## `SchemaDefinitionError`
+
+Thrown, as a `TypeError` subclass, when a definition is broken. Validation of data never throws
+it; see [Validation](/guide/validation#the-result).
+
+| Property | Contents |
+| --- | --- |
+| `message` | the problem, ending with `in "<Entity>.<field>"` when a field is known |
+| `code` | one of the codes below |
+| `schema` | the schema name (`''` for an anonymous schema) |
+| `field` | the field path inside the schema (`address.city`), `''` for the schema itself |
+
+| Code | Raised for |
+| --- | --- |
+| `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function |
+| `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
+| `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
+| `ERR_INVALID_TUPLE` | a tuple element that is not a scalar type |
+| `ERR_PROJECTION` | a projection without `schema`/`fields` or with an unknown parent |
+| `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
+
 ## Types
 
-`index.d.ts` also exports `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
-`ValidationResult`.
+`index.d.ts` also exports `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation`,
+`ValidationResult` and `DefinitionErrorCode`.
