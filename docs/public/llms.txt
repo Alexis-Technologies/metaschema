@@ -10,9 +10,14 @@ Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
 - Zero runtime dependencies, about 6 KB min+gzip
-- Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, and the constants `KIND`,
-  `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`
-- `Schema.from(definition).check(value)` returns `{ valid, errors }`
+- Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
+  `ValidationResult`, and the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
+  `ALLOW`
+- `Schema.from(definition).check(value)` returns a `ValidationResult` (`{ valid, errors }`); a
+  `validate` function may build and return one
+- A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
+  `field`, when the schema is built, never during `check`
+- Safe to bundle and minify: identity checks use a global symbol brand, not class names
 - Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }`,
   `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`, `{ map: { string: T } }`,
   `{ enum: [...] }`, tuples `['number', 'number']`, `'json'`, references by capitalized name

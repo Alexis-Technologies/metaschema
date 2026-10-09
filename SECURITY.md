@@ -37,6 +37,10 @@ Some things work as intended and are not vulnerabilities:
 - **metaschema never loads or evaluates code.** Since 1.0 it has no loader: it does not read schema
   files, evaluate source strings or run a sandbox. Turning untrusted input into a schema definition
   is the application's decision and responsibility.
+- **Input shape is checked strictly.** Every key that is not in the schema is reported as
+  `is not expected`, including `constructor`, `__proto__` and `toString`. Fields live in a
+  null-prototype dictionary, so nothing on `Object.prototype` is ever read as a field, and
+  metaschema never writes to the value it checks.
 - **Validation errors are data.** `check` collects problems as strings instead of throwing on bad
   input. The messages contain field paths (which can include key names taken from the input) and,
   for `enum`, the allowed values; they never contain the rejected values themselves. A message

@@ -69,6 +69,11 @@ Schema.from({
 The long form of the same fields uses `type` plus a key named after the type:
 `{ type: 'array', array: 'string' }`.
 
+Because the first key decides, a struct whose **first** field is named like a type (`map`, `set`,
+`string`, `json`, or a custom type) would be read as that type: `Schema.from({ map: {...}, name:
+'string' })` is a schema of type `map`, not a struct with a `map` field. Give such a struct a kind
+(`{ Struct: {}, map: {...}, name: 'string' }`) or put another field first.
+
 ## Nested structs
 
 An object whose first key is neither a type nor a kind is a nested struct:
