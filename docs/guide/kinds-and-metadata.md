@@ -49,6 +49,10 @@ ALLOW; // ['write', 'append', 'read']
 **Stored kinds get an id field.** A stored schema gains an optional string field named after it:
 `Company` gets `companyId`, an anonymous schema gets `id`.
 
+**`store` decides how a reference to the schema is held.** A reference to a `persistent` schema
+holds its id, a reference to a `memory` schema embeds the record; see
+[References](/guide/references#storage-view-and-graph-view).
+
 ## Metadata fields
 
 | Field | Meaning |

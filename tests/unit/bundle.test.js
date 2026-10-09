@@ -73,7 +73,7 @@ const checkBundle = ({ Schema, Model }) => {
   assert.deepStrictEqual(errorsOf(withValidate.check({ a: 'x' })), ['Field "a" too short']);
 
   const model = new Model({}, [
-    ['Company', { Entity: {}, name: 'string' }],
+    ['Company', { Struct: {}, name: 'string' }],
     ['Person', { Entity: {}, employer: 'Company' }],
   ]);
   const person = model.entities.get('Person');

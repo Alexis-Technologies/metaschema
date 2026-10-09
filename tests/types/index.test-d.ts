@@ -60,6 +60,8 @@ expectType<ValidationIssue[]>(schema.check({}).issues);
 expectType<ValidationResult>(schema.check({}, { root: 'User', maxErrors: 3 }));
 expectError(schema.check({}, { root: 'User', maxErrors: '3' }));
 expectType<ValidationResult>(schema.check({}, { unknown: 'ignore' }));
+expectType<ValidationResult>(schema.check({}, { references: 'embed' }));
+expectError(schema.check({}, { references: 'inline' }));
 expectType<ValidationResult>(schema.check({}, { root: '' }));
 expectError(schema.check({}, { unknown: 'strip' }));
 expectError(schema.check({}, 'User'));

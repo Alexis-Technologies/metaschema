@@ -34,6 +34,15 @@ const unknownOf = (unknown) => {
   return unknown;
 };
 
+const REFERENCES = ['kind', 'embed', 'id'];
+
+const referencesOf = (references) => {
+  if (!REFERENCES.includes(references)) {
+    throw invalid('references', '"kind", "embed" or "id"', references);
+  }
+  return references;
+};
+
 const rootOf = (root) => {
   if (typeof root !== 'string') throw invalid('root', 'a string', root);
   return root;
@@ -55,12 +64,14 @@ const createContext = (options, name = '', defaults = 'reject') => {
   let limit = UNLIMITED;
   let messages = en;
   let unknown = defaults;
+  let references = 'kind';
   let root = name;
   if (options !== undefined) {
     optionsOf(options);
     if (options.maxErrors !== undefined) limit = maxErrorsOf(options.maxErrors);
     if (options.messages !== undefined) messages = messagesOf(options.messages);
     if (options.unknown !== undefined) unknown = unknownOf(options.unknown);
+    if (options.references !== undefined) references = referencesOf(options.references);
     if (options.root !== undefined) root = rootOf(options.root);
   }
   return {
@@ -72,6 +83,9 @@ const createContext = (options, name = '', defaults = 'reject') => {
     // check over scalars never allocates it.
     seen: null,
     unknown,
+    // How a reference is checked: by the kind of its target ('kind'), as
+    // the record itself ('embed') or as its id ('id').
+    references,
     root,
     messages,
   };

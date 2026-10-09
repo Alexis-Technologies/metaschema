@@ -48,7 +48,7 @@ test('Options: the 1.x positional path is refused with a hint', () => {
 
 test('Options: unknown decides what happens to keys the schema does not have', () => {
   const model = new Model({}, [
-    ['Owner', { Entity: {}, name: 'string' }],
+    ['Owner', { Struct: {}, name: 'string' }],
     [
       'Doc',
       {

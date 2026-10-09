@@ -83,14 +83,14 @@ test('Model: many relation Schema for validation', () => {
 
   const company = model.entities.get('Company');
 
-  const obj = {
-    name: 'Galeere',
-    addresses: [{ city: 'Berlin' }, { city: 'Kiev' }],
-  };
-
+  // Address is stored, so a company holds the ids of its addresses.
+  const obj = { name: 'Galeere', addresses: ['a1', 'a2'] };
   const obj1 = { name: 'Leere' };
+  const embedded = { name: 'Galeere', addresses: [{ city: 'Berlin' }, { city: 'Kiev' }] };
   assert.strictEqual(company.check(obj).valid, true);
   assert.strictEqual(company.check(obj1).valid, false);
+  assert.strictEqual(company.check(embedded).valid, false);
+  assert.strictEqual(company.check(embedded, { references: 'embed' }).valid, true);
 });
 
 test('Model: custom types with nested schema and relation', () => {
@@ -109,17 +109,27 @@ test('Model: custom types with nested schema and relation', () => {
   const identifier = model.entities.get('Identifier');
   assert.strictEqual(identifier.check({ creation: Date.now().toLocaleString() }).valid, true);
   const tester = model.entities.get('Tester');
+  const embed = { references: 'embed' };
+  assert.strictEqual(
+    tester.check(
+      {
+        access: {
+          last: Date.now().toLocaleString(),
+          count: 2,
+          identifiers: [
+            { creation: Date.now().toLocaleString() },
+            { creation: Date.now().toLocaleString() },
+          ],
+          id: { creation: Date.now().toLocaleString() },
+        },
+      },
+      embed,
+    ).valid,
+    true,
+  );
   assert.strictEqual(
     tester.check({
-      access: {
-        last: Date.now().toLocaleString(),
-        count: 2,
-        identifiers: [
-          { creation: Date.now().toLocaleString() },
-          { creation: Date.now().toLocaleString() },
-        ],
-        id: { creation: Date.now().toLocaleString() },
-      },
+      access: { last: Date.now().toLocaleString(), count: 2, identifiers: ['i1', 'i2'], id: 'i3' },
     }).valid,
     true,
   );
@@ -305,7 +315,7 @@ test('Model: one and many need an entity name', () => {
 
 test('Model: a many reference needs an array', () => {
   const entities = new Map([
-    ['Company', { Entity: {}, name: 'string' }],
+    ['Company', { Struct: {}, name: 'string' }],
     ['Person', { Entity: {}, companies: { many: 'Company' } }],
   ]);
   const person = new Model({}, entities).entities.get('Person');
@@ -396,19 +406,34 @@ test('Model: a reference checks its target with the value it gets', () => {
     ],
   ]);
   const person = new Model({}, entities).entities.get('Person');
+  // Company is stored: a person holds its id unless the check embeds.
   assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }).errors, [
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  assert.deepStrictEqual(person.check({ employer: { name: 'Acme' }, ghosts: [] }).errors, [
+    'Field "Person.employer" not of expected type: string',
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  const embed = { references: 'embed' };
+  assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }, embed).errors, [
     'Field "Person.employer" not of expected type: object',
     'Field "Person.ghosts" Entity "Nothing" is not found',
   ]);
-  assert.deepStrictEqual(person.check({ employer: null, former: null, ghosts: null }).errors, [
-    'Field "Person.employer" not of expected type: object',
-    'Field "Person.ghosts" Entity "Nothing" is not found',
-  ]);
-  const ok = person.check({ employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] });
+  assert.deepStrictEqual(
+    person.check({ employer: null, former: null, ghosts: null }, embed).errors,
+    [
+      'Field "Person.employer" not of expected type: object',
+      'Field "Person.ghosts" Entity "Nothing" is not found',
+    ],
+  );
+  const ok = person.check(
+    { employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] },
+    embed,
+  );
   assert.deepStrictEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
   const limited = person.check(
     { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
-    { maxErrors: 2 },
+    { references: 'embed', maxErrors: 2 },
   );
   assert.deepStrictEqual(limited.errors, [
     'Field "Person.employer.name" not of expected type: string',

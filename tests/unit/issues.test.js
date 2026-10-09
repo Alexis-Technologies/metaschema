@@ -5,7 +5,7 @@ const { Schema, Model, ValidationResult } = require('../../index.js');
 
 test('Issues: every message has a code and a path', () => {
   const model = new Model({}, [
-    ['Owner', { Entity: {}, name: 'string' }],
+    ['Owner', { Struct: {}, name: 'string' }],
     [
       'Doc',
       {
@@ -17,7 +17,7 @@ test('Issues: every message has a code and a path', () => {
         owner: 'Owner',
         refs: { many: 'Owner' },
         ghost: 'Nothing',
-        parent: '?Doc',
+        parent: { type: 'Doc', required: false, embed: true },
         note: { type: 'string', validate: (value) => value.length > 1 || 'too short' },
       },
     ],

@@ -122,6 +122,10 @@ export interface CheckOptions {
   // `unexpected` issue per struct, or ignore them. The default is the
   // schema's own `unknown` metadata, 'reject' unless it says otherwise.
   unknown?: 'reject' | 'ignore';
+  // How a reference is checked: as its target's kind says ('kind', the
+  // default: a stored kind as an id, a memory kind as the record), every
+  // reference as the record ('embed') or every reference as an id ('id').
+  references?: 'kind' | 'embed' | 'id';
   // The locale of the messages, or a function that renders every message.
   messages?: Messages;
 }
@@ -168,6 +172,7 @@ export interface CheckContext {
   path: PropertyKey[];
   seen: Set<object> | null;
   unknown: 'reject' | 'ignore';
+  references: 'kind' | 'embed' | 'id';
   root: string;
   messages: Messages;
 }
@@ -183,6 +188,9 @@ export interface FieldType {
   required: boolean;
   // The value may be null; the key is still required unless `required` is false.
   nullable?: boolean;
+  // On a reference: check and render it as the record (true) or its id
+  // (false) whatever the kind of its target.
+  embed?: boolean;
   validate?: Validator;
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;

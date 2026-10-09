@@ -51,10 +51,14 @@ Rules of the conversion:
 | `{ type: T, nullable: true }` | `T \| null` |
 | `'json'` | `unknown` |
 | a custom type with its own `checkType` | `string` |
-| `company: 'Company'` | an id: `companyId: string` |
-| `addresses: { many: 'Address' }` | ids: `addressesId: string[]` |
+| `company: 'Company'`, a stored kind | an id: `companyId: string` |
+| `addresses: { many: 'Address' }`, a stored kind | ids: `addressesId: string[]` |
+| `label: 'Tag'`, a memory kind | the interface: `label: Tag` (`tags: Tag[]` for `many`) |
+| `{ type: 'Company', embed: true }` / `{ type: 'Tag', embed: false }` | the record / the id, whatever the kind |
 
-Optional fields get `?`, and stored kinds include their own id field (`userId?: string`).
+Optional fields get `?`, and stored kinds include their own id field (`userId?: string`). Whether a
+reference is an id or the interface follows the [storage view and graph view](/guide/references#storage-view-and-graph-view)
+rule of `check`; a reference `toInterface()` cannot resolve (outside a model) renders as an id.
 
 `schema.toInterface()` renders a single schema the same way; a schema whose definition is a single
 type renders as a type alias (`type Pair = [number, string];`).

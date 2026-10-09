@@ -9,6 +9,7 @@ const { ValidationResult } = require('./result.js');
 const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
+const { embeds } = require('./prototypes/reference.js');
 
 const TS_SCALARS = {
   string: 'string',
@@ -23,16 +24,37 @@ const TS_SCALARS = {
 
 const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
 
-// The TypeScript type of a field. A reference is stored as an id, so it
-// renders as a string (an array of them for `many`); a custom scalar with its
-// own check has no known shape and renders as a string too.
+// Whether a reference field renders as its id (`companyId: string`) or as
+// the referenced type (`company: Company`): the same rule as `check`, with
+// a target that cannot be resolved taken as stored.
+const asId = (def) => {
+  const target = def.root.findReference(def.type);
+  if (target === null) return def.embed !== true;
+  return !embeds(target, def.embed, 'kind');
+};
+
+// The referenced type: its interface by name, inline when it has none, the
+// name of the reference when it cannot be resolved.
+const tsReference = (def) => {
+  const target = def.root.findReference(def.type);
+  if (target === null || target.name) return def.type;
+  return tsType(target.fields);
+};
+
+// The TypeScript type of a field. A reference to a stored kind is held as
+// an id, so it renders as a string (an array of them for `many`), a
+// reference to a memory kind as the type itself; a custom scalar with its
+// own check has no known shape and renders as a string.
 const tsType = (def) => {
   const type = tsBase(def);
   return def.nullable === true ? `${type} | null` : type;
 };
 
 const tsBase = (def) => {
-  if (isFirstUpper(def.type)) return def.many ? 'string[]' : 'string';
+  if (isFirstUpper(def.type)) {
+    const element = asId(def) ? 'string' : tsReference(def);
+    return def.many ? listOf(element) : element;
+  }
   if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
   if (def.union) return def.union.map(tsType).join(' | ');
   if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
@@ -79,7 +101,7 @@ const tsFields = (fields) => {
     const def = pair[1];
     if (!hasBrand(def, 'Type')) continue;
     const optional = def.required ? '' : '?';
-    const name = isFirstUpper(def.type) ? `${key}Id` : key;
+    const name = isFirstUpper(def.type) && asId(def) ? `${key}Id` : key;
     lines.push(`${name}${optional}: ${tsType(def)}`);
   }
   return lines;

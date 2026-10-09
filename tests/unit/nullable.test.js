@@ -108,7 +108,7 @@ test('Nullable: null skips the rules and validate, and works for every type', ()
   tags: string[] | null;
   items: (string | null)[];
   address: { city: string } | null;
-  ownerId: string | null;
+  owner: Owner | null;
   point: [number] | null;
 }`,
   );
