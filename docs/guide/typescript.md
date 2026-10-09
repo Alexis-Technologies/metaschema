@@ -69,9 +69,10 @@ touches the file system. In the browser it rejects.
 
 ## Typings for the package
 
-`@alexify/metaschema` ships hand-written declarations in `index.d.ts`. Besides `Schema`, `Model`
-and the functions, it exports the `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
-`ValidationResult` types:
+`@alexify/metaschema` ships hand-written declarations in `index.d.ts`. Besides the classes and
+functions, it exports a type for everything public: `Kind`, `Scope`, `Fields`, `FieldType`,
+`TypeEntry`, `ValidationIssue`, `DefinitionErrorCode` and the rest listed in the
+[API reference](/api/exports#types):
 
 ```ts
 import { Schema, type Kind, type ValidationResult } from '@alexify/metaschema';

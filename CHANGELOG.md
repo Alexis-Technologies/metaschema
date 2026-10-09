@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The first release of `@alexify/metaschema`, which becomes 1.0.0. It is a fork of
+## [1.0.0] - 2026-10-09
+
+The first release of `@alexify/metaschema`. It is a fork of
 [`metaschema`](https://github.com/metarhia/metaschema) 2.2.2. The schema language and the
 validation semantics are unchanged. The package around them now follows the other Alexis
 libraries: zero runtime dependencies, one package for Node.js and browsers, and typings that match
@@ -17,18 +19,43 @@ the runtime.
 
 Replace `metaschema` with `@alexify/metaschema`, then follow
 [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia). The
-breaking changes are the removed loader functions, the renamed `detouch`, the `exports` map and
-the corrected error messages.
+breaking changes are the removed loader functions, the renamed `detouch`, the `exports` map,
+`SchemaDefinitionError` for every broken definition, and the corrected and more precise
+validation messages listed under Changed and Fixed.
 
-### Removed
+### Added
 
-- **Loading schemas from files and strings.** `createSchema`, `loadSchema`, `readDirectory` and
-  `loadModel` are gone, together with the `metavm` sandbox they ran schema sources in. Pass schema
-  objects to `Schema` and `Model` directly.
-- **Runtime dependencies.** `metautil`, `metavm` and `metaskills` are no longer installed. The
-  `metautil` helpers metaschema uses are copied into `src/metautil.js`.
-- **Deep imports.** The `exports` map exposes only the package root.
-- **`Schema#detouch`.** It is renamed to `detach`, with no alias for the old spelling.
+- **`SchemaDefinitionError`.** Every broken definition throws this `TypeError` subclass with a
+  `code` (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_ENUM`,
+  `ERR_INVALID_LENGTH`, `ERR_INVALID_TUPLE`, `ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`,
+  `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`, `ERR_TYPE_REGISTERED`, `ERR_UNKNOWN_JS_TYPE`,
+  `ERR_INVALID_OPTIONS`) and the `schema` and `field` it was found in, and the message says
+  where: `Unknown type "strng" in "Order.total"`. Previously a model with many
+  entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
+  `null` field definition threw `Cannot read properties of null`.
+- **Structured issues.** `result.issues` holds `{ code, path, message }` for every message, with
+  the codes `required`, `type`, `unexpected`, `enum`, `length`, `reference`, `circular`,
+  `exception` and `custom`, so a form, a logger or an i18n layer need not parse the text. A
+  `validate` function may return `{ code, message }` objects of its own.
+- **`check(value, path, { maxErrors })`** stops collecting at that many messages and stops walking
+  fields, elements and records as soon as the limit is reached.
+- **An isolated type registry per model.** `new Model(types, entities, database, { registry:
+  'isolated' })` gives the model its own copy of the built-in types to register into, so two
+  models with conflicting custom types can live in one process. The default, `'shared'`, is the
+  process-wide registry as before.
+- **Readable `console.log`.** A schema or a field printed with `util.inspect` shows its definition
+  (`Schema(User) { name: { required: true, type: 'string' } }`) instead of the whole graph with
+  `[Circular]` markers.
+- **`ValidationResult`** is exported, so a `validate` function can build the result it returns.
+  The typings describe it as the class it is, with `add` and `ValidationResult.format`, instead of
+  a two-property interface.
+- **`Schema#detach`**, the correctly spelt replacement for `detouch`.
+- **Exported types** for everything public: `Kind`, `KnownKind`, `Scope`, `Store`, `Allow`,
+  `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`, `TypeTable`,
+  `TypeConstructor`, `TypeEntry`, `KindMetadata`, `SchemaOptions`, `ModelOptions`,
+  `CheckOptions`, `Validator`, `ValidationReturn`, `ValidationIssue`, `IssueInput`, `IssueCode`
+  and `DefinitionErrorCode`.
+- **Documentation site** at [metaschema.vercel.app](https://metaschema.vercel.app/).
 
 ### Changed
 
@@ -55,34 +82,15 @@ the corrected error messages.
   table of its namespaces: `check` runs about 1.7× faster on flat values and 1.5× on nested ones
   than the 2.2.2 code on the same machine (`pnpm bench`).
 
-### Added
+### Removed
 
-- **`SchemaDefinitionError`.** Every broken definition throws this `TypeError` subclass with a
-  `code` (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
-  `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`) and the `schema` and `field` it was found in, and
-  the message says where: `Unknown type "strng" in "Order.total"`. Previously a model with many
-  entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
-  `null` field definition threw `Cannot read properties of null`.
-- **Structured issues.** `result.issues` holds `{ code, path, message }` for every message, with
-  the codes `required`, `type`, `unexpected`, `enum`, `length`, `reference`, `circular`,
-  `exception` and `custom`, so a form, a logger or an i18n layer need not parse the text. A
-  `validate` function may return `{ code, message }` objects of its own.
-- **`check(value, path, { maxErrors })`** stops collecting at that many messages and stops walking
-  fields, elements and records as soon as the limit is reached.
-- **An isolated type registry per model.** `new Model(types, entities, database, { registry:
-  'isolated' })` gives the model its own copy of the built-in types to register into, so two
-  models with conflicting custom types can live in one process. The default, `'shared'`, is the
-  process-wide registry as before.
-- **Readable `console.log`.** A schema or a field printed with `util.inspect` shows its definition
-  (`Schema(User) { name: { required: true, type: 'string' } }`) instead of the whole graph with
-  `[Circular]` markers.
-- **`ValidationResult`** is exported, so a `validate` function can build the result it returns.
-  The typings describe it as the class it is, with `add` and `ValidationResult.format`, instead of
-  a two-property interface.
-- **`Schema#detach`**, the correctly spelt replacement for `detouch`.
-- **Exported types:** `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
-  `ValidationResult`.
-- **Documentation site** at [metaschema.vercel.app](https://metaschema.vercel.app/).
+- **Loading schemas from files and strings.** `createSchema`, `loadSchema`, `readDirectory` and
+  `loadModel` are gone, together with the `metavm` sandbox they ran schema sources in. Pass schema
+  objects to `Schema` and `Model` directly.
+- **Runtime dependencies.** `metautil`, `metavm` and `metaskills` are no longer installed. The
+  `metautil` helpers metaschema uses are copied into `src/metautil.js`.
+- **Deep imports.** The `exports` map exposes only the package root.
+- **`Schema#detouch`.** It is renamed to `detach`, with no alias for the old spelling.
 
 ### Fixed
 
@@ -166,8 +174,8 @@ the corrected error messages.
 - **A schema type without a definition** (`data: 'schema'`, `{ type: 'schema' }`, or an alias
   such as `{ js: 'schema' }` used as `'address'`) failed with
   `Cannot convert undefined or null to object`, and a non-object `schema` with an unrelated
-  `Unknown type` error. It now throws
-  `TypeError: Type "address" needs a schema definition: { type: 'address', schema: { ... } }`.
+  `Unknown type` error. It now throws `SchemaDefinitionError` (`ERR_MISSING_SCHEMA`):
+  `Type "address" needs a schema definition: { type: 'address', schema: { ... } } in "Order.delivery"`.
 - **Typings.** `index.d.ts` matches the runtime:
   - the static `Schema.KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE` and `ALLOW` fields,
     which never existed, are removed;
@@ -409,7 +417,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/commits/main
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Alexis-Technologies/metaschema/releases/tag/v1.0.0
 [upstream-2.2.2]: https://github.com/metarhia/metaschema/compare/v2.2.1...v2.2.2
 [upstream-2.2.1]: https://github.com/metarhia/metaschema/compare/v2.2.0...v2.2.1
 [upstream-2.2.0]: https://github.com/metarhia/metaschema/compare/v2.1.5...v2.2.0

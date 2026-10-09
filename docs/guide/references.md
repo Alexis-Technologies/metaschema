@@ -42,7 +42,7 @@ person.check({
 }).errors;
 // [
 //   'Field "Person.employer.name" not of expected type: string',
-//   'Field "Person.employer.addresses.city" not of expected type: string',
+//   'Field "Person.employer.addresses[0].city" not of expected type: string',
 //   'Field "Person.home.city" is required',
 //   'Field "Person.home.street" is required'
 // ]
