@@ -13,7 +13,18 @@ import {
   STORE,
   ValidationResult,
 } from '../../index.js';
-import type { DefinitionErrorCode, Kind, Relation, Scope } from '../../index.js';
+import type {
+  Cardinality,
+  DefinitionErrorCode,
+  FieldType,
+  Fields,
+  Kind,
+  KindMetadata,
+  Relation,
+  Scope,
+  TypeEntry,
+  TypeTable,
+} from '../../index.js';
 
 expectType<Array<string>>(KIND);
 expectType<Array<string>>(KIND_STORED);
@@ -22,8 +33,11 @@ expectType<Array<string>>(SCOPE);
 expectType<Array<string>>(STORE);
 expectType<Array<string>>(ALLOW);
 
-expectType<{ defs: object; metadata: object }>(getKindMetadata('entity'));
-expectError(getKindMetadata('unknown-kind'));
+expectType<{ defs: Record<string, unknown>; metadata: KindMetadata }>(getKindMetadata('entity'));
+expectType<KindMetadata>(getKindMetadata('customKind').metadata);
+expectAssignable<Kind>('customKind');
+expectAssignable<Kind>('entity');
+expectError(getKindMetadata(42));
 
 const schema = Schema.from({ name: 'string', age: '?number' });
 expectType<Schema>(schema);
@@ -41,6 +55,13 @@ expectType<string>(schema.toInterface());
 expectType<Kind>(schema.kind);
 expectType<Scope>(schema.scope);
 expectType<Set<Relation>>(schema.relations);
+expectType<Fields>(schema.fields);
+expectType<FieldType | ((value: any) => unknown)>(schema.fields.name);
+expectType<TypeTable>(schema.types);
+expectAssignable<Cardinality>('one-to-many');
+expectAssignable<Cardinality>('many-to-one');
+expectError<Cardinality>('one-to-one');
+expectError<Cardinality>('many-to-many');
 
 expectError<Scope>('system');
 expectAssignable<Scope>('application');
@@ -50,7 +71,14 @@ const model = new Model(types, new Map([['Company', { Dictionary: {}, name: 'str
 expectType<Model>(model);
 expectType<Model>(new Model(types, [['Company', { name: 'string' }]], null));
 expectType<Map<string, Schema>>(model.entities);
-expectType<object | null>(model.database);
+expectType<Record<string, unknown> | null>(model.database);
+expectType<TypeTable>(model.types);
+const entries: Record<string, TypeEntry> = {
+  datetime: { js: 'string', metadata: { pg: 'timestamp' } },
+  hex: { kind: 'scalar', construct() {}, checkType: (value: string) => /^[0-9a-f]+$/.test(value) },
+};
+expectType<Model>(new Model(entries, []));
+expectError(new Model({ bad: 42 }, []));
 expectType<string>(model.dts);
 
 schema.attach(model);

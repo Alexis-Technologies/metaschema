@@ -143,7 +143,10 @@ the corrected error messages.
     which never existed, are removed;
   - `'system'` is removed from `Scope`;
   - `Schema.from` accepts strings and arrays;
-  - `validate`, `findReference` and `Model#database` may be `null`.
+  - `validate`, `findReference` and `Model#database` may be `null`;
+  - `fields`, `indexes`, `custom`, the type table and the entries passed to `Model` are typed
+    (`Fields`, `FieldType`, `TypeTable`, `TypeEntry`, ...) instead of `object` and `Function`;
+  - `Cardinality` is the two values the runtime produces, and `Kind` admits a custom kind.
 
 ### Tooling
 

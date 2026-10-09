@@ -4,7 +4,7 @@ export type Allow = 'read' | 'write' | 'append';
 
 export type Store = 'persistent' | 'memory';
 
-export type Kind =
+export type KnownKind =
   | 'dictionary'
   | 'registry'
   | 'entity'
@@ -17,8 +17,11 @@ export type Kind =
   | 'struct'
   | 'scalar';
 
-export type Cardinality =
-  'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
+// A capitalized first key that is not a known kind is a custom kind; the
+// intersection keeps the known names in completions.
+export type Kind = KnownKind | (string & {});
+
+export type Cardinality = 'one-to-many' | 'many-to-one';
 
 export interface Relation {
   to: string;
@@ -41,6 +44,60 @@ export class ValidationResult {
   add(error: ValidationReturn): this;
   static format(error: ValidationReturn, path?: string): string[] | null;
   static isInstance(error: unknown): boolean;
+}
+
+export type Validator = (value: any, path: string) => ValidationReturn;
+
+export type CalculatedField = (value: any) => unknown;
+
+// A field of a struct: an instance of the type's class. Keys of the
+// definition the type does not use (`unique`, `default`, ...) are kept on it.
+export interface FieldType {
+  readonly type: string;
+  required: boolean;
+  validate?: Validator;
+  check(value: unknown, path: string): ValidationResult;
+  toJSON(): object;
+  [key: string]: unknown;
+}
+
+export type Fields = Record<string, FieldType | CalculatedField>;
+
+export interface TypeConstructor {
+  readonly type: string;
+  readonly kind: 'scalar' | 'struct';
+  metadata: Record<string, unknown>;
+  new (def: object, preprocessor: object): FieldType;
+}
+
+export type TypeTable = Record<string, TypeConstructor>;
+
+// An entry of the table passed to Model: metadata for a built-in, an alias
+// (`js`), or a prototype with its own `construct` and `checkType`.
+export interface TypeEntry {
+  js?: string;
+  metadata?: Record<string, unknown>;
+  kind?: 'scalar' | 'struct';
+  rules?: string[];
+  construct?(def: object, preprocessor: object): void;
+  checkType?(value: any, path: string): ValidationReturn;
+  [key: string]: unknown;
+}
+
+export interface KindMetadata {
+  kind: Kind;
+  scope: Scope;
+  store: Store;
+  allow: Allow;
+  parent?: string;
+  [key: string]: unknown;
+}
+
+export interface SchemaOptions {
+  validate: Validator | null;
+  format: ((value: any) => unknown) | null;
+  parse: ((value: any) => unknown) | null;
+  serialize: ((value: any) => unknown) | null;
 }
 
 export type DefinitionErrorCode =
@@ -74,9 +131,9 @@ export const ALLOW: Array<string>;
 
 export function getKindMetadata(
   kind: Kind,
-  meta?: object,
+  meta?: Record<string, unknown>,
   root?: Schema,
-): { defs: object; metadata: object };
+): { defs: Record<string, unknown>; metadata: KindMetadata };
 export function saveTypes(outputFile: string, model: Model): Promise<void>;
 
 export class Schema {
@@ -88,22 +145,19 @@ export class Schema {
   store: Store;
   allow: Allow;
   parent: string;
-  indexes: object;
-  options: {
-    validate: Function | null;
-    format: Function | null;
-    parse: Function | null;
-    serialize: Function | null;
-  };
-  custom: object;
-  fields: object;
+  indexes: Record<string, object>;
+  options: SchemaOptions;
+  custom: Record<string, unknown>;
+  // For a schema whose definition is a single type (`Schema.from('string')`,
+  // `Schema.from({ array: 'number' })`) this is that FieldType itself.
+  fields: Fields;
   name: string;
   namespaces: Set<Model>;
   references: Set<string>;
   relations: Set<Relation>;
 
   constructor(name: string, raw: string | object, namespaces?: Array<Model>);
-  get types(): object;
+  get types(): TypeTable;
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
   check(value: unknown, path?: string): ValidationResult;
@@ -116,16 +170,16 @@ export class Schema {
 }
 
 export class Model {
-  types: object;
+  types: TypeTable;
   entities: Map<string, Schema>;
-  database: object | null;
+  database: Record<string, unknown> | null;
   order: Set<string>;
   warnings: Array<string>;
 
   constructor(
-    types: object,
+    types: Record<string, TypeEntry>,
     entities: Iterable<readonly [string, object]>,
-    database?: object | null,
+    database?: Record<string, unknown> | null,
   );
   get dts(): string;
 }

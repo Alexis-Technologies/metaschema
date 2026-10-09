@@ -105,5 +105,7 @@ it; see [Validation](/guide/validation#the-result).
 
 ## Types
 
-`index.d.ts` also exports `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation`,
-`ValidationReturn` and `DefinitionErrorCode`.
+`index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
+`Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
+`TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
+`KindMetadata`, `SchemaOptions`, `Validator`, `ValidationReturn` and `DefinitionErrorCode`.
