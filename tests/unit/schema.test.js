@@ -110,6 +110,7 @@ test('Schema: check with namespaces', () => {
 test('Schema: validation function', () => {
   const definition = {
     field: '?string',
+    throw: '?string',
     validate: (value, path) => {
       if (value.field) return true;
       if (value.throw) throw new Error(value.throw);
@@ -125,19 +126,25 @@ test('Schema: validation function', () => {
     true,
   );
 
-  assert.deepStrictEqual(
-    schema.check({
-      field2: 'abc',
-    }).errors,
-    ['Field "" .field is required', 'Field "" has unexpected keys: field2'],
-  );
+  assert.deepStrictEqual(schema.check({}).errors, ['Field "" .field is required']);
 
   assert.deepStrictEqual(
     schema.check({
       throw: '42',
     }).errors,
-    ['Field "" validation failed Error: 42', 'Field "" has unexpected keys: throw'],
+    ['Field "" validation failed Error: 42'],
   );
+
+  // The schema-level validate runs only on a value whose fields all passed.
+  assert.deepStrictEqual(
+    schema.check({
+      field2: 'abc',
+    }).errors,
+    ['Field "" has unexpected keys: field2'],
+  );
+  assert.deepStrictEqual(schema.check({ field: 1 }).errors, [
+    'Field "field" not of expected type: string',
+  ]);
 });
 
 test('Schema: validation function simple return', () => {
@@ -157,6 +164,7 @@ test('Schema: nested validation function', () => {
     nested: {
       schema: {
         field: { type: 'string', required: false },
+        throw: '?string',
         validate: (value, path) => {
           if (value.field) return true;
           if (value.throw) throw new Error(value.throw);
@@ -195,11 +203,9 @@ test('Schema: nested validation function', () => {
   assert.deepStrictEqual(
     schema.check({
       field: 'abc',
-      nested: {
-        field2: 'abc',
-      },
+      nested: {},
     }).errors,
-    ['Field "nested" has unexpected keys: field2', 'Field "nested" nested.field is required'],
+    ['Field "nested" nested.field is required'],
   );
 
   assert.deepStrictEqual(
@@ -209,7 +215,18 @@ test('Schema: nested validation function', () => {
         throw: '42',
       },
     }).errors,
-    ['Field "nested" has unexpected keys: throw', 'Field "nested" validation failed Error: 42'],
+    ['Field "nested" validation failed Error: 42'],
+  );
+
+  // A nested validate runs only when the nested value's fields all passed.
+  assert.deepStrictEqual(
+    schema.check({
+      field: 'abc',
+      nested: {
+        field2: 'abc',
+      },
+    }).errors,
+    ['Field "nested" has unexpected keys: field2'],
   );
 });
 
@@ -284,10 +301,9 @@ test('Schema: custom validate on field', () => {
   };
 
   const schema1 = Schema.from(defs1);
+  // A type failure cancels the rules and the validate function of the field.
   assert.deepStrictEqual(schema1.check({ email: 12345 }).errors, [
     'Field "email" not of expected type: string',
-    'Field "email" validation failed TypeError: src.indexOf is not a function',
-    'Field "email" exceeds the maximum length',
   ]);
   assert.deepStrictEqual(schema1.check({ email: 'ab' }).errors, ['Field "email" Not an Email']);
   assert.strictEqual(schema1.check({ email: 'asd@asd.com' }).valid, true);

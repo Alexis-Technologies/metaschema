@@ -163,3 +163,49 @@ test('Rules: an optional field with rules accepts a missing or null value', () =
     ],
   );
 });
+
+test('Rules: a type failure cancels the rules and validate of the field', () => {
+  const calls = [];
+  const schema = Schema.from({
+    code: {
+      type: 'string',
+      length: { min: 2, max: 4 },
+      validate: (value) => {
+        calls.push(value);
+        return value.startsWith('a') || 'must start with a';
+      },
+    },
+    list: { array: 'number', length: { max: 2 } },
+  });
+  assert.deepStrictEqual(schema.check({ code: 42, list: 'x' }).errors, [
+    'Field "code" not of expected type: string',
+    'Field "list" not of expected type: array',
+  ]);
+  assert.deepStrictEqual(calls, []);
+  // Rules run before validate, and validate only when they passed.
+  assert.deepStrictEqual(schema.check({ code: 'bcdef', list: [1, 2, 3] }).errors, [
+    'Field "code" exceeds the maximum length',
+    'Field "list" exceeds the maximum length',
+  ]);
+  assert.deepStrictEqual(calls, []);
+  assert.deepStrictEqual(schema.check({ code: 'bcd', list: [] }).errors, [
+    'Field "code" must start with a',
+  ]);
+  assert.deepStrictEqual(calls, ['bcd']);
+  assert.strictEqual(schema.check({ code: 'abc', list: [1] }).valid, true);
+  const custom = {
+    kind: 'scalar',
+    rules: ['length'],
+    construct() {},
+    checkType: (value) => typeof value === 'string' || 'not text',
+  };
+  const { Model } = require('../../index.js');
+  const text = new Model({ text6: custom }, [
+    ['Note', { Struct: {}, body: { type: 'text6', length: { max: 6 }, validate: () => 'never' } }],
+  ]).entities.get('Note');
+  assert.deepStrictEqual(text.check({ body: 1 }).errors, ['Field "Note.body" not text']);
+  assert.deepStrictEqual(text.check({ body: 'toolongtext' }).errors, [
+    'Field "Note.body" exceeds the maximum length',
+  ]);
+  assert.deepStrictEqual(text.check({ body: 'short' }).errors, ['Field "Note.body" never']);
+});

@@ -24,7 +24,7 @@ const object = {
     const { check } = this.value;
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -60,7 +60,7 @@ const map = {
     const { check } = this.value;
     return (value, context, key) => {
       if (value?.constructor?.name !== 'Map') {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -105,7 +105,7 @@ const array = {
     const { check } = this.value;
     return (value, context, key) => {
       if (!Array.isArray(value)) {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -132,7 +132,7 @@ const set = {
     const { check } = this.value;
     return (value, context, key) => {
       if (value?.constructor?.name !== 'Set') {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
       }

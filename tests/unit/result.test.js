@@ -43,16 +43,20 @@ test('Result: flatten, tree and summary', () => {
     tags: { array: { label: 'string' } },
     validate: () => 'no good',
   });
+  assert.deepStrictEqual(schema.check({ name: 'x', tags: [] }).flatten(), {
+    formErrors: ['no good'],
+    fieldErrors: {},
+  });
   const result = schema.check({ name: 1, tags: [{ label: 'ok' }, { label: 2 }], extra: true });
   assert.deepStrictEqual(result.flatten(), {
-    formErrors: ['no good', 'has unexpected keys: extra'],
+    formErrors: ['has unexpected keys: extra'],
     fieldErrors: {
       name: ['not of expected type: string'],
       'tags[1].label': ['not of expected type: string'],
     },
   });
   const tree = result.tree();
-  assert.deepStrictEqual(tree.errors, ['no good', 'has unexpected keys: extra']);
+  assert.deepStrictEqual(tree.errors, ['has unexpected keys: extra']);
   assert.deepStrictEqual(tree.properties.name, { errors: ['not of expected type: string'] });
   assert.strictEqual(tree.properties.tags.errors.length, 0);
   assert.strictEqual(tree.properties.tags.items[0], undefined);
@@ -63,7 +67,6 @@ test('Result: flatten, tree and summary', () => {
   assert.strictEqual(
     result.summary,
     [
-      'Field "" no good',
       'Field "name" not of expected type: string',
       'Field "tags[1].label" not of expected type: string',
       'Field "" has unexpected keys: extra',
@@ -210,7 +213,6 @@ test('Locales: messages are rendered through the locale of the check', () => {
   const mixed = doc.check({ title: 1, status: 'c' }, 'Doc', { messages: partial }).errors;
   assert.deepStrictEqual(mixed, [
     'Field "Doc.title" not of expected type: string',
-    'Field "Doc.title" value is too short',
     'Field "Doc.status" value is not of enum: a, b',
     'Field "Doc.owner" required!',
     'Field "Doc.ghost" required!',
@@ -223,8 +225,8 @@ test('Locales: messages are rendered through the locale of the check', () => {
   const codes = doc.check({ title: 1 }, 'Doc', { messages: (issue) => issue.code }).errors;
   assert.deepStrictEqual(codes.slice(0, 3), [
     'Field "Doc.title" type',
-    'Field "Doc.title" length',
     'Field "Doc.status" required',
+    'Field "Doc.owner" required',
   ]);
   for (const messages of [null, 42, 'uk']) {
     assert.throws(() => doc.check({}, 'Doc', { messages }), {
@@ -257,12 +259,15 @@ test('Locales: a validate function receives the dotted path and may build a resu
     },
   });
   const result = schema.check({ items: [{ sku: 'a' }, { sku: 'a-b' }] });
-  assert.deepStrictEqual(paths, ['Order', 'Order.items[0].sku', 'Order.items[1].sku']);
+  assert.deepStrictEqual(paths, ['Order.items[0].sku', 'Order.items[1].sku']);
   assert.deepStrictEqual(result.errors, [
     'Field "Order.items[0].sku" is too short',
     'Field "Order.items[0].sku.dash" needs a dash',
   ]);
   assert.deepStrictEqual(result.issues[1].path, ['items', 0, 'sku', 'dash']);
+  paths.length = 0;
+  assert.strictEqual(schema.check({ items: [{ sku: 'a-b' }] }).valid, true);
+  assert.deepStrictEqual(paths, ['Order.items[0].sku', 'Order']);
 });
 
 test('Result: flatten groups several messages of one path', () => {

@@ -12,22 +12,22 @@ const missingEnum = (type) => {
 const SCALAR_CHECKS = {
   string: (required) => (value, context, key) => {
     if (typeof value === 'string') return;
-    if (!required && (value === null || value === undefined)) return;
+    if (!required && value == null) return;
     issues.type(context, 'string', value, key);
   },
   number: (required) => (value, context, key) => {
     if (typeof value === 'number') return;
-    if (!required && (value === null || value === undefined)) return;
+    if (!required && value == null) return;
     issues.type(context, 'number', value, key);
   },
   bigint: (required) => (value, context, key) => {
     if (typeof value === 'bigint') return;
-    if (!required && (value === null || value === undefined)) return;
+    if (!required && value == null) return;
     issues.type(context, 'bigint', value, key);
   },
   boolean: (required) => (value, context, key) => {
     if (typeof value === 'boolean') return;
-    if (!required && (value === null || value === undefined)) return;
+    if (!required && value == null) return;
     issues.type(context, 'boolean', value, key);
   },
 };
@@ -61,13 +61,13 @@ const enumerable = {
       const set = new Set(values);
       return (value, context, key) => {
         if (set.has(value)) return;
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.enum(context, values, key);
       };
     }
     return (value, context, key) => {
       if (values.includes(value)) return;
-      if (!required && (value === null || value === undefined)) return;
+      if (!required && value == null) return;
       issues.enum(context, values, key);
     };
   },

@@ -25,7 +25,7 @@ const schema = {
     const { required } = this;
     const check = checkOf(this.schema);
     return (value, context, key) => {
-      if (!required && (value === null || value === undefined)) return;
+      if (!required && value == null) return;
       check(value, context, key);
     };
   },

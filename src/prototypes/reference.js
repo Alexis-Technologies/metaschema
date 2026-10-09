@@ -43,7 +43,7 @@ const reference = {
     const { one, many, root, required } = this;
     if (one) {
       return (value, context, key) => {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         const schema = root.findReference(one);
         if (!schema) issues.reference(context, one, key);
         else runReferenced(schema, value, context, key);
@@ -51,7 +51,7 @@ const reference = {
     }
     const expected = `array of ${many}`;
     return (value, context, key) => {
-      if (!required && (value === null || value === undefined)) return;
+      if (!required && value == null) return;
       const schema = root.findReference(many);
       if (!schema) {
         issues.reference(context, many, key);

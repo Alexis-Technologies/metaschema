@@ -31,7 +31,7 @@ const tuple = {
     const { length } = checks;
     return (value, context, key) => {
       if (!Array.isArray(value)) {
-        if (!required && (value === null || value === undefined)) return;
+        if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
       }

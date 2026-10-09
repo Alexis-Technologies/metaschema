@@ -35,19 +35,22 @@ const tsType = (def) => {
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
 // outer check, so the error limit and the cycle detection span the whole
-// value. Built once per schema, as Schema[RUN].
+// value. The schema-level validate runs last, and only on a value whose
+// fields all passed, so it can rely on their shape. Built once per schema,
+// as Schema[RUN].
 const compileSchema = (schema) => {
   const { fields, options } = schema;
   const run = isStruct(fields) ? checkOf(fields) : fields.check;
   return (value, context, key) => {
+    const before = context.count;
+    run(value, context, key);
     const { validate } = options;
-    if (validate) {
+    if (validate && context.count === before) {
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       runValidate(schema, validate, value, context);
       if (nested) context.path.pop();
     }
-    if (context.count < context.limit) run(value, context, key);
   };
 };
 

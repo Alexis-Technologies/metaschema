@@ -12,20 +12,25 @@ const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
 
 // The check of a field with rules or a validate function: the type check,
-// then the validate function, then the rules, each stopping at the error
-// limit. A field with neither is its type check alone.
+// then the rules, then the validate function. A type failure cancels the
+// rest (a length or a validator makes no sense for a value of another type),
+// and validate runs only on a value that passed everything before it, so it
+// can rely on the type and the rules. A field with neither is its type check
+// alone.
 const withRules = (type, inner, rules) => {
   const { required, validate } = type;
   return (value, context, key) => {
-    if ((value === null || value === undefined) && !required) return;
+    if (value == null && !required) return;
+    const before = context.count;
     inner(value, context, key);
+    if (context.count !== before) return;
     const nested = key !== undefined;
     if (nested) context.path.push(key);
-    if (validate && context.count < context.limit) runValidate(type, validate, value, context);
     for (let index = 0; index < rules.length; index += 1) {
       if (context.count >= context.limit) break;
       rules[index](value, context);
     }
+    if (validate && context.count === before) runValidate(type, validate, value, context);
     if (nested) context.path.pop();
   };
 };
@@ -82,7 +87,7 @@ class AbstractType {
     const type = this;
     const { required } = this;
     return (value, context, key) => {
-      if ((value === null || value === undefined) && !required) return;
+      if (value == null && !required) return;
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       runCheckType(type, value, context);
