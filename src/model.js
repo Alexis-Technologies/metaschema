@@ -57,7 +57,7 @@ class Model {
     for (const ref of entity.references) {
       if (ref === name) continue;
       if (visiting.has(ref)) {
-        this.warnings.push(`Recursive dependency: ${name}.${ref}`);
+        this.warnings.push(`Warning: "${name}" depends on "${ref}" recursively`);
         continue;
       }
       this.#reorderEntity(ref, visiting);

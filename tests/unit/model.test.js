@@ -215,7 +215,7 @@ test('Model: a two-entity cycle is a warning, not a crash', () => {
   ]);
   const model = new Model({}, entities);
   assert.deepStrictEqual([...model.order], ['B', 'A']);
-  assert.deepStrictEqual(model.warnings, ['Recursive dependency: B.A']);
+  assert.deepStrictEqual(model.warnings, ['Warning: "B" depends on "A" recursively']);
 });
 
 test('Model: a cycle that does not pass through the first entity is a warning', () => {
@@ -237,7 +237,8 @@ test('Model: a cycle that does not pass through the first entity is a warning', 
     // the B <-> C cycle is reported depends on where the walk entered it.
     assert.ok(order.indexOf('A') > order.indexOf('B'), names.join());
     assert.strictEqual(model.warnings.length, 1, names.join());
-    assert.match(model.warnings[0], /^Recursive dependency: (C\.B|B\.C)$/, names.join());
+    const cycle = /^Warning: "(C|B)" depends on "(B|C)" recursively$/;
+    assert.match(model.warnings[0], cycle, names.join());
   }
 });
 

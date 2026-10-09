@@ -131,7 +131,9 @@ the corrected error messages.
   `tests/unit/bundle.test.js` validates through esbuild bundles of both entries, minified and not.
 - **Reference cycles that do not pass through the first entity** (`A → B → C → B`) made `new Model`
   fail with `RangeError: Maximum call stack size exceeded`, and whether a cycle crashed or produced a
-  warning depended on the order of the entities. Every cycle is now a `Recursive dependency` warning.
+  warning depended on the order of the entities. Every cycle is now a warning, in the same format
+  as a missing reference: `Warning: "C" depends on "B" recursively` (was
+  `Recursive dependency: C.B`).
   `Model#preprocess` and `Model#reorderEntity` are constructor internals and are no longer public.
 - **A schema type without a definition** (`data: 'schema'`, `{ type: 'schema' }`, or an alias
   such as `{ js: 'schema' }` used as `'address'`) failed with

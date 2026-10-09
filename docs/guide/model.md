@@ -52,8 +52,9 @@ model.entities.get('User').check({ login: 'ab', company: { name: 'Acme', address
 
 Entities are ordered so that each one comes after the entities it references. An entity named
 `Identifier` always comes first. A cycle of any length (`A → B → A`, or `A → B → C → B`) is
-reported as `Recursive dependency: C.B` in `warnings`, naming the edge where the walk met the
-cycle again, and the order is still produced. A schema that references itself is fine.
+reported as `Warning: "C" depends on "B" recursively` in `warnings`, naming the edge where the
+walk met the cycle again, and the order is still produced. A schema that references itself is
+fine.
 
 ## Warnings
 
