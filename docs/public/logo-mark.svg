@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="metaschema">
+  <!-- A schema object: braces around three field rows; the dot marks an optional field. -->
+  <g fill="none" stroke="#7C5CFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 5C6 5 6 7 6 10v3c0 2-1 3-3 3 2 0 3 1 3 3v3c0 3 0 5 3 5"/>
+    <path d="M23 5c3 0 3 2 3 5v3c0 2 1 3 3 3-2 0-3 1-3 3v3c0 3 0 5-3 5"/>
+    <path d="M11 11h10M11 16h10M11 21h5"/>
+  </g>
+  <circle cx="20.5" cy="21" r="1.9" fill="#7C5CFF"/>
+</svg>

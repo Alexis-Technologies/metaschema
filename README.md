@@ -1,80 +1,85 @@
-# Metaschema
+# metaschema
 
-Metadata schema and interface (contract) definition language
+[![npm](https://img.shields.io/npm/v/%40alexify%2Fmetaschema)](https://www.npmjs.com/package/@alexify/metaschema)
+[![CI](https://github.com/Alexis-Technologies/metaschema/actions/workflows/ci.yml/badge.svg)](https://github.com/Alexis-Technologies/metaschema/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/%40alexify%2Fmetaschema)](#installation)
+[![dependencies](https://img.shields.io/badge/runtime_dependencies-0-brightgreen)](#why-metaschema)
+[![docs](https://img.shields.io/badge/docs-online-blue)](https://metaschema.vercel.app/)
+[![license](https://img.shields.io/npm/l/%40alexify%2Fmetaschema)](./LICENSE)
 
-[![ci](https://github.com/metarhia/metaschema/workflows/Testing%20CI/badge.svg)](https://github.com/metarhia/metaschema/actions?query=workflow%3A%22Testing+CI%22+branch%3Amaster)
-[![snyk](https://snyk.io/test/github/metarhia/metaschema/badge.svg)](https://snyk.io/test/github/metarhia/metaschema)
-[![npm version](https://badge.fury.io/js/metaschema.svg)](https://badge.fury.io/js/metaschema)
-[![npm downloads/month](https://img.shields.io/npm/dm/metaschema.svg)](https://www.npmjs.com/package/metaschema)
-[![npm downloads](https://img.shields.io/npm/dt/metaschema.svg)](https://www.npmjs.com/package/metaschema)
-[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/metarhia/metaschema/blob/master/LICENSE)
+**Metadata schema and interface definition language for JavaScript.** Declare data structures and
+domain models once as plain objects, validate data against them, and generate TypeScript
+interfaces. Zero dependencies, Node.js and browsers.
+
+```js
+const { Schema } = require('@alexify/metaschema');
+
+const user = new Schema('User', {
+  name: { first: 'string', last: 'string' },
+  email: { type: 'string', length: { min: 5, max: 64 } },
+  age: '?number',
+  roles: { array: { enum: ['admin', 'editor', 'viewer'] } },
+});
+
+user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors;
+// [
+//   'Field "User.name.last" is required',
+//   'Field "User.email" value is too short',
+//   'Field "User.roles[0]" value is not of enum: admin, editor, viewer'
+// ]
+```
+
+### 📖 [Read the documentation →](https://metaschema.vercel.app/)
+
+## Why metaschema
+
+- **Compact syntax.** `'?string'` is an optional string, `'tags?'` an optional key,
+  `{ array: 'number' }` an array, `['number', 'number']` a tuple, `'Company'` a reference. The
+  long form (`{ type: 'string', length: [3, 32] }`) is there when a field needs options.
+- **Errors, not exceptions.** `check` walks the whole value and returns every problem with its
+  path. Only a broken definition throws.
+- **Domain models.** Entities, registries, dictionaries and projections, with references,
+  relations and indexes, ordered by dependency and checked for missing references.
+- **TypeScript.** A model renders its entities as interfaces. The package ships hand-written
+  typings for its own API.
+- **Zero dependencies, under 8 KB min+gzip.** CommonJS with ESM named imports, no build step, one
+  package for Node.js and browsers.
 
 ## Installation
 
 ```bash
-$ npm i metaschema
+pnpm add @alexify/metaschema
+# or
+npm install @alexify/metaschema
 ```
 
-## Examples
+Requires Node.js 18 or newer. Works in browsers through any bundler.
 
-### Basic Schema Usage
+## Schema syntax
 
-```js
-const { Schema } = require('metaschema');
+| Form | Example | Meaning |
+| --- | --- | --- |
+| Type name | `title: 'string'` | a required string |
+| Optional | `subtitle: '?string'` or `'subtitle?': 'string'` | `undefined` / `null` allowed |
+| Long form | `login: { type: 'string', length: [3, 32] }` | a type with options |
+| Collections | `{ array: 'number' }`, `{ set: 'string' }`, `{ object: { string: 'number' } }`, `{ map: { string: 'string' } }` | |
+| Enum | `{ enum: ['admin', 'user'] }` | one of the values |
+| Tuple | `point: ['number', 'number']` | a fixed-length array of scalars |
+| Nested struct | `name: { first: 'string', last: 'string' }` | an object with its own fields |
+| Reference | `company: 'Company'`, `{ many: 'Address' }` | another schema in the model |
+| Any object | `payload: 'json'` | any non-null object |
+| Calculated | `ratio: (file) => file.compressed / file.size` | a function, never validated |
 
-const schema = Schema.from({
-  name: {
-    first: 'string',
-    last: 'string',
-    third: '?string',
-  },
-  age: 'number',
-  levelOne: {
-    levelTwo: {
-      levelThree: { type: 'enum', enum: [1, 2, 3] },
-    },
-  },
-  collection: { array: { array: 'number' } },
-});
+Built-in types: `string`, `number`, `bigint`, `boolean`, `enum`, `array`, `set`, `object`, `map`,
+`tuple`, `json`. Fields can add a `validate(value, path)` function, and a schema can have a
+top-level `validate` for rules across fields. See
+[Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax) and
+[Validation](https://metaschema.vercel.app/guide/validation).
 
-const data = {
-  name: {
-    first: 'a',
-    last: 'b',
-  },
-  age: 5,
-  levelOne: { levelTwo: { levelThree: 1 } },
-  collection: [
-    [1, 2, 3],
-    [3, 5, 6],
-  ],
-};
-
-console.log(schema.check(data));
-// Output: ValidationResult { errors: [], valid: true }
-```
-
-### Schema Constructor
+## Domain models
 
 ```js
-const { Schema } = require('metaschema');
-
-const schema = new Schema('User', {
-  name: 'string',
-  email: 'string',
-  age: 'number',
-  active: 'boolean',
-});
-
-console.log(schema.name); // 'User'
-console.log(schema.kind); // 'struct'
-console.log(schema.scope); // 'local'
-```
-
-### Model Usage
-
-```js
-const { Model } = require('metaschema');
+const { Model } = require('@alexify/metaschema');
 
 const types = {
   string: { metadata: { pg: 'varchar' } },
@@ -82,51 +87,93 @@ const types = {
   boolean: { metadata: { pg: 'boolean' } },
 };
 
-const entities = new Map();
-entities.set('User', {
-  Entity: { scope: 'application', store: 'persistent' },
-  name: 'string',
-  email: { type: 'string', unique: true },
-  age: 'number',
-});
+const entities = new Map([
+  ['Company', { Dictionary: {}, name: { type: 'string', unique: true }, addresses: { many: 'Address' } }],
+  ['Address', { Entity: {}, city: 'string', street: 'string', building: '?string' }],
+  ['User', { Registry: {}, login: { type: 'string', length: { min: 3, max: 32 } }, company: 'Company', active: 'boolean' }],
+]);
 
 const model = new Model(types, entities);
-console.log(model.dts); // Generated TypeScript definitions
+
+model.order; // Set { 'Address', 'Company', 'User' }
+model.warnings; // [] (missing references end up here)
+console.log(model.dts);
 ```
 
-### Loader Functions
+```ts
+interface Address {
+  city: string;
+  street: string;
+  building?: string;
+  addressId?: string;
+}
+
+interface Company {
+  name: string;
+  addressesId: string[];
+  companyId?: string;
+}
+
+interface User {
+  login: string;
+  companyId: string;
+  active: boolean;
+  userId?: string;
+}
+```
+
+`saveTypes(outputFile, model)` writes `model.dts` to a file. The first key of a definition sets
+its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
+`View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
+`scope: 'application'` and `store: 'persistent'`, and they get an id field. See
+[Kinds and Metadata](https://metaschema.vercel.app/guide/kinds-and-metadata),
+[Custom Types](https://metaschema.vercel.app/guide/custom-types) and
+[Domain Models](https://metaschema.vercel.app/guide/model).
+
+## Exports
 
 ```js
-const { createSchema, loadSchema, loadModel } = require('metaschema');
-
-// Create schema from string
-const schema1 = createSchema('User', "({ name: 'string', age: 'number' })");
-
-// Load schema from file
-const schema2 = await loadSchema('./schemas/user.js');
-
-// Load entire model from directory
-const model = await loadModel('./schemas');
+const {
+  KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
+  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
+} = require('@alexify/metaschema');
 ```
-
-### Schema Kinds and Metadata
 
 ```js
-const { Schema, KIND, SCOPE, STORE } = require('metaschema');
-
-console.log(KIND); // ['struct', 'scalar', 'form', 'projection', ...]
-console.log(SCOPE); // ['application', 'global', 'local']
-console.log(STORE); // ['persistent', 'memory']
-
-const entitySchema = new Schema('Company', {
-  Entity: { scope: 'application', store: 'persistent' },
-  name: 'string',
-  address: 'string',
-});
+import { Schema, Model } from '@alexify/metaschema';
 ```
 
-## License & Contributors
+In the browser every export works the same, except `saveTypes`, which rejects because there is no
+file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member.
 
-Copyright (c) 2017-2025 [Metarhia contributors](https://github.com/metarhia/metaschema/graphs/contributors).
-Metaschema is [MIT licensed](./LICENSE).\
-Metaschema is a part of [Metarhia](https://github.com/metarhia) technology stack.
+## Migrating from `metaschema` (metarhia)
+
+`@alexify/metaschema` is a fork of [`metaschema`](https://github.com/metarhia/metaschema) 2.2. The
+schema language and the validation rules are the same. What changed:
+
+- **No loader.** `createSchema`, `loadSchema`, `readDirectory` and `loadModel` are removed along
+  with the `metavm` sandbox. Use `new Schema(name, require('./schemas/User.js'))` and
+  `new Model(types, new Map([...]), database)`. Schema files written as `({ ... })` become modules
+  (`module.exports = { ... }`).
+- **No runtime dependencies:** `metautil`, `metavm` and `metaskills` are gone.
+- **Fixed messages, no old text kept:** `Field "..."` instead of `Filed "..."`,
+  `not of expected type: object` instead of `is not a object`, and "more than" instead of
+  "more then".
+- **`detouch` is renamed to `detach`**, with no alias.
+- **`browser.js`** replaces `dist.js`, and an `exports` map closes deep imports.
+
+The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia)
+and the [CHANGELOG](./CHANGELOG.md).
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md).
+
+## License
+
+[MIT](./LICENSE) © Alexis Technologies
+
+`@alexify/metaschema` is a fork of [`metaschema`](https://github.com/metarhia/metaschema) by the
+[Metarhia contributors](https://github.com/metarhia/metaschema/graphs/contributors), originally
+part of the [Metarhia](https://github.com/metarhia) technology stack. Their copyright is kept in
+[LICENSE](./LICENSE).

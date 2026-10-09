@@ -1,61 +1,95 @@
 {
-  "name": "metaschema",
-  "version": "2.2.2",
-  "author": "Timur Shemsedinov <timur.shemsedinov@gmail.com>",
-  "description": "Metadata Schema and Interface Definition Language (IDL)",
+  "name": "@alexify/metaschema",
+  "version": "1.0.0",
+  "description": "Zero-dependency metadata schema and interface definition language (IDL) for Node.js and browsers — data validation, domain models and TypeScript generation",
   "license": "MIT",
-  "keywords": [
-    "interface",
-    "definition",
-    "metarhia",
-    "idl",
-    "dsl",
-    "schema",
-    "metadata"
-  ],
+  "author": "Alex Dolid <dolid.sasha@gmail.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/metarhia/metaschema.git"
+    "url": "git+https://github.com/Alexis-Technologies/metaschema.git"
   },
+  "homepage": "https://metaschema.vercel.app/",
   "bugs": {
-    "url": "https://github.com/metarhia/metaschema/issues",
-    "email": "timur.shemsedinov@gmail.com"
-  },
-  "homepage": "https://metarhia.com",
-  "funding": {
-    "type": "patreon",
-    "url": "https://www.patreon.com/tshemsedinov"
-  },
-  "main": "metaschema.js",
-  "browser": {
-    "./metaschema.js": "./dist.js"
-  },
-  "types": "metaschema.d.ts",
-  "files": [
-    "lib/",
-    "dist.js",
-    "metaschema.d.ts"
-  ],
-  "readmeFilename": "README.md",
-  "scripts": {
-    "test": "npm run lint && npm run types && node --test",
-    "types": "tsc -p tsconfig.json",
-    "lint": "eslint . && prettier -c \"**/*.js\" \"**/*.json\" \"**/*.md\" \"**/*.ts\"",
-    "fix": "eslint . --fix && prettier --write \"**/*.js\" \"**/*.json\" \"**/*.md\" \"**/*.ts\""
+    "url": "https://github.com/Alexis-Technologies/metaschema/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18.0.0"
   },
-  "dependencies": {
-    "metaskills": "^1.0.5",
-    "metautil": "^5.4.0",
-    "metavm": "^1.4.5"
+  "packageManager": "pnpm@10.34.5",
+  "main": "index.js",
+  "browser": {
+    "./index.js": "./browser.js",
+    "./src/runtime/node.js": "./src/runtime/browser.js"
   },
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "browser": "./browser.js",
+      "default": "./index.js"
+    }
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "browser.js",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --test tests/unit/*.test.js",
+    "test:coverage": "c8 --all --include 'src/**' --check-coverage --lines 98 --statements 98 --branches 90 --functions 100 --reporter text --reporter lcov node --test tests/unit/*.test.js",
+    "test:types": "tsd",
+    "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts",
+    "lint": "oxlint src tests scripts bench",
+    "format": "oxfmt src tests scripts bench",
+    "format:check": "oxfmt --check src tests scripts bench",
+    "size": "node scripts/size.js",
+    "bench": "node bench/bench.js",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "prepublishOnly": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:types && pnpm run check:dts",
+    "release": "pnpm publish"
+  },
+  "tsd": {
+    "directory": "tests/types"
+  },
+  "keywords": [
+    "schema",
+    "metaschema",
+    "metadata",
+    "idl",
+    "interface-definition-language",
+    "dsl",
+    "validation",
+    "data-validation",
+    "domain-model",
+    "model",
+    "typescript",
+    "typescript-definitions",
+    "zero-dependency",
+    "browser",
+    "metarhia"
+  ],
   "devDependencies": {
-    "@types/node": "^24.4.0",
-    "eslint": "^9.35.0",
-    "eslint-config-metarhia": "^9.1.3",
-    "prettier": "^3.9.6",
-    "typescript": "^5.9.2"
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
+    "c8": "^12.0.0",
+    "esbuild": "^0.28.2",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.75.0",
+    "tsd": "^0.33.0",
+    "typescript": "^7.0.2",
+    "vitepress": "^1.6.4"
   }
 }

@@ -1,0 +1,37 @@
+# @alexify/metaschema
+
+> Zero-dependency metadata schema and interface definition language (IDL) for Node.js and
+> browsers. Declare data structures and domain models as plain JavaScript objects, validate data
+> against them (every error is collected with its path, nothing throws on bad data), and generate
+> TypeScript interfaces from a model. A fork of metarhia/metaschema maintained by Alexis
+> Technologies.
+
+Key facts:
+- Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
+- Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
+- Zero runtime dependencies, under 8 KB min+gzip
+- Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
+  `ValidationResult`, and the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
+  `ALLOW`
+- `Schema.from(definition).check(value)` returns a `ValidationResult` (`{ valid, errors }`); a
+  `validate` function may build and return one
+- A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
+  `field`, when the schema is built, never during `check`
+- Safe to bundle and minify: identity checks use a global symbol brand, not class names
+- Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }`,
+  `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`, `{ map: { string: T } }`,
+  `{ enum: [...] }`, tuples `['number', 'number']`, `'json'`, references by capitalized name
+  (`'Company'`, `{ many: 'Address' }`)
+- Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
+  `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
+  kind
+- `new Model(types, entities, database)` resolves references, orders entities and renders
+  `model.dts`
+- Does not load schemas from files or evaluate source strings; pass schema objects directly
+
+Docs:
+- Getting started: https://metaschema.vercel.app/guide/getting-started
+- Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
+- Validation: https://metaschema.vercel.app/guide/validation
+- Domain models: https://metaschema.vercel.app/guide/model
+- API: https://metaschema.vercel.app/api/exports

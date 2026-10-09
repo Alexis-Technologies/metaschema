@@ -1,41 +1,66 @@
 # Contributing
 
-- [Issues](#issues)
-- [Pull Requests](#pull-requests)
+Thanks for helping improve metaschema. This page covers the rules that are easy to break by
+accident; [CLAUDE.md](CLAUDE.md) describes how the codebase fits together.
 
-## Issues
+## Getting set up
 
-There are two reasons to open an issue:
+```bash
+pnpm install
+pnpm test
+```
 
-- Bug report
-- Feature request
+There is no build step. What you edit in `src/` is what ships.
 
-For bug reports please describe the bug with a clear and concise description,
-steps to reproduce the behavior (usage example or test), expected behavior,
-provide OS, Node.js and Impress version, you can upload screenshots and any
-additional context for better understanding.
+## The rules that are not negotiable
 
-Please don't open an issue to ask questions.
+**1. No runtime dependencies.** `package.json` has no `dependencies` key, and it stays that way.
+When a small helper is needed, copy it into `src/` with an attribution comment, the way
+`src/metautil.js` was copied from metautil. devDependencies are fine.
 
-Issues on GitHub are intended to be related to problems and feature requests
-so we recommend not using this medium to ask them here grin. Thanks for
-understanding!
+**2. Plain CommonJS.** `require`/`module.exports`, no `import`/`export`, no TypeScript syntax, no
+`'use strict'`. Built-in modules use the `node:` prefix, and relative requires include `.js`.
 
-If you have a question, please check out our support groups and channels for
-developers community:
+**3. Node builtins only in `src/runtime/node.js`.** Everything else under `src/` runs in browsers
+too. `src/runtime/browser.js` exports the same names, and `tests/unit/platform.test.js` fails if a
+builtin leaks anywhere else.
 
-Telegram:
+**4. A public API change touches three files together:** `src/index.js`, `index.d.ts` and a test
+(plus a `tests/types` assertion for anything new). `tests/unit/export-parity.test.js` fails when
+the runtime exports and the declarations drift apart.
 
-- Channel for Metarhia community: https://t.me/metarhia
-- Group for Metarhia technology stack community: https://t.me/metaserverless
-- Group for NodeUA community: https://t.me/nodeua
+**5. Errors are data.** Validation collects messages in a `ValidationResult` and never throws on bad
+input. `throw` is for broken schema definitions only.
 
-## Pull Requests
+**6. No loader.** metaschema does not read schema files, evaluate source strings or run a sandbox.
+That was removed on purpose in 1.0.
 
-Before open pull request please follow checklist:
+## Tests
 
-- [ ] tests and linter show no problems (`npm t`)
-- [ ] tests are added/updated for bug fixes and new features
-- [ ] code is properly formatted (`npm run fmt`)
-- [ ] description of changes is added in CHANGELOG.md
-- [ ] update .d.ts typings
+Node's built-in `node:test`, no external framework.
+
+- `tests/unit/*.test.js`: one file per area. Run one with `node --test tests/unit/schema.test.js`.
+- `tests/types/*.test-d.ts`: `tsd` assertions against `index.d.ts`.
+- `tests/fixtures/schemas/`: a small domain model as plain CommonJS modules, assembled by
+  `index.js`.
+
+`pnpm run test:coverage` enforces 98% lines and statements, 90% branches and 100% functions.
+
+New behavior needs a test that fails without the change. For a bug fix, the test should describe
+the bug, not the implementation.
+
+## Before opening a PR
+
+```bash
+pnpm run lint
+pnpm run format
+pnpm test
+pnpm run test:types
+pnpm run check:dts
+```
+
+`prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`. Treat that as the merge
+gate.
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat(scope):`, `fix(scope):`, `test:`, `docs:`).
