@@ -59,6 +59,13 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Bundled and minified builds.** Schemas, fields and validation results were recognised by
+  `constructor.name`. esbuild emits `class _Schema` for the self-referencing `Schema` class, so in
+  any esbuild bundle (Vite, tsup, serverless builds) a `Schema` instance used as a field, or passed
+  to `new Schema`, failed with `Unknown type struct`; with minification the `Type` class was
+  renamed too and `check` accepted every value. Identity is now a global symbol brand
+  (`Symbol.for`), which also recognises results from a second copy of the package.
+  `tests/unit/bundle.test.js` validates through esbuild bundles of both entries, minified and not.
 - **Reference cycles that do not pass through the first entity** (`A → B → C → B`) made `new Model`
   fail with `RangeError: Maximum call stack size exceeded`, and whether a cycle crashed or produced a
   warning depended on the order of the entities. Every cycle is now a `Recursive dependency` warning.

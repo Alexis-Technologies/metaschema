@@ -1,7 +1,5 @@
-const { isInstanceOf } = require('./metautil.js');
-
 const { ValidationResult } = require('./metadata.js');
-const { formatters } = require('./util.js');
+const { BRAND, hasBrand, formatters } = require('./util.js');
 
 class Struct {
   constructor(defs, prep) {
@@ -40,7 +38,7 @@ class Struct {
         result.add(`Field "${name}" is not expected`);
         continue;
       }
-      if (!isInstanceOf(type, 'Type')) continue;
+      if (!hasBrand(type, 'Type')) continue;
       const nestedPath = path ? `${path}.${name}` : name;
       const missing = type.required && !keys.includes(name);
       if (missing) {
@@ -52,5 +50,7 @@ class Struct {
     return result;
   }
 }
+
+Struct.prototype[BRAND] = 'Struct';
 
 module.exports = { Struct };

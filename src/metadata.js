@@ -1,4 +1,5 @@
 const { getKindMetadata } = require('./kinds.js');
+const { BRAND, hasBrand } = require('./util.js');
 
 const ERR_PREFIX = 'Field';
 const OPTIONS = ['validate', 'parse', 'serialize', 'format'];
@@ -40,9 +41,11 @@ class ValidationResult {
   }
 
   static isInstance(error) {
-    return error instanceof ValidationResult;
+    return hasBrand(error, 'ValidationResult');
   }
 }
+
+ValidationResult.prototype[BRAND] = 'ValidationResult';
 
 class Options {
   constructor() {

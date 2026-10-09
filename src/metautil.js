@@ -13,8 +13,6 @@ const toLowerCamel = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 
 const firstKey = (obj) => Object.keys(obj).find(isFirstLetter);
 
-const isInstanceOf = (obj, constrName) => obj?.constructor?.name === constrName;
-
 module.exports = {
   inRange,
   isFirstUpper,
@@ -22,5 +20,4 @@ module.exports = {
   isFirstLetter,
   toLowerCamel,
   firstKey,
-  isInstanceOf,
 };

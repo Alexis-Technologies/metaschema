@@ -59,7 +59,7 @@ pre-merge gate. There is no build step.
 
 There is no `dependencies` key in `package.json`, and there won't be one. `src/metautil.js` holds
 the helpers metaschema used from metautil (`inRange`, `isFirstUpper`, `isFirstLower`,
-`isFirstLetter`, `toLowerCamel`, `firstKey`, `isInstanceOf`), copied from metautil v5.5.2 with an
+`isFirstLetter`, `toLowerCamel`, `firstKey`), copied from metautil v5.5.2 with an
 attribution header. It is ordinary project code now: formatted, linted and covered like the rest of
 `src/`. If another small helper is needed, copy it into `src/` with attribution rather than adding
 a dependency. devDependencies are fine.
@@ -85,7 +85,7 @@ src/
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }
   types.js          TYPES registry, createType, typeFactory
   model.js          Model: entities, ordering, warnings, dts
-  util.js           formatters (type '?x', key 'x?', length) and checks (length)
+  util.js           BRAND/hasBrand identity brand, formatters (type '?x', key 'x?', length), checks
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       type prototypes: abstract, scalars, collections, reference, schema, tuple, json
   runtime/          node.js (saveTypes via node:fs) and browser.js (same interface, rejects)
@@ -222,6 +222,9 @@ change. **This file wins** if they ever disagree.
   from it.
 - The type registry is process-global, but `node --test` runs each test file in its own process,
   so files do not leak custom types into each other. Within one file, tests do share it.
+- `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
+  and not) and validates through the result, so a class-name-based identity check cannot come
+  back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18.
 - New behavior needs a test that fails without the change.
 
 ## Things that look like bugs but aren't
@@ -229,9 +232,14 @@ change. **This file wins** if they ever disagree.
 - **`TYPES` is mutated by `typeFactory`.** Custom types and metadata registered by one `Model` are
   visible to every schema in the process, including `Schema.from` without a namespace. This is
   upstream's design; do not "fix" it by cloning per model without discussing it first.
-- **Type checks use `constructor.name`** (`isInstanceOf(x, 'Schema')`, `value?.constructor?.name
-  === 'Map'`) instead of `instanceof`. Keep it: it works across realms and duplicate copies of the
-  package.
+- **Identity checks use a brand symbol, not `instanceof` or `constructor.name`.** `util.js`
+  exports `BRAND = Symbol.for('alexify.metaschema.brand')` and `hasBrand(value, name)`;
+  `AbstractType`, `Schema`, `Struct` and `ValidationResult` carry it on their prototypes. A global
+  symbol works across realms and duplicate copies of the package (which `instanceof` does not) and
+  survives bundlers renaming a class (`class _Schema`) and minifiers mangling it (which
+  `constructor.name` does not). `tests/unit/bundle.test.js` validates through esbuild bundles of
+  both entries, minified and not. Only built-ins are still recognised by name
+  (`value?.constructor?.name === 'Map'`), since nothing renames those.
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
 - **Optional nested structs have two mechanisms.** Inside a struct, `Struct` lowers the flag with

@@ -17,5 +17,10 @@ const { valid, errors } = form.check({ email: 'marcus@example.com', age: 42 });
 Everything works the same as in Node.js, with one exception: `saveTypes` has no file system to write
 to, so it returns a rejected promise. Read `model.dts` and send it wherever you need instead.
 
+Bundling and minification are safe: metaschema recognises its own schemas, fields and results by a
+global symbol brand (`Symbol.for`), not by class names, so a bundler that renames a class or a
+minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
+builds both entry points with esbuild, minified and not, and validates through the result.
+
 The whole package is about 6 KB min+gzip in either environment. `pnpm size` in the repository
 prints the exact numbers.

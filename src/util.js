@@ -1,3 +1,10 @@
+// Identity brand for the package's own classes. A global symbol is shared by every copy of the
+// package in a process and by every realm, and it survives bundlers that rename a class
+// (`class _Schema`) and minifiers that mangle it, none of which `constructor.name` does.
+const BRAND = Symbol.for('alexify.metaschema.brand');
+
+const hasBrand = (value, name) => value?.[BRAND] === name;
+
 const formatters = {
   type: (type, req = true) => {
     const required = !type.startsWith('?');
@@ -38,4 +45,4 @@ const checks = {
   },
 };
 
-module.exports = { formatters, checks };
+module.exports = { BRAND, hasBrand, formatters, checks };

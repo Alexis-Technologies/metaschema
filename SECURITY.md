@@ -45,6 +45,10 @@ Some things work as intended and are not vulnerabilities:
   every schema in the process. Register them once, from trusted code.
 - **`saveTypes` writes where it is told.** The output path is the caller's argument; metaschema
   does not sanitize it.
+- **Bundled and minified builds validate exactly like the source.** Internal identity checks use a
+  global symbol brand, not class names, and `tests/unit/bundle.test.js` validates through esbuild
+  bundles of both entry points, minified and not. A build in which `check` accepts invalid data is a
+  bug; please report it.
 
 Things that *are* in scope: input data that makes `check` throw, hang or consume unbounded
 resources; input data that changes a schema or the type registry; and a message that leaks a value

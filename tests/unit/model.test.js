@@ -164,7 +164,6 @@ test('Model: from fixture schemas, projection', () => {
   assert.strictEqual(model.entities.size, 6);
   const Account = model.entities.get('Account');
   assert.strictEqual(Account.fields.fullName.constructor.type, 'schema');
-  assert.strictEqual(Account.fields.fullName.constructor.name, 'Type');
   assert.strictEqual(model.order.size, 6);
   assert.strictEqual(typeof model.types, 'object');
   assert.strictEqual(typeof model.database, 'object');

@@ -1,5 +1,4 @@
-const { isInstanceOf } = require('../metautil.js');
-
+const { hasBrand } = require('../util.js');
 const { Struct } = require('../struct.js');
 
 const missingSchema = (type) =>
@@ -15,7 +14,7 @@ const schema = {
     const { schema, required } = defs;
     if (!isDefinition(schema)) throw new TypeError(missingSchema(this.type));
     this.required = required ?? true;
-    const isStruct = isInstanceOf(schema, 'Struct');
+    const isStruct = hasBrand(schema, 'Struct');
     if (isStruct) this.schema = schema;
     else this.schema = new Struct(schema, prep);
     this.validate = defs.schema.validate || undefined;

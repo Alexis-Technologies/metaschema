@@ -35,11 +35,3 @@ test('metautil: firstKey', () => {
   assert.strictEqual(metautil.firstKey({ name: 'string' }), 'name');
   assert.strictEqual(metautil.firstKey({ $id: 1 }), undefined);
 });
-
-test('metautil: isInstanceOf', () => {
-  class Schema {}
-  assert.strictEqual(metautil.isInstanceOf(new Schema(), 'Schema'), true);
-  assert.strictEqual(metautil.isInstanceOf({}, 'Schema'), false);
-  assert.strictEqual(metautil.isInstanceOf(null, 'Schema'), false);
-  assert.strictEqual(metautil.isInstanceOf(undefined, 'Object'), false);
-});

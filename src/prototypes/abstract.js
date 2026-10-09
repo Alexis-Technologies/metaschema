@@ -1,5 +1,5 @@
 const { ValidationResult } = require('../metadata.js');
-const { formatters, checks } = require('../util.js');
+const { BRAND, formatters, checks } = require('../util.js');
 
 class AbstractType {
   static checks = {};
@@ -51,5 +51,7 @@ class AbstractType {
     return rest;
   }
 }
+
+AbstractType.prototype[BRAND] = 'Type';
 
 module.exports = { AbstractType };

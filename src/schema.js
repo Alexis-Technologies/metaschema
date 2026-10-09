@@ -1,5 +1,6 @@
-const { isFirstUpper, isInstanceOf } = require('./metautil.js');
+const { isFirstUpper } = require('./metautil.js');
 
+const { BRAND, hasBrand } = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
@@ -13,13 +14,13 @@ class Schema extends SchemaMetadata {
   }
 
   static extractSchema(def) {
-    if (isInstanceOf(def, 'Schema')) return def;
-    if (isInstanceOf(def.schema, 'Schema')) return def.schema;
+    if (hasBrand(def, 'Schema')) return def;
+    if (hasBrand(def.schema, 'Schema')) return def.schema;
     return null;
   }
 
   constructor(name, raw, namespaces = []) {
-    if (isInstanceOf(raw, 'Schema')) return raw;
+    if (hasBrand(raw, 'Schema')) return raw;
     super();
     this.name = name;
     this.namespaces = new Set(namespaces);
@@ -116,5 +117,7 @@ class Schema extends SchemaMetadata {
     return rest;
   }
 }
+
+Schema.prototype[BRAND] = 'Schema';
 
 module.exports = { Schema };
