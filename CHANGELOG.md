@@ -65,6 +65,10 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Tuple fields in the short form were never required.** `point: ['number', 'number']` left
+  `required` undefined, so a missing `point` passed validation and `model.dts` rendered it as
+  optional; only the long form `{ type: 'tuple', value: [...] }` was required. The short form is now
+  required by default like every other field, and `'point?': [...]` makes it optional.
 - **Field names `check`, `name`, `constructor` and other `Object.prototype` names.** A struct was a
   class instance used as a dictionary, so a field named `check` replaced the method
   (`this.fields.check is not a function`), a field named `name` corrupted the message for a value

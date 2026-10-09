@@ -72,3 +72,18 @@ test('Tuple: usage with schema', () => {
     'Field "field(count1)" not of expected type: number',
   ]);
 });
+
+test('Tuple: a tuple field is required unless marked optional', () => {
+  const schema = Schema.from({ point: ['number', 'number'], name: 'string' });
+  assert.strictEqual(schema.fields.point.required, true);
+  assert.deepStrictEqual(schema.check({ name: 'x' }).errors, ['Field "point" is required']);
+  assert.strictEqual(schema.check({ name: 'x', point: [1, 2] }).valid, true);
+
+  const optional = Schema.from({ 'point?': ['number', 'number'] });
+  assert.strictEqual(optional.fields.point.required, false);
+  assert.deepStrictEqual(optional.check({}).errors, []);
+  assert.deepStrictEqual(optional.check({ point: null }).errors, []);
+
+  const long = Schema.from({ point: { type: 'tuple', value: ['number'], required: false } });
+  assert.strictEqual(long.fields.point.required, false);
+});

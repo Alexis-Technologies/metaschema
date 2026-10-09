@@ -98,7 +98,7 @@ class Preprocessor {
 
   tupleShorthand(source) {
     const { types } = this;
-    const defs = { value: source };
+    const defs = { value: source, required: true };
     return { Type: types.tuple, defs };
   }
 
