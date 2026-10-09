@@ -39,12 +39,15 @@ class Preprocessor {
     this.types = root.types;
   }
 
+  // The first key of an object is read once here and handed to the parsers
+  // that look at it.
   parse(source) {
     const srcType = sourceType(source);
     const parsers = PARSERS[srcType];
     if (parsers) {
+      const first = srcType === 'object' ? firstKey(source) : undefined;
       for (const name of parsers) {
-        const result = this[name](source);
+        const result = this[name](source, first);
         if (result) return result;
       }
     }
@@ -64,15 +67,15 @@ class Preprocessor {
   // that holds it.
   typeInstance(source) {
     if (!hasBrand(source, 'Type')) return null;
-    return this.typeLongForm({ type: source.type, ...source.toJSON() });
+    return this.typeLongForm({ type: source.type, ...source.toJSON() }, 'type');
   }
 
   stringShorthand(source) {
-    return this.typeLongForm({ type: source });
+    return this.typeLongForm({ type: source }, 'type');
   }
 
-  typeLongForm(source) {
-    if (firstKey(source) !== 'type') return null;
+  typeLongForm(source, first) {
+    if (first !== 'type') return null;
     if (typeof source.type !== 'string') throw invalid(source.type);
     const { types } = this;
     const parsed = formatters.type(source.type, source.required);
@@ -88,9 +91,8 @@ class Preprocessor {
     return { Type: types[type], defs };
   }
 
-  typeShorthand(source) {
+  typeShorthand(source, first) {
     const { types } = this;
-    const first = firstKey(source);
     const parsed = formatters.key(first, source.required);
     const type = parsed.field;
     const required = parsed.required;
@@ -100,9 +102,8 @@ class Preprocessor {
     return { Type: types[type], defs };
   }
 
-  schemaWithKind(source) {
+  schemaWithKind(source, first) {
     const { types, root } = this;
-    const first = firstKey(source);
     if (!isFirstUpper(first)) return null;
     const { [first]: meta, ...fields } = source;
     const kind = toLowerCamel(first);

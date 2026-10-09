@@ -95,9 +95,16 @@ const lengthOfUnicode = (value) =>
 
 const compileLength = (type) => {
   const { min, max } = type.length;
-  const measure = type.unicode === true ? lengthOfUnicode : lengthOf;
+  if (type.unicode === true) {
+    return (value, context, key) => {
+      const actual = lengthOfUnicode(value);
+      const short = min !== undefined && actual < min;
+      const long = max !== undefined && actual > max;
+      if (short || long) issues.length(context, min, max, actual, key);
+    };
+  }
   return (value, context, key) => {
-    const actual = measure(value);
+    const actual = lengthOf(value);
     const short = min !== undefined && actual < min;
     const long = max !== undefined && actual > max;
     if (short || long) issues.length(context, min, max, actual, key);
@@ -134,6 +141,7 @@ const compilePattern = (type) => {
 // The checks of the rules a field carries, in the order the type lists them.
 const compileRules = (type, rules) => {
   const checks = [];
+  if (rules.size === 0) return checks;
   let range = false;
   for (const name of rules) {
     if (type[name] === undefined) continue;

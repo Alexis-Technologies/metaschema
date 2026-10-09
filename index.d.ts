@@ -309,7 +309,8 @@ export class Schema {
   relations: Set<Relation>;
   // Lint warnings of the definition, `Warning [code]: text`: unknown field
   // options, a pattern without length.max, an index over a missing field.
-  warnings: Array<string>;
+  // Computed on first use.
+  readonly warnings: Array<string>;
 
   constructor(name: string, raw: string | object, namespaces?: Array<Model>);
   get types(): TypeTable;
@@ -331,7 +332,8 @@ export class Model {
   order: Set<string>;
   // The warnings of every entity, plus references that do not resolve
   // (missing-reference) and recursive dependencies (recursive-reference).
-  warnings: Array<string>;
+  // Computed on first use.
+  readonly warnings: Array<string>;
 
   constructor(
     types: Record<string, TypeEntry>,

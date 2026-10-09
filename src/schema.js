@@ -34,12 +34,15 @@ const asId = (def) => {
   return !embeds(target, def.embed, 'kind');
 };
 
+const tsStruct = (fields) => `{ ${tsFields(fields).join('; ')} }`;
+
 // The referenced type: its interface by name, inline when it has none, the
 // name of the reference when it cannot be resolved.
 const tsReference = (def) => {
   const target = def.root.findReference(def.type);
   if (target === null || target.name) return def.type;
-  return tsType(target.fields);
+  const { fields } = target;
+  return hasBrand(fields, 'Struct') ? tsStruct(fields) : tsType(fields);
 };
 
 // The TypeScript type of a field. A reference to a stored kind is held as
@@ -59,7 +62,7 @@ const tsBase = (def) => {
   if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
   if (def.union) return def.union.map(tsType).join(' | ');
   if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
-  if (def.schema) return `{ ${tsFields(def.schema).join('; ')} }`;
+  if (def.schema) return tsStruct(def.schema);
   if (Array.isArray(def.value)) return `[${def.value.map(tsType).join(', ')}]`;
   if (def.key !== undefined && def.value) {
     const entries = `${def.key}, ${tsType(def.value)}`;
@@ -117,6 +120,10 @@ class Schema extends SchemaMetadata {
   // references can reach it again.
   #tracked = false;
 
+  // The lint of the definition, run on first use: a schema built in a hot
+  // path never pays for it.
+  #warnings = null;
+
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
   }
@@ -157,7 +164,12 @@ class Schema extends SchemaMetadata {
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
     this[RUN] = compileSchema(this);
-    this.warnings = lintSchema(this);
+  }
+
+  // What is not wrong enough to throw: `Warning [code]: text` strings.
+  get warnings() {
+    if (this.#warnings === null) this.#warnings = lintSchema(this);
+    return this.#warnings;
   }
 
   get types() {

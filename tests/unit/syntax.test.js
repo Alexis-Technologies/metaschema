@@ -88,6 +88,9 @@ test('Syntax: a Schema instance is a nested struct in every form, with its valid
   assert.throws(() => Schema.from({ span: { required: false, schema: range } }), {
     code: 'ERR_INVALID_DEFINITION',
   });
+  assert.strictEqual(Schema.extractSchema(range), range);
+  assert.strictEqual(Schema.extractSchema({ schema: range }), range);
+  assert.strictEqual(Schema.extractSchema({ schema: { min: 'number' } }), null);
 
   // References of the embedded schema are the references of the host.
   const model = new Model({}, [['Company', { Entity: {}, name: 'string' }]]);

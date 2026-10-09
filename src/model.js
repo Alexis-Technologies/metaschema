@@ -17,12 +17,16 @@ const registryFor = (options) => {
 };
 
 class Model {
+  // The model's own warnings (the cycles met while ordering), found while
+  // building; the rest comes from the entities on first use.
+  #cycles = [];
+  #warnings = null;
+
   constructor(types, entities, database = null, options = {}) {
     this.types = typeFactory(types, registryFor(options));
     this.entities = new Map();
     this.database = database;
     this.order = new Set();
-    this.warnings = [];
     const projections = [];
     for (const pair of entities) {
       const name = pair[0];
@@ -44,14 +48,24 @@ class Model {
     this.#preprocess();
   }
 
-  #preprocess() {
-    const { entities, order } = this;
-    for (const pair of entities) {
+  // The lint warnings of every entity, the references and types they cannot
+  // resolve, and the recursive dependencies, as `Warning [code]: text`.
+  get warnings() {
+    if (this.#warnings !== null) return this.#warnings;
+    const warnings = [];
+    for (const pair of this.entities) {
       const name = pair[0];
       const entity = pair[1];
       if (name.startsWith('.')) continue;
-      this.warnings.push(...entity.warnings, ...entity.checkConsistency());
+      warnings.push(...entity.warnings, ...entity.checkConsistency());
     }
+    warnings.push(...this.#cycles);
+    this.#warnings = warnings;
+    return warnings;
+  }
+
+  #preprocess() {
+    const { entities, order } = this;
     if (entities.has('Identifier')) order.add('Identifier');
     for (const name of entities.keys()) {
       const isMeta = name.startsWith('.');
@@ -69,7 +83,7 @@ class Model {
     for (const ref of entity.references) {
       if (ref === name) continue;
       if (visiting.has(ref)) {
-        this.warnings.push(
+        this.#cycles.push(
           warning('recursive-reference', `"${name}" depends on "${ref}" recursively`),
         );
         continue;

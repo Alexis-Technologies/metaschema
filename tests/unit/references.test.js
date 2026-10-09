@@ -224,6 +224,16 @@ test('References: the generated TypeScript follows the same rule', () => {
 }`,
   );
   assert.ok(model.dts.startsWith('interface Company {'));
+  // An entity given as an anonymous Schema instance keeps no name to render
+  // by, so it is inlined.
+  const anonymous = new Model({}, [
+    ['Tag', Schema.from({ name: 'string' })],
+    ['Post', { Entity: {}, tag: 'Tag', tags: { many: 'Tag' } }],
+  ]);
+  assert.strictEqual(
+    anonymous.entities.get('Post').toInterface(),
+    'interface Post {\n  tag: { name: string };\n  tags: { name: string }[];\n  postId?: string;\n}',
+  );
   // Outside a model nothing resolves, and a reference is an id.
   assert.strictEqual(
     new Schema('Person', { employer: 'Company', tags: { many: 'Tag' } }).toInterface(),

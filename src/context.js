@@ -56,28 +56,27 @@ const optionsOf = (options) => {
   throw invalid('check options', `an object${hint}`, options);
 };
 
+// The options of a call, checked and written over the defaults. Kept out of
+// createContext so that the allocation stays small enough for V8 to inline
+// into Schema#check: a check without options is the common call.
+const configure = (context, options) => {
+  optionsOf(options);
+  if (options.maxErrors !== undefined) context.limit = maxErrorsOf(options.maxErrors);
+  if (options.messages !== undefined) context.messages = messagesOf(options.messages);
+  if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown);
+  if (options.references !== undefined) context.references = referencesOf(options.references);
+  if (options.root !== undefined) context.root = rootOf(options.root);
+};
+
 // One object shape for every context: the keys are always present, in this
-// order, so the hot path sees a single hidden class. `defaults` is what the
+// order, so the hot path sees a single hidden class. `unknown` is what the
 // schema being checked says (its unknown-keys policy); an option of the call
 // wins over it.
-const createContext = (options, name = '', defaults = 'reject') => {
-  let limit = UNLIMITED;
-  let messages = en;
-  let unknown = defaults;
-  let references = 'kind';
-  let root = name;
-  if (options !== undefined) {
-    optionsOf(options);
-    if (options.maxErrors !== undefined) limit = maxErrorsOf(options.maxErrors);
-    if (options.messages !== undefined) messages = messagesOf(options.messages);
-    if (options.unknown !== undefined) unknown = unknownOf(options.unknown);
-    if (options.references !== undefined) references = referencesOf(options.references);
-    if (options.root !== undefined) root = rootOf(options.root);
-  }
-  return {
+const createContext = (options, name = '', unknown = 'reject') => {
+  const context = {
     issues: NONE,
     count: 0,
-    limit,
+    limit: UNLIMITED,
     path: [],
     // The objects on the current path, created at the first object met so a
     // check over scalars never allocates it.
@@ -85,10 +84,12 @@ const createContext = (options, name = '', defaults = 'reject') => {
     unknown,
     // How a reference is checked: by the kind of its target ('kind'), as
     // the record itself ('embed') or as its id ('id').
-    references,
-    root,
-    messages,
+    references: 'kind',
+    root: name,
+    messages: en,
   };
+  if (options !== undefined) configure(context, options);
+  return context;
 };
 
 module.exports = { createContext, UNLIMITED };
