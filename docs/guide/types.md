@@ -2,17 +2,19 @@
 
 ## Scalars
 
-| Type | Accepts | `length` rule |
+| Type | Accepts | Rules |
 | --- | --- | --- |
-| `string` | `typeof value === 'string'` | string length |
-| `number` | `typeof value === 'number'` | the number itself |
-| `bigint` | `typeof value === 'bigint'` | the number itself |
+| `string` | `typeof value === 'string'` | `length`, `unicode` |
+| `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max` |
+| `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
+| `bigint` | `typeof value === 'bigint'` | `min`, `max` |
 | `boolean` | `typeof value === 'boolean'` | — |
 | `enum` | one of the listed values | — |
 
 ```js
 Schema.from({
   id: 'bigint',
+  count: { type: 'integer', min: 0 },
   active: 'boolean',
   role: { enum: ['admin', 'user'] },
   level: { type: 'enum', enum: [1, 2, 3] },
@@ -82,9 +84,16 @@ Schema.from({ payload: 'json' }).check({ payload: { anything: [1, 2, 3] } }).val
 Every field is required unless it is optional (`'?type'`, `'key?'` or `required: false`). An
 optional field accepts `undefined` and `null`.
 
+Every type lists the rules it accepts, and a rule on a type that does not accept it is a
+`SchemaDefinitionError` (`ERR_INVALID_RULE`) when the schema is built: `{ type: 'number', length:
+3 }` throws with the hint to use `min` and `max`, and so does `{ type: 'string', min: 1 }`. A
+[custom type](/guide/custom-types) names its rules in `rules: [...]`; an alias (`{ js: 'number' }`)
+accepts the rules of the type it aliases.
+
 ### `length`
 
-`length` applies to `string`, `number`, `bigint`, `array` and `set` fields. It takes three forms:
+`length` applies to `string`, `array`, `set`, `object` and `map` fields and limits their size. It
+takes three forms:
 
 | Value | Meaning |
 | --- | --- |
@@ -92,21 +101,46 @@ optional field accepts `undefined` and `null`.
 | `length: [3, 32]` | at least 3, at most 32 |
 | `length: { min: 3, max: 32 }` | the same, written out |
 
-For strings and collections it limits the size; for numbers it limits the value itself.
-
 ```js
 const schema = Schema.from({
   login: { type: 'string', length: { min: 3, max: 8 } },
-  age: { type: 'number', length: [18, 120] },
   tags: { array: 'string', length: { max: 2 } },
 });
-schema.check({ login: 'ab', age: 150, tags: ['a', 'b', 'c'] }).errors;
+schema.check({ login: 'ab', tags: ['a', 'b', 'c'] }).errors;
 // [
 //   'Field "login" value is too short',
-//   'Field "age" exceeds the maximum length',
 //   'Field "tags" exceeds the maximum length'
 // ]
 ```
+
+A string is measured in UTF-16 code units, the same as `value.length`, so an emoji counts as two.
+`unicode: true` measures code points instead:
+
+```js
+Schema.from({ s: { type: 'string', length: { max: 2 } } }).check({ s: '😀😀' }).valid; // false
+Schema.from({ s: { type: 'string', length: { max: 2 }, unicode: true } }).check({ s: '😀😀' }).valid; // true
+```
+
+A `length` whose `min` is above its `max` can never pass and throws `ERR_INVALID_LENGTH`.
+
+### `min` and `max`
+
+`min` and `max` bound a `number`, `integer` or `bigint` value. Each is a number or a bigint, and a
+bigint bound is compared exactly, never through `Number`:
+
+```js
+const schema = Schema.from({
+  age: { type: 'integer', min: 18, max: 120 },
+  balance: { type: 'bigint', min: 0n },
+  ratio: { type: 'number', max: 1 },
+});
+schema.check({ age: 150, balance: -1n, ratio: 1 }).errors;
+// [ 'Field "age" is greater than 120', 'Field "balance" is less than 0' ]
+schema.check({ age: 150 }).issues[0];
+// { code: 'range', path: ['age'], message: 'is greater than 120', params: { min: 18, max: 120, actual: 150 } }
+```
+
+A `max` below `min` throws `ERR_INVALID_RULE`.
 
 ### `validate`
 

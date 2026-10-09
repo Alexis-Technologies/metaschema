@@ -35,6 +35,7 @@ export type IssueCode =
   | 'unexpected'
   | 'enum'
   | 'length'
+  | 'range'
   | 'reference'
   | 'circular'
   | 'exception'
@@ -48,6 +49,8 @@ export interface IssueParams {
   unexpected: { keys: string[] };
   enum: { values: unknown[] };
   length: { min: number | undefined; max: number | undefined; actual: number };
+  // A `min`/`max` rule failed; the bounds are what the definition gave.
+  range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
   reference: { entity: string };
   circular: {};
   exception: { error: unknown };
@@ -194,6 +197,7 @@ export interface TypeEntry {
   js?: string;
   metadata?: Record<string, unknown>;
   kind?: 'scalar' | 'struct';
+  // The rules the type accepts in a field definition (`length`, `min`, `max`).
   rules?: string[];
   construct?(def: object, preprocessor: object): void;
   checkType?(value: any, path: string): ValidationReturn;
@@ -231,6 +235,7 @@ export type DefinitionErrorCode =
   | 'ERR_INVALID_CUSTOM_TYPE'
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_LENGTH'
+  | 'ERR_INVALID_RULE'
   | 'ERR_INVALID_REFERENCE'
   | 'ERR_RESERVED_KEY'
   | 'ERR_TYPE_REGISTERED'

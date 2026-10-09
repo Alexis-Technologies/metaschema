@@ -23,16 +23,6 @@ const shorten = (key) => {
   return name.length > KEY_LIMIT ? `${name.slice(0, KEY_LIMIT)}...` : name;
 };
 
-const { SchemaDefinitionError } = require('./errors.js');
-
-const isBound = (value) => value === undefined || typeof value === 'number';
-
-const invalidLength = () =>
-  new SchemaDefinitionError(
-    'ERR_INVALID_LENGTH',
-    'Rule "length" needs a number, [min, max] or { min, max }',
-  );
-
 const formatters = {
   type: (type, req = true) => {
     const required = !type.startsWith('?');
@@ -46,15 +36,6 @@ const formatters = {
     if (required) return { field: key, required: req };
     const field = key.slice(0, -1);
     return { field, required: false };
-  },
-
-  length: (length) => {
-    if (typeof length === 'number') return { max: length };
-    if (length === null || typeof length !== 'object') throw invalidLength();
-    const min = Array.isArray(length) ? length[0] : length.min;
-    const max = Array.isArray(length) ? length[1] : length.max;
-    if (!isBound(min) || !isBound(max)) throw invalidLength();
-    return { min, max };
   },
 };
 

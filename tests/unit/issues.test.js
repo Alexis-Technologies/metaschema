@@ -11,7 +11,7 @@ test('Issues: every message has a code and a path', () => {
       {
         Entity: {},
         title: 'string',
-        size: { type: 'number', length: { max: 10 } },
+        size: { type: 'number', max: 10 },
         status: { enum: ['a', 'b'] },
         tags: { array: 'string' },
         owner: 'Owner',
@@ -40,7 +40,7 @@ test('Issues: every message has a code and a path', () => {
     result.issues.map(({ code, path, params }) => [code, path, params]),
     [
       ['type', ['title'], { expected: 'string', received: 'number' }],
-      ['length', ['size'], { min: undefined, max: 10, actual: 11 }],
+      ['range', ['size'], { min: undefined, max: 10, actual: 11 }],
       ['enum', ['status'], { values: ['a', 'b'] }],
       ['type', ['tags', 1], { expected: 'string', received: 'number' }],
       ['type', ['owner', 'name'], { expected: 'string', received: 'number' }],
@@ -56,7 +56,7 @@ test('Issues: every message has a code and a path', () => {
     result.issues.map((entry) => entry.message),
     [
       'not of expected type: string',
-      'exceeds the maximum length',
+      'is greater than 10',
       'value is not of enum: a, b',
       'not of expected type: string',
       'not of expected type: string',
@@ -69,7 +69,7 @@ test('Issues: every message has a code and a path', () => {
   );
   assert.deepStrictEqual(result.errors, [
     'Field "Doc.title" not of expected type: string',
-    'Field "Doc.size" exceeds the maximum length',
+    'Field "Doc.size" is greater than 10',
     'Field "Doc.status" value is not of enum: a, b',
     'Field "Doc.tags[1]" not of expected type: string',
     'Field "Doc.owner.name" not of expected type: string',

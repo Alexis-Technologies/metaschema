@@ -1,5 +1,5 @@
-const { BRAND, INSPECT, formatters } = require('../util.js');
-const { checks } = require('../rules.js');
+const { BRAND, INSPECT } = require('../util.js');
+const { FORMAT, notApplicable, compileRules } = require('../rules.js');
 const { runValidate, runCheckType } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
@@ -38,41 +38,36 @@ const withRules = (type, inner, rules) => {
 };
 
 class AbstractType {
-  static checks = Object.create(null);
-  static formatters = Object.create(null);
+  // The rules the type accepts, by name; a type class sets its own.
+  static rules = new Set();
 
   // The compiled check of the field: a closure built once from the field,
   // kept out of its definition (toJSON, util.inspect) as a private field.
   #check;
 
-  static setRules(rules = []) {
-    for (const rule of rules) {
-      if (formatters[rule]) AbstractType.formatters[rule] = formatters[rule];
-      if (checks[rule]) AbstractType.checks[rule] = checks[rule];
-    }
-  }
-
   constructor(def, preprocessor) {
     this.root = preprocessor.root;
-    const { formatters: typeFormatters } = AbstractType;
+    const { rules } = this.constructor;
     for (const key of Object.keys(def)) {
       const value = def[key];
       if (key === 'type' || key === this.type) continue;
       if (RESERVED.has(key) || typeof this[key] === 'function') throw reservedKey(key);
-      if (typeFormatters[key]) this[key] = typeFormatters[key](value);
-      else this[key] = value;
+      const format = FORMAT[key];
+      if (format === undefined) {
+        this[key] = value;
+        continue;
+      }
+      if (!rules.has(key)) throw notApplicable(key, this.type, rules);
+      this[key] = format(value);
     }
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
-    // The rule checks that apply to this field, chosen once: `length` only
-    // matters to a field that has a length, and check is the hot path.
-    const rules = [];
-    for (const name of Object.keys(AbstractType.checks)) {
-      if (this[name]) rules.push(AbstractType.checks[name](this));
-    }
+    // The rule checks that apply to this field, compiled once: a field
+    // without rules is its type check alone, and check is the hot path.
+    const checks = compileRules(this, rules);
     const inner = this.compile();
-    const plain = rules.length === 0 && !this.validate;
-    this.#check = plain ? inner : withRules(this, inner, rules);
+    const plain = checks.length === 0 && !this.validate;
+    this.#check = plain ? inner : withRules(this, inner, checks);
   }
 
   // Records the problems of a value into the context of the current check,

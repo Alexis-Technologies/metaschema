@@ -26,6 +26,7 @@ const createType = (name, prototype) => {
     static metadata = {};
     static type = name;
     static kind = prototype.kind;
+    static rules = new Set(prototype.rules);
 
     static assign(key, value) {
       this.metadata[key] = value;
@@ -37,8 +38,6 @@ const createType = (name, prototype) => {
       this.type = type;
     }
   }
-  const { rules } = prototype;
-  if (rules) Type.setRules(rules);
   Object.assign(Type.prototype, prototype, { type: name });
   return Type;
 };

@@ -56,9 +56,27 @@ const enumerable = {
   },
 };
 
+// A number without a fraction; it renders as a number in TypeScript.
+const integer = {
+  kind: 'scalar',
+  scalar: 'number',
+  rules: ['min', 'max'],
+
+  construct() {},
+
+  compile() {
+    const { required } = this;
+    return (value, context, key) => {
+      if (Number.isInteger(value)) return;
+      if (!required && value == null) return;
+      issues.type(context, 'integer', value, key);
+    };
+  },
+};
+
 const string = { scalar: 'string', rules: ['length'], ...scalar };
-const number = { scalar: 'number', rules: ['length'], ...scalar };
-const bigint = { scalar: 'bigint', rules: ['length'], ...scalar };
+const number = { scalar: 'number', rules: ['min', 'max'], ...scalar };
+const bigint = { scalar: 'bigint', rules: ['min', 'max'], ...scalar };
 const boolean = { scalar: 'boolean', ...scalar };
 
-module.exports = { string, number, bigint, boolean, enum: enumerable };
+module.exports = { string, number, integer, bigint, boolean, enum: enumerable };

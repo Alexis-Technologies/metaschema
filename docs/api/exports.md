@@ -85,7 +85,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
 table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
-`reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+`range`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
 to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
@@ -109,7 +109,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
-| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }` |
+| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
+| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string), a `min`/`max` that is not a number or a bigint, or a `max` below `min` |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |

@@ -53,6 +53,7 @@ The codes the library produces, and their `params`:
 | `unexpected` | keys the schema does not have; one issue per struct | `{ keys }` |
 | `enum` | the value is not one of the `enum` values | `{ values }` |
 | `length` | a `length` rule failed, or a tuple has too many elements | `{ min, max, actual }` |
+| `range` | a `min` or `max` rule failed | `{ min, max, actual }` |
 | `reference` | the referenced entity is not in any attached model | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
 | `exception` | a `validate` or `checkType` function threw | `{ error }` |
@@ -158,7 +159,7 @@ const schema = Schema.from({
 });
 ```
 
-A field is checked in order: its type, then its rules (`length`), then `validate`. A type failure
+A field is checked in order: its type, then its rules (`length`, `min`, `max`), then `validate`. A type failure
 is reported once and cancels the rest, and `validate` runs only on a value that passed everything
 before it, so it can rely on the type and the rules. `path` is the dotted path of the field,
 including the root. The function can return:

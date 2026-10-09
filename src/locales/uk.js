@@ -22,6 +22,9 @@ const enumeration = ({ values }) => `значення не входить до �
 const length = ({ min, actual }) =>
   min !== undefined && actual < min ? 'значення закоротке' : 'перевищує максимальну довжину';
 
+const range = ({ min, max, actual }) =>
+  min !== undefined && actual < min ? `менше за ${min}` : `більше за ${max}`;
+
 const reference = ({ entity }) => `сутність "${entity}" не знайдено`;
 
 const circular = () => 'є циклічним посиланням';
@@ -37,6 +40,7 @@ module.exports = {
   unexpected,
   enum: enumeration,
   length,
+  range,
   reference,
   circular,
   exception,

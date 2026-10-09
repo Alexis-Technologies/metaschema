@@ -23,6 +23,9 @@ const enumeration = ({ values }) => `value is not of enum: ${values.join(', ')}`
 const length = ({ min, actual }) =>
   min !== undefined && actual < min ? 'value is too short' : 'exceeds the maximum length';
 
+const range = ({ min, max, actual }) =>
+  min !== undefined && actual < min ? `is less than ${min}` : `is greater than ${max}`;
+
 const reference = ({ entity }) => `Entity "${entity}" is not found`;
 
 const circular = () => 'is a circular reference';
@@ -38,6 +41,7 @@ module.exports = {
   unexpected,
   enum: enumeration,
   length,
+  range,
   reference,
   circular,
   exception,

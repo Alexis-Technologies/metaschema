@@ -38,6 +38,7 @@ Rules of the conversion:
 | Definition | TypeScript |
 | --- | --- |
 | `'string'`, `'number'`, `'boolean'`, `'bigint'`, and aliases of them (`{ js: 'string' }`) | the same scalar |
+| `'integer'` | `number` |
 | `{ enum: ['open', 'done'] }` | `"open" \| "done"` |
 | `{ array: T }` | `T[]` |
 | `{ set: T }` | `Set<T>` |
