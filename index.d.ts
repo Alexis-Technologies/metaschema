@@ -176,6 +176,8 @@ export type CalculatedField = (value: any) => unknown;
 export interface FieldType {
   readonly type: string;
   required: boolean;
+  // The value may be null; the key is still required unless `required` is false.
+  nullable?: boolean;
   validate?: Validator;
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;

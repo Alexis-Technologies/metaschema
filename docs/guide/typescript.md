@@ -46,6 +46,7 @@ Rules of the conversion:
 | `{ object: { string: T } }` | `Record<string, T>` |
 | `{ map: { number: T } }` | `Map<number, T>` |
 | a nested struct | an inline object: `{ city: string; zip?: string }` |
+| `{ type: T, nullable: true }` | `T \| null` |
 | `'json'` | `unknown` |
 | a custom type with its own `checkType` | `string` |
 | `company: 'Company'` | an id: `companyId: string` |

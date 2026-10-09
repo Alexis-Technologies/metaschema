@@ -11,6 +11,16 @@ const RESERVED = new Set(['__proto__', 'prototype', 'check', 'checkType', 'compi
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
 
+const invalidNullable = () =>
+  new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Option "nullable" needs a boolean');
+
+// A nullable field accepts null in place of a value of its type, whatever
+// its rules; `required` still says whether the key must be there.
+const nullable = (inner) => (value, context, key) => {
+  if (value === null) return;
+  inner(value, context, key);
+};
+
 // The check of a field with rules or a validate function: the type check,
 // then the rules, then the validate function. A type failure cancels the
 // rest (a length or a validator makes no sense for a value of another type),
@@ -62,12 +72,14 @@ class AbstractType {
     }
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
+    if (this.nullable !== undefined && typeof this.nullable !== 'boolean') throw invalidNullable();
     // The rule checks that apply to this field, compiled once: a field
     // without rules is its type check alone, and check is the hot path.
     const checks = compileRules(this, rules);
     const inner = this.compile();
     const plain = checks.length === 0 && !this.validate;
-    this.#check = plain ? inner : withRules(this, inner, checks);
+    const check = plain ? inner : withRules(this, inner, checks);
+    this.#check = this.nullable === true ? nullable(check) : check;
   }
 
   // Records the problems of a value into the context of the current check,

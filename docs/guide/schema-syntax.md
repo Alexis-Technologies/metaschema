@@ -20,6 +20,7 @@ Every key of a definition object is a field, and its value says what the field h
 | Type name | `title: 'string'` | a required string |
 | Optional type | `subtitle: '?string'` | `undefined` or `null` is allowed |
 | Optional key | `'tags?': { array: 'string' }` | the same, written on the key |
+| Nullable | `parent: { type: 'string', nullable: true }` | the key is required, the value may be `null` |
 | Long form | `size: { type: 'number', required: false }` | a type with options |
 | Type shorthand | `list: { array: 'number' }` | the key of the object is the type |
 | Nested struct | `name: { first: 'string', last: 'string' }` | an object with its own fields |

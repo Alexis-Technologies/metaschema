@@ -18,6 +18,11 @@ const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${ele
 // renders as a string (an array of them for `many`); a custom scalar with its
 // own check has no known shape and renders as a string too.
 const tsType = (def) => {
+  const type = tsBase(def);
+  return def.nullable === true ? `${type} | null` : type;
+};
+
+const tsBase = (def) => {
   if (isFirstUpper(def.type)) return def.many ? 'string[]' : 'string';
   if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
   if (def.scalar) return TS_SCALARS[def.scalar] || 'string';

@@ -84,6 +84,26 @@ Schema.from({ payload: 'json' }).check({ payload: { anything: [1, 2, 3] } }).val
 Every field is required unless it is optional (`'?type'`, `'key?'` or `required: false`). An
 optional field accepts `undefined` and `null`.
 
+### `nullable`
+
+`nullable: true` lets the value be `null` while the key stays required, for a column that is
+present in every row but may be empty. It is separate from optional: an optional field may be
+absent, a nullable one may not.
+
+```js
+const schema = Schema.from({
+  parent: { type: 'string', nullable: true },
+  'nick?': 'string',
+});
+schema.check({ parent: null }).valid; // true
+schema.check({}).errors; // [ 'Field "parent" is required' ]
+schema.check({ parent: undefined }).errors; // [ 'Field "parent" not of expected type: string' ]
+```
+
+A nullable field skips its rules and `validate` for `null`. It renders as `T | null` in TypeScript,
+and `nullable` applies to any type, including a nested struct (`{ schema: {...}, nullable: true }`)
+and a collection element (`{ array: { type: 'string', nullable: true } }`).
+
 Every type lists the rules it accepts, and a rule on a type that does not accept it is a
 `SchemaDefinitionError` (`ERR_INVALID_RULE`) when the schema is built: `{ type: 'number', length:
 3 }` throws with the hint to use `min` and `max`, and so does `{ type: 'string', min: 1 }`. A
