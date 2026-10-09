@@ -28,7 +28,7 @@ test('Context: a check runs in a context of its own, not in module globals', () 
   for (const maxErrors of [0, -1, '3', NaN, null]) {
     assert.throws(() => createContext({ maxErrors }), {
       name: 'TypeError',
-      message: `maxErrors must be a number of at least 1, got ${maxErrors}`,
+      message: `maxErrors must be a number of at least 1, got ${JSON.stringify(maxErrors) ?? maxErrors}`,
     });
   }
 });

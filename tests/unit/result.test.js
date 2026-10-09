@@ -231,7 +231,7 @@ test('Locales: messages are rendered through the locale of the check', () => {
   for (const messages of [null, 42, 'uk']) {
     assert.throws(() => doc.check({}, { root: 'Doc', messages }), {
       name: 'TypeError',
-      message: 'messages must be a locale table or a function',
+      message: `messages must be a locale table or a function, got ${JSON.stringify(messages)}`,
     });
   }
 });

@@ -24,19 +24,23 @@ test('Options: root labels the error lines and defaults to the schema name', () 
     name: 'TypeError',
     message: 'root must be a string, got 5',
   });
+  assert.strictEqual(
+    user.check({ name: 'x' }, { maxErrors: undefined, root: undefined }).valid,
+    true,
+  );
 });
 
 test('Options: the 1.x positional path is refused with a hint', () => {
   const user = new Schema('User', { name: 'string' });
   assert.throws(() => user.check({}, 'body'), {
     name: 'TypeError',
-    message: 'check options must be an object, got string: the path is options.root now',
+    message: 'check options must be an object (the path is options.root now), got "body"',
   });
   assert.throws(() => user.check({}, 'body', { maxErrors: 1 }), { name: 'TypeError' });
   for (const options of [null, 42, true]) {
     assert.throws(() => user.check({}, options), {
       name: 'TypeError',
-      message: `check options must be an object, got ${typeof options}`,
+      message: `check options must be an object, got ${options}`,
     });
   }
   assert.strictEqual(user.check({ name: 'x' }, {}).valid, true);
