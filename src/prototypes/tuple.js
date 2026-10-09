@@ -19,6 +19,7 @@ const nameOf = (element, types) => {
 
 const tuple = {
   kind: 'struct',
+  options: ['value', 'tuple'],
 
   construct(def, prep) {
     const elements = def.value || def.tuple;

@@ -110,6 +110,7 @@ expectType<ValidationResult | null>(schema.validate({}, 'User'));
 expectType<ValidationResult | null>(schema.validate({}));
 expectType<Schema | null>(schema.findReference('Company'));
 expectType<string>(schema.toInterface());
+expectType<string[]>(schema.warnings);
 expectType<Kind>(schema.kind);
 expectType<Scope>(schema.scope);
 expectType<'reject' | 'ignore'>(schema.unknown);

@@ -36,6 +36,7 @@ const embeds = (schema, embed, mode) => {
 
 const reference = {
   kind: 'struct',
+  options: ['one', 'many', 'embed'],
 
   construct(def) {
     const key = def.many === undefined ? 'one' : 'many';

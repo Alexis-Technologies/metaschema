@@ -43,7 +43,8 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
 | `schema.toInterface()` | the schema as a TypeScript interface |
-| `schema.checkConsistency()` | warnings about references that cannot be resolved |
+| `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
+| `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
 | `schema.attach(...models)` / `schema.detach(...models)` | add or remove namespaces |
 | `schema.types` | the type table in effect |
@@ -61,7 +62,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `model.types` | the type table |
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
-| `model.warnings` | consistency warnings |
+| `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `model.dts` | TypeScript interfaces for every entity |
 
 ## `ValidationResult`

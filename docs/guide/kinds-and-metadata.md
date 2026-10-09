@@ -121,7 +121,9 @@ Object.keys(address.indexes); // ['naturalKey', 'byStreet']
 Object.keys(address.fields); // ['street', 'building', 'addressId']
 ```
 
-`many` reference fields are listed in `indexes` as well, and stay fields.
+`many` reference fields are listed in `indexes` as well, and stay fields. An index that names a
+field the schema does not have is reported in [`schema.warnings`](/guide/model#warnings) as
+`missing-index-field`.
 
 ## Options
 

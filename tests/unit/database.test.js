@@ -62,8 +62,10 @@ test('Database: schema Registry', () => {
   assert.deepStrictEqual(entity.relations, expected.relations);
 
   const warn = entity.checkConsistency();
-  const countryWarning = 'Warning: "Country" referenced by "Address" is not found';
-  const personWarning = 'Warning: "Person" referenced by "Address" is not found';
+  const countryWarning =
+    'Warning [missing-reference]: "Country" referenced by "Address" is not found';
+  const personWarning =
+    'Warning [missing-reference]: "Person" referenced by "Address" is not found';
   const expectedWarnings = [countryWarning, personWarning];
   assert.deepStrictEqual(warn, expectedWarnings);
 });

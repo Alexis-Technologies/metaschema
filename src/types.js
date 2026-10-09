@@ -29,6 +29,8 @@ const createType = (name, prototype) => {
     static type = name;
     static kind = prototype.kind;
     static rules = new Set(prototype.rules);
+    // The definition keys the type reads; the lint reports the others.
+    static options = new Set(prototype.options);
 
     static assign(key, value) {
       this.metadata[key] = value;

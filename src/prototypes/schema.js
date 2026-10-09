@@ -14,6 +14,7 @@ const isDefinition = (value) =>
 // instance, whose fields, references and schema-level validate are reused.
 const schema = {
   kind: 'struct',
+  options: ['schema'],
 
   construct(defs, prep) {
     const { schema: definition, required } = defs;

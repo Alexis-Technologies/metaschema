@@ -78,6 +78,10 @@ const schema = Schema.from({
 
 Keys a type does not understand (`unique` above) are kept on the field as metadata. They do not
 affect validation, but they are there for code that reads the schema, such as a database layer.
+The annotations `default`, `unique`, `index`, `primary`, `title`, `description`, `examples` and
+`deprecated` are expected; any other key the type does not read is reported in
+[`schema.warnings`](/guide/model#warnings) as `unknown-option`, which catches a mistyped option
+(`lenght`) before it is silently ignored.
 
 ## Type shorthands
 

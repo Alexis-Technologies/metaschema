@@ -17,6 +17,7 @@ const scalarCheck = (scalar, required) => (value, context, key) => {
 
 const scalar = {
   kind: 'scalar',
+  options: [],
 
   construct() {},
 
@@ -30,6 +31,7 @@ const ENUM_SET_SIZE = 8;
 
 const enumerable = {
   kind: 'scalar',
+  options: ['enum'],
 
   construct(def) {
     const values = def.enum;
@@ -61,6 +63,7 @@ const integer = {
   kind: 'scalar',
   scalar: 'number',
   rules: ['min', 'max'],
+  options: ['min', 'max'],
 
   construct() {},
 
@@ -78,6 +81,7 @@ const integer = {
 const date = {
   kind: 'scalar',
   scalar: 'date',
+  options: [],
 
   construct() {},
 
@@ -94,6 +98,7 @@ const date = {
 const nothing = {
   kind: 'scalar',
   scalar: 'null',
+  options: [],
 
   construct() {},
 
@@ -114,6 +119,7 @@ const accept = () => {};
 const any = {
   kind: 'scalar',
   scalar: 'any',
+  options: [],
 
   construct() {},
 
@@ -124,10 +130,15 @@ const any = {
 
 const unknown = { ...any, scalar: 'unknown' };
 
-const string = { scalar: 'string', rules: ['length', 'pattern'], ...scalar };
-const number = { scalar: 'number', rules: ['min', 'max'], ...scalar };
-const bigint = { scalar: 'bigint', rules: ['min', 'max'], ...scalar };
-const boolean = { scalar: 'boolean', ...scalar };
+const string = {
+  ...scalar,
+  scalar: 'string',
+  rules: ['length', 'pattern'],
+  options: ['length', 'unicode', 'pattern'],
+};
+const number = { ...scalar, scalar: 'number', rules: ['min', 'max'], options: ['min', 'max'] };
+const bigint = { ...scalar, scalar: 'bigint', rules: ['min', 'max'], options: ['min', 'max'] };
+const boolean = { ...scalar, scalar: 'boolean' };
 
 module.exports = {
   string,

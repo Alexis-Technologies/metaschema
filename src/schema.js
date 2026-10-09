@@ -10,6 +10,7 @@ const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
+const { warning, lintSchema } = require('./lint.js');
 
 const TS_SCALARS = {
   string: 'string',
@@ -156,6 +157,7 @@ class Schema extends SchemaMetadata {
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
     this[RUN] = compileSchema(this);
+    this.warnings = lintSchema(this);
   }
 
   get types() {
@@ -167,6 +169,8 @@ class Schema extends SchemaMetadata {
     return this.#types;
   }
 
+  // The warnings that need the namespaces: references and types that do
+  // not resolve.
   checkConsistency() {
     const warn = [];
     const { name, references } = this;
@@ -174,10 +178,10 @@ class Schema extends SchemaMetadata {
       if (isFirstUpper(ref)) {
         const entity = this.findReference(ref);
         if (!entity) {
-          warn.push(`Warning: "${ref}" referenced by "${name}" is not found`);
+          warn.push(warning('missing-reference', `"${ref}" referenced by "${name}" is not found`));
         }
       } else if (!this.types[ref]) {
-        warn.push(`Warning: type "${ref}" is not found in "${name}"`);
+        warn.push(warning('missing-type', `type "${ref}" is not found in "${name}"`));
       }
     }
     return warn;

@@ -3,6 +3,7 @@ const { firstKey } = require('./metautil.js');
 const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
 const { SchemaDefinitionError } = require('./errors.js');
+const { warning } = require('./lint.js');
 
 const REGISTRIES = ['shared', 'isolated'];
 
@@ -49,8 +50,7 @@ class Model {
       const name = pair[0];
       const entity = pair[1];
       if (name.startsWith('.')) continue;
-      const warn = entity.checkConsistency();
-      this.warnings.push(...warn);
+      this.warnings.push(...entity.warnings, ...entity.checkConsistency());
     }
     if (entities.has('Identifier')) order.add('Identifier');
     for (const name of entities.keys()) {
@@ -69,7 +69,9 @@ class Model {
     for (const ref of entity.references) {
       if (ref === name) continue;
       if (visiting.has(ref)) {
-        this.warnings.push(`Warning: "${name}" depends on "${ref}" recursively`);
+        this.warnings.push(
+          warning('recursive-reference', `"${name}" depends on "${ref}" recursively`),
+        );
         continue;
       }
       this.#reorderEntity(ref, visiting);

@@ -24,6 +24,7 @@ const valuesOf = (branch, discriminator, index) => {
 // by the value of that field in one Map lookup.
 const union = {
   kind: 'struct',
+  options: ['union', 'discriminator'],
 
   construct(def, prep) {
     const branches = def.union;

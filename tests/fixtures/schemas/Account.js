@@ -12,7 +12,10 @@ module.exports = {
     surname: { type: 'string', required: false },
   },
 
+  // `date` is a type name, so a struct whose first field is called that
+  // says it is a struct.
   birth: {
+    Struct: {},
     date: { type: 'string', required: false },
     place: { type: 'string', required: false },
   },

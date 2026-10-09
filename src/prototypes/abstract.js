@@ -48,8 +48,10 @@ const withRules = (type, inner, rules) => {
 };
 
 class AbstractType {
-  // The rules the type accepts, by name; a type class sets its own.
+  // The rules the type accepts and the definition keys it reads, by name; a
+  // type class sets its own.
   static rules = new Set();
+  static options = new Set();
 
   // The compiled check of the field: a closure built once from the field,
   // kept out of its definition (toJSON, util.inspect) as a private field.
