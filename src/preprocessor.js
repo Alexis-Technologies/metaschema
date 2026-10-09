@@ -1,11 +1,21 @@
 const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
-const { formatters } = require('./util.js');
+const { hasBrand, formatters } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
+// The first key of an object decides what it is: a Schema or a built field is
+// used as it is, a capitalized key is a kind, `type` is the long form, a type
+// name is that type's shorthand, and anything else is a nested struct.
 const PARSERS = {
   string: ['stringShorthand'],
-  object: ['schemaInstance', 'schemaWithKind', 'typeLongForm', 'typeShorthand', 'kindlessSchema'],
+  object: [
+    'schemaInstance',
+    'typeInstance',
+    'schemaWithKind',
+    'typeLongForm',
+    'typeShorthand',
+    'kindlessSchema',
+  ],
   function: ['functionField'],
   array: ['tupleShorthand'],
 };
@@ -15,6 +25,12 @@ const sourceType = (src) => {
   if (Array.isArray(src)) return 'array';
   return typeof src;
 };
+
+const invalid = (source, srcType = sourceType(source)) =>
+  new SchemaDefinitionError(
+    'ERR_INVALID_DEFINITION',
+    `Invalid definition: "${source}" of type ${srcType}`,
+  );
 
 class Preprocessor {
   constructor(root) {
@@ -32,18 +48,23 @@ class Preprocessor {
         if (result) return result;
       }
     }
-    const msg = `Invalid definition: "${source}" of type ${srcType}`;
-    throw new SchemaDefinitionError('ERR_INVALID_DEFINITION', msg);
+    throw invalid(source, srcType);
   }
 
+  // A Schema instance as a field: `{ schema: instance }` and the long form go
+  // through the type parsers, and the schema type accepts the instance there.
   schemaInstance(source) {
-    const { types } = this;
-    const schema = this.Schema.extractSchema(source);
-    if (!schema) return null;
-    this.root.updateFromSchema(schema);
-    const { fields } = schema;
-    const defs = { schema: fields };
-    return { Type: types.schema, defs };
+    if (!hasBrand(source, 'Schema')) return null;
+    const defs = { schema: source };
+    return { Type: this.types.schema, defs };
+  }
+
+  // A field already built (a projection copies the fields of its parent) is
+  // parsed again from its own definition, so the copy belongs to the schema
+  // that holds it.
+  typeInstance(source) {
+    if (!hasBrand(source, 'Type')) return null;
+    return this.typeLongForm({ type: source.type, ...source.toJSON() });
   }
 
   stringShorthand(source) {
@@ -51,7 +72,8 @@ class Preprocessor {
   }
 
   typeLongForm(source) {
-    if (!source.type) return null;
+    if (firstKey(source) !== 'type') return null;
+    if (typeof source.type !== 'string') throw invalid(source.type);
     const { types } = this;
     const parsed = formatters.type(source.type, source.required);
     const { type, required } = parsed;
