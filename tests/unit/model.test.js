@@ -381,3 +381,38 @@ interface Doc {
     'type Pair = [number, string];',
   );
 });
+
+test('Model: a reference checks its target with the value it gets', () => {
+  const entities = new Map([
+    ['Company', { Entity: {}, name: 'string' }],
+    [
+      'Person',
+      {
+        Entity: {},
+        employer: 'Company',
+        'former?': { many: 'Company' },
+        ghosts: { many: 'Nothing' },
+      },
+    ],
+  ]);
+  const person = new Model({}, entities).entities.get('Person');
+  assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }).errors, [
+    'Field "Person.employer" not of expected type: object',
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  assert.deepStrictEqual(person.check({ employer: null, former: null, ghosts: null }).errors, [
+    'Field "Person.employer" not of expected type: object',
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  const ok = person.check({ employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] });
+  assert.deepStrictEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
+  const limited = person.check(
+    { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
+    'Person',
+    { maxErrors: 2 },
+  );
+  assert.deepStrictEqual(limited.errors, [
+    'Field "Person.employer.name" not of expected type: string',
+    'Field "Person.former[0].name" not of expected type: string',
+  ]);
+});

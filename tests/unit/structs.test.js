@@ -366,3 +366,70 @@ test('Structs: fields enumerate and serialize as plain data', () => {
   );
   assert.strictEqual(schema.check({ name: 'x' }).valid, true);
 });
+
+test('Structs: a struct carries its plan, known keys and compiled check', () => {
+  const { STRUCT } = require('../../src/struct.js');
+  const schema = Schema.from({
+    name: 'string',
+    'tags?': { array: 'string' },
+    toString: '?string',
+    half: (value) => value.n / 2,
+  });
+  const struct = schema.fields[STRUCT];
+  assert.ok(Object.isFrozen(struct));
+  assert.ok(Object.isFrozen(struct.plan));
+  assert.deepStrictEqual(
+    struct.plan.map(({ key, required, own }) => [key, required, own]),
+    [
+      ['name', true, false],
+      ['tags', false, false],
+      ['toString', false, true],
+    ],
+  );
+  assert.strictEqual(struct.plan[0].type, schema.fields.name);
+  assert.strictEqual(struct.plan[0].check, schema.fields.name.check);
+  assert.strictEqual(Object.getPrototypeOf(struct.known), null);
+  assert.deepStrictEqual(Object.keys(struct.known), ['name', 'tags', 'toString', 'half']);
+  assert.strictEqual(typeof struct.check, 'function');
+  assert.deepStrictEqual(Object.keys(schema.fields), ['name', 'tags', 'toString', 'half']);
+  assert.deepStrictEqual(Object.keys(schema.fields.name), ['root', 'required', 'type']);
+  assert.strictEqual(typeof schema.fields.name.check, 'function');
+  assert.ok(!('check' in JSON.parse(JSON.stringify(schema.fields.name))));
+});
+
+test('Structs: a required key is decided by the key and the definition together', () => {
+  const cases = [
+    [{ 'a?': 'string' }, false],
+    [{ a: '?string' }, false],
+    [{ 'a?': '?string' }, false],
+    [{ a: { type: 'string', required: false } }, false],
+    [{ 'a?': { type: 'string', required: true } }, false],
+    [{ a: { type: 'string', required: true } }, true],
+    [{ a: 'string' }, true],
+    [{ 'a?': ['number'] }, false],
+    [{ a: ['number'] }, true],
+    [{ 'a?': { b: 'string' } }, false],
+    [{ 'a?': Schema.from({ b: 'string' }) }, false],
+    [{ a: { schema: Schema.from({ b: 'string' }), required: false } }, false],
+  ];
+  for (const [definition, required] of cases) {
+    const schema = Schema.from(definition);
+    assert.strictEqual(schema.fields.a.required, required, JSON.stringify(definition));
+    assert.strictEqual(schema.check({}).valid, !required, JSON.stringify(definition));
+    assert.strictEqual(schema.check({ a: null }).valid, !required, JSON.stringify(definition));
+  }
+});
+
+test('Structs: a value set to undefined and an inherited member', () => {
+  const schema = Schema.from({ name: 'string', 'nick?': 'string', valueOf: 'number' });
+  assert.deepStrictEqual(schema.check({ name: undefined, nick: undefined, valueOf: 1 }).errors, [
+    'Field "name" not of expected type: string',
+  ]);
+  assert.deepStrictEqual(schema.check({ name: 'x' }).errors, ['Field "valueOf" is required']);
+  const derived = Object.create({ name: 'inherited', valueOf: 2 });
+  assert.deepStrictEqual(schema.check(derived).errors, ['Field "valueOf" is required']);
+  assert.strictEqual(Schema.from({ 'meta?': 'json' }).check({ meta: null }).valid, true);
+  assert.deepStrictEqual(Schema.from({ meta: 'json' }).check({ meta: 5 }).errors, [
+    'Field "meta" not of expected type: object',
+  ]);
+});

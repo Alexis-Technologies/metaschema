@@ -264,3 +264,13 @@ test('Locales: a validate function receives the dotted path and may build a resu
   ]);
   assert.deepStrictEqual(result.issues[1].path, ['items', 0, 'sku', 'dash']);
 });
+
+test('Result: flatten groups several messages of one path', () => {
+  const schema = Schema.from({
+    code: { type: 'string', validate: () => ['one', { message: 'two', path: [] }] },
+  });
+  const flat = schema.check({ code: 'x' }).flatten();
+  assert.deepStrictEqual(flat, { formErrors: [], fieldErrors: { code: ['one', 'two'] } });
+  const tree = schema.check({ code: 'x' }).tree();
+  assert.deepStrictEqual(tree, { errors: [], properties: { code: { errors: ['one', 'two'] } } });
+});

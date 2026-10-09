@@ -25,23 +25,28 @@ const tuple = {
     });
   },
 
-  checkValue(source, context) {
-    if (!Array.isArray(source)) {
-      issues.type(context, this.type, source);
-      return;
-    }
-    const { length } = this.value;
-    if (source.length > length) {
-      issues.length(context, undefined, length, source.length);
-      return;
-    }
-    const { path } = context;
-    for (let index = 0; index < length; index += 1) {
-      if (context.count >= context.limit) return;
-      path.push(index);
-      this.value[index].check(source[index], context);
-      path.pop();
-    }
+  compile() {
+    const { required, type } = this;
+    const checks = this.value.map((element) => element.check);
+    const { length } = checks;
+    return (value, context, key) => {
+      if (!Array.isArray(value)) {
+        if (!required && (value === null || value === undefined)) return;
+        issues.type(context, type, value, key);
+        return;
+      }
+      if (value.length > length) {
+        issues.length(context, undefined, length, value.length, key);
+        return;
+      }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      for (let index = 0; index < length; index += 1) {
+        if (context.count >= context.limit) break;
+        checks[index](value[index], context, index);
+      }
+      if (nested) context.path.pop();
+    };
   },
 };
 

@@ -10,9 +10,30 @@ const en = require('./locales/en.js');
 // Shared by the issues that carry no params, so none of them is ever undefined.
 const EMPTY = Object.freeze({});
 
-const record = (context, code, params, message = '') => {
-  context.issues.push({ code, path: context.path.slice(), message, params });
+// The issues of a context before the first one is recorded: a valid check
+// never allocates a list.
+const NONE = Object.freeze([]);
+
+const push = (context, issue) => {
+  if (context.issues === NONE) context.issues = [];
+  context.issues.push(issue);
   context.count += 1;
+};
+
+// The path of an issue: the current path, plus the key of the field under
+// check when its check was given one instead of pushing it on the path (a
+// leaf check never pushes; a container pushes its key before its children).
+const pathOf = (context, key) => {
+  const { path } = context;
+  if (key === undefined) return path.slice();
+  if (path.length === 0) return [key];
+  const keys = path.slice();
+  keys.push(key);
+  return keys;
+};
+
+const record = (context, code, params, key, message = '') => {
+  push(context, { code, path: pathOf(context, key), message, params });
 };
 
 const typeOf = (value) => {
@@ -22,15 +43,16 @@ const typeOf = (value) => {
 };
 
 const issues = {
-  required: (context) => record(context, 'required', EMPTY),
-  type: (context, expected, value) =>
-    record(context, 'type', { expected, received: typeOf(value) }),
-  key: (context, expected, key) => record(context, 'type', { expected, received: typeof key, key }),
-  unexpected: (context, keys) => record(context, 'unexpected', { keys }),
-  enum: (context, values) => record(context, 'enum', { values }),
-  length: (context, min, max, actual) => record(context, 'length', { min, max, actual }),
-  reference: (context, entity) => record(context, 'reference', { entity }),
-  circular: (context) => record(context, 'circular', EMPTY),
+  required: (context, key) => record(context, 'required', EMPTY, key),
+  type: (context, expected, value, key) =>
+    record(context, 'type', { expected, received: typeOf(value) }, key),
+  key: (context, expected, name, key) =>
+    record(context, 'type', { expected, received: typeof name, key: name }, key),
+  unexpected: (context, keys, key) => record(context, 'unexpected', { keys }, key),
+  enum: (context, values, key) => record(context, 'enum', { values }, key),
+  length: (context, min, max, actual, key) => record(context, 'length', { min, max, actual }, key),
+  reference: (context, entity, key) => record(context, 'reference', { entity }, key),
+  circular: (context, key) => record(context, 'circular', EMPTY, key),
   exception: (context, error) => record(context, 'exception', { error }),
 };
 
@@ -79,7 +101,7 @@ const absorb = (context, output, code, fallback) => {
     return;
   }
   if (typeof output === 'string') {
-    record(context, code, EMPTY, output);
+    record(context, code, EMPTY, undefined, output);
     return;
   }
   if (Array.isArray(output)) {
@@ -95,19 +117,17 @@ const absorb = (context, output, code, fallback) => {
     for (const issue of output.issues) {
       if (context.count >= context.limit) return;
       const path = context.path.concat(issue.path);
-      context.issues.push({ code: issue.code, path, message: issue.message, params: issue.params });
-      context.count += 1;
+      push(context, { code: issue.code, path, message: issue.message, params: issue.params });
     }
     return;
   }
   if (isIssue(output)) {
     const path = relative(context, output.path);
     const params = output.params === undefined ? EMPTY : output.params;
-    context.issues.push({ code: output.code || code, path, message: output.message, params });
-    context.count += 1;
+    push(context, { code: output.code || code, path, message: output.message, params });
     return;
   }
-  record(context, code, EMPTY, String(output));
+  record(context, code, EMPTY, undefined, String(output));
 };
 
 const render = (messages, issue) => {
@@ -166,6 +186,7 @@ const runCheckType = (type, value, context) => {
 
 module.exports = {
   EMPTY,
+  NONE,
   issues,
   typeOf,
   toDotPath,

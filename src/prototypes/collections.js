@@ -1,5 +1,9 @@
 const { issues } = require('../issues.js');
 
+// Collections iterate their source directly: an object with for...in over
+// its own keys, a Map and a Set through their iterators, an array by index.
+// A collection pushes its own key on the path before its elements and pops
+// it after them; an element is checked with its key or index.
 const object = {
   rules: ['length'],
   kind: 'struct',
@@ -15,49 +19,73 @@ const object = {
     this.value = new Type(defs, prep);
   },
 
-  checkValue(source, context) {
-    if (!this.isInstance(source)) {
-      issues.type(context, this.type, source);
-      return;
-    }
-    const entries = this.entries(source);
-    if (entries.length === 0 && this.required) {
-      issues.required(context);
-      return;
-    }
-    const { path } = context;
-    for (const pair of entries) {
-      if (context.count >= context.limit) return;
-      const field = pair[0];
-      // oxlint-disable-next-line valid-typeof
-      if (typeof field !== this.key) {
-        issues.key(context, this.key, field);
+  compile() {
+    const { required, type, key: keyType } = this;
+    const { check } = this.value;
+    return (value, context, key) => {
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+        if (!required && (value === null || value === undefined)) return;
+        issues.type(context, type, value, key);
         return;
       }
-      path.push(field);
-      this.value.check(pair[1], context);
-      path.pop();
-    }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      let count = 0;
+      for (const name in value) {
+        if (!Object.hasOwn(value, name)) continue;
+        if (context.count >= context.limit) break;
+        count += 1;
+        // oxlint-disable-next-line valid-typeof
+        if (typeof name !== keyType) {
+          issues.key(context, keyType, name);
+          break;
+        }
+        check(value[name], context, name);
+      }
+      if (count === 0 && required) issues.required(context);
+      if (nested) context.path.pop();
+    };
   },
 
   isInstance(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
-  },
-
-  entries(value) {
-    return Object.entries(value);
   },
 };
 
 const map = {
   ...object,
 
-  isInstance(value) {
-    return value?.constructor?.name === 'Map';
+  compile() {
+    const { required, type, key: keyType } = this;
+    const { check } = this.value;
+    return (value, context, key) => {
+      if (value?.constructor?.name !== 'Map') {
+        if (!required && (value === null || value === undefined)) return;
+        issues.type(context, type, value, key);
+        return;
+      }
+      if (value.size === 0) {
+        if (required) issues.required(context, key);
+        return;
+      }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      for (const pair of value) {
+        if (context.count >= context.limit) break;
+        const name = pair[0];
+        // oxlint-disable-next-line valid-typeof
+        if (typeof name !== keyType) {
+          issues.key(context, keyType, name);
+          break;
+        }
+        check(pair[1], context, name);
+      }
+      if (nested) context.path.pop();
+    };
   },
 
-  entries(value) {
-    return [...value.entries()];
+  isInstance(value) {
+    return value?.constructor?.name === 'Map';
   },
 };
 
@@ -72,20 +100,23 @@ const array = {
     this.value = new Type(defs, prep);
   },
 
-  checkValue(source, context) {
-    if (!this.isInstance(source)) {
-      issues.type(context, this.type, source);
-      return;
-    }
-    // A Set is copied to index it; an array is walked as it is.
-    const value = Array.isArray(source) ? source : [...source];
-    const { path } = context;
-    for (let index = 0; index < value.length; index += 1) {
-      if (context.count >= context.limit) return;
-      path.push(index);
-      this.value.check(value[index], context);
-      path.pop();
-    }
+  compile() {
+    const { required, type } = this;
+    const { check } = this.value;
+    return (value, context, key) => {
+      if (!Array.isArray(value)) {
+        if (!required && (value === null || value === undefined)) return;
+        issues.type(context, type, value, key);
+        return;
+      }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      for (let index = 0; index < value.length; index += 1) {
+        if (context.count >= context.limit) break;
+        check(value[index], context, index);
+      }
+      if (nested) context.path.pop();
+    };
   },
 
   isInstance(value) {
@@ -95,6 +126,27 @@ const array = {
 
 const set = {
   ...array,
+
+  compile() {
+    const { required, type } = this;
+    const { check } = this.value;
+    return (value, context, key) => {
+      if (value?.constructor?.name !== 'Set') {
+        if (!required && (value === null || value === undefined)) return;
+        issues.type(context, type, value, key);
+        return;
+      }
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      let index = 0;
+      for (const item of value) {
+        if (context.count >= context.limit) break;
+        check(item, context, index);
+        index += 1;
+      }
+      if (nested) context.path.pop();
+    };
+  },
 
   isInstance(value) {
     return value?.constructor?.name === 'Set';

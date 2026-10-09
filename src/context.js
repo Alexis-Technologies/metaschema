@@ -4,13 +4,19 @@
 // other and leaves the door open to async validators.
 const en = require('./locales/en.js');
 
+const { NONE } = require('./issues.js');
+
+// The limit when there is none: the largest small integer, so the comparison
+// with the count on every field stays an integer comparison.
+const UNLIMITED = 2 ** 30 - 1;
+
 const invalidMaxErrors = (value) =>
   new TypeError(`maxErrors must be a number of at least 1, got ${value}`);
 
 const maxErrorsOf = (maxErrors) => {
   const valid = typeof maxErrors === 'number' && maxErrors >= 1;
   if (!valid) throw invalidMaxErrors(maxErrors);
-  return maxErrors;
+  return Math.min(maxErrors, UNLIMITED);
 };
 
 const messagesOf = (messages) => {
@@ -23,11 +29,15 @@ const messagesOf = (messages) => {
 
 // One object shape for every context: the keys are always present, in this
 // order, so the hot path sees a single hidden class.
-const createContext = (options = {}, root = '') => {
-  const { maxErrors, messages } = options;
-  const limit = maxErrors === undefined ? Infinity : maxErrorsOf(maxErrors);
+const createContext = (options, root = '') => {
+  let limit = UNLIMITED;
+  let messages = en;
+  if (options !== undefined) {
+    if (options.maxErrors !== undefined) limit = maxErrorsOf(options.maxErrors);
+    if (options.messages !== undefined) messages = messagesOf(options.messages);
+  }
   return {
-    issues: [],
+    issues: NONE,
     count: 0,
     limit,
     path: [],
@@ -36,8 +46,8 @@ const createContext = (options = {}, root = '') => {
     seen: null,
     unknown: 'reject',
     root,
-    messages: messages === undefined ? en : messagesOf(messages),
+    messages,
   };
 };
 
-module.exports = { createContext };
+module.exports = { createContext, UNLIMITED };

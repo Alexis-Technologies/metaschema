@@ -405,11 +405,13 @@ test('Schema: a value that refers back to itself is reported, not recursed into'
   const shared = { name: 'leaf' };
   assert.strictEqual(category.check({ name: 'x', parent: shared }).valid, true);
 
+  // A schema without references cannot recurse: a cyclic value is walked as
+  // far as the schema goes and reported for what it is.
   const nested = Schema.from({ inner: { x: 'string' } });
   const self = { x: 'ok' };
   self.inner = self;
   assert.deepStrictEqual(nested.check(self).errors, [
-    'Field "inner" is a circular reference',
+    'Field "inner" has unexpected keys: inner',
     'Field "" has unexpected keys: x',
   ]);
 
@@ -417,8 +419,16 @@ test('Schema: a value that refers back to itself is reported, not recursed into'
   const holder = { n: 1 };
   holder.items = [holder];
   assert.deepStrictEqual(list.check(holder).errors, [
-    'Field "items[0]" is a circular reference',
+    'Field "items[0]" has unexpected keys: items',
     'Field "" has unexpected keys: n',
+  ]);
+  const deep = new Model({}, [
+    ['Tree', { Entity: {}, items: { array: { node: '?Tree' } } }],
+  ]).entities.get('Tree');
+  const branch = { items: [] };
+  branch.items.push({ node: branch });
+  assert.deepStrictEqual(deep.check(branch).errors, [
+    'Field "Tree.items[0].node" is a circular reference',
   ]);
   const twice = { n: 2 };
   assert.strictEqual(list.check({ items: [twice, twice] }).valid, true);

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
-const { createContext } = require('../../src/context.js');
+const { createContext, UNLIMITED } = require('../../src/context.js');
 const util = require('../../src/util.js');
 
 test('Context: a check runs in a context of its own, not in module globals', () => {
@@ -22,7 +22,9 @@ test('Context: a check runs in a context of its own, not in module globals', () 
   assert.strictEqual(context.limit, 3);
   assert.strictEqual(context.root, 'User');
   assert.strictEqual(context.seen, null);
-  assert.strictEqual(createContext().limit, Infinity);
+  assert.strictEqual(createContext().limit, UNLIMITED);
+  assert.strictEqual(UNLIMITED, 2 ** 30 - 1);
+  assert.strictEqual(createContext({ maxErrors: Infinity }).limit, UNLIMITED);
   for (const maxErrors of [0, -1, '3', NaN, null]) {
     assert.throws(() => createContext({ maxErrors }), {
       name: 'TypeError',

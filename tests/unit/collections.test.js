@@ -360,3 +360,93 @@ test('Collections: an object field rejects null and arrays as type errors', () =
     true,
   );
 });
+
+test('Collections: optional collections accept null, and wrong values are type errors', () => {
+  const optional = Schema.from({
+    'list?': { array: 'number' },
+    'ids?': { set: 'number' },
+    'byKey?': { object: { string: 'number' } },
+    'byId?': { map: { string: 'number' } },
+  });
+  assert.strictEqual(
+    optional.check({ list: null, ids: null, byKey: null, byId: null }).valid,
+    true,
+  );
+  assert.strictEqual(optional.check({ byId: new Map(), byKey: {} }).valid, true);
+  const required = Schema.from({
+    list: { array: 'number' },
+    ids: { set: 'number' },
+    byKey: { object: { string: 'number' } },
+    byId: { map: { string: 'number' } },
+  });
+  const result = required.check({ list: new Set([1]), ids: [1], byKey: 5, byId: {} });
+  assert.deepStrictEqual(result.errors, [
+    'Field "list" not of expected type: array',
+    'Field "ids" not of expected type: set',
+    'Field "byKey" not of expected type: object',
+    'Field "byId" not of expected type: map',
+  ]);
+  assert.deepStrictEqual(
+    result.issues.map((issue) => issue.params.received),
+    ['object', 'array', 'number', 'object'],
+  );
+  assert.deepStrictEqual(
+    required.check({ list: null, ids: null, byKey: null, byId: null }).errors,
+    [
+      'Field "list" not of expected type: array',
+      'Field "ids" not of expected type: set',
+      'Field "byKey" not of expected type: object',
+      'Field "byId" not of expected type: map',
+    ],
+  );
+  const byNumber = Schema.from({ o: { object: { number: 'string' } } });
+  assert.deepStrictEqual(byNumber.check({ o: { a: 'x' } }).issues, [
+    {
+      code: 'type',
+      path: ['o'],
+      message: 'keys must be of type number',
+      params: { expected: 'number', received: 'string', key: 'a' },
+    },
+  ]);
+  const instances = [
+    [{ array: 'number' }, [1], new Set([1])],
+    [{ set: 'number' }, new Set([1]), [1]],
+    [{ object: { string: 'number' } }, { a: 1 }, [1]],
+    [{ map: { string: 'number' } }, new Map(), { a: 1 }],
+  ];
+  for (const [definition, yes, no] of instances) {
+    const field = Schema.from(definition).fields;
+    assert.strictEqual(field.isInstance(yes), true, field.type);
+    assert.strictEqual(field.isInstance(no), false, field.type);
+    assert.strictEqual(field.isInstance(null), false, field.type);
+  }
+});
+
+test('Collections: elements are reported by index or key, with the limit respected', () => {
+  const schema = Schema.from({
+    ids: { set: 'number' },
+    byId: { map: { string: 'number' } },
+    byKey: { object: { string: 'number' } },
+  });
+  const value = {
+    ids: new Set([1, 'two', 'three']),
+    byId: new Map([
+      ['a', 1],
+      ['b', 'x'],
+    ]),
+    byKey: { c: 'y', d: 2 },
+  };
+  assert.deepStrictEqual(schema.check(value).errors, [
+    'Field "ids[1]" not of expected type: number',
+    'Field "ids[2]" not of expected type: number',
+    'Field "byId.b" not of expected type: number',
+    'Field "byKey.c" not of expected type: number',
+  ]);
+  assert.strictEqual(schema.check(value, '', { maxErrors: 1 }).errors.length, 1);
+  assert.strictEqual(schema.check(value, '', { maxErrors: 3 }).errors.length, 3);
+  const many = Schema.from({ byKey: { object: { string: 'number' }, length: { max: 1 } } });
+  assert.deepStrictEqual(many.check({ byKey: { a: 1, b: 2 } }).errors, [
+    'Field "byKey" exceeds the maximum length',
+  ]);
+  assert.strictEqual(many.check({ byKey: { a: 1 } }).valid, true);
+});

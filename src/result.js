@@ -1,5 +1,5 @@
 const { BRAND, INSPECT, hasBrand } = require('./util.js');
-const { EMPTY, absorb, finalize, describe, toDotPath } = require('./issues.js');
+const { EMPTY, NONE, absorb, finalize, describe, toDotPath } = require('./issues.js');
 const en = require('./locales/en.js');
 
 // Defines an own data property, so a key such as `__proto__` taken from a
@@ -19,11 +19,12 @@ class ValidationResult {
   #messages;
   #errors = null;
 
-  // A check builds its result with the root label and the locale of the call;
-  // a validator that builds one of its own needs neither: its issues are
-  // relative to the field the validator belongs to.
+  // A check builds its result from its context, which carries the root label,
+  // the locale of the call and the issues under these names; a validator that
+  // builds one of its own needs none of them: its issues are relative to the
+  // field the validator belongs to.
   constructor(options = {}) {
-    const { root = '', messages = en, issues = [] } = options;
+    const { root = '', messages = en, issues = NONE } = options;
     this.#root = root;
     this.#messages = messages;
     this.issues = issues;
@@ -50,6 +51,7 @@ class ValidationResult {
   add(error, code = 'custom') {
     const context = { issues: this.issues, count: this.issues.length, limit: Infinity, path: [] };
     absorb(context, error, code, EMPTY);
+    this.issues = context.issues;
     finalize(this.issues, this.#messages);
     this.#errors = null;
     return this;

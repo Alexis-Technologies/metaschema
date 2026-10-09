@@ -6,16 +6,44 @@ const missingEnum = (type) => {
   return new SchemaDefinitionError('ERR_INVALID_ENUM', hint);
 };
 
+// One closure per JavaScript type, each with a literal `typeof` comparison
+// (which the engine turns into a type check rather than a string compare),
+// and a single comparison on the way through for a valid value.
+const SCALAR_CHECKS = {
+  string: (required) => (value, context, key) => {
+    if (typeof value === 'string') return;
+    if (!required && (value === null || value === undefined)) return;
+    issues.type(context, 'string', value, key);
+  },
+  number: (required) => (value, context, key) => {
+    if (typeof value === 'number') return;
+    if (!required && (value === null || value === undefined)) return;
+    issues.type(context, 'number', value, key);
+  },
+  bigint: (required) => (value, context, key) => {
+    if (typeof value === 'bigint') return;
+    if (!required && (value === null || value === undefined)) return;
+    issues.type(context, 'bigint', value, key);
+  },
+  boolean: (required) => (value, context, key) => {
+    if (typeof value === 'boolean') return;
+    if (!required && (value === null || value === undefined)) return;
+    issues.type(context, 'boolean', value, key);
+  },
+};
+
 const scalar = {
   kind: 'scalar',
 
   construct() {},
 
-  checkValue(value, context) {
-    // oxlint-disable-next-line valid-typeof
-    if (typeof value !== this.scalar) issues.type(context, this.scalar, value);
+  compile() {
+    return SCALAR_CHECKS[this.scalar](this.required);
   },
 };
+
+// Past this many values a Set lookup beats a linear scan.
+const ENUM_SET_SIZE = 8;
 
 const enumerable = {
   kind: 'scalar',
@@ -26,8 +54,22 @@ const enumerable = {
     this.enum = values;
   },
 
-  checkValue(value, context) {
-    if (!this.enum.includes(value)) issues.enum(context, this.enum);
+  compile() {
+    const values = this.enum;
+    const { required } = this;
+    if (values.length > ENUM_SET_SIZE) {
+      const set = new Set(values);
+      return (value, context, key) => {
+        if (set.has(value)) return;
+        if (!required && (value === null || value === undefined)) return;
+        issues.enum(context, values, key);
+      };
+    }
+    return (value, context, key) => {
+      if (values.includes(value)) return;
+      if (!required && (value === null || value === undefined)) return;
+      issues.enum(context, values, key);
+    };
   },
 };
 

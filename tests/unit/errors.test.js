@@ -106,9 +106,9 @@ test('Errors: keys that would replace a method of the field are reserved', () =>
     code: 'ERR_RESERVED_KEY',
     message: 'Key "isInstance" is reserved in a field definition in "tags"',
   });
-  assert.throws(() => Schema.from({ byKey: { object: { string: 'number' }, entries: 1 } }), {
+  assert.throws(() => Schema.from({ byKey: { object: { string: 'number' }, compile: 1 } }), {
     code: 'ERR_RESERVED_KEY',
-    message: 'Key "entries" is reserved in a field definition in "byKey"',
+    message: 'Key "compile" is reserved in a field definition in "byKey"',
   });
   const allowed = Schema.from({
     a: { type: 'string', validate: () => true, default: 'x', unique: true, note: 'free' },

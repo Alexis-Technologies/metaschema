@@ -10,7 +10,13 @@ const required = () => 'is required';
 const type = ({ expected, key }) =>
   key === undefined ? `not of expected type: ${expected}` : `keys must be of type ${expected}`;
 
-const unexpected = ({ keys }) => `has unexpected keys: ${keys.map(shorten).join(', ')}`;
+const list = (keys) => {
+  let text = shorten(keys[0]);
+  for (let index = 1; index < keys.length; index += 1) text += `, ${shorten(keys[index])}`;
+  return text;
+};
+
+const unexpected = ({ keys }) => `has unexpected keys: ${list(keys)}`;
 
 const enumeration = ({ values }) => `value is not of enum: ${values.join(', ')}`;
 

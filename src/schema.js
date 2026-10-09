@@ -8,7 +8,7 @@ const { SchemaMetadata } = require('./metadata.js');
 const { ValidationResult } = require('./result.js');
 const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
-const { createStruct, checkStruct } = require('./struct.js');
+const { createStruct, isStruct, checkOf } = require('./struct.js');
 
 const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
 
@@ -32,6 +32,25 @@ const tsType = (def) => {
   return 'string';
 };
 
+// The validation of a schema inside an existing context: `check` starts one,
+// and a reference field checks its target entity within the context of the
+// outer check, so the error limit and the cycle detection span the whole
+// value. Built once per schema, as Schema[RUN].
+const compileSchema = (schema) => {
+  const { fields, options } = schema;
+  const run = isStruct(fields) ? checkOf(fields) : fields.check;
+  return (value, context, key) => {
+    const { validate } = options;
+    if (validate) {
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      runValidate(schema, validate, value, context);
+      if (nested) context.path.pop();
+    }
+    if (context.count < context.limit) run(value, context, key);
+  };
+};
+
 const tsFields = (fields) => {
   const lines = [];
   for (const pair of Object.entries(fields)) {
@@ -49,6 +68,10 @@ class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
   // change.
   #types = null;
+
+  // Whether the root value joins the cycle detection: only a struct with
+  // references can reach it again.
+  #tracked = false;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -88,6 +111,8 @@ class Schema extends SchemaMetadata {
       const combined = { ...fields, ...extras };
       this.fields = createStruct(combined, preprocessor);
     }
+    this.#tracked = isSchemaType && this.relations.size > 0;
+    this[RUN] = compileSchema(this);
   }
 
   get types() {
@@ -123,36 +148,15 @@ class Schema extends SchemaMetadata {
     return null;
   }
 
-  check(source, path = this.name, options = {}) {
+  check(source, path = this.name, options) {
     const context = createContext(options, path);
-    this[RUN](source, context);
-    const { issues, messages } = context;
-    finalize(issues, messages);
-    return new ValidationResult({ root: context.root, messages, issues });
-  }
-
-  // Validation inside an existing context: `check` starts one, and a reference
-  // field checks its target entity within the context of the outer check, so
-  // the error limit and the cycle detection span the whole value.
-  [RUN](source, context) {
-    const { fields } = this;
-    const isStruct = hasBrand(fields, 'Struct');
-    if (!isStruct) {
-      fields.check(source, context);
-      return;
+    if (this.#tracked && source !== null && typeof source === 'object') {
+      context.seen = new Set();
+      context.seen.add(source);
     }
-    // The root of a struct joins the current path too, unless a field check
-    // already put it there (a reference checks its target through this
-    // method). A schema of any other type delegates to that type's check,
-    // which tracks itself.
-    const isObject = typeof source === 'object' && source !== null;
-    if (isObject && context.seen === null) context.seen = new Set();
-    const track = isObject && !context.seen.has(source);
-    if (track) context.seen.add(source);
-    const { validate } = this.options;
-    if (validate) runValidate(this, validate, source, context);
-    if (context.count < context.limit) checkStruct(fields, source, context);
-    if (track) context.seen.delete(source);
+    this[RUN](source, context);
+    finalize(context.issues, context.messages);
+    return new ValidationResult(context);
   }
 
   toInterface() {

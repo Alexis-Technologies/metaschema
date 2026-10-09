@@ -123,3 +123,43 @@ test('Rules: a zero bound is a bound', () => {
   assert.strictEqual(list.check({ items: [] }).valid, true);
   assert.strictEqual(list.check({ items: [1, 2, 3] }).valid, false);
 });
+
+test('Rules: an optional field with rules accepts a missing or null value', () => {
+  const schema = Schema.from({
+    'code?': { type: 'string', length: { min: 2, max: 4 }, validate: (value) => value !== 'bad' },
+  });
+  assert.strictEqual(schema.check({}).valid, true);
+  assert.strictEqual(schema.check({ code: null }).valid, true);
+  assert.strictEqual(schema.check({ code: 'okay' }).valid, true);
+  assert.deepStrictEqual(schema.check({ code: 'toolong' }).errors, [
+    'Field "code" exceeds the maximum length',
+  ]);
+  assert.deepStrictEqual(schema.check({ code: 'bad' }).errors, ['Field "code" validation error']);
+  assert.deepStrictEqual(schema.check({ code: 'x' }, '', { maxErrors: 1 }).errors, [
+    'Field "code" value is too short',
+  ]);
+  const sized = Schema.from({
+    ids: { set: 'number', length: { min: 1 } },
+    byId: { map: { string: 'number' }, length: [1, 1] },
+    big: { type: 'bigint', length: { max: 10 } },
+  });
+  assert.strictEqual(
+    sized.check({ ids: new Set([1]), byId: new Map([['a', 1]]), big: 10n }).valid,
+    true,
+  );
+  assert.deepStrictEqual(
+    sized.check({
+      ids: new Set(),
+      byId: new Map([
+        ['a', 1],
+        ['b', 2],
+      ]),
+      big: 11n,
+    }).errors,
+    [
+      'Field "ids" value is too short',
+      'Field "byId" exceeds the maximum length',
+      'Field "big" exceeds the maximum length',
+    ],
+  );
+});

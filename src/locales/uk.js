@@ -9,7 +9,13 @@ const required = () => 'є обовʼязковим';
 const type = ({ expected, key }) =>
   key === undefined ? `не відповідає типу: ${expected}` : `ключі мають бути типу ${expected}`;
 
-const unexpected = ({ keys }) => `має неочікувані ключі: ${keys.map(shorten).join(', ')}`;
+const list = (keys) => {
+  let text = shorten(keys[0]);
+  for (let index = 1; index < keys.length; index += 1) text += `, ${shorten(keys[index])}`;
+  return text;
+};
+
+const unexpected = ({ keys }) => `має неочікувані ключі: ${list(keys)}`;
 
 const enumeration = ({ values }) => `значення не входить до переліку: ${values.join(', ')}`;
 
