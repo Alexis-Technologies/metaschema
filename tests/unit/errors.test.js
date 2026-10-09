@@ -88,3 +88,31 @@ test('Errors: every definition error carries its code', () => {
     message: 'Custom type "bad" must contain "construct" and "checkType" methods',
   });
 });
+
+test('Errors: keys that would replace a method of the field are reserved', () => {
+  const reserved = ['constructor', 'prototype', 'check', 'checkType', 'construct', 'toJSON'];
+  for (const key of reserved) {
+    assert.throws(() => Schema.from({ a: { type: 'string', [key]: 'x' } }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_RESERVED_KEY',
+      message: `Key "${key}" is reserved in a field definition in "a"`,
+    });
+  }
+  assert.throws(() => Schema.from({ a: JSON.parse('{"type":"string","__proto__":{"x":1}}') }), {
+    code: 'ERR_RESERVED_KEY',
+    message: 'Key "__proto__" is reserved in a field definition in "a"',
+  });
+  assert.throws(() => Schema.from({ tags: { array: 'string', isInstance: 1 } }), {
+    code: 'ERR_RESERVED_KEY',
+    message: 'Key "isInstance" is reserved in a field definition in "tags"',
+  });
+  assert.throws(() => Schema.from({ byKey: { object: { string: 'number' }, entries: 1 } }), {
+    code: 'ERR_RESERVED_KEY',
+    message: 'Key "entries" is reserved in a field definition in "byKey"',
+  });
+  const allowed = Schema.from({
+    a: { type: 'string', validate: () => true, default: 'x', unique: true, note: 'free' },
+  });
+  assert.strictEqual(allowed.fields.a.note, 'free');
+  assert.strictEqual(allowed.check({ a: 'y' }).valid, true);
+});

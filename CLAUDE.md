@@ -125,7 +125,7 @@ definition is a programming error. Capitalized names become `reference` fields.
 **Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
 (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
 `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`, `ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`,
-`ERR_INVALID_REFERENCE`), `schema` and `field`. A definition that can never validate correctly
+`ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`), `schema` and `field`. A definition that can never validate correctly
 (an `enum` without values, a `length` that is not numeric, a projection naming a field its parent
 does not have) is rejected when the schema is built, never discovered inside `check`. Throw sites do not know where
 they are; `createStruct` catches on the way up and calls `error.locate(root.name, field)`, which

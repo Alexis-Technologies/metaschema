@@ -87,6 +87,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
 | `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }` |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
+| `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
 

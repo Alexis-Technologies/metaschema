@@ -65,6 +65,12 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Reserved keys in a field definition.** `{ type: 'string', constructor: 'x' }` silently
+  switched validation of that field off, `check: 'x'` broke `check` with
+  `type.check is not a function`, and a `__proto__` key (as `JSON.parse` produces) failed with
+  `typeFormatters[key] is not a function`. A key that names a method of the field (`check`,
+  `checkType`, `construct`, `isInstance`, `toJSON`, `constructor`, …) or `__proto__`/`prototype`
+  is now rejected when the schema is built (`ERR_RESERVED_KEY`).
 - **Ordinary bad input reported as an internal error.** `null` for a required `object` field
   produced `validation failed TypeError: Cannot convert undefined or null to object`, an array was
   accepted as an `object`, and a number for a `many` reference produced

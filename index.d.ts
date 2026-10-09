@@ -39,7 +39,8 @@ export type DefinitionErrorCode =
   | 'ERR_INVALID_CUSTOM_TYPE'
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_LENGTH'
-  | 'ERR_INVALID_REFERENCE';
+  | 'ERR_INVALID_REFERENCE'
+  | 'ERR_RESERVED_KEY';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;

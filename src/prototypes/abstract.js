@@ -1,9 +1,17 @@
 const { ValidationResult } = require('../metadata.js');
 const { BRAND, formatters, checks } = require('../util.js');
+const { SchemaDefinitionError } = require('../errors.js');
+
+// Keys of a field definition become properties of the field, so a key that
+// names one of its methods (or the prototype itself) would replace it.
+const RESERVED = new Set(['__proto__', 'prototype']);
+
+const reservedKey = (key) =>
+  new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
 
 class AbstractType {
-  static checks = {};
-  static formatters = {};
+  static checks = Object.create(null);
+  static formatters = Object.create(null);
 
   static setRules(rules = []) {
     for (const rule of rules) {
@@ -19,6 +27,7 @@ class AbstractType {
       const key = pair[0];
       const value = pair[1];
       if (key === 'type' || key === this.type) continue;
+      if (RESERVED.has(key) || typeof this[key] === 'function') throw reservedKey(key);
       if (typeFormatters[key]) this[key] = typeFormatters[key](value);
       else this[key] = value;
     }
