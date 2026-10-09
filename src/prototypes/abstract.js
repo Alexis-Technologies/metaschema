@@ -1,5 +1,5 @@
 const { ValidationResult } = require('../metadata.js');
-const { BRAND, ancestors, formatters, checks } = require('../util.js');
+const { BRAND, INSPECT, ancestors, formatters, checks } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
@@ -62,6 +62,10 @@ class AbstractType {
   toJSON() {
     const { root, ...rest } = this;
     return rest;
+  }
+
+  [INSPECT](depth, options, inspect) {
+    return inspect(this.toJSON(), options);
   }
 }
 

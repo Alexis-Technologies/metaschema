@@ -3,6 +3,10 @@
 // (`class _Schema`) and minifiers that mangle it, none of which `constructor.name` does.
 const BRAND = Symbol.for('alexify.metaschema.brand');
 
+// Node's util.inspect looks this symbol up; a plain Symbol.for keeps the
+// browser build free of any Node import.
+const INSPECT = Symbol.for('nodejs.util.inspect.custom');
+
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
 // The objects on the current validation path. Validation is synchronous, so
@@ -70,4 +74,4 @@ const checks = {
   },
 };
 
-module.exports = { BRAND, hasBrand, ancestors, shorten, formatters, checks };
+module.exports = { BRAND, INSPECT, hasBrand, ancestors, shorten, formatters, checks };

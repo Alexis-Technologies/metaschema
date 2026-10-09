@@ -1,5 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const util = require('node:util');
 
 const { Schema, Model, ValidationResult } = require('../../index.js');
 
@@ -477,4 +478,19 @@ test('Schema: a Schema instance is reused and attached to the namespaces it is g
   assert.strictEqual(company.findReference('Person'), model.entities.get('Person'));
   assert.deepStrictEqual(model.warnings, []);
   assert.deepStrictEqual([...model.order], ['Company', 'Person']);
+});
+
+test('Schema: util.inspect prints the definition, not the graph', () => {
+  const user = new Schema('User', {
+    name: 'string',
+    tags: { array: 'string' },
+    address: { city: 'string' },
+  });
+  const text = util.inspect(user, { depth: 6 });
+  assert.ok(text.startsWith('Schema(User) {'), text);
+  assert.ok(!text.includes('[Circular'), text);
+  assert.ok(!text.includes('root'), text);
+  assert.ok(text.includes("type: 'string'"), text);
+  assert.ok(util.inspect(Schema.from({ a: 'string' })).startsWith('Schema {'));
+  assert.strictEqual(util.inspect(user.fields.name), "{ required: true, type: 'string' }");
 });

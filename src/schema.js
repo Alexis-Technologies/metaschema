@@ -1,6 +1,6 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, hasBrand, ancestors } = require('./util.js');
+const { BRAND, INSPECT, hasBrand, ancestors } = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
@@ -136,6 +136,11 @@ class Schema extends SchemaMetadata {
   toJSON() {
     const { fields } = this;
     return hasBrand(fields, 'Struct') ? { ...fields } : fields.toJSON();
+  }
+
+  [INSPECT](depth, options, inspect) {
+    const label = this.name ? `Schema(${this.name})` : 'Schema';
+    return `${label} ${inspect(this.toJSON(), options)}`;
   }
 }
 
