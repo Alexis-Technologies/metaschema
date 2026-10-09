@@ -125,7 +125,8 @@ definition is a programming error. Capitalized names become `reference` fields.
 **Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
 (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
 `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`, `ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`,
-`ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`), `schema` and `field`. A definition that can never validate correctly
+`ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`, `ERR_UNKNOWN_JS_TYPE`),
+`schema` and `field`. A definition that can never validate correctly
 (an `enum` without values, a `length` that is not numeric, a projection naming a field its parent
 does not have) is rejected when the schema is built, never discovered inside `check`. Throw sites do not know where
 they are; `createStruct` catches on the way up and calls `error.locate(root.name, field)`, which
@@ -245,6 +246,9 @@ change. **This file wins** if they ever disagree.
 - **`TYPES` is mutated by `typeFactory`.** Custom types and metadata registered by one `Model` are
   visible to every schema in the process, including `Schema.from` without a namespace. This is
   upstream's design; do not "fix" it by cloning per model without discussing it first.
+  Re-registering a name is accepted only for the same definition (`Type.source`: same `js`, same
+  `construct`/`checkType` functions) or a metadata-only entry; anything else throws
+  `ERR_TYPE_REGISTERED`, because the old silent no-op hid conflicting tables.
 - **Identity checks use a brand symbol, not `instanceof` or `constructor.name`.** `util.js`
   exports `BRAND = Symbol.for('alexify.metaschema.brand')` and `hasBrand(value, name)`;
   `AbstractType`, `Schema` and `ValidationResult` carry it on their prototypes, a struct as a

@@ -47,7 +47,7 @@ payment.check({ amount: 10.5, createdAt: 1 }).errors;
 | Entry | Effect |
 | --- | --- |
 | `{ metadata }` on a built-in name | merges `metadata` into the built-in type |
-| `{ js: '<builtin>', metadata }` | a new type that validates like `<builtin>` |
+| `{ js: '<type>', metadata }` | a new type that validates like `<type>`: a built-in, or a type registered earlier in the table |
 | `{ construct, checkType, ...proto }` | a new type with its own logic |
 
 An alias takes the same arguments as the type it aliases. An alias of `schema` names a kind of
@@ -102,3 +102,9 @@ payment.fields.amount.constructor.metadata; // { pg: 'decimal' }
 Type registration is process-wide: once a `Model` registers `ip` or adds metadata to `string`,
 every schema in the process sees it, including ones built with `Schema.from`. Register your types
 once, at startup, and use the same table everywhere.
+
+Passing the same table to several models is fine: an entry that repeats the definition a type was
+created from (the same `js`, the same `construct` and `checkType` functions) or only adds
+`metadata` is accepted. A different definition for a name that is already registered, including a
+built-in (`{ string: { js: 'number' } }`), throws `SchemaDefinitionError` with code
+`ERR_TYPE_REGISTERED`, and a `js` that names no registered type throws `ERR_UNKNOWN_JS_TYPE`.

@@ -75,6 +75,17 @@ const checkCustomType = (name, proto) => {
   }
 };
 
+// The same table is usually registered by every Model in the process, so an
+// entry that repeats the definition a type was created from (same `js`, same
+// `construct` and `checkType` functions) or only adds metadata is accepted; a
+// different definition for a registered name is an error, not a silent no-op.
+const redefines = (Type, { js, construct, checkType }) => {
+  const metadataOnly = js === undefined && construct === undefined && checkType === undefined;
+  if (metadataOnly) return false;
+  const source = Type.source || {};
+  return js !== source.js || construct !== source.construct || checkType !== source.checkType;
+};
+
 const typeFactory = (customTypes) => {
   for (const pair of Object.entries(customTypes)) {
     const name = pair[0];
@@ -83,14 +94,27 @@ const typeFactory = (customTypes) => {
       throw customTypeError(name, 'must be an object with methods "construct" and "checkType"');
     }
     const { js, metadata, ...rest } = value;
-    let Type = TYPES[name];
-    if (Type) {
-      updateTypeMetadata(Type, metadata);
+    const registered = TYPES[name];
+    if (registered) {
+      if (redefines(registered, value)) {
+        const reason = `Type "${name}" is already registered; only { metadata } may be added`;
+        throw new SchemaDefinitionError('ERR_TYPE_REGISTERED', reason);
+      }
+      updateTypeMetadata(registered, metadata);
       continue;
     }
-    const proto = PROTOTYPES[js] || rest;
+    let proto = rest;
+    if (js !== undefined) {
+      const base = TYPES[js];
+      if (!base) {
+        const reason = `Unknown js type "${js}" for custom type "${name}"`;
+        throw new SchemaDefinitionError('ERR_UNKNOWN_JS_TYPE', reason);
+      }
+      proto = base.prototype;
+    }
     checkCustomType(name, proto);
-    Type = createType(name, proto);
+    const Type = createType(name, proto);
+    Type.source = { js, construct: rest.construct, checkType: rest.checkType };
     updateTypeMetadata(Type, metadata);
     TYPES[name] = Type;
   }

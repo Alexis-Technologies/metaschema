@@ -24,7 +24,7 @@ const SYSTEM_TYPES = {
   boolean: { metadata: { pg: 'boolean' } },
   datetime: { js: 'string', metadata: { pg: 'timestamp with time zone' } },
   text: { js: 'string', metadata: { pg: 'text' } },
-  json: { js: 'schema', metadata: { pg: 'jsonb' } },
+  json: { metadata: { pg: 'jsonb' } },
 };
 
 const FLAT_SCHEMA = {

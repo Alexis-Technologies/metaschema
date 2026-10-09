@@ -65,6 +65,12 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Silent and misleading type registration.** `{ string: { js: 'number' } }` was ignored without
+  a word, and both an unknown alias (`{ js: 'strng' }`) and an alias of a custom type registered
+  earlier in the table failed with `Custom type must contain "construct" and "checkType" methods`.
+  Redefining a registered name now throws `ERR_TYPE_REGISTERED` (the same definition, or a
+  metadata-only entry, is still accepted, so one table can serve every model), an unknown `js`
+  throws `ERR_UNKNOWN_JS_TYPE`, and `js` may name any type registered earlier in the table.
 - **Reserved keys in a field definition.** `{ type: 'string', constructor: 'x' }` silently
   switched validation of that field off, `check: 'x'` broke `check` with
   `type.check is not a function`, and a `__proto__` key (as `JSON.parse` produces) failed with

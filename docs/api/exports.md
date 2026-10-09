@@ -87,6 +87,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
 | `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }` |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
+| `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
+| `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types

@@ -40,7 +40,9 @@ export type DefinitionErrorCode =
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_LENGTH'
   | 'ERR_INVALID_REFERENCE'
-  | 'ERR_RESERVED_KEY';
+  | 'ERR_RESERVED_KEY'
+  | 'ERR_TYPE_REGISTERED'
+  | 'ERR_UNKNOWN_JS_TYPE';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
