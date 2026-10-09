@@ -82,8 +82,11 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
 | `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
 | `ERR_INVALID_TUPLE` | a tuple element that is not a scalar type |
-| `ERR_PROJECTION` | a projection without `schema`/`fields` or with an unknown parent |
+| `ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
+| `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
+| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }` |
+| `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 
 ## Types
 

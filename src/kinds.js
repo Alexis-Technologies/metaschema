@@ -17,14 +17,18 @@ const ALLOW = ['write', 'append', 'read'];
 const projection = (kind, meta, root) => {
   const { scope = 'local', store = 'memory', allow = 'write' } = meta;
   const { schema, fields } = meta;
-  if (!schema && !fields) throw projectionError(root.name, 'needs { schema, fields }');
+  if (typeof schema !== 'string' || !Array.isArray(fields)) {
+    throw projectionError(root.name, 'needs { schema, fields }');
+  }
   const parent = schema;
   const metadata = { ...meta, kind, scope, store, allow, parent };
   const entity = root.findReference(schema);
   if (!entity) throw projectionError(root.name, `parent "${schema}" is not found`);
   const defs = Object.create(null);
   for (const key of fields) {
-    defs[key] = entity.fields[key];
+    const field = entity.fields[key];
+    if (!field) throw projectionError(root.name, `field "${key}" is not in "${schema}"`);
+    defs[key] = field;
   }
   return { defs, metadata };
 };

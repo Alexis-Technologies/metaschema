@@ -1,3 +1,10 @@
+const { SchemaDefinitionError } = require('../errors.js');
+
+const missingEnum = (type) => {
+  const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
+  return new SchemaDefinitionError('ERR_INVALID_ENUM', hint);
+};
+
 const scalar = {
   kind: 'scalar',
 
@@ -16,7 +23,9 @@ const enumerable = {
   kind: 'scalar',
 
   construct(def) {
-    this.enum = def.enum;
+    const values = def.enum;
+    if (!Array.isArray(values) || values.length === 0) throw missingEnum(this.type);
+    this.enum = values;
   },
 
   checkType(value, path) {

@@ -5,6 +5,16 @@ const BRAND = Symbol.for('alexify.metaschema.brand');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
+const { SchemaDefinitionError } = require('./errors.js');
+
+const isBound = (value) => value === undefined || typeof value === 'number';
+
+const invalidLength = () =>
+  new SchemaDefinitionError(
+    'ERR_INVALID_LENGTH',
+    'Rule "length" needs a number, [min, max] or { min, max }',
+  );
+
 const formatters = {
   type: (type, req = true) => {
     const required = !type.startsWith('?');
@@ -22,9 +32,10 @@ const formatters = {
 
   length: (length) => {
     if (typeof length === 'number') return { max: length };
-    if (!Array.isArray(length)) return length;
-    const min = length[0];
-    const max = length[1];
+    if (length === null || typeof length !== 'object') throw invalidLength();
+    const min = Array.isArray(length) ? length[0] : length.min;
+    const max = Array.isArray(length) ? length[1] : length.max;
+    if (!isBound(min) || !isBound(max)) throw invalidLength();
     return { min, max };
   },
 };
@@ -39,8 +50,8 @@ const checks = {
     if (typeof size === 'number') len = size;
     else if (typeof count === 'number') len = count;
     const { min, max } = length;
-    if (min && len < min) return 'value is too short';
-    if (max && len > max) return 'exceeds the maximum length';
+    if (min !== undefined && len < min) return 'value is too short';
+    if (max !== undefined && len > max) return 'exceeds the maximum length';
     return null;
   },
 };

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Schema } = require('../../index.js');
+const { Schema, Model } = require('../../index.js');
 
 test('Scalars: kind', () => {
   const schema = Schema.from('string');
@@ -128,4 +128,25 @@ test('Scalars: check null value', () => {
 
   const obj2 = { field1: 'due', field2: null };
   assert.strictEqual(schema.check(obj2).valid, false);
+});
+
+test('Scalars: the enum type needs a non-empty list of values', () => {
+  const message = `Type "enum" needs a list of values: { type: 'enum', enum: [...] } in "e"`;
+  for (const definition of [{ e: 'enum' }, { e: { type: 'enum' } }, { e: { enum: [] } }]) {
+    assert.throws(() => Schema.from(definition), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_ENUM',
+      message,
+    });
+  }
+  const status = { js: 'enum' };
+  const task = { Struct: {}, state: { type: 'status', enum: ['open', 'done'] } };
+  const model = new Model({ status }, [['Task', task]]);
+  assert.strictEqual(model.entities.get('Task').fields.state.type, 'status');
+  assert.strictEqual(model.entities.get('Task').check({ state: 'open' }).valid, true);
+  assert.strictEqual(model.entities.get('Task').check({ state: 'late' }).valid, false);
+  assert.throws(() => new Model({ status }, [['Job', { Struct: {}, state: { type: 'status' } }]]), {
+    code: 'ERR_INVALID_ENUM',
+    message: `Type "status" needs a list of values: { type: 'status', enum: [...] } in "Job.state"`,
+  });
 });

@@ -1,11 +1,16 @@
+const { SchemaDefinitionError } = require('../errors.js');
+
 const reference = {
   kind: 'struct',
 
   construct(def) {
-    const { many, one } = def;
-    const key = many ? 'many' : 'one';
-    const reference = one || many;
-    const relation = def.many ? 'many-to-one' : 'one-to-many';
+    const key = def.many === undefined ? 'one' : 'many';
+    const reference = def[key];
+    if (typeof reference !== 'string' || reference === '') {
+      const reason = `Reference "${key}" needs an entity name, got ${JSON.stringify(reference)}`;
+      throw new SchemaDefinitionError('ERR_INVALID_REFERENCE', reason);
+    }
+    const relation = key === 'many' ? 'many-to-one' : 'one-to-many';
     this[key] = reference;
     this.type = reference;
     this.root.relations.add({ to: reference, type: relation });

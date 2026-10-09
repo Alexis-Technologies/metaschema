@@ -86,3 +86,40 @@ test('Rules: length negative check', () => {
   };
   assert.strictEqual(schema.check(obj5).valid, false);
 });
+
+test('Rules: length must be a number, [min, max] or { min, max }', () => {
+  const message = 'Rule "length" needs a number, [min, max] or { min, max } in "s"';
+  const invalid = ['abc', null, true, { min: 'a' }, { max: null }, ['1', 2]];
+  for (const length of invalid) {
+    assert.throws(() => Schema.from({ s: { type: 'string', length } }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_LENGTH',
+      message,
+    });
+  }
+  assert.throws(() => Schema.from({ tags: { array: { type: 'string', length: 'x' } } }), {
+    code: 'ERR_INVALID_LENGTH',
+    field: 'tags',
+  });
+  for (const length of [3, [1, 3], { min: 1, max: 3 }, { max: 3 }, { min: 1 }, [1]]) {
+    assert.strictEqual(
+      Schema.from({ s: { type: 'string', length } }).check({ s: 'ab' }).valid,
+      true,
+    );
+  }
+});
+
+test('Rules: a zero bound is a bound', () => {
+  const empty = Schema.from({ s: { type: 'string', length: { max: 0 } } });
+  assert.deepStrictEqual(empty.check({ s: 'abc' }).errors, [
+    'Field "s" exceeds the maximum length',
+  ]);
+  assert.strictEqual(empty.check({ s: '' }).valid, true);
+  assert.strictEqual(
+    Schema.from({ s: { type: 'string', length: 0 } }).check({ s: 'a' }).valid,
+    false,
+  );
+  const list = Schema.from({ items: { array: 'number', length: [0, 2] } });
+  assert.strictEqual(list.check({ items: [] }).valid, true);
+  assert.strictEqual(list.check({ items: [1, 2, 3] }).valid, false);
+});

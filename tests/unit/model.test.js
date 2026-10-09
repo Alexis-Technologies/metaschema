@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Model } = require('../../index.js');
+const { Model, Schema } = require('../../index.js');
 
 const database = {
   name: 'example',
@@ -257,4 +257,47 @@ test('Model: Identifier comes first, dependencies before dependents', () => {
   const model = new Model({}, entities);
   assert.deepStrictEqual([...model.order], ['Identifier', 'Customer', 'Order']);
   assert.deepStrictEqual(model.warnings, []);
+});
+
+test('Model: a projection must name fields its parent has', () => {
+  const account = ['Account', { Entity: {}, login: 'string', password: 'string' }];
+  assert.throws(
+    () =>
+      new Model({}, [account, ['Signin', { Projection: { schema: 'Account', fields: ['nope'] } }]]),
+    {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_PROJECTION',
+      message: 'Projection "Signin" field "nope" is not in "Account"',
+    },
+  );
+  for (const meta of [
+    {},
+    { schema: 'Account' },
+    { fields: ['login'] },
+    { schema: 1, fields: [] },
+  ]) {
+    assert.throws(() => new Model({}, [account, ['Signin', { Projection: meta }]]), {
+      code: 'ERR_PROJECTION',
+      message: 'Projection "Signin" needs { schema, fields }',
+    });
+  }
+  const ok = new Model({}, [
+    account,
+    ['Signin', { Projection: { schema: 'Account', fields: ['login'] } }],
+  ]);
+  assert.deepStrictEqual(Object.keys(ok.entities.get('Signin').fields), ['login']);
+});
+
+test('Model: one and many need an entity name', () => {
+  for (const [field, key, got] of [
+    [{ many: 5 }, 'many', '5'],
+    [{ one: '' }, 'one', '""'],
+    [{ type: 'many', many: null }, 'many', 'null'],
+  ]) {
+    assert.throws(() => Schema.from({ ref: field }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_REFERENCE',
+      message: `Reference "${key}" needs an entity name, got ${got} in "ref"`,
+    });
+  }
 });

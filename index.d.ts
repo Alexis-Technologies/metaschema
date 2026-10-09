@@ -36,7 +36,10 @@ export type DefinitionErrorCode =
   | 'ERR_MISSING_SCHEMA'
   | 'ERR_INVALID_TUPLE'
   | 'ERR_PROJECTION'
-  | 'ERR_INVALID_CUSTOM_TYPE';
+  | 'ERR_INVALID_CUSTOM_TYPE'
+  | 'ERR_INVALID_ENUM'
+  | 'ERR_INVALID_LENGTH'
+  | 'ERR_INVALID_REFERENCE';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;

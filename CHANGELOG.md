@@ -65,6 +65,13 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Broken definitions that only failed inside `check`.** `{ type: 'enum' }` without values
+  reported `validation failed TypeError: Cannot read properties of undefined` for every value;
+  `length: 'abc'` was silently ignored; `length: { max: 0 }` was ignored too because `0` is falsy;
+  `{ many: 5 }` was accepted; and a projection naming a field its parent does not have failed with
+  `Invalid definition: "undefined" of type undefined`. Each is now a `SchemaDefinitionError` when
+  the schema is built (`ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`, `ERR_INVALID_REFERENCE`,
+  `ERR_PROJECTION`), and `length: { max: 0 }` works.
 - **Tuple fields in the short form were never required.** `point: ['number', 'number']` left
   `required` undefined, so a missing `point` passed validation and `model.dts` rendered it as
   optional; only the long form `{ type: 'tuple', value: [...] }` was required. The short form is now
