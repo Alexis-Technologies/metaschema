@@ -174,7 +174,7 @@ class Schema extends SchemaMetadata {
   // error lines, the schema name by default), maxErrors, unknown ('reject'
   // or 'ignore' keys the schema does not have), messages (a locale).
   check(source, options) {
-    const context = createContext(options, this.name);
+    const context = createContext(options, this.name, this.unknown);
     if (this.#tracked && source !== null && typeof source === 'object') {
       context.seen = new Set();
       context.seen.add(source);

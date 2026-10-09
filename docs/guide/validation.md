@@ -92,7 +92,7 @@ result.tree().properties.tags.items[1];
 | --- | --- | --- |
 | `root` | the schema name | the label the error lines start with; `''` for none. Issue paths never include it |
 | `maxErrors` | unlimited | stop collecting after that many issues (at least 1), and stop walking fields, elements and records as soon as the limit is reached |
-| `unknown` | `'reject'` | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
+| `unknown` | the schema's [`unknown` metadata](/guide/kinds-and-metadata#metadata-fields), `'reject'` unless set | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
 | `messages` | English | the [locale](#messages-and-locales) of the messages, or a function that renders every message |
 
 ```js

@@ -43,8 +43,10 @@ const union = {
     const seen = new Set();
     this.union.forEach((branch, index) => {
       for (const value of valuesOf(branch, discriminator, index)) {
-        if (seen.has(value))
-          throw invalidUnion(`discriminator value ${JSON.stringify(value)} is in two branches`);
+        if (seen.has(value)) {
+          const shown = JSON.stringify(value);
+          throw invalidUnion(`discriminator value ${shown} is in two branches`);
+        }
         seen.add(value);
       }
     });

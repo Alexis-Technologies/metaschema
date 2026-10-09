@@ -58,7 +58,21 @@ ALLOW; // ['write', 'append', 'read']
 | `store` | `'persistent'` or `'memory'` |
 | `allow` | `'write'`, `'append'` or `'read'` |
 | `parent` | the parent schema of a projection |
+| `unknown` | `'reject'` or `'ignore'`: what `check` does with keys the schema does not have, unless the call says otherwise |
 | `custom` | any other metadata keys |
+
+`unknown` is the default of this schema's `check` and applies to the whole value, nested structs
+included; `schema.check(value, { unknown })` overrides it for one call. A `Form` that accepts a
+request body with keys it does not use is the typical case:
+
+```js
+const signup = new Schema('Signup', { Form: { unknown: 'ignore' }, login: 'string', password: 'string' });
+signup.check({ login: 'a', password: 'b', remember: true }).valid; // true
+signup.check({ login: 'a', password: 'b', remember: true }, { unknown: 'reject' }).errors;
+// [ 'Field "Signup" has unexpected keys: remember' ]
+```
+
+Any other value throws `ERR_INVALID_OPTIONS` when the schema is built.
 
 ## Custom kinds
 

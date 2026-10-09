@@ -110,3 +110,49 @@ test('Options: every option goes together', () => {
     { code: 'required', path: ['name'], message: 'є обовʼязковим', params: {} },
   ]);
 });
+
+test('Options: a schema sets the default of unknown in its metadata', () => {
+  const form = new Schema('Signup', {
+    Form: { unknown: 'ignore' },
+    login: 'string',
+    profile: { name: 'string' },
+  });
+  assert.strictEqual(form.unknown, 'ignore');
+  assert.deepStrictEqual(form.custom, {});
+  const value = { login: 'a', profile: { name: 'n', extra: 1 }, remember: true };
+  assert.strictEqual(form.check(value).valid, true);
+  assert.deepStrictEqual(form.check(value, { unknown: 'reject' }).errors, [
+    'Field "Signup.profile" has unexpected keys: extra',
+    'Field "Signup" has unexpected keys: remember',
+  ]);
+  assert.strictEqual(form.check(value, { maxErrors: 1 }).valid, true);
+  assert.strictEqual(Schema.from({ a: 'string' }).unknown, 'reject');
+  assert.strictEqual(Schema.from({ Struct: {}, a: 'string' }).unknown, 'reject');
+  for (const kind of ['Struct', 'Entity', 'Registry', 'Custom']) {
+    const schema = new Schema('Thing', { [kind]: { unknown: 'ignore' }, a: 'string' });
+    assert.strictEqual(schema.unknown, 'ignore', kind);
+    assert.strictEqual(schema.check({ a: 'x', b: 1 }).valid, true, kind);
+    assert.strictEqual(schema.check({ a: 'x', b: 1 }, { unknown: 'reject' }).valid, false, kind);
+  }
+  for (const unknown of ['strip', null, true, 'Ignore']) {
+    assert.throws(() => Schema.from({ Struct: { unknown }, a: 'string' }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_OPTIONS',
+      message: `Schema metadata "unknown" must be "reject" or "ignore", got ${JSON.stringify(unknown)}`,
+    });
+  }
+  // The policy belongs to the check, not to the struct: a lenient schema
+  // embedded in a strict one is checked strictly through the strict one.
+  const lenient = new Schema('Meta', { Struct: { unknown: 'ignore' }, tag: 'string' });
+  const strict = new Schema('Doc', { meta: lenient, title: 'string' });
+  assert.strictEqual(lenient.check({ tag: 't', extra: 1 }).valid, true);
+  assert.deepStrictEqual(strict.check({ meta: { tag: 't', extra: 1 }, title: 'x' }).errors, [
+    'Field "Doc.meta" has unexpected keys: extra',
+  ]);
+  const model = new Model({}, [
+    ['Owner', { Entity: {}, name: 'string' }],
+    ['Request', { Form: { unknown: 'ignore' }, owner: 'Owner' }],
+  ]);
+  assert.strictEqual(model.entities.get('Request').unknown, 'ignore');
+  assert.strictEqual(model.entities.get('Owner').unknown, 'reject');
+});

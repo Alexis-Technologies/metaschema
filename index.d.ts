@@ -119,7 +119,8 @@ export interface CheckOptions {
   // Stop collecting after this many issues (at least 1).
   maxErrors?: number;
   // What to do with keys the schema does not have: report them as one
-  // `unexpected` issue per struct (the default) or ignore them.
+  // `unexpected` issue per struct, or ignore them. The default is the
+  // schema's own `unknown` metadata, 'reject' unless it says otherwise.
   unknown?: 'reject' | 'ignore';
   // The locale of the messages, or a function that renders every message.
   messages?: Messages;
@@ -225,6 +226,8 @@ export interface KindMetadata {
   store: Store;
   allow: Allow;
   parent?: string;
+  // The default of `check` for keys the schema does not have.
+  unknown?: 'reject' | 'ignore';
   [key: string]: unknown;
 }
 
@@ -283,6 +286,9 @@ export class Schema {
   store: Store;
   allow: Allow;
   parent: string;
+  // What `check` does with keys the schema does not have unless the call says
+  // otherwise: `{ Struct: { unknown: 'ignore' } }` sets it.
+  unknown: 'reject' | 'ignore';
   indexes: Record<string, object>;
   options: SchemaOptions;
   custom: Record<string, unknown>;

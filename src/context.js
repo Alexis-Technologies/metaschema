@@ -48,11 +48,13 @@ const optionsOf = (options) => {
 };
 
 // One object shape for every context: the keys are always present, in this
-// order, so the hot path sees a single hidden class.
-const createContext = (options, name = '') => {
+// order, so the hot path sees a single hidden class. `defaults` is what the
+// schema being checked says (its unknown-keys policy); an option of the call
+// wins over it.
+const createContext = (options, name = '', defaults = 'reject') => {
   let limit = UNLIMITED;
   let messages = en;
-  let unknown = 'reject';
+  let unknown = defaults;
   let root = name;
   if (options !== undefined) {
     optionsOf(options);

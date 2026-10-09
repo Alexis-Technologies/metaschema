@@ -49,8 +49,8 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `schema.types` | the type table in effect |
 | `schema.toJSON()` / `schema.toString()` | serialized fields |
 
-Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `fields`, `indexes`,
-`options`, `custom`, `references`, `relations`, `namespaces`.
+Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unknown`, `fields`,
+`indexes`, `options`, `custom`, `references`, `relations`, `namespaces`.
 
 ## `Model`
 
@@ -115,7 +115,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option with a value it does not accept |
+| `ERR_INVALID_OPTIONS` | a `Model` option, or the `unknown` metadata of a schema, with a value it does not accept |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types

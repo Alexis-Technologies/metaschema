@@ -110,6 +110,7 @@ expectType<Schema | null>(schema.findReference('Company'));
 expectType<string>(schema.toInterface());
 expectType<Kind>(schema.kind);
 expectType<Scope>(schema.scope);
+expectType<'reject' | 'ignore'>(schema.unknown);
 expectType<Set<Relation>>(schema.relations);
 expectType<Fields>(schema.fields);
 expectType<FieldType | ((value: any) => unknown)>(schema.fields.name);
