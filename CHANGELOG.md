@@ -80,6 +80,11 @@ the corrected error messages.
   `typeFormatters[key] is not a function`. A key that names a method of the field (`check`,
   `checkType`, `construct`, `isInstance`, `toJSON`, `constructor`, …) or `__proto__`/`prototype`
   is now rejected when the schema is built (`ERR_RESERVED_KEY`).
+- **Circular values.** A value that referred back to itself through a reference, a nested struct
+  or a collection was walked until the engine threw `RangeError`, reported as
+  `validation failed RangeError` at whatever depth the stack ran out, with a path thousands of
+  segments long. It is now reported where the cycle closes:
+  `Field "Category.parent" is a circular reference`.
 - **Ordinary bad input reported as an internal error.** `null` for a required `object` field
   produced `validation failed TypeError: Cannot convert undefined or null to object`, an array was
   accepted as an `object`, and a number for a `many` reference produced

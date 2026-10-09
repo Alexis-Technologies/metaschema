@@ -1,5 +1,5 @@
 const { ValidationResult } = require('../metadata.js');
-const { BRAND, formatters, checks } = require('../util.js');
+const { BRAND, ancestors, formatters, checks } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
@@ -39,6 +39,9 @@ class AbstractType {
     const result = new ValidationResult(path);
     const isEmpty = value === null || value === undefined;
     if (!this.required && isEmpty) return result;
+    const isObject = typeof value === 'object' && value !== null;
+    if (isObject && ancestors.has(value)) return result.add('is a circular reference');
+    if (isObject) ancestors.add(value);
     try {
       result.add(this.checkType(value, path));
       if (this.validate) result.add(this.validate(value, path));
@@ -51,6 +54,8 @@ class AbstractType {
       return result;
     } catch (error) {
       return result.add(`validation failed ${error}`);
+    } finally {
+      if (isObject) ancestors.delete(value);
     }
   }
 

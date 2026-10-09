@@ -55,5 +55,5 @@ Some things work as intended and are not vulnerabilities:
   bug; please report it.
 
 Things that *are* in scope: input data that makes `check` throw, hang or consume unbounded
-resources; input data that changes a schema or the type registry; and a message that leaks a value
-it should not.
+resources (a circular value is reported as `is a circular reference`, not recursed into); input
+data that changes a schema or the type registry; and a message that leaks a value it should not.

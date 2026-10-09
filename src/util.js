@@ -5,6 +5,11 @@ const BRAND = Symbol.for('alexify.metaschema.brand');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
+// The objects on the current validation path. Validation is synchronous, so
+// one set per process is enough; a value met again while it is still being
+// checked is a cycle and is reported instead of recursed into.
+const ancestors = new Set();
+
 const { SchemaDefinitionError } = require('./errors.js');
 
 const isBound = (value) => value === undefined || typeof value === 'number';
@@ -56,4 +61,4 @@ const checks = {
   },
 };
 
-module.exports = { BRAND, hasBrand, formatters, checks };
+module.exports = { BRAND, hasBrand, ancestors, formatters, checks };

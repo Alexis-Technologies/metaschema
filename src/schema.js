@@ -1,6 +1,6 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, hasBrand } = require('./util.js');
+const { BRAND, hasBrand, ancestors } = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
@@ -71,13 +71,22 @@ class Schema extends SchemaMetadata {
 
   check(source, path = this.name) {
     const result = new ValidationResult(path);
-    const custom = this.validate(source, path);
     const { fields } = this;
-    const nested = hasBrand(fields, 'Struct')
-      ? checkStruct(fields, source, path)
-      : fields.check(source, path);
-    result.add(custom);
-    return result.add(nested);
+    const isStruct = hasBrand(fields, 'Struct');
+    // The root of a struct joins the path too, unless a field check already put
+    // it there (a reference checks its target through this method). A schema
+    // of any other type delegates to that type's check, which tracks itself.
+    const isObject = typeof source === 'object' && source !== null;
+    const track = isStruct && isObject && !ancestors.has(source);
+    if (track) ancestors.add(source);
+    try {
+      const custom = this.validate(source, path);
+      const nested = isStruct ? checkStruct(fields, source, path) : fields.check(source, path);
+      result.add(custom);
+      return result.add(nested);
+    } finally {
+      if (track) ancestors.delete(source);
+    }
   }
 
   toInterface() {

@@ -383,3 +383,40 @@ test('Schema: a validate function may build and return a ValidationResult', () =
   assert.strictEqual(ValidationResult.isInstance(result), true);
   assert.deepStrictEqual(ValidationResult.format(true), null);
 });
+
+test('Schema: a value that refers back to itself is reported, not recursed into', () => {
+  const model = new Model({}, [['Category', { Entity: {}, name: 'string', parent: '?Category' }]]);
+  const category = model.entities.get('Category');
+  const loop = { name: 'root' };
+  loop.parent = loop;
+  assert.deepStrictEqual(category.check(loop).errors, [
+    'Field "Category.parent" is a circular reference',
+  ]);
+  const chain = { name: 'a', parent: { name: 'b' } };
+  chain.parent.parent = chain;
+  assert.deepStrictEqual(category.check(chain).errors, [
+    'Field "Category.parent.parent" is a circular reference',
+  ]);
+  const shared = { name: 'leaf' };
+  assert.strictEqual(category.check({ name: 'x', parent: shared }).valid, true);
+
+  const nested = Schema.from({ inner: { x: 'string' } });
+  const self = { x: 'ok' };
+  self.inner = self;
+  assert.deepStrictEqual(nested.check(self).errors, [
+    'Field "inner" is a circular reference',
+    'Field "x" is not expected',
+  ]);
+
+  const list = Schema.from({ items: { array: { n: 'number' } } });
+  const holder = { n: 1 };
+  holder.items = [holder];
+  assert.deepStrictEqual(list.check(holder).errors, [
+    'Field "items[0]" is a circular reference',
+    'Field "n" is not expected',
+  ]);
+  const twice = { n: 2 };
+  assert.strictEqual(list.check({ items: [twice, twice] }).valid, true);
+  assert.strictEqual(Schema.from(['number', 'number']).check([1, 2]).valid, true);
+  assert.strictEqual(Schema.from({ array: 'number' }).check([1, 2]).valid, true);
+});
