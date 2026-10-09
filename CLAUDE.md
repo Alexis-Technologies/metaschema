@@ -152,17 +152,24 @@ Index keys (`index`/`primary`/`unique` arrays) and `many` fields are collected i
 `schema.indexes`. Top-level `validate`/`format`/`parse`/`serialize` functions go to
 `schema.options`; only `validate` is called by metaschema.
 
-**Validation.** Errors are accumulated in `ValidationResult` (`{ valid, errors }`, private `#path`)
-and never thrown for bad data. Validators and `checkType` may return:
+**Validation.** Errors are accumulated in `ValidationResult` (`{ valid, errors, issues }`, private
+`#path`) and never thrown for bad data. Every message is also an issue `{ code, path, message }`;
+the library's own checks build theirs with `issue(code, path, detail)` from `util.js` (codes:
+`required`, `type`, `unexpected`, `enum`, `length`, `reference`, `circular`, `exception`), and
+anything else a validator returns gets `custom` (or `type` when it came from a `checkType`).
+Validators and `checkType` may return:
 
 - `null`, `undefined` or `true`: valid
 - `false`: `'validation error'`
-- a string
-- an array of strings
+- a string, or `{ code, message }` (`path` optional)
+- an array of those
 - a `ValidationResult`
 
-`ValidationResult.format` prefixes messages with `Field "<path>" ` unless they already start with
-`Field`. Exceptions inside a type check are caught and reported as `validation failed <error>`.
+`ValidationResult.issuesOf` normalises all of that; `format` is its message-only view, prefixing
+messages with `Field "<path>" ` unless they already start with `Field`. Exceptions inside a type
+check are caught and reported as `validation failed <error>`. `check(value, path, { maxErrors })`
+sets `limits.maxErrors` in `util.js` for the duration of the call (validation is synchronous);
+`result.full` is how every loop over fields, elements and records stops early.
 
 **Model.** `new Model(types, entities, database = null)`:
 

@@ -14,6 +14,16 @@ const hasBrand = (value, name) => value?.[BRAND] === name;
 // checked is a cycle and is reported instead of recursed into.
 const ancestors = new Set();
 
+// A result stops collecting once it holds this many messages. Schema#check
+// sets it from its options for the duration of the call (validation is
+// synchronous) and restores it afterwards.
+const limits = { maxErrors: Infinity };
+
+// A validation problem with a code, built by the library's own checks. A
+// message from a custom validator gets the code 'custom' (or 'type' from a
+// custom checkType) when the result adds it.
+const issue = (code, path, detail) => ({ code, path, message: `Field "${path}" ${detail}` });
+
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
 const KEY_LIMIT = 100;
@@ -59,7 +69,7 @@ const formatters = {
 };
 
 const checks = {
-  length: (src, type) => {
+  length: (src, type, path) => {
     const { length, entries } = type;
     const value = entries ? entries(src) : src;
     const size = value?.size;
@@ -68,10 +78,20 @@ const checks = {
     if (typeof size === 'number') len = size;
     else if (typeof count === 'number') len = count;
     const { min, max } = length;
-    if (min !== undefined && len < min) return 'value is too short';
-    if (max !== undefined && len > max) return 'exceeds the maximum length';
+    if (min !== undefined && len < min) return issue('length', path, 'value is too short');
+    if (max !== undefined && len > max) return issue('length', path, 'exceeds the maximum length');
     return null;
   },
 };
 
-module.exports = { BRAND, INSPECT, hasBrand, ancestors, shorten, formatters, checks };
+module.exports = {
+  BRAND,
+  INSPECT,
+  hasBrand,
+  ancestors,
+  limits,
+  issue,
+  shorten,
+  formatters,
+  checks,
+};

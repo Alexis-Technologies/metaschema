@@ -1,5 +1,5 @@
 const { ValidationResult } = require('./metadata.js');
-const { BRAND, hasBrand, shorten, formatters } = require('./util.js');
+const { BRAND, hasBrand, issue, shorten, formatters } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 // The field names of a struct, computed once at construction. A global symbol
@@ -38,20 +38,24 @@ const createStruct = (defs, prep) => {
 const checkStruct = (fields, source, path = '') => {
   const result = new ValidationResult(path);
   const isObject = source !== null && typeof source === 'object';
-  if (!isObject) return result.add('not of expected type: object');
+  if (!isObject) return result.add(issue('type', path, 'not of expected type: object'));
   const keys = fields[KEYS] || Object.keys(fields);
   for (const name of keys) {
+    if (result.full) break;
     const type = fields[name];
     if (!hasBrand(type, 'Type')) continue;
     const nestedPath = path ? `${path}.${name}` : name;
     if (!Object.hasOwn(source, name)) {
-      if (type.required) result.add(`Field "${nestedPath}" is required`);
+      if (type.required) result.add(issue('required', nestedPath, 'is required'));
       continue;
     }
     result.add(type.check(source[name], nestedPath));
   }
   for (const name of Object.keys(source)) {
-    if (!(name in fields)) result.add(`Field "${shorten(name)}" is not expected`);
+    if (result.full) break;
+    if (name in fields) continue;
+    const nestedPath = path ? `${path}.${shorten(name)}` : shorten(name);
+    result.add(issue('unexpected', nestedPath, 'is not expected'));
   }
   return result;
 };

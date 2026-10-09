@@ -1,5 +1,5 @@
 const { ValidationResult } = require('../metadata.js');
-const { BRAND, INSPECT, ancestors, formatters, checks } = require('../util.js');
+const { BRAND, INSPECT, ancestors, issue, formatters, checks } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
@@ -50,15 +50,20 @@ class AbstractType {
     const isEmpty = value === null || value === undefined;
     if (!this.required && isEmpty) return result;
     const isObject = typeof value === 'object' && value !== null;
-    if (isObject && ancestors.has(value)) return result.add('is a circular reference');
+    if (isObject && ancestors.has(value)) {
+      return result.add(issue('circular', path, 'is a circular reference'));
+    }
     if (isObject) ancestors.add(value);
     try {
-      result.add(this.checkType(value, path));
-      if (this.validate) result.add(this.validate(value, path));
-      for (const rule of this.#rules) result.add(rule(value, this));
+      result.add(this.checkType(value, path), 'type');
+      if (this.validate && !result.full) result.add(this.validate(value, path));
+      for (const rule of this.#rules) {
+        if (result.full) break;
+        result.add(rule(value, this, path));
+      }
       return result;
     } catch (error) {
-      return result.add(`validation failed ${error}`);
+      return result.add(issue('exception', path, `validation failed ${error}`));
     } finally {
       if (isObject) ancestors.delete(value);
     }

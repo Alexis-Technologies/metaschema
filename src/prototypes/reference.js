@@ -1,4 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
+const { ValidationResult } = require('../metadata.js');
+const { issue } = require('../util.js');
 
 const reference = {
   kind: 'struct',
@@ -20,17 +22,20 @@ const reference = {
     const { one, many, root } = this;
     if (one) {
       const schema = root.findReference(one);
-      if (!schema) return `Entity "${one}" is not found`;
+      if (!schema) return issue('reference', path, `Entity "${one}" is not found`);
       return schema.check(source, path);
     }
     const schema = root.findReference(many);
-    if (!schema) return `Entity "${many}" is not found`;
-    if (!Array.isArray(source)) return `Field "${path}" not of expected type: array of ${many}`;
-    for (const record of source) {
-      const result = schema.check(record, path);
-      if (!result.valid) return result;
+    if (!schema) return issue('reference', path, `Entity "${many}" is not found`);
+    if (!Array.isArray(source)) {
+      return issue('type', path, `not of expected type: array of ${many}`);
     }
-    return null;
+    const result = new ValidationResult(path);
+    for (let index = 0; index < source.length; index += 1) {
+      if (result.full) break;
+      result.add(schema.check(source[index], `${path}[${index}]`));
+    }
+    return result;
   },
 };
 

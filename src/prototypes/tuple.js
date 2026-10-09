@@ -1,4 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
+const { ValidationResult } = require('../metadata.js');
+const { issue } = require('../util.js');
 
 const notScalar = (element) => {
   const shown = typeof element === 'string' ? `"${element}"` : JSON.stringify(element);
@@ -25,19 +27,18 @@ const tuple = {
   },
 
   checkType(source, path) {
-    if (!Array.isArray(source)) return `not of expected type: ${this.type}`;
+    if (!Array.isArray(source)) return issue('type', path, `not of expected type: ${this.type}`);
     if (source.length > this.value.length) {
-      return 'value length is more than expected in tuple';
+      return issue('length', path, 'value length is more than expected in tuple');
     }
+    const result = new ValidationResult(path);
     for (let index = 0; index < this.value.length; index += 1) {
+      if (result.full) break;
       const scalar = this.value[index];
       const itemName = scalar.name || 'item';
-      const nested = `${path}(${itemName}${index})`;
-      const element = source[index];
-      const result = scalar.check(element, nested);
-      if (!result.valid) return result;
+      result.add(scalar.check(source[index], `${path}(${itemName}${index})`));
     }
-    return null;
+    return result;
   },
 };
 

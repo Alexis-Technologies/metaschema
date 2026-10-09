@@ -33,6 +33,7 @@ test('Tuple: basic implementation', () => {
   assert.strictEqual(schema2.check([bigIntValue, true]).valid, true);
   assert.deepStrictEqual(schema2.check(['abc', 1]).errors, [
     'Field "(item0)" not of expected type: bigint',
+    'Field "(item1)" not of expected type: boolean',
   ]);
   assert.deepStrictEqual(schema2.check([bigIntValue, false, 123]).errors, [
     'Field "" value length is more than expected in tuple',

@@ -1,4 +1,5 @@
-const { shorten } = require('../util.js');
+const { ValidationResult } = require('../metadata.js');
+const { issue, shorten } = require('../util.js');
 
 const object = {
   rules: ['length'],
@@ -17,27 +18,22 @@ const object = {
 
   checkType(source, path) {
     if (!this.isInstance(source)) {
-      return `Field "${path}" not of expected type: ${this.type}`;
+      return issue('type', path, `not of expected type: ${this.type}`);
     }
     const entries = this.entries(source);
-    if (entries.length === 0 && this.required) {
-      return `Field "${path}" is required`;
-    }
-    const errors = [];
+    if (entries.length === 0 && this.required) return issue('required', path, 'is required');
+    const result = new ValidationResult(path);
     for (const pair of entries) {
+      if (result.full) break;
       const field = pair[0];
       const fieldValue = pair[1];
       // oxlint-disable-next-line valid-typeof
       if (typeof field !== this.key) {
-        const hint = `type of key must be a ${this.key}`;
-        return `In ${this.type} "${path}": ${hint}`;
+        return result.add(issue('type', path, `keys must be of type ${this.key}`));
       }
-      const nestedPath = `${path}.${shorten(field)}`;
-      const result = this.value.check(fieldValue, nestedPath);
-      if (!result.valid) errors.push(...result.errors);
+      result.add(this.value.check(fieldValue, `${path}.${shorten(field)}`));
     }
-    if (errors.length > 0) return errors;
-    return null;
+    return result;
   },
 
   isInstance(value) {
@@ -74,19 +70,16 @@ const array = {
 
   checkType(source, path) {
     if (!this.isInstance(source)) {
-      return `Field "${path}" not of expected type: ${this.type}`;
+      return issue('type', path, `not of expected type: ${this.type}`);
     }
     // A Set is copied to index it; an array is walked as it is.
     const value = Array.isArray(source) ? source : [...source];
-    const errors = [];
+    const result = new ValidationResult(path);
     for (let index = 0; index < value.length; index += 1) {
-      const element = value[index];
-      const nestedPath = `${path}[${index}]`;
-      const result = this.value.check(element, nestedPath);
-      if (!result.valid) errors.push(...result.errors);
+      if (result.full) break;
+      result.add(this.value.check(value[index], `${path}[${index}]`));
     }
-    if (errors.length > 0) return errors;
-    return null;
+    return result;
   },
 
   isInstance(value) {

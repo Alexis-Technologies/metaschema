@@ -28,20 +28,53 @@ export interface Relation {
   type: Cardinality;
 }
 
+// Codes of the issues the library produces; a validator may use its own.
+export type IssueCode =
+  | 'required'
+  | 'type'
+  | 'unexpected'
+  | 'enum'
+  | 'length'
+  | 'reference'
+  | 'circular'
+  | 'exception'
+  | 'custom';
+
+export interface ValidationIssue {
+  code: IssueCode | (string & {});
+  path: string;
+  message: string;
+}
+
+// What a validator may return: an issue of its own needs only a message.
+export interface IssueInput {
+  code?: string;
+  path?: string;
+  message: string;
+}
+
 export type ValidationReturn =
   | boolean
   | string
-  | string[]
+  | IssueInput
+  | Array<string | IssueInput>
   | ValidationResult
   | null
   | undefined
   | void;
 
+export interface CheckOptions {
+  // Stop collecting after this many messages (at least 1).
+  maxErrors?: number;
+}
+
 export class ValidationResult {
   valid: boolean;
   errors: string[];
+  issues: ValidationIssue[];
   constructor(path?: string);
-  add(error: ValidationReturn): this;
+  add(error: ValidationReturn, code?: IssueCode): this;
+  static issuesOf(error: ValidationReturn, path?: string, code?: IssueCode): ValidationIssue[];
   static format(error: ValidationReturn, path?: string): string[] | null;
   static isInstance(error: unknown): boolean;
 }
@@ -167,7 +200,7 @@ export class Schema {
   get types(): TypeTable;
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
-  check(value: unknown, path?: string): ValidationResult;
+  check(value: unknown, path?: string, options?: CheckOptions): ValidationResult;
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;

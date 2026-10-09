@@ -39,6 +39,12 @@ the corrected error messages.
 - **ESM named imports** work: the root barrel lists every export by name, so
   `import { Schema } from '@alexify/metaschema'` resolves.
 - **`Model`** accepts any iterable of `[name, definition]` pairs, not only a `Map`.
+- **Paths and coverage of messages.** An unexpected key inside a nested struct carries the parent
+  path (`Field "nested.field2" is not expected`, was `Field "field2"`); records of a `many`
+  reference carry their index (`Person.companies[1].name`, was `Person.companies.name`); every
+  element of a tuple and every record of a `many` reference is reported instead of only the
+  first; and a wrong key type in an `object` or `map` reads `Field "o" keys must be of type string`
+  (was `Field "o" In object "o": type of key must be a string`).
 - **`model.dts` keeps the shape of every field.** Arrays and sets render as `T[]`, an `enum` as
   a union of its values, `bigint` as `bigint`, a tuple as `[number, number]`, `object` as
   `Record<K, V>`, `map` as `Map<K, V>`, a nested struct inline and `json` as `unknown`; before,
@@ -57,6 +63,12 @@ the corrected error messages.
   the message says where: `Unknown type "strng" in "Order.total"`. Previously a model with many
   entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
   `null` field definition threw `Cannot read properties of null`.
+- **Structured issues.** `result.issues` holds `{ code, path, message }` for every message, with
+  the codes `required`, `type`, `unexpected`, `enum`, `length`, `reference`, `circular`,
+  `exception` and `custom`, so a form, a logger or an i18n layer need not parse the text. A
+  `validate` function may return `{ code, message }` objects of its own.
+- **`check(value, path, { maxErrors })`** stops collecting at that many messages and stops walking
+  fields, elements and records as soon as the limit is reached.
 - **An isolated type registry per model.** `new Model(types, entities, database, { registry:
   'isolated' })` gives the model its own copy of the built-in types to register into, so two
   models with conflicting custom types can live in one process. The default, `'shared'`, is the

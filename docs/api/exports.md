@@ -40,7 +40,7 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `Schema.from(definition, namespaces?)` | an anonymous schema |
 | `new Schema(name, definition, namespaces?)` | a named schema; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
-| `schema.check(value, path?)` | validates a value; returns `ValidationResult` |
+| `schema.check(value, path?, options?)` | validates a value; returns `ValidationResult`; `options.maxErrors` stops collecting at that many messages |
 | `schema.validate(value, path)` | runs only the schema-level `validate`; `null` without one |
 | `schema.toInterface()` | the schema as a TypeScript interface |
 | `schema.checkConsistency()` | warnings about references that cannot be resolved |
@@ -73,7 +73,9 @@ What `schema.check` returns, and what a `validate` function may build and return
 | `new ValidationResult(path?)` | an empty, valid result for `path` |
 | `result.valid` | `true` while there are no errors |
 | `result.errors` | the messages, each prefixed with `Field "<path>" ` unless it already starts with `Field` |
-| `result.add(error)` | adds `false`, a string, an array of strings or another result; `true`, `null` and `undefined` add nothing |
+| `result.issues` | `{ code, path, message }` per problem; see [Validation](/guide/validation#the-result) for the codes |
+| `result.add(error, code?)` | adds `false`, a string, a `{ code, message }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
+| `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce |
 | `ValidationResult.format(error, path?)` | the messages `add` would produce, or `null` |
 
 ## `SchemaDefinitionError`
@@ -109,5 +111,5 @@ it; see [Validation](/guide/validation#the-result).
 `index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `ModelOptions`, `Validator`, `ValidationReturn` and
-`DefinitionErrorCode`.
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `Validator`, `ValidationReturn`,
+`ValidationIssue`, `IssueInput`, `IssueCode` and `DefinitionErrorCode`.

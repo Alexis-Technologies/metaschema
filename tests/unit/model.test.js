@@ -317,7 +317,7 @@ test('Model: a many reference needs an array', () => {
   assert.strictEqual(person.check({ companies: [] }).valid, true);
   assert.strictEqual(person.check({ companies: [{ name: 'Acme' }] }).valid, true);
   assert.deepStrictEqual(person.check({ companies: [{ name: 1 }] }).errors, [
-    'Field "Person.companies.name" not of expected type: string',
+    'Field "Person.companies[0].name" not of expected type: string',
   ]);
 });
 

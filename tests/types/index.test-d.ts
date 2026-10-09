@@ -18,12 +18,14 @@ import type {
   DefinitionErrorCode,
   FieldType,
   Fields,
+  IssueCode,
   Kind,
   KindMetadata,
   Relation,
   Scope,
   TypeEntry,
   TypeTable,
+  ValidationIssue,
 } from '../../index.js';
 
 expectType<Array<string>>(KIND);
@@ -49,6 +51,11 @@ expectType<Schema | null>(Schema.extractSchema({}));
 expectType<ValidationResult>(schema.check({ name: 'Marcus' }));
 expectType<boolean>(schema.check({}).valid);
 expectType<string[]>(schema.check({}).errors);
+expectType<ValidationIssue[]>(schema.check({}).issues);
+expectType<ValidationResult>(schema.check({}, 'User', { maxErrors: 3 }));
+expectError(schema.check({}, 'User', { maxErrors: '3' }));
+expectAssignable<IssueCode>('required');
+expectAssignable<ValidationIssue['code']>('my-own-code');
 expectType<ValidationResult | null>(schema.validate({}, 'User'));
 expectType<Schema | null>(schema.findReference('Company'));
 expectType<string>(schema.toInterface());
@@ -92,6 +99,8 @@ expectType<Promise<void>>(saveTypes('./model.d.ts', model));
 
 const result = new ValidationResult('User');
 expectType<ValidationResult>(result.add('message').add(false).add(['a', 'b']).add(null));
+expectType<ValidationResult>(result.add({ code: 'format', message: 'needs an @' }, 'type'));
+expectType<ValidationIssue[]>(ValidationResult.issuesOf('message', 'User', 'custom'));
 expectType<boolean>(result.valid);
 expectType<string[] | null>(ValidationResult.format('message', 'User'));
 expectType<boolean>(ValidationResult.isInstance(result));

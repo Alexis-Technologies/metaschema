@@ -1,3 +1,5 @@
+const { issue } = require('../util.js');
+
 const json = {
   kind: 'struct',
 
@@ -5,7 +7,7 @@ const json = {
 
   checkType(value, path) {
     const isObject = value !== null && typeof value === 'object';
-    if (!isObject) return `Field "${path}" not of expected type: object`;
+    if (!isObject) return issue('type', path, 'not of expected type: object');
     return null;
   },
 };

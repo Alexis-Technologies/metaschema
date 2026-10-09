@@ -199,7 +199,7 @@ test('Schema: nested validation function', () => {
         field2: 'abc',
       },
     }).errors,
-    ['Field "field2" is not expected', 'Field "nested" nested.field is required'],
+    ['Field "nested.field2" is not expected', 'Field "nested" nested.field is required'],
   );
 
   assert.deepStrictEqual(
@@ -209,7 +209,7 @@ test('Schema: nested validation function', () => {
         throw: '42',
       },
     }).errors,
-    ['Field "throw" is not expected', 'Field "nested" validation failed Error: 42'],
+    ['Field "nested.throw" is not expected', 'Field "nested" validation failed Error: 42'],
   );
 });
 
