@@ -15,12 +15,12 @@ class ValidationResult {
   }
 
   add(error) {
-    if (ValidationResult.isInstance(error)) {
-      this.errors.push(...error.errors);
-    } else {
-      const formatted = ValidationResult.format(error, this.#path);
-      if (formatted) this.errors.push(...formatted);
-    }
+    const messages = ValidationResult.isInstance(error)
+      ? error.errors
+      : ValidationResult.format(error, this.#path);
+    // One by one: a spread call has an argument limit, and a validator may
+    // legitimately return more messages than that.
+    if (messages) for (const message of messages) this.errors.push(message);
     this.valid = this.errors.length === 0;
     return this;
   }

@@ -420,3 +420,12 @@ test('Schema: a value that refers back to itself is reported, not recursed into'
   assert.strictEqual(Schema.from(['number', 'number']).check([1, 2]).valid, true);
   assert.strictEqual(Schema.from({ array: 'number' }).check([1, 2]).valid, true);
 });
+
+test('Schema: a validator may return more messages than a spread call accepts', () => {
+  const messages = Array.from({ length: 200000 }, (_, i) => `m${i}`);
+  const schema = Schema.from({ a: { type: 'string', validate: () => messages } });
+  const result = schema.check({ a: 'x' });
+  assert.strictEqual(result.errors.length, 200000);
+  assert.strictEqual(result.errors[0], 'Field "a" m0');
+  assert.strictEqual(result.errors[199999], 'Field "a" m199999');
+});

@@ -80,6 +80,9 @@ the corrected error messages.
   `typeFormatters[key] is not a function`. A key that names a method of the field (`check`,
   `checkType`, `construct`, `isInstance`, `toJSON`, `constructor`, …) or `__proto__`/`prototype`
   is now rejected when the schema is built (`ERR_RESERVED_KEY`).
+- **A validator returning more than ~110,000 messages lost all of them.** `ValidationResult#add`
+  spread them into `push`, which throws past the engine's argument limit, and `check` reported a
+  single `validation failed RangeError` instead. Every message is kept.
 - **Circular values.** A value that referred back to itself through a reference, a nested struct
   or a collection was walked until the engine threw `RangeError`, reported as
   `validation failed RangeError` at whatever depth the stack ran out, with a path thousands of
