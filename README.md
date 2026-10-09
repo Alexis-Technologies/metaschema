@@ -65,21 +65,30 @@ Requires Node.js 18 or newer. Works in browsers through any bundler.
 | --- | --- | --- |
 | Type name | `title: 'string'` | a required string |
 | Optional | `subtitle: '?string'` or `'subtitle?': 'string'` | `undefined` / `null` allowed |
-| Long form | `login: { type: 'string', length: [3, 32] }` | a type with options |
+| Nullable | `parent: { type: 'string', nullable: true }` | the key is required, the value may be `null` |
+| Long form | `login: { type: 'string', length: [3, 32] }` | a type with options, `type` first |
 | Collections | `{ array: 'number' }`, `{ set: 'string' }`, `{ object: { string: 'number' } }`, `{ map: { string: 'string' } }` | |
 | Enum | `{ enum: ['admin', 'user'] }` | one of the values |
-| Tuple | `point: ['number', 'number']` | a fixed-length array of scalars |
-| Nested struct | `name: { first: 'string', last: 'string' }` | an object with its own fields |
-| Reference | `company: 'Company'`, `{ many: 'Address' }` | another schema in the model |
+| Tuple | `point: ['number', 'number']` | a fixed-length array, each element its own definition |
+| Union | `id: { union: ['string', 'number'] }`, `{ union: [...], discriminator: 'kind' }` | one of several definitions |
+| Nested struct | `name: { first: 'string', last: 'string' }` | an object whose first key is none of the above |
+| Reference | `company: 'Company'`, `{ many: 'Address' }` | another schema in the model: its id for a stored kind, the record for a memory kind |
 | Any object | `payload: 'json'` | any non-null object |
 | Calculated | `ratio: (file) => file.compressed / file.size` | a function, never validated |
 
-Built-in types: `string`, `number`, `bigint`, `boolean`, `enum`, `array`, `set`, `object`, `map`,
-`tuple`, `json`. Fields can add a `validate(value, path)` function, and a schema can have a
-top-level `validate` for rules across fields. `check(value, options)` takes `root` (the label of
-the error lines), `maxErrors`, `unknown: 'ignore'` (keys the schema does not have) and `messages`
-(a locale); the result has `issues`, `errors`, `summary`, `flatten()` and `tree()`. See
-[Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax) and
+The first key of an object decides what it is. Built-in types: `string`, `number`, `integer`,
+`bigint`, `boolean`, `date`, `null`, `any`/`unknown`, `enum`, `array`, `set`, `object`, `map`,
+`tuple`, `union`, `json`. Rules: `length` (with `unicode: true` for code points) and `pattern`
+for strings, `length` for collections, `min`/`max` for numbers; a rule on a type that does not
+take it is a definition error. Fields can add a `validate(value, path)` function, and a schema
+can have a top-level `validate` for rules across fields. `check(value, options)` takes `root`
+(the label of the error lines), `maxErrors`, `unknown: 'ignore'` (keys the schema does not have;
+`{ Struct: { unknown: 'ignore' } }` makes it the schema's default), `references` (`'kind'`,
+`'embed'` or `'id'`) and `messages` (a locale); the result has `issues`, `errors`, `summary`,
+`flatten()` and `tree()`. `schema.warnings` lints the definition (a mistyped option, a `pattern`
+without `length.max`). See [Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax),
+[Types](https://metaschema.vercel.app/guide/types),
+[References](https://metaschema.vercel.app/guide/references) and
 [Validation](https://metaschema.vercel.app/guide/validation).
 
 ## Domain models
@@ -102,7 +111,7 @@ const entities = new Map([
 const model = new Model(types, entities);
 
 model.order; // Set { 'Address', 'Company', 'User' }
-model.warnings; // [] (missing references end up here)
+model.warnings; // [] (lint and consistency warnings, `Warning [code]: text`, end up here)
 console.log(model.dts);
 ```
 
@@ -131,7 +140,9 @@ interface User {
 `saveTypes(outputFile, model)` writes `model.dts` to a file. The first key of a definition sets
 its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
 `View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
-`scope: 'application'` and `store: 'persistent'`, and they get an id field. See
+`scope: 'application'` and `store: 'persistent'`, and they get an id field; a reference to a
+stored kind holds its id, a reference to a memory kind embeds the record, in `check` and in the
+generated types alike. See
 [Kinds and Metadata](https://metaschema.vercel.app/guide/kinds-and-metadata),
 [Custom Types](https://metaschema.vercel.app/guide/custom-types) and
 [Domain Models](https://metaschema.vercel.app/guide/model).

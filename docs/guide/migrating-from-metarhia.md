@@ -87,7 +87,7 @@ metaschema used are copied into the package.
   | `Field "Person.companies.name" ...` (a `many` record) | `Field "Person.companies[1].name" ...` |
   | `Field "o" In object "o": type of key must be a string` | `Field "o" keys must be of type string` |
   | `Field "o" validation failed TypeError: ...` for `null` | `Field "o" not of expected type: object` |
-  | `Recursive dependency: A.B` (a model warning) | `Warning: "A" depends on "B" recursively` |
+  | `Recursive dependency: A.B` (a model warning) | `Warning [recursive-reference]: "A" depends on "B" recursively` |
 
   Every element of a tuple and every record of a `many` reference is reported, not only the
   first; a circular value is reported as `is a circular reference` instead of overflowing the

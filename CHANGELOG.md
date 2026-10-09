@@ -9,9 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The validation core is rewritten for 2.0: every check is compiled into a closure when the schema
 is built, issues are data with array paths and params, messages are rendered through a locale at
-the end of a check, and `check` takes an options object. The schema language is unchanged.
+the end of a check, and `check` takes an options object. The schema language gets honest
+semantics: the first key of a definition decides what it is, numbers are bounded by `min`/`max`,
+a reference follows the kind of its target, and `integer`, `date`, `null`, `any`, `union`,
+`nullable` and `pattern` join the language.
 
 ### Upgrading from 1.x
+
+- **The first key of an object decides what it is.** The long form is read only when `type` is
+  the first key; any other first key that is not a kind or a type name is a nested struct.
+  `{ name: 'string', type: 'string' }` is a struct with two fields (it used to become a string
+  silently); `{ required: false, type: 'string' }` throws `ERR_INVALID_DEFINITION`. A struct whose
+  first field is called `type` or named like a type (`date`, `null`, `any`, `integer`, `union`
+  are type names now) needs a kind (`{ Struct: {}, ... }`) or the `schema` shorthand.
+- **`length` on a number is an error.** `number`, `bigint` and the new `integer` are bounded by
+  `min` and `max` (`{ type: 'number', length: [18, 120] }` → `{ type: 'integer', min: 18, max:
+  120 }`); a `length` there throws `ERR_INVALID_RULE` with that hint, and a failed bound is a
+  `range` issue (`is less than 18`), not `length`. Every type lists the rules it accepts, so a rule
+  on a type that does not take it (`min` on a string, `length` on a boolean) throws too; a custom
+  type opts in with `rules: [...]` and an alias takes the rules of its base.
+- **A reference follows the kind of its target.** A reference to a stored kind (`Entity`,
+  `Registry`, …) validates as an id (`employer: 'c1'`, `addresses: ['a1']`) and a reference to a
+  memory kind (`Struct`, `Form`, …) as the record; 1.x always expected the record. Validate a
+  whole graph with `check(value, { references: 'embed' })`, rows with `{ references: 'id' }`, or
+  fix one field with `embed: true`/`false`. An id never recurses, so a cyclic value through stored
+  kinds is a type error, not `circular`. The generated TypeScript follows the same rule: a
+  memory-kind reference renders as its interface (`label: Tag`) instead of `labelId: string`.
+- **`set` renders as `Set<T>`** in the generated TypeScript (it was `T[]` while `check` accepted
+  only a `Set`), and **the `relations` labels are swapped** to the conventional direction: a
+  `many` field is `'one-to-many'`, a single reference `'many-to-one'`.
+- **A tuple element may be any definition.** `[{ x: 'number' }]` is still a named number (one key
+  holding a type name); `[{ x: 'number', y: 'number' }]` is a struct element. `ERR_INVALID_TUPLE`
+  is for a definition that is not an array or an element that is a function.
+- **Warnings carry a code**: `Warning [missing-reference]: "Address" referenced by "Company" is
+  not found`, `Warning [recursive-reference]: …`. `schema.warnings` and `model.warnings` are
+  computed on first use.
+- **Bundle budget.** The entries are at 12.5 KB min+gzip; CI gates at 13 KB (was 10 KB).
 
 - **`check(value, path, options)` → `check(value, options)`.** The root path is
   `options.root`; a string in its place throws a `TypeError` that says so.
@@ -46,6 +79,32 @@ the end of a check, and `check` takes an options object. The schema language is 
 
 ### Added
 
+- **New built-in types.** `integer` (`Number.isInteger`), `date` (a `Date` with a valid time),
+  `null`, `any` and `unknown` (one type under two names, differing in the TypeScript they render),
+  and `union`: `{ union: ['string', 'number'] }` keeps the first branch that reports nothing;
+  `{ union: [...], discriminator: 'kind' }` picks the branch from an enum field in one lookup,
+  built when the schema is built, and reports an unknown value as one `union` issue at the
+  discriminator's path. A definition that cannot discriminate throws `ERR_INVALID_UNION`.
+- **`nullable: true`**: a required key whose value may be `null`, apart from optional (`'?type'`,
+  `undefined` or `null`). It applies to any type and renders as `T | null`.
+- **`min` and `max`** for `number`, `integer` and `bigint`, as numbers or bigints compared exactly
+  (never through `Number`), with the `range` issue `{ min, max, actual }`.
+- **`pattern`** for strings, a string or a `RegExp` compiled once with the `u` flag (and without
+  `g`/`y`), with the `pattern` issue `{ pattern }`; the validation guide has a section on ReDoS.
+- **`unicode: true`** measures a string's `length` in code points instead of UTF-16 units.
+- **The unknown-keys policy as metadata**: `{ Form: { unknown: 'ignore' }, ... }` is the default
+  of that schema's `check`; the option of a call still wins.
+- **`check` option `references`** (`'kind'`, `'embed'`, `'id'`) and the field option `embed`.
+- **Definition lint.** `schema.warnings` reports an option the field's type does not read
+  (`unknown-option`; `default`, `unique`, `index`, `primary`, `title`, `description`, `examples`
+  and `deprecated` are known annotations), a `pattern` without `length.max`
+  (`unbounded-pattern`) and an index over a missing field (`missing-index-field`);
+  `model.warnings` adds `missing-reference`, `missing-type` and `recursive-reference`.
+- **Definition error codes** `ERR_INVALID_RULE` and `ERR_INVALID_UNION`; `ERR_INVALID_LENGTH`
+  also for a `min` above `max`.
+- **Types**: `FieldType.nullable` and `embed`, `Schema.unknown` and `warnings`,
+  `CheckOptions.references`, `CheckContext.references`, `IssueParams.range`, `pattern` and
+  `union`.
 - **Issues with params.** `result.issues` is `{ code, path, message, params }`: `type { expected,
   received }` (plus `key` for a wrong key type in an `object` or `map`), `unexpected { keys }`,
   `enum { values }`, `length { min, max, actual }`, `reference { entity }`, `exception { error }`.
@@ -75,7 +134,14 @@ the end of a check, and `check` takes an options object. The schema language is 
   3.6 M for an invalid one, nested from 0.33 M to about 2.8 M; construction stays where it was.
 - **A field set to `undefined`** is missing when the field is optional and a type error when it
   is required (`Object.hasOwn` is consulted only then).
-- **Bundle budget.** CI gates at 10 KB min+gzip (the entries are at 9.9 KB), and `pnpm bench`
+- **Generated TypeScript** follows the language: `integer` → `number`, `date` → `Date`, `null`,
+  `any`, `unknown`, a `union` as `A | B`, a nullable field as `T | null`, a `set` as `Set<T>`, a
+  reference by the kind of its target (see Upgrading).
+- **A `Schema` instance as a field** keeps its schema-level `validate` in every form (bare,
+  `{ schema }`, the long form); it used to be dropped.
+- **Construction** reads the first key of a definition once, lints on first use of `warnings`,
+  and keeps `createContext` small enough to inline into `check`.
+- **Bundle budget.** CI gates at 13 KB min+gzip (the entries are at 12.5 KB), and `pnpm bench`
   reads the clock once per hundred calls.
 
 ## [1.0.0] - 2026-10-09
