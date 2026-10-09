@@ -48,6 +48,9 @@ the corrected error messages.
   the message says where: `Unknown type "strng" in "Order.total"`. Previously a model with many
   entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
   `null` field definition threw `Cannot read properties of null`.
+- **`ValidationResult`** is exported, so a `validate` function can build the result it returns.
+  The typings describe it as the class it is, with `add` and `ValidationResult.format`, instead of
+  a two-property interface.
 - **`Schema#detach`**, the correctly spelt replacement for `detouch`.
 - **Exported types:** `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation` and
   `ValidationResult`.

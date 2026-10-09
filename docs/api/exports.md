@@ -5,7 +5,7 @@ Everything is exported from the package root, in Node.js and in the browser.
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError,
+  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
 ```
 
@@ -64,6 +64,18 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `field
 | `model.warnings` | consistency warnings |
 | `model.dts` | TypeScript interfaces for every entity |
 
+## `ValidationResult`
+
+What `schema.check` returns, and what a `validate` function may build and return itself.
+
+| Member | Description |
+| --- | --- |
+| `new ValidationResult(path?)` | an empty, valid result for `path` |
+| `result.valid` | `true` while there are no errors |
+| `result.errors` | the messages, each prefixed with `Field "<path>" ` unless it already starts with `Field` |
+| `result.add(error)` | adds `false`, a string, an array of strings or another result; `true`, `null` and `undefined` add nothing |
+| `ValidationResult.format(error, path?)` | the messages `add` would produce, or `null` |
+
 ## `SchemaDefinitionError`
 
 Thrown, as a `TypeError` subclass, when a definition is broken. Validation of data never throws
@@ -94,4 +106,4 @@ it; see [Validation](/guide/validation#the-result).
 ## Types
 
 `index.d.ts` also exports `Kind`, `Scope`, `Store`, `Allow`, `Cardinality`, `Relation`,
-`ValidationResult` and `DefinitionErrorCode`.
+`ValidationReturn` and `DefinitionErrorCode`.

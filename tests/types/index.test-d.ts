@@ -11,8 +11,9 @@ import {
   SchemaDefinitionError,
   SCOPE,
   STORE,
+  ValidationResult,
 } from '../../index.js';
-import type { DefinitionErrorCode, Kind, Relation, Scope, ValidationResult } from '../../index.js';
+import type { DefinitionErrorCode, Kind, Relation, Scope } from '../../index.js';
 
 expectType<Array<string>>(KIND);
 expectType<Array<string>>(KIND_STORED);
@@ -57,6 +58,12 @@ schema.detach(model);
 expectError(schema.detouch(model));
 
 expectType<Promise<void>>(saveTypes('./model.d.ts', model));
+
+const result = new ValidationResult('User');
+expectType<ValidationResult>(result.add('message').add(false).add(['a', 'b']).add(null));
+expectType<boolean>(result.valid);
+expectType<string[] | null>(ValidationResult.format('message', 'User'));
+expectType<boolean>(ValidationResult.isInstance(result));
 
 const error = new SchemaDefinitionError('ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
 expectAssignable<TypeError>(error);

@@ -70,6 +70,24 @@ The function runs after the type check and can return:
 | an array of strings | one error per message |
 | a `ValidationResult` | its errors |
 
+`ValidationResult` is exported, so a function can build the result it returns:
+
+```js
+const { Schema, ValidationResult } = require('@alexify/metaschema');
+
+const schema = Schema.from({
+  range: {
+    type: 'string',
+    validate: (value, path) => {
+      const result = new ValidationResult(path);
+      if (!value.includes('-')) result.add('needs a dash');
+      if (value.length > 9) result.add('is too long');
+      return result;
+    },
+  },
+});
+```
+
 Messages are prefixed with `Field "<path>"` unless they already start with `Field`. If the
 function throws, the error becomes a message (`validation failed Error: ...`) instead of
 propagating.

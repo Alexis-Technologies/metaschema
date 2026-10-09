@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Schema, Model } = require('../../index.js');
+const { Schema, Model, ValidationResult } = require('../../index.js');
 
 test('Schema: constructor', () => {
   const definition = { field1: 'string' };
@@ -354,4 +354,32 @@ test('Schema: toString, JSON.stringify', () => {
   const schema = Schema.from({ a: 'string' });
   assert.strictEqual(schema.toString(), '{"a":{"required":true,"type":"string"}}');
   assert.strictEqual(JSON.stringify(schema), '{"a":{"required":true,"type":"string"}}');
+});
+
+test('Schema: a validate function may build and return a ValidationResult', () => {
+  const schema = Schema.from({
+    range: {
+      type: 'string',
+      validate: (value, path) => {
+        const result = new ValidationResult(path);
+        if (!value.includes('-')) result.add('needs a dash');
+        if (value.length > 9) result.add('is too long');
+        return result;
+      },
+    },
+  });
+  assert.strictEqual(schema.check({ range: '1-2' }).valid, true);
+  assert.deepStrictEqual(schema.check({ range: '0123456789' }).errors, [
+    'Field "range" needs a dash',
+    'Field "range" is too long',
+  ]);
+  const result = new ValidationResult('p').add(false).add(['a', 'Field "q" b']).add(null).add(true);
+  assert.deepStrictEqual(result.errors, [
+    'Field "p" validation error',
+    'Field "p" a',
+    'Field "q" b',
+  ]);
+  assert.strictEqual(result.valid, false);
+  assert.strictEqual(ValidationResult.isInstance(result), true);
+  assert.deepStrictEqual(ValidationResult.format(true), null);
 });

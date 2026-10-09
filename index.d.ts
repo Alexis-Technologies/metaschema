@@ -25,9 +25,22 @@ export interface Relation {
   type: Cardinality;
 }
 
-export interface ValidationResult {
+export type ValidationReturn =
+  | boolean
+  | string
+  | string[]
+  | ValidationResult
+  | null
+  | undefined
+  | void;
+
+export class ValidationResult {
   valid: boolean;
   errors: string[];
+  constructor(path?: string);
+  add(error: ValidationReturn): this;
+  static format(error: ValidationReturn, path?: string): string[] | null;
+  static isInstance(error: unknown): boolean;
 }
 
 export type DefinitionErrorCode =

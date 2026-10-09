@@ -135,7 +135,7 @@ its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError,
+  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
 ```
 
