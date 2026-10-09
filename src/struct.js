@@ -1,5 +1,5 @@
-const { ValidationResult } = require('./metadata.js');
-const { BRAND, hasBrand, issue, shorten, formatters } = require('./util.js');
+const { BRAND, hasBrand, formatters } = require('./util.js');
+const { issues } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 // The field names of a struct, computed once at construction. A global symbol
@@ -35,29 +35,31 @@ const createStruct = (defs, prep) => {
   return fields;
 };
 
-const checkStruct = (fields, source, path, context) => {
-  const result = new ValidationResult(path, context);
+const checkStruct = (fields, source, context) => {
   const isObject = source !== null && typeof source === 'object';
-  if (!isObject) return result.add(issue('type', path, 'not of expected type: object'));
+  if (!isObject) {
+    issues.type(context, 'object', source);
+    return;
+  }
   const keys = fields[KEYS] || Object.keys(fields);
+  const { path } = context;
   for (const name of keys) {
-    if (result.full) break;
+    if (context.count >= context.limit) return;
     const type = fields[name];
     if (!hasBrand(type, 'Type')) continue;
-    const nestedPath = path ? `${path}.${name}` : name;
-    if (!Object.hasOwn(source, name)) {
-      if (type.required) result.add(issue('required', nestedPath, 'is required'));
-      continue;
-    }
-    result.add(type.check(source[name], nestedPath, context));
+    path.push(name);
+    if (Object.hasOwn(source, name)) type.check(source[name], context);
+    else if (type.required) issues.required(context);
+    path.pop();
   }
+  if (context.unknown !== 'reject') return;
+  let unexpected = null;
   for (const name of Object.keys(source)) {
-    if (result.full) break;
     if (name in fields) continue;
-    const nestedPath = path ? `${path}.${shorten(name)}` : shorten(name);
-    result.add(issue('unexpected', nestedPath, 'is not expected'));
+    if (unexpected === null) unexpected = [];
+    unexpected.push(name);
   }
-  return result;
+  if (unexpected !== null) issues.unexpected(context, unexpected);
 };
 
 module.exports = { createStruct, checkStruct };

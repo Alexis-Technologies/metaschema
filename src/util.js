@@ -14,11 +14,6 @@ const hasBrand = (value, name) => value?.[BRAND] === name;
 // symbol like BRAND, so a schema from another copy of the package has it too.
 const RUN = Symbol.for('alexify.metaschema.run');
 
-// A validation problem with a code, built by the library's own checks. A
-// message from a custom validator gets the code 'custom' (or 'type' from a
-// custom checkType) when the result adds it.
-const issue = (code, path, detail) => ({ code, path, message: `Field "${path}" ${detail}` });
-
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
 const KEY_LIMIT = 100;
@@ -63,29 +58,11 @@ const formatters = {
   },
 };
 
-const checks = {
-  length: (src, type, path) => {
-    const { length, entries } = type;
-    const value = entries ? entries(src) : src;
-    const size = value?.size;
-    const count = value?.length;
-    let len = Number(value);
-    if (typeof size === 'number') len = size;
-    else if (typeof count === 'number') len = count;
-    const { min, max } = length;
-    if (min !== undefined && len < min) return issue('length', path, 'value is too short');
-    if (max !== undefined && len > max) return issue('length', path, 'exceeds the maximum length');
-    return null;
-  },
-};
-
 module.exports = {
   BRAND,
   INSPECT,
   hasBrand,
   RUN,
-  issue,
   shorten,
   formatters,
-  checks,
 };

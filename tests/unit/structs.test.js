@@ -343,12 +343,16 @@ test('Structs: input keys from Object.prototype are not expected', () => {
   const input = JSON.parse(
     '{"name":"x","constructor":1,"__proto__":{"z":1},"check":1,"toString":2,"hasOwnProperty":3}',
   );
-  assert.deepStrictEqual(schema.check(input).errors, [
-    'Field "constructor" is not expected',
-    'Field "__proto__" is not expected',
-    'Field "check" is not expected',
-    'Field "toString" is not expected',
-    'Field "hasOwnProperty" is not expected',
+  const result = schema.check(input);
+  assert.deepStrictEqual(result.errors, [
+    'Field "" has unexpected keys: constructor, __proto__, check, toString, hasOwnProperty',
+  ]);
+  assert.deepStrictEqual(result.issues[0].params.keys, [
+    'constructor',
+    '__proto__',
+    'check',
+    'toString',
+    'hasOwnProperty',
   ]);
 });
 

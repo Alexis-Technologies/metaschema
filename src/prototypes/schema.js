@@ -23,8 +23,8 @@ const schema = {
     this.validate = defs.schema.validate || undefined;
   },
 
-  checkType(source, path, context) {
-    return checkStruct(this.schema, source, path, context);
+  checkValue(source, context) {
+    checkStruct(this.schema, source, context);
   },
 };
 

@@ -66,8 +66,11 @@ const updateTypeMetadata = (Type, metadata = {}) => {
   }
 };
 
+// A custom prototype brings `construct` and `checkType`; a built-in one, reused
+// through a `js` alias, checks values with `checkValue` instead.
 const checkCustomType = (name, proto) => {
-  const { checkType, construct } = proto;
+  const { construct } = proto;
+  const checkType = proto.checkType || proto.checkValue;
   if (!checkType || !construct) {
     throw customTypeError(name, 'must contain "construct" and "checkType" methods');
   }

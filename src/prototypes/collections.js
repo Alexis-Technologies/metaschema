@@ -1,5 +1,4 @@
-const { ValidationResult } = require('../metadata.js');
-const { issue, shorten } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const object = {
   rules: ['length'],
@@ -16,24 +15,29 @@ const object = {
     this.value = new Type(defs, prep);
   },
 
-  checkType(source, path, context) {
+  checkValue(source, context) {
     if (!this.isInstance(source)) {
-      return issue('type', path, `not of expected type: ${this.type}`);
+      issues.type(context, this.type, source);
+      return;
     }
     const entries = this.entries(source);
-    if (entries.length === 0 && this.required) return issue('required', path, 'is required');
-    const result = new ValidationResult(path, context);
+    if (entries.length === 0 && this.required) {
+      issues.required(context);
+      return;
+    }
+    const { path } = context;
     for (const pair of entries) {
-      if (result.full) break;
+      if (context.count >= context.limit) return;
       const field = pair[0];
-      const fieldValue = pair[1];
       // oxlint-disable-next-line valid-typeof
       if (typeof field !== this.key) {
-        return result.add(issue('type', path, `keys must be of type ${this.key}`));
+        issues.key(context, this.key, field);
+        return;
       }
-      result.add(this.value.check(fieldValue, `${path}.${shorten(field)}`, context));
+      path.push(field);
+      this.value.check(pair[1], context);
+      path.pop();
     }
-    return result;
   },
 
   isInstance(value) {
@@ -68,18 +72,20 @@ const array = {
     this.value = new Type(defs, prep);
   },
 
-  checkType(source, path, context) {
+  checkValue(source, context) {
     if (!this.isInstance(source)) {
-      return issue('type', path, `not of expected type: ${this.type}`);
+      issues.type(context, this.type, source);
+      return;
     }
     // A Set is copied to index it; an array is walked as it is.
     const value = Array.isArray(source) ? source : [...source];
-    const result = new ValidationResult(path, context);
+    const { path } = context;
     for (let index = 0; index < value.length; index += 1) {
-      if (result.full) break;
-      result.add(this.value.check(value[index], `${path}[${index}]`, context));
+      if (context.count >= context.limit) return;
+      path.push(index);
+      this.value.check(value[index], context);
+      path.pop();
     }
-    return result;
   },
 
   isInstance(value) {

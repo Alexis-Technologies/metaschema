@@ -17,11 +17,11 @@ test('Tuple: basic implementation', () => {
   assert.strictEqual(schema1.check(['abc', 1]).valid, true);
   assert.strictEqual(schema1.check(['abc', 1, 2]).valid, true);
   assert.deepStrictEqual(schema1.check(['abc', 'ab', 2]).errors, [
-    'Field "(item1)" not of expected type: number',
+    'Field "[1]" not of expected type: number',
   ]);
-  assert.deepStrictEqual(schema1.check(['abc', 2, 2, 123]).errors, [
-    'Field "" value length is more than expected in tuple',
-  ]);
+  const overflow = schema1.check(['abc', 2, 2, 123]);
+  assert.deepStrictEqual(overflow.errors, ['Field "" exceeds the maximum length']);
+  assert.deepStrictEqual(overflow.issues[0].params, { min: undefined, max: 3, actual: 4 });
 
   const short2 = { tuple: ['bigint', 'boolean'] };
   const schema2 = Schema.from(short2);
@@ -32,11 +32,11 @@ test('Tuple: basic implementation', () => {
   const bigIntValue = BigInt(9007199254740991);
   assert.strictEqual(schema2.check([bigIntValue, true]).valid, true);
   assert.deepStrictEqual(schema2.check(['abc', 1]).errors, [
-    'Field "(item0)" not of expected type: bigint',
-    'Field "(item1)" not of expected type: boolean',
+    'Field "[0]" not of expected type: bigint',
+    'Field "[1]" not of expected type: boolean',
   ]);
   assert.deepStrictEqual(schema2.check([bigIntValue, false, 123]).errors, [
-    'Field "" value length is more than expected in tuple',
+    'Field "" exceeds the maximum length',
   ]);
 
   const long = { type: 'tuple', value: ['string'] };
@@ -55,9 +55,7 @@ test('Tuple: with field names', () => {
   assert.strictEqual(schema1.fields.value[1].required, true);
   assert.strictEqual(schema1.fields.value[1].name, 'length');
   assert.strictEqual(schema1.check([1, '123']).valid, true);
-  assert.deepStrictEqual(schema1.check([1]).errors, [
-    'Field "(length1)" not of expected type: string',
-  ]);
+  assert.deepStrictEqual(schema1.check([1]).errors, ['Field "[1]" not of expected type: string']);
 });
 
 test('Tuple: usage with schema', () => {
@@ -70,7 +68,7 @@ test('Tuple: usage with schema', () => {
   assert.strictEqual(schema.fields.field.value[1].name, 'count');
   assert.strictEqual(schema.check({ field: [true, 123] }).valid, true);
   assert.deepStrictEqual(schema.check({ field: [false, { some: 'wrong data' }] }).errors, [
-    'Field "field(count1)" not of expected type: number',
+    'Field "field[1]" not of expected type: number',
   ]);
 });
 

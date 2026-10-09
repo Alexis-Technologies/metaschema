@@ -1,6 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { ValidationResult } = require('../metadata.js');
-const { RUN, issue } = require('../util.js');
+const { RUN } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const reference = {
   kind: 'struct',
@@ -18,24 +18,30 @@ const reference = {
     this.root.relations.add({ to: target, type: relation });
   },
 
-  checkType(source, path, context) {
+  checkValue(source, context) {
     const { one, many, root } = this;
     if (one) {
       const schema = root.findReference(one);
-      if (!schema) return issue('reference', path, `Entity "${one}" is not found`);
-      return schema[RUN](source, path, context);
+      if (!schema) issues.reference(context, one);
+      else schema[RUN](source, context);
+      return;
     }
     const schema = root.findReference(many);
-    if (!schema) return issue('reference', path, `Entity "${many}" is not found`);
+    if (!schema) {
+      issues.reference(context, many);
+      return;
+    }
     if (!Array.isArray(source)) {
-      return issue('type', path, `not of expected type: array of ${many}`);
+      issues.type(context, `array of ${many}`, source);
+      return;
     }
-    const result = new ValidationResult(path, context);
+    const { path } = context;
     for (let index = 0; index < source.length; index += 1) {
-      if (result.full) break;
-      result.add(schema[RUN](source[index], `${path}[${index}]`, context));
+      if (context.count >= context.limit) return;
+      path.push(index);
+      schema[RUN](source[index], context);
+      path.pop();
     }
-    return result;
   },
 };
 

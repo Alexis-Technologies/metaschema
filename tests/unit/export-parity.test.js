@@ -33,6 +33,22 @@ for (const [runtimeFile, dtsFile] of entryPoints) {
   });
 }
 
+test('Exports: the locales are reachable through their subpath exports', () => {
+  for (const name of ['en', 'uk']) {
+    const locale = require(`@alexify/metaschema/locales/${name}`);
+    assert.strictEqual(locale, require(path.join(ROOT, `src/locales/${name}.js`)));
+    assert.strictEqual(typeof locale.required, 'function');
+  }
+  const source = [
+    "import uk from '@alexify/metaschema/locales/uk';",
+    "import { required } from '@alexify/metaschema/locales/en';",
+    'process.stdout.write(JSON.stringify([uk.required({}), required({})]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), ['є обовʼязковим', 'is required']);
+});
+
 test('Exports: named imports work from ESM', () => {
   const names = [...declaredValueExports('index.d.ts')].sort();
   const source = [

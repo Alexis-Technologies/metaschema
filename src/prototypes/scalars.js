@@ -1,5 +1,5 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { issue } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
@@ -11,12 +11,9 @@ const scalar = {
 
   construct() {},
 
-  checkType(value, path) {
+  checkValue(value, context) {
     // oxlint-disable-next-line valid-typeof
-    if (typeof value !== this.scalar) {
-      return issue('type', path, `not of expected type: ${this.scalar}`);
-    }
-    return null;
+    if (typeof value !== this.scalar) issues.type(context, this.scalar, value);
   },
 };
 
@@ -29,10 +26,8 @@ const enumerable = {
     this.enum = values;
   },
 
-  checkType(value, path) {
-    if (this.enum.includes(value)) return null;
-    const variants = this.enum.join(', ');
-    return issue('enum', path, `value is not of enum: ${variants}`);
+  checkValue(value, context) {
+    if (!this.enum.includes(value)) issues.enum(context, this.enum);
   },
 };
 

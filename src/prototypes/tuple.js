@@ -1,6 +1,5 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { ValidationResult } = require('../metadata.js');
-const { issue } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const notScalar = (element) => {
   const shown = typeof element === 'string' ? `"${element}"` : JSON.stringify(element);
@@ -26,19 +25,23 @@ const tuple = {
     });
   },
 
-  checkType(source, path, context) {
-    if (!Array.isArray(source)) return issue('type', path, `not of expected type: ${this.type}`);
-    if (source.length > this.value.length) {
-      return issue('length', path, 'value length is more than expected in tuple');
+  checkValue(source, context) {
+    if (!Array.isArray(source)) {
+      issues.type(context, this.type, source);
+      return;
     }
-    const result = new ValidationResult(path, context);
-    for (let index = 0; index < this.value.length; index += 1) {
-      if (result.full) break;
-      const scalar = this.value[index];
-      const itemName = scalar.name || 'item';
-      result.add(scalar.check(source[index], `${path}(${itemName}${index})`, context));
+    const { length } = this.value;
+    if (source.length > length) {
+      issues.length(context, undefined, length, source.length);
+      return;
     }
-    return result;
+    const { path } = context;
+    for (let index = 0; index < length; index += 1) {
+      if (context.count >= context.limit) return;
+      path.push(index);
+      this.value[index].check(source[index], context);
+      path.pop();
+    }
   },
 };
 

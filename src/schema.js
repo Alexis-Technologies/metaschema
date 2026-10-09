@@ -4,7 +4,9 @@ const { BRAND, INSPECT, RUN, hasBrand } = require('./util.js');
 const { createContext } = require('./context.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
-const { SchemaMetadata, ValidationResult } = require('./metadata.js');
+const { SchemaMetadata } = require('./metadata.js');
+const { ValidationResult } = require('./result.js');
+const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, checkStruct } = require('./struct.js');
 
@@ -123,35 +125,34 @@ class Schema extends SchemaMetadata {
 
   check(source, path = this.name, options = {}) {
     const context = createContext(options, path);
-    return this[RUN](source, path, context);
+    this[RUN](source, context);
+    const { issues, messages } = context;
+    finalize(issues, messages);
+    return new ValidationResult({ root: context.root, messages, issues });
   }
 
   // Validation inside an existing context: `check` starts one, and a reference
   // field checks its target entity within the context of the outer check, so
   // the error limit and the cycle detection span the whole value.
-  [RUN](source, path, context) {
-    const result = new ValidationResult(path, context);
+  [RUN](source, context) {
     const { fields } = this;
     const isStruct = hasBrand(fields, 'Struct');
+    if (!isStruct) {
+      fields.check(source, context);
+      return;
+    }
     // The root of a struct joins the current path too, unless a field check
     // already put it there (a reference checks its target through this
     // method). A schema of any other type delegates to that type's check,
     // which tracks itself.
     const isObject = typeof source === 'object' && source !== null;
-    if (isStruct && isObject && context.seen === null) context.seen = new Set();
-    const track = isStruct && isObject && !context.seen.has(source);
+    if (isObject && context.seen === null) context.seen = new Set();
+    const track = isObject && !context.seen.has(source);
     if (track) context.seen.add(source);
-    try {
-      const custom = this.validate(source, path);
-      result.add(custom);
-      if (result.full) return result;
-      const nested = isStruct
-        ? checkStruct(fields, source, path, context)
-        : fields.check(source, path, context);
-      return result.add(nested);
-    } finally {
-      if (track) context.seen.delete(source);
-    }
+    const { validate } = this.options;
+    if (validate) runValidate(this, validate, source, context);
+    if (context.count < context.limit) checkStruct(fields, source, context);
+    if (track) context.seen.delete(source);
   }
 
   toInterface() {

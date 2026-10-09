@@ -1,10 +1,19 @@
-const { ValidationResult } = require('../metadata.js');
-const { BRAND, INSPECT, issue, formatters, checks } = require('../util.js');
+const { BRAND, INSPECT, formatters } = require('../util.js');
+const { checks } = require('../rules.js');
+const { issues, runValidate, runCheckType } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
-// names one of its methods (or the prototype itself) would replace it.
-const RESERVED = new Set(['__proto__', 'prototype']);
+// names one of its methods (or the prototype itself) would replace it. The
+// methods of the type contract are reserved whether the type has them or not.
+const RESERVED = new Set([
+  '__proto__',
+  'prototype',
+  'check',
+  'checkType',
+  'checkValue',
+  'construct',
+]);
 
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
@@ -45,33 +54,33 @@ class AbstractType {
     this.#rules = rules;
   }
 
-  check(value, path, context) {
-    const result = new ValidationResult(path, context);
+  // Records the problems of a value into the context. A built-in type checks
+  // the value with `checkValue`; a custom type has a `checkType(value, path)`
+  // that returns messages, run through the validator contract.
+  check(value, context) {
     const isEmpty = value === null || value === undefined;
-    if (!this.required && isEmpty) return result;
+    if (!this.required && isEmpty) return;
     const isObject = typeof value === 'object' && value !== null;
     // A value met again while it is still being checked is a cycle and is
     // reported instead of recursed into.
     if (isObject) {
       if (context.seen === null) context.seen = new Set();
       if (context.seen.has(value)) {
-        return result.add(issue('circular', path, 'is a circular reference'));
+        issues.circular(context);
+        return;
       }
       context.seen.add(value);
     }
-    try {
-      result.add(this.checkType(value, path, context), 'type');
-      if (this.validate && !result.full) result.add(this.validate(value, path));
-      for (const rule of this.#rules) {
-        if (result.full) break;
-        result.add(rule(value, this, path));
-      }
-      return result;
-    } catch (error) {
-      return result.add(issue('exception', path, `validation failed ${error}`));
-    } finally {
-      if (isObject) context.seen.delete(value);
+    if (this.checkValue) this.checkValue(value, context);
+    else runCheckType(this, value, context);
+    if (this.validate && context.count < context.limit) {
+      runValidate(this, this.validate, value, context);
     }
+    for (const rule of this.#rules) {
+      if (context.count >= context.limit) break;
+      rule(value, this, context);
+    }
+    if (isObject) context.seen.delete(value);
   }
 
   toJSON() {
