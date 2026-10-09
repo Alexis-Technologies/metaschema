@@ -27,6 +27,11 @@ const range = ({ min, max, actual }) =>
 
 const pattern = ({ pattern: source }) => `не відповідає шаблону ${source}`;
 
+const union = ({ expected, discriminator }) =>
+  discriminator === undefined
+    ? `не відповідає жодному з: ${expected.join(', ')}`
+    : `не є одним із: ${expected.join(', ')}`;
+
 const reference = ({ entity }) => `сутність "${entity}" не знайдено`;
 
 const circular = () => 'є циклічним посиланням';
@@ -44,6 +49,7 @@ module.exports = {
   length,
   range,
   pattern,
+  union,
   reference,
   circular,
   exception,

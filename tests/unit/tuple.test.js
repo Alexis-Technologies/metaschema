@@ -105,3 +105,39 @@ test('Tuple: a value that is not an array is a type error', () => {
     'Field "[1]" not of expected type: string',
   ]);
 });
+
+test('Tuple: elements may be any definition, named elements stay scalars', () => {
+  const schema = Schema.from({
+    row: ['string', { array: 'number' }, { x: 'number', y: 'number' }, ['boolean'], 'json'],
+  });
+  const row = schema.fields.row.value;
+  assert.deepStrictEqual(
+    row.map((element) => element.type),
+    ['string', 'array', 'schema', 'tuple', 'json'],
+  );
+  assert.strictEqual(
+    schema.check({ row: ['a', [1, 2], { x: 1, y: 2 }, [true], { any: 'thing' }] }).valid,
+    true,
+  );
+  assert.deepStrictEqual(schema.check({ row: ['a', [1, 'b'], { x: 1 }, [1], 5] }).errors, [
+    'Field "row[1][1]" not of expected type: number',
+    'Field "row[2].y" is required',
+    'Field "row[3][0]" not of expected type: boolean',
+    'Field "row[4]" not of expected type: object',
+  ]);
+  assert.strictEqual(
+    Schema.from({
+      row: ['string', { array: 'number' }, { x: 'number', y: 'number' }],
+    }).toInterface(),
+    'interface  {\n  row: [string, number[], { x: number; y: number }];\n}',
+  );
+  // One key holding a type name is a named element; a kind or a type name as
+  // the key is read as what it says.
+  const named = Schema.from({ p: [{ x: 'number' }, { 'y?': 'number' }, { array: 'string' }] });
+  assert.strictEqual(named.fields.p.value[0].name, 'x');
+  assert.strictEqual(named.fields.p.value[1].name, 'y');
+  assert.strictEqual(named.fields.p.value[1].required, false);
+  assert.strictEqual(named.fields.p.value[2].type, 'array');
+  assert.strictEqual(named.check({ p: [1, null, ['a']] }).valid, true);
+  assert.strictEqual(named.check({ p: [1] }).valid, false);
+});

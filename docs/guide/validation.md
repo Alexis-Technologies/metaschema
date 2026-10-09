@@ -55,6 +55,7 @@ The codes the library produces, and their `params`:
 | `length` | a `length` rule failed, or a tuple has too many elements | `{ min, max, actual }` |
 | `range` | a `min` or `max` rule failed | `{ min, max, actual }` |
 | `pattern` | a `pattern` rule failed | `{ pattern }`, the source of the expression |
+| `union` | no branch of a `union` matched; with a discriminator, the path ends with it | `{ expected, discriminator }`: the branch names, or the discriminator values |
 | `reference` | the referenced entity is not in any attached model | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
 | `exception` | a `validate` or `checkType` function threw | `{ error }` |

@@ -10,7 +10,16 @@ const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 
-const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
+const TS_SCALARS = {
+  string: 'string',
+  number: 'number',
+  boolean: 'boolean',
+  bigint: 'bigint',
+  date: 'Date',
+  null: 'null',
+  any: 'any',
+  unknown: 'unknown',
+};
 
 const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
 
@@ -25,6 +34,7 @@ const tsType = (def) => {
 const tsBase = (def) => {
   if (isFirstUpper(def.type)) return def.many ? 'string[]' : 'string';
   if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
+  if (def.union) return def.union.map(tsType).join(' | ');
   if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
   if (def.schema) return `{ ${tsFields(def.schema).join('; ')} }`;
   if (Array.isArray(def.value)) return `[${def.value.map(tsType).join(', ')}]`;

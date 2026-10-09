@@ -9,6 +9,9 @@
 | `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |
 | `boolean` | `typeof value === 'boolean'` | — |
+| `date` | a `Date` instance with a valid time (`new Date('nope')` is rejected) | — |
+| `null` | `null` only | — |
+| `any`, `unknown` | any value, `null` and `undefined` included | — |
 | `enum` | one of the listed values | — |
 
 ```js
@@ -16,10 +19,18 @@ Schema.from({
   id: 'bigint',
   count: { type: 'integer', min: 0 },
   active: 'boolean',
+  created: 'date',
+  deleted: 'null',
+  payload: 'any',
   role: { enum: ['admin', 'user'] },
   level: { type: 'enum', enum: [1, 2, 3] },
 });
 ```
+
+`any` and `unknown` are the same type under two names (they differ only in the TypeScript they
+render); a required `any` field still has to be present. `null` is for a field that must be
+`null`; a field that may be `null` next to its type is [`nullable`](#nullable), and one that may
+be absent is optional.
 
 ## Collections
 
@@ -57,17 +68,62 @@ schema.check({ stops: [null, { city: 'Lviv' }] }).valid; // true
 
 ## Tuples
 
-An array definition is a tuple of scalars. Elements can be named (the name is kept on the element
-type, `point.fields.position.value[1].name`); errors address them by index:
+An array definition is a tuple: a fixed-length array whose elements are each a definition of
+their own, scalar or not. Errors address them by index:
 
 ```js
-const point = Schema.from({ position: [{ x: 'number' }, { y: 'number' }] });
-point.check({ position: [1, '2'] }).errors;
-// [ 'Field "position[1]" not of expected type: number' ]
+const row = Schema.from({ row: ['string', { array: 'number' }, { x: 'number', y: 'number' }] });
+row.check({ row: ['a', [1, 'b'], { x: 1 }] }).errors;
+// [ 'Field "row[1][1]" not of expected type: number', 'Field "row[2].y" is required' ]
 ```
 
-Optional elements use the usual prefix (`['string', '?number']`). A tuple rejects arrays longer
-than its definition. `{ tuple: ['string', 'number'] }` is the long form.
+A one-key object holding a type name is a **named** scalar element, as in upstream metaschema:
+`[{ x: 'number' }, { 'y?': 'number' }]` is two numbers named `x` and `y` (the name is kept on the
+element type, `fields.position.value[1].name`), not two one-field structs. A struct element with
+one field is written with the `schema` shorthand: `[{ schema: { x: 'number' } }]`.
+
+Optional elements use the usual prefix (`['string', '?number']`) or the optional key of a named
+element. A tuple rejects arrays longer than its definition. `{ tuple: ['string', 'number'] }` is
+the long form.
+
+## Unions
+
+`{ union: [...] }` accepts a value that matches one of its branches, each a definition of its own.
+Without a discriminator the branches are tried in order, the first one that reports nothing wins,
+and what a failed branch reported is dropped; a value that matches none is one `union` issue with
+the branch names:
+
+```js
+const schema = Schema.from({ id: { union: ['string', 'number'] } });
+schema.check({ id: true }).issues;
+// [ { code: 'union', path: ['id'], message: 'does not match any of: string, number', params: { expected: ['string', 'number'], discriminator: undefined } } ]
+```
+
+With `discriminator: '<field>'` every branch must be a nested struct whose field of that name is
+an `enum`. The branch is picked from the value of that field in one lookup, built when the schema
+is built, so the other branches are never tried, and a value with an unknown or missing
+discriminator is one `union` issue at the discriminator's path:
+
+```js
+const canvas = new Schema('Canvas', {
+  shape: {
+    union: [
+      { kind: { enum: ['circle'] }, r: 'number' },
+      { kind: { enum: ['square', 'rect'] }, side: 'number' },
+    ],
+    discriminator: 'kind',
+  },
+});
+canvas.check({ shape: { kind: 'circle', side: 1 } }).errors;
+// [ 'Field "Canvas.shape.r" is required', 'Field "Canvas.shape" has unexpected keys: side' ]
+canvas.check({ shape: { kind: 'line' } }).errors;
+// [ 'Field "Canvas.shape.kind" is not one of: circle, square, rect' ]
+```
+
+A branch may be a `Schema` instance. A reference (`'Shape'`) resolves when a value is checked, so
+it can be a branch of a plain union but not of a discriminated one. An empty branch list, a
+branch without the discriminator field or with a non-enum one, and a discriminator value shared
+by two branches throw `ERR_INVALID_UNION`. In TypeScript a union renders as `A | B`.
 
 ## `json`
 

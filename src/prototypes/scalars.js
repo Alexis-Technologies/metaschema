@@ -74,9 +74,70 @@ const integer = {
   },
 };
 
+// A Date instance with a time: an invalid Date is a type error.
+const date = {
+  kind: 'scalar',
+  scalar: 'date',
+
+  construct() {},
+
+  compile() {
+    const { required } = this;
+    return (value, context, key) => {
+      if (value?.constructor?.name === 'Date' && !Number.isNaN(value.getTime())) return;
+      if (!required && value == null) return;
+      issues.type(context, 'date', value, key);
+    };
+  },
+};
+
+const nothing = {
+  kind: 'scalar',
+  scalar: 'null',
+
+  construct() {},
+
+  compile() {
+    const { required } = this;
+    return (value, context, key) => {
+      if (value === null) return;
+      if (value === undefined && !required) return;
+      issues.type(context, 'null', value, key);
+    };
+  },
+};
+
+// Any value at all, null and undefined included; `required` still says
+// whether the key must be there.
+const accept = () => {};
+
+const any = {
+  kind: 'scalar',
+  scalar: 'any',
+
+  construct() {},
+
+  compile() {
+    return accept;
+  },
+};
+
+const unknown = { ...any, scalar: 'unknown' };
+
 const string = { scalar: 'string', rules: ['length', 'pattern'], ...scalar };
 const number = { scalar: 'number', rules: ['min', 'max'], ...scalar };
 const bigint = { scalar: 'bigint', rules: ['min', 'max'], ...scalar };
 const boolean = { scalar: 'boolean', ...scalar };
 
-module.exports = { string, number, integer, bigint, boolean, enum: enumerable };
+module.exports = {
+  string,
+  number,
+  integer,
+  bigint,
+  boolean,
+  date,
+  null: nothing,
+  any,
+  unknown,
+  enum: enumerable,
+};

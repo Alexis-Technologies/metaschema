@@ -85,7 +85,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
 table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
-`range`, `pattern`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+`range`, `pattern`, `union`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
 to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
@@ -105,7 +105,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function |
 | `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
 | `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
-| `ERR_INVALID_TUPLE` | a tuple element that is not a scalar type |
+| `ERR_INVALID_TUPLE` | a tuple whose definition is not an array, or an element that is a function |
+| `ERR_INVALID_UNION` | a `union` without branches, a branch that is a function, or a `discriminator` that is not a field name, that a branch lacks or does not hold as an `enum`, or whose value two branches share |
 | `ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |

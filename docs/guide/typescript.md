@@ -39,6 +39,8 @@ Rules of the conversion:
 | --- | --- |
 | `'string'`, `'number'`, `'boolean'`, `'bigint'`, and aliases of them (`{ js: 'string' }`) | the same scalar |
 | `'integer'` | `number` |
+| `'date'`, `'null'`, `'any'`, `'unknown'` | `Date`, `null`, `any`, `unknown` |
+| `{ union: [A, B] }` | `A \| B` |
 | `{ enum: ['open', 'done'] }` | `"open" \| "done"` |
 | `{ array: T }` | `T[]` |
 | `{ set: T }` | `Set<T>` |

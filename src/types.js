@@ -4,6 +4,7 @@ const collections = require('./prototypes/collections.js');
 const { reference } = require('./prototypes/reference.js');
 const { schema } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
+const { union } = require('./prototypes/union.js');
 const { json } = require('./prototypes/json.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
@@ -15,6 +16,7 @@ const PROTOTYPES = {
   one: reference,
   schema,
   tuple,
+  union,
   json,
 };
 

@@ -37,6 +37,7 @@ export type IssueCode =
   | 'length'
   | 'range'
   | 'pattern'
+  | 'union'
   | 'reference'
   | 'circular'
   | 'exception'
@@ -54,6 +55,9 @@ export interface IssueParams {
   range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
   // The source of the pattern the string did not match.
   pattern: { pattern: string };
+  // No branch of a union matched: the branch names, or the discriminator
+  // values when the union has a discriminator (the path then ends with it).
+  union: { expected: unknown[]; discriminator: string | undefined };
   reference: { entity: string };
   circular: {};
   exception: { error: unknown };
@@ -236,6 +240,7 @@ export type DefinitionErrorCode =
   | 'ERR_UNKNOWN_TYPE'
   | 'ERR_MISSING_SCHEMA'
   | 'ERR_INVALID_TUPLE'
+  | 'ERR_INVALID_UNION'
   | 'ERR_PROJECTION'
   | 'ERR_INVALID_CUSTOM_TYPE'
   | 'ERR_INVALID_ENUM'

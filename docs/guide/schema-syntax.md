@@ -24,7 +24,8 @@ Every key of a definition object is a field, and its value says what the field h
 | Long form | `size: { type: 'number', required: false }` | a type with options |
 | Type shorthand | `list: { array: 'number' }` | the key of the object is the type |
 | Nested struct | `name: { first: 'string', last: 'string' }` | an object with its own fields |
-| Tuple | `point: ['number', 'number']` | a fixed-length array of scalars |
+| Tuple | `point: ['number', 'number']` | a fixed-length array, each element its own definition |
+| Union | `id: { union: ['string', 'number'] }` | one of several definitions |
 | Reference | `company: 'Company'` | a capitalized name is another schema |
 | Function | `ratio: (file) => file.compressed / file.size` | a calculated field, never validated |
 

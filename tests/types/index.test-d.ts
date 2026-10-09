@@ -82,6 +82,7 @@ expectType<PropertyKey | undefined>(typed.params.key);
 expectType<number>((issue as IssueOf<'length'>).params.actual);
 expectType<number | bigint>((issue as IssueOf<'range'>).params.actual);
 expectType<string>((issue as IssueOf<'pattern'>).params.pattern);
+expectType<unknown[]>((issue as IssueOf<'union'>).params.expected);
 expectType<number | bigint | undefined>((issue as IssueOf<'range'>).params.min);
 expectType<string[]>((issue as IssueOf<'unexpected'>).params.keys);
 expectType<unknown[]>((issue as IssueOf<'enum'>).params.values);

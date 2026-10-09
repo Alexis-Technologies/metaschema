@@ -28,6 +28,11 @@ const range = ({ min, max, actual }) =>
 
 const pattern = ({ pattern: source }) => `does not match the pattern ${source}`;
 
+const union = ({ expected, discriminator }) =>
+  discriminator === undefined
+    ? `does not match any of: ${expected.join(', ')}`
+    : `is not one of: ${expected.join(', ')}`;
+
 const reference = ({ entity }) => `Entity "${entity}" is not found`;
 
 const circular = () => 'is a circular reference';
@@ -45,6 +50,7 @@ module.exports = {
   length,
   range,
   pattern,
+  union,
   reference,
   circular,
   exception,

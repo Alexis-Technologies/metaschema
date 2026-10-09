@@ -128,6 +128,7 @@ test('Locales: every code has a renderer in every locale', () => {
     'length',
     'range',
     'pattern',
+    'union',
     'reference',
     'circular',
     'exception',
