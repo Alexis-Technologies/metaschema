@@ -1,5 +1,5 @@
 const { hasBrand } = require('../util.js');
-const { Struct } = require('../struct.js');
+const { createStruct, checkStruct } = require('../struct.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const missingSchema = (type) => {
@@ -19,12 +19,12 @@ const schema = {
     this.required = required ?? true;
     const isStruct = hasBrand(schema, 'Struct');
     if (isStruct) this.schema = schema;
-    else this.schema = new Struct(schema, prep);
+    else this.schema = createStruct(schema, prep);
     this.validate = defs.schema.validate || undefined;
   },
 
   checkType(source, path = '') {
-    return this.schema.check(source, path);
+    return checkStruct(this.schema, source, path);
   },
 };
 

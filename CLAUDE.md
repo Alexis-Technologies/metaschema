@@ -81,7 +81,7 @@ src/
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata
   metadata.js       ValidationResult, SchemaMetadata (kind, scope, indexes, options, …)
   schema.js         Schema (extends SchemaMetadata)
-  struct.js         Struct: a field container and its check
+  struct.js         createStruct (null-prototype field dictionary) and checkStruct
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }
   types.js          TYPES registry, createType, typeFactory
   model.js          Model: entities, ordering, warnings, dts
@@ -125,7 +125,7 @@ definition is a programming error. Capitalized names become `reference` fields.
 **Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
 (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
 `ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`), `schema` and `field`. Throw sites do not know where
-they are; `Struct` catches on the way up and calls `error.locate(root.name, field)`, which
+they are; `createStruct` catches on the way up and calls `error.locate(root.name, field)`, which
 prepends nested keys, so the message ends with `in "Order.address.city"`. Never throw a bare
 `Error` for a definition problem.
 
@@ -244,15 +244,21 @@ change. **This file wins** if they ever disagree.
   upstream's design; do not "fix" it by cloning per model without discussing it first.
 - **Identity checks use a brand symbol, not `instanceof` or `constructor.name`.** `util.js`
   exports `BRAND = Symbol.for('alexify.metaschema.brand')` and `hasBrand(value, name)`;
-  `AbstractType`, `Schema`, `Struct` and `ValidationResult` carry it on their prototypes. A global
+  `AbstractType`, `Schema` and `ValidationResult` carry it on their prototypes, a struct as a
+  non-enumerable own property. A global
   symbol works across realms and duplicate copies of the package (which `instanceof` does not) and
   survives bundlers renaming a class (`class _Schema`) and minifiers mangling it (which
   `constructor.name` does not). `tests/unit/bundle.test.js` validates through esbuild bundles of
   both entries, minified and not. Only built-ins are still recognised by name
   (`value?.constructor?.name === 'Map'`), since nothing renames those.
+- **`schema.fields` is a null-prototype object, not a class instance.** `createStruct` builds it
+  that way on purpose: a field may be called `check`, `name` or `constructor`, and input keys
+  such as `__proto__` must come back as `is not expected` instead of resolving to
+  `Object.prototype`. `checkStruct(fields, value, path)` is the check; `Schema#check` dispatches on
+  the brand because `fields` is a `Type` for a non-struct schema (`Schema.from('string')`).
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
-- **Optional nested structs have two mechanisms.** Inside a struct, `Struct` lowers the flag with
+- **Optional nested structs have two mechanisms.** Inside a struct, `createStruct` lowers the flag with
   `child.required &&= required` (from `'key?'` or `required: false`). `prototypes/schema.js` keeps
   an explicit `required` with `required ?? true`, which is what makes a nested struct optional as a
   collection element. Upstream had `required || true`, which ignored `false`; do not bring it back.

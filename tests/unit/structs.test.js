@@ -301,3 +301,64 @@ test('Structs: a schema type without a schema definition throws a clear error', 
     true,
   );
 });
+
+test('Structs: field names may collide with Object.prototype and struct internals', () => {
+  const schema = Schema.from({
+    check: 'string',
+    name: 'string',
+    constructor: 'number',
+    toString: '?string',
+    hasOwnProperty: 'boolean',
+  });
+  assert.deepStrictEqual(Object.keys(schema.fields), [
+    'check',
+    'name',
+    'constructor',
+    'toString',
+    'hasOwnProperty',
+  ]);
+  const valid = { check: 'x', name: 'y', constructor: 1, hasOwnProperty: true };
+  assert.strictEqual(schema.check(valid).valid, true);
+  const invalid = { check: 1, name: 'y', constructor: 'no', hasOwnProperty: true };
+  assert.deepStrictEqual(schema.check(invalid).errors, [
+    'Field "check" not of expected type: string',
+    'Field "constructor" not of expected type: number',
+  ]);
+});
+
+test('Structs: a value that is not an object is a type error', () => {
+  assert.deepStrictEqual(Schema.from({ name: 'string' }).check(5).errors, [
+    'Field "" not of expected type: object',
+  ]);
+  assert.deepStrictEqual(new Schema('User', { name: 'string' }).check('x').errors, [
+    'Field "User" not of expected type: object',
+  ]);
+  assert.deepStrictEqual(Schema.from({ inner: { name: 'string' } }).check({ inner: 5 }).errors, [
+    'Field "inner" not of expected type: object',
+  ]);
+});
+
+test('Structs: input keys from Object.prototype are not expected', () => {
+  const schema = Schema.from({ name: 'string' });
+  const input = JSON.parse(
+    '{"name":"x","constructor":1,"__proto__":{"z":1},"check":1,"toString":2,"hasOwnProperty":3}',
+  );
+  assert.deepStrictEqual(schema.check(input).errors, [
+    'Field "constructor" is not expected',
+    'Field "__proto__" is not expected',
+    'Field "check" is not expected',
+    'Field "toString" is not expected',
+    'Field "hasOwnProperty" is not expected',
+  ]);
+});
+
+test('Structs: fields enumerate and serialize as plain data', () => {
+  const schema = Schema.from({ name: 'string', age: '?number', half: (value) => value.age / 2 });
+  assert.deepStrictEqual(Object.keys(schema.fields), ['name', 'age', 'half']);
+  assert.strictEqual(typeof schema.fields.half, 'function');
+  assert.strictEqual(
+    JSON.stringify(schema),
+    '{"name":{"required":true,"type":"string"},"age":{"required":false,"type":"number"}}',
+  );
+  assert.strictEqual(schema.check({ name: 'x' }).valid, true);
+});

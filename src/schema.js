@@ -4,7 +4,7 @@ const { BRAND, hasBrand } = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
-const { Struct } = require('./struct.js');
+const { createStruct, checkStruct } = require('./struct.js');
 
 const ES_TYPES = ['number', 'string', 'boolean'];
 
@@ -35,7 +35,7 @@ class Schema extends SchemaMetadata {
       let extras = Object.create(null);
       if (kindMeta) extras = this.updateFromKind(kindMeta);
       const combined = { ...fields, ...extras };
-      this.fields = new Struct(combined, preprocessor);
+      this.fields = createStruct(combined, preprocessor);
     }
   }
 
@@ -72,7 +72,10 @@ class Schema extends SchemaMetadata {
   check(source, path = this.name) {
     const result = new ValidationResult(path);
     const custom = this.validate(source, path);
-    const nested = this.fields.check(source, path);
+    const { fields } = this;
+    const nested = hasBrand(fields, 'Struct')
+      ? checkStruct(fields, source, path)
+      : fields.check(source, path);
     result.add(custom);
     return result.add(nested);
   }

@@ -65,6 +65,14 @@ the corrected error messages.
   `{ type: 'schema', schema, required: false }`) was still required as an array, set, object or map
   element, so `null` elements were rejected. It is now optional there too, like `{ array: '?string' }`.
   Optional nested struct fields (`'key?'`, `required: false`) already worked and are unchanged.
+- **Field names `check`, `name`, `constructor` and other `Object.prototype` names.** A struct was a
+  class instance used as a dictionary, so a field named `check` replaced the method
+  (`this.fields.check is not a function`), a field named `name` corrupted the message for a value
+  that is not an object (`Field "[object Object]"`), and input keys such as `constructor`,
+  `__proto__` or `check` were silently accepted instead of reported as not expected. Fields now
+  live in a null-prototype dictionary. A value that is not an object is reported as
+  `Field "<path>" not of expected type: object`, like every other type error (was
+  `Value of "<path>" must be an object`).
 - **Bundled and minified builds.** Schemas, fields and validation results were recognised by
   `constructor.name`. esbuild emits `class _Schema` for the self-referencing `Schema` class, so in
   any esbuild bundle (Vite, tsup, serverless builds) a `Schema` instance used as a field, or passed
