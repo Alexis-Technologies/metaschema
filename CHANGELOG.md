@@ -83,6 +83,8 @@ the corrected error messages.
 - **A validator returning more than ~110,000 messages lost all of them.** `ValidationResult#add`
   spread them into `push`, which throws past the engine's argument limit, and `check` reported a
   single `validation failed RangeError` instead. Every message is kept.
+- **A huge input key made a huge message.** Key names taken from the value under check are
+  truncated to 100 characters in `is not expected` messages and nested paths.
 - **Circular values.** A value that referred back to itself through a reference, a nested struct
   or a collection was walked until the engine threw `RangeError`, reported as
   `validation failed RangeError` at whatever depth the stack ran out, with a path thousands of

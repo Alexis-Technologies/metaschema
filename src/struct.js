@@ -1,5 +1,5 @@
 const { ValidationResult } = require('./metadata.js');
-const { BRAND, hasBrand, formatters } = require('./util.js');
+const { BRAND, hasBrand, shorten, formatters } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 // The field names of a struct, computed once at construction. A global symbol
@@ -51,7 +51,7 @@ const checkStruct = (fields, source, path = '') => {
     result.add(type.check(source[name], nestedPath));
   }
   for (const name of Object.keys(source)) {
-    if (!(name in fields)) result.add(`Field "${name}" is not expected`);
+    if (!(name in fields)) result.add(`Field "${shorten(name)}" is not expected`);
   }
   return result;
 };

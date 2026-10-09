@@ -1,3 +1,5 @@
+const { shorten } = require('../util.js');
+
 const object = {
   rules: ['length'],
   kind: 'struct',
@@ -30,7 +32,7 @@ const object = {
         const hint = `type of key must be a ${this.key}`;
         return `In ${this.type} "${path}": ${hint}`;
       }
-      const nestedPath = `${path}.${field}`;
+      const nestedPath = `${path}.${shorten(field)}`;
       const result = this.value.check(fieldValue, nestedPath);
       if (!result.valid) errors.push(...result.errors);
     }

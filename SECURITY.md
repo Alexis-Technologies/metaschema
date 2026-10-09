@@ -42,8 +42,9 @@ Some things work as intended and are not vulnerabilities:
   null-prototype dictionary, so nothing on `Object.prototype` is ever read as a field, and
   metaschema never writes to the value it checks.
 - **Validation errors are data.** `check` collects problems as strings instead of throwing on bad
-  input. The messages contain field paths (which can include key names taken from the input) and,
-  for `enum`, the allowed values; they never contain the rejected values themselves. A message
+  input. The messages contain field paths (which can include key names taken from the input,
+  truncated to 100 characters) and, for `enum`, the allowed values; they never contain the
+  rejected values themselves. A message
   from a custom `validate` function, or from an exception it throws, is passed through as written.
 - **Type registration is process-wide.** Custom types registered by one `Model` are visible to
   every schema in the process. Register them once, from trusted code.

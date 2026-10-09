@@ -429,3 +429,17 @@ test('Schema: a validator may return more messages than a spread call accepts', 
   assert.strictEqual(result.errors[0], 'Field "a" m0');
   assert.strictEqual(result.errors[199999], 'Field "a" m199999');
 });
+
+test('Schema: input key names are truncated in messages', () => {
+  const key = 'k'.repeat(1024 * 1024);
+  const struct = Schema.from({ a: 'string' }).check({ a: 'x', [key]: 1 });
+  assert.strictEqual(struct.errors.length, 1);
+  assert.strictEqual(struct.errors[0], `Field "${'k'.repeat(100)}..." is not expected`);
+  const byKey = Schema.from({ o: { object: { string: 'number' } } }).check({ o: { [key]: 'x' } });
+  assert.strictEqual(
+    byKey.errors[0],
+    `Field "o.${'k'.repeat(100)}..." not of expected type: number`,
+  );
+  const short = Schema.from({ a: 'string' }).check({ a: 'x', [`${'k'.repeat(100)}`]: 1 });
+  assert.strictEqual(short.errors[0], `Field "${'k'.repeat(100)}" is not expected`);
+});

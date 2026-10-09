@@ -10,6 +10,15 @@ const hasBrand = (value, name) => value?.[BRAND] === name;
 // checked is a cycle and is reported instead of recursed into.
 const ancestors = new Set();
 
+// Key names taken from the value under check go into messages; a huge key
+// must not become a huge message.
+const KEY_LIMIT = 100;
+
+const shorten = (key) => {
+  const name = String(key);
+  return name.length > KEY_LIMIT ? `${name.slice(0, KEY_LIMIT)}...` : name;
+};
+
 const { SchemaDefinitionError } = require('./errors.js');
 
 const isBound = (value) => value === undefined || typeof value === 'number';
@@ -61,4 +70,4 @@ const checks = {
   },
 };
 
-module.exports = { BRAND, hasBrand, ancestors, formatters, checks };
+module.exports = { BRAND, hasBrand, ancestors, shorten, formatters, checks };
