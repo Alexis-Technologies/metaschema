@@ -64,6 +64,9 @@ class Options {
 }
 
 class Indexes {
+  // Index definitions (`index`, `primary`, `unique` arrays) are taken out of the
+  // fields; a `many` relation is recorded here as well but stays a field, so
+  // the method reports only whether the entry was taken.
   extract(key, field) {
     if (field === null || typeof field !== 'object') return false;
     const { index, primary, unique, many } = field;

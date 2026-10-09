@@ -4,6 +4,7 @@ const { BRAND, hasBrand, ancestors } = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
+const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, checkStruct } = require('./struct.js');
 
 const ES_TYPES = ['number', 'string', 'boolean'];
@@ -20,7 +21,17 @@ class Schema extends SchemaMetadata {
   }
 
   constructor(name, raw, namespaces = []) {
-    if (hasBrand(raw, 'Schema')) return raw;
+    // A Schema instance is reused, not copied: it keeps its own name, and the
+    // namespaces it is given here are attached so a model can resolve its
+    // references through it.
+    if (hasBrand(raw, 'Schema')) {
+      if (name && raw.name && raw.name !== name) {
+        const reason = `Schema "${raw.name}" cannot be used as "${name}"`;
+        throw new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+      }
+      raw.attach(...namespaces);
+      return raw;
+    }
     super();
     this.name = name;
     this.namespaces = new Set(namespaces);
@@ -119,14 +130,12 @@ class Schema extends SchemaMetadata {
   }
 
   toString() {
-    const replacer = (key, value) => (key === 'root' ? undefined : value);
-    return JSON.stringify(this.fields, replacer);
+    return JSON.stringify(this);
   }
 
   toJSON() {
-    const { root, ...rest } = this.fields;
-    if (root) throw new Error('Schema cannot be serialized');
-    return rest;
+    const { fields } = this;
+    return hasBrand(fields, 'Struct') ? { ...fields } : fields.toJSON();
   }
 }
 

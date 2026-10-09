@@ -443,3 +443,38 @@ test('Schema: input key names are truncated in messages', () => {
   const short = Schema.from({ a: 'string' }).check({ a: 'x', [`${'k'.repeat(100)}`]: 1 });
   assert.strictEqual(short.errors[0], `Field "${'k'.repeat(100)}" is not expected`);
 });
+
+test('Schema: every schema serializes, whatever its definition', () => {
+  assert.strictEqual(JSON.stringify(Schema.from('?string')), '{"required":false,"type":"string"}');
+  const list = Schema.from({ array: 'number' });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(list)), {
+    required: true,
+    type: 'array',
+    value: { required: true, type: 'number' },
+  });
+  const struct = Schema.from({ name: 'string', tags: { array: 'string' } });
+  assert.strictEqual(struct.toString(), JSON.stringify(struct));
+  assert.deepStrictEqual(JSON.parse(struct.toString()), {
+    name: { required: true, type: 'string' },
+    tags: { required: true, type: 'array', value: { required: true, type: 'string' } },
+  });
+});
+
+test('Schema: a Schema instance is reused and attached to the namespaces it is given', () => {
+  const company = new Schema('Company', { Entity: {}, name: 'string' });
+  assert.strictEqual(new Schema('Company', company), company);
+  assert.strictEqual(Schema.from(company), company);
+  assert.throws(() => new Schema('Firm', company), {
+    code: 'ERR_INVALID_DEFINITION',
+    message: 'Schema "Company" cannot be used as "Firm"',
+  });
+  const model = new Model({}, [
+    ['Company', company],
+    ['Person', { Entity: {}, employer: 'Company' }],
+  ]);
+  assert.strictEqual(model.entities.get('Company'), company);
+  assert.ok(company.namespaces.has(model));
+  assert.strictEqual(company.findReference('Person'), model.entities.get('Person'));
+  assert.deepStrictEqual(model.warnings, []);
+  assert.deepStrictEqual([...model.order], ['Company', 'Person']);
+});

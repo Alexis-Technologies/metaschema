@@ -24,7 +24,7 @@ module.exports = {
           return `Field "${path}" not a decimal 3`;
         }
       }
-      return 'Valid';
+      return null;
     },
   },
 };

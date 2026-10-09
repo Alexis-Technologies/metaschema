@@ -61,7 +61,6 @@ class AbstractType {
 
   toJSON() {
     const { root, ...rest } = this;
-    if (!root) throw new Error('AbstractType cannot be serialized');
     return rest;
   }
 }

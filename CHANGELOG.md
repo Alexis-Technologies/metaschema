@@ -83,6 +83,13 @@ the corrected error messages.
 - **A validator returning more than ~110,000 messages lost all of them.** `ValidationResult#add`
   spread them into `push`, which throws past the engine's argument limit, and `check` reported a
   single `validation failed RangeError` instead. Every message is kept.
+- **`JSON.stringify` of a schema whose definition is a single type** (`Schema.from('string')`,
+  `Schema.from({ array: 'number' })`) threw `Schema cannot be serialized`. It serializes like a
+  field now, and `toString()` is `JSON.stringify(schema)`.
+- **A `Schema` instance passed to `new Schema(name, instance, namespaces)` lost the namespaces**,
+  so a prebuilt schema given to a `Model` could not resolve its references through the model. The
+  instance is still returned as is, keeping its own name; the namespaces are attached, and a
+  different `name` is a definition error.
 - **A huge input key made a huge message.** Key names taken from the value under check are
   truncated to 100 characters in `is not expected` messages and nested paths.
 - **Circular values.** A value that referred back to itself through a reference, a nested struct

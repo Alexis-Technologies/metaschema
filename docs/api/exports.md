@@ -38,7 +38,7 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | Member | Description |
 | --- | --- |
 | `Schema.from(definition, namespaces?)` | an anonymous schema |
-| `new Schema(name, definition, namespaces?)` | a named schema; returns `definition` as is when it is already a `Schema` |
+| `new Schema(name, definition, namespaces?)` | a named schema; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `schema.check(value, path?)` | validates a value; returns `ValidationResult` |
 | `schema.validate(value, path)` | runs only the schema-level `validate`; `null` without one |
