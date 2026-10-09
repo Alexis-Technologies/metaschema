@@ -6,30 +6,13 @@ const missingEnum = (type) => {
   return new SchemaDefinitionError('ERR_INVALID_ENUM', hint);
 };
 
-// One closure per JavaScript type, each with a literal `typeof` comparison
-// (which the engine turns into a type check rather than a string compare),
-// and a single comparison on the way through for a valid value.
-const SCALAR_CHECKS = {
-  string: (required) => (value, context, key) => {
-    if (typeof value === 'string') return;
-    if (!required && value == null) return;
-    issues.type(context, 'string', value, key);
-  },
-  number: (required) => (value, context, key) => {
-    if (typeof value === 'number') return;
-    if (!required && value == null) return;
-    issues.type(context, 'number', value, key);
-  },
-  bigint: (required) => (value, context, key) => {
-    if (typeof value === 'bigint') return;
-    if (!required && value == null) return;
-    issues.type(context, 'bigint', value, key);
-  },
-  boolean: (required) => (value, context, key) => {
-    if (typeof value === 'boolean') return;
-    if (!required && value == null) return;
-    issues.type(context, 'boolean', value, key);
-  },
+// A single comparison on the way through for a valid value; the optional
+// case is looked at only when it fails.
+const scalarCheck = (scalar, required) => (value, context, key) => {
+  // oxlint-disable-next-line valid-typeof
+  if (typeof value === scalar) return;
+  if (!required && value == null) return;
+  issues.type(context, scalar, value, key);
 };
 
 const scalar = {
@@ -38,7 +21,7 @@ const scalar = {
   construct() {},
 
   compile() {
-    return SCALAR_CHECKS[this.scalar](this.required);
+    return scalarCheck(this.scalar, this.required);
   },
 };
 

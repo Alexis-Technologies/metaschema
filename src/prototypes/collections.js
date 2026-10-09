@@ -89,6 +89,30 @@ const map = {
   },
 };
 
+// An array and a Set are walked the same way, by position; only the type
+// test differs.
+const compileList = (type, isList) => {
+  const { required } = type;
+  const { check } = type.value;
+  const name = type.type;
+  return (value, context, key) => {
+    if (!isList(value)) {
+      if (!required && value == null) return;
+      issues.type(context, name, value, key);
+      return;
+    }
+    const nested = key !== undefined;
+    if (nested) context.path.push(key);
+    let index = 0;
+    for (const item of value) {
+      if (context.count >= context.limit) break;
+      check(item, context, index);
+      index += 1;
+    }
+    if (nested) context.path.pop();
+  };
+};
+
 const array = {
   kind: 'struct',
   rules: ['length'],
@@ -101,22 +125,7 @@ const array = {
   },
 
   compile() {
-    const { required, type } = this;
-    const { check } = this.value;
-    return (value, context, key) => {
-      if (!Array.isArray(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
-      }
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      for (let index = 0; index < value.length; index += 1) {
-        if (context.count >= context.limit) break;
-        check(value[index], context, index);
-      }
-      if (nested) context.path.pop();
-    };
+    return compileList(this, this.isInstance);
   },
 
   isInstance(value) {
@@ -126,27 +135,6 @@ const array = {
 
 const set = {
   ...array,
-
-  compile() {
-    const { required, type } = this;
-    const { check } = this.value;
-    return (value, context, key) => {
-      if (value?.constructor?.name !== 'Set') {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
-      }
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      let index = 0;
-      for (const item of value) {
-        if (context.count >= context.limit) break;
-        check(item, context, index);
-        index += 1;
-      }
-      if (nested) context.path.pop();
-    };
-  },
 
   isInstance(value) {
     return value?.constructor?.name === 'Set';

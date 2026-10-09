@@ -24,14 +24,16 @@ const withRules = (type, inner, rules) => {
     const before = context.count;
     inner(value, context, key);
     if (context.count !== before) return;
-    const nested = key !== undefined;
-    if (nested) context.path.push(key);
     for (let index = 0; index < rules.length; index += 1) {
       if (context.count >= context.limit) break;
-      rules[index](value, context);
+      rules[index](value, context, key);
     }
-    if (validate && context.count === before) runValidate(type, validate, value, context);
-    if (nested) context.path.pop();
+    if (validate && context.count === before) {
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      runValidate(type, validate, value, context);
+      if (nested) context.path.pop();
+    }
   };
 };
 

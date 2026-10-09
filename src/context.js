@@ -10,44 +10,42 @@ const { NONE } = require('./issues.js');
 // with the count on every field stays an integer comparison.
 const UNLIMITED = 2 ** 30 - 1;
 
-const invalidMaxErrors = (value) =>
-  new TypeError(`maxErrors must be a number of at least 1, got ${value}`);
+const invalid = (name, expected, value) =>
+  new TypeError(`${name} must be ${expected}, got ${JSON.stringify(value) ?? String(value)}`);
 
 const maxErrorsOf = (maxErrors) => {
   const valid = typeof maxErrors === 'number' && maxErrors >= 1;
-  if (!valid) throw invalidMaxErrors(maxErrors);
+  if (!valid) throw invalid('maxErrors', 'a number of at least 1', maxErrors);
   return Math.min(maxErrors, UNLIMITED);
 };
 
 const messagesOf = (messages) => {
   const isTable = messages !== null && typeof messages === 'object';
   if (!isTable && typeof messages !== 'function') {
-    throw new TypeError('messages must be a locale table or a function');
+    throw invalid('messages', 'a locale table or a function', messages);
   }
   return messages;
 };
 
-const UNKNOWN = ['reject', 'ignore'];
-
 const unknownOf = (unknown) => {
-  if (!UNKNOWN.includes(unknown)) {
-    throw new TypeError(`unknown must be "reject" or "ignore", got ${JSON.stringify(unknown)}`);
+  if (unknown !== 'reject' && unknown !== 'ignore') {
+    throw invalid('unknown', '"reject" or "ignore"', unknown);
   }
   return unknown;
 };
 
 const rootOf = (root) => {
-  if (typeof root !== 'string') throw new TypeError(`root must be a string, got ${root}`);
+  if (typeof root !== 'string') throw invalid('root', 'a string', root);
   return root;
 };
 
 // The 1.x signature was check(value, path, options); a string here is that
 // path, and the message says where it went.
-const invalidOptions = (options) =>
-  new TypeError(
-    `check options must be an object, got ${typeof options}` +
-      (typeof options === 'string' ? ': the path is options.root now' : ''),
-  );
+const optionsOf = (options) => {
+  if (options !== null && typeof options === 'object') return options;
+  const hint = typeof options === 'string' ? ' (the path is options.root now)' : '';
+  throw invalid('check options', `an object${hint}`, options);
+};
 
 // One object shape for every context: the keys are always present, in this
 // order, so the hot path sees a single hidden class.
@@ -57,7 +55,7 @@ const createContext = (options, name = '') => {
   let unknown = 'reject';
   let root = name;
   if (options !== undefined) {
-    if (options === null || typeof options !== 'object') throw invalidOptions(options);
+    optionsOf(options);
     if (options.maxErrors !== undefined) limit = maxErrorsOf(options.maxErrors);
     if (options.messages !== undefined) messages = messagesOf(options.messages);
     if (options.unknown !== undefined) unknown = unknownOf(options.unknown);

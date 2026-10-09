@@ -13,9 +13,7 @@ const STRUCT = Symbol.for('alexify.metaschema.struct');
 // when the value is undefined, to tell a missing key from one set to
 // undefined. A field named after a member of Object.prototype (`toString`,
 // `constructor`, ...) would read the inherited function from a plain object,
-// so such a field always asks `Object.hasOwn` first.
-const inherited = (key) => key in Object.prototype;
-
+// so such a field (`own`) always asks `Object.hasOwn` first.
 const scanUnknown = (value, known, context) => {
   let unexpected = null;
   for (const name in value) {
@@ -45,13 +43,18 @@ const compileStruct = (plan, known) => (value, context, key) => {
     if (context.count >= context.limit) break;
     const entry = plan[index];
     const name = entry.key;
-    let item = value[name];
-    if (item === undefined || entry.own) {
+    const item = value[name];
+    if (item === undefined) {
+      // Absent, or own and set to undefined: the same for an optional field,
+      // a required one asks which (the latter is a type error).
+      if (!entry.required) continue;
       if (!Object.hasOwn(value, name)) {
-        if (entry.required) issues.required(context, name);
+        issues.required(context, name);
         continue;
       }
-      item = value[name];
+    } else if (entry.own && !Object.hasOwn(value, name)) {
+      if (entry.required) issues.required(context, name);
+      continue;
     }
     found += 1;
     entry.check(item, context, name);
@@ -95,7 +98,7 @@ const createStruct = (defs, prep) => {
         key: field,
         type: child,
         required: child.required,
-        own: inherited(field),
+        own: field in Object.prototype,
         check: child.check,
       });
     } catch (error) {

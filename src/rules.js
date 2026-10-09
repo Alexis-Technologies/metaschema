@@ -19,11 +19,11 @@ const lengthOf = (value) => {
 const checks = {
   length: (type) => {
     const { min, max } = type.length;
-    return (value, context) => {
+    return (value, context, key) => {
       const actual = lengthOf(value);
       const short = min !== undefined && actual < min;
       const long = max !== undefined && actual > max;
-      if (short || long) issues.length(context, min, max, actual);
+      if (short || long) issues.length(context, min, max, actual, key);
     };
   },
 };

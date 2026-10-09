@@ -156,32 +156,26 @@ const describe = (messages, root, issue) => {
   return `${field(toDotPath(issue.path, root))} ${message}`;
 };
 
-// The two places where user code runs, and the only ones with a try/catch: an
-// exception from a validator is reported as an issue, not thrown.
-const runValidate = (owner, validate, value, context) => {
+// The two places where user code runs, and the only ones with a try/catch:
+// an exception from a validator or a custom checkType is reported as an
+// issue, not thrown. Both get the dotted path of the field.
+const guarded = (context, code, fallback, call) => {
   let output;
   try {
-    output = validate.call(owner, value, toDotPath(context.path, context.root));
+    output = call(toDotPath(context.path, context.root));
   } catch (error) {
     issues.exception(context, error);
     return;
   }
-  absorb(context, output, 'custom', EMPTY);
+  absorb(context, output, code, fallback);
 };
 
+const runValidate = (owner, validate, value, context) =>
+  guarded(context, 'custom', EMPTY, (path) => validate.call(owner, value, path));
+
 const runCheckType = (type, value, context) => {
-  let output;
-  try {
-    output = type.checkType(value, toDotPath(context.path, context.root));
-  } catch (error) {
-    issues.exception(context, error);
-    return;
-  }
-  if (output === false) {
-    issues.type(context, type.type, value);
-    return;
-  }
-  absorb(context, output, 'type', EMPTY);
+  const fallback = { expected: type.type, received: typeOf(value) };
+  guarded(context, 'type', fallback, (path) => type.checkType(value, path));
 };
 
 module.exports = {
