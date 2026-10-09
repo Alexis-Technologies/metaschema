@@ -298,7 +298,7 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/commits/main
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/commits/master
 [upstream-2.2.2]: https://github.com/metarhia/metaschema/compare/v2.2.1...v2.2.2
 [upstream-2.2.1]: https://github.com/metarhia/metaschema/compare/v2.2.0...v2.2.1
 [upstream-2.2.0]: https://github.com/metarhia/metaschema/compare/v2.1.5...v2.2.0
