@@ -32,7 +32,7 @@ Fields are required unless marked optional. A struct rejects keys it does not de
 ```js
 const schema = Schema.from({ title: 'string' });
 schema.check({ title: 'Meditations', author: 'Marcus' }).errors;
-// [ 'Field "author" is not expected' ]
+// [ 'Field "" has unexpected keys: author' ]
 ```
 
 ## The long form

@@ -29,7 +29,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 8 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 10 KB min+gzip
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual only; --save writes bench/baseline.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
@@ -46,14 +46,15 @@ pre-merge gate. There is no build step.
 - `src/index.js` lists every export **by name** (`module.exports = { KIND, …, Schema, Model }`),
   never by spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/metaschema'` depends on it.
-- `index.d.ts` is the only source of the public types, written by hand. A public API change touches
+- `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
+  `src/locales/*.d.ts` that type the locale subpath exports through it. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. `tests/unit/export-parity.test.js` compares
-  runtime exports with the declared value exports for both entries and imports every name from ESM.
-  `tests/types/index.test-d.ts` (tsd) pins signatures. `check:dts` needs `--target es2022` because
-  there is no tsconfig.
-- `package.json` has a closed `exports` map (`types` first, then `browser`, then `default`) and a
-  `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE and
-  SECURITY.
+  runtime exports with the declared value exports for both entries, imports every name from ESM
+  and resolves the locale subpaths. `tests/types/*.test-d.ts` (tsd) pin signatures. `check:dts`
+  needs `--target es2022` because there is no tsconfig.
+- `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
+  `default`; `./locales/en` and `./locales/uk`) and a `files` allowlist: `index.js`, `index.d.ts`,
+  `browser.js`, `src`, README, CHANGELOG, LICENSE and SECURITY.
 
 ## Zero dependencies
 
@@ -79,13 +80,18 @@ index.js  browser.js  index.d.ts   root entry shims + hand-written types
 src/
   index.js          public barrel (explicit named exports)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata
-  metadata.js       ValidationResult, SchemaMetadata (kind, scope, indexes, options, …)
-  schema.js         Schema (extends SchemaMetadata)
-  struct.js         createStruct (null-prototype field dictionary) and checkStruct
+  metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
+  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], dts rendering
+  struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
+  context.js        createContext: the state of one check ({ issues, count, limit, path, seen, unknown, root, messages })
+  issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType
+  result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
+  rules.js          rule checks compiled per field (length)
+  locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }
   types.js          TYPES registry, createType, typeFactory
   model.js          Model: entities, ordering, warnings, dts
-  util.js           BRAND/hasBrand identity brand, formatters (type '?x', key 'x?', length), checks
+  util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
   errors.js         SchemaDefinitionError (code, schema, field) for broken definitions
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       type prototypes: abstract, scalars, collections, reference, schema, tuple, json
@@ -102,9 +108,11 @@ docs/               VitePress site (metaschema.vercel.app), not published
 
 ## Architecture
 
-Module graph (no cycles): `kinds → metadata → struct → prototypes/* → types → preprocessor →
-schema → model`; `util.js` and `errors.js` are leaves required from several of them.
-`src/index.js` adds `runtime/node.js`.
+Module graph (no cycles): `locales/en → issues → rules/result/context`, then
+`kinds → metadata → struct → prototypes/* → types → preprocessor → schema → model`; `util.js`
+and `errors.js` are leaves required from several of them, `issues.js` is required by `struct`,
+`rules`, `result`, `context`, `schema` and every prototype. `src/index.js` adds `runtime/node.js`.
+`util.js` must not require `issues.js` (the locales require `util.js` for `shorten`).
 
 **Parsing a definition.** `new Schema(name, raw, namespaces)` builds a `Preprocessor`, and
 `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in `preprocessor.js`):
@@ -134,11 +142,29 @@ prepends nested keys, so the message ends with `in "Order.address.city"`. Never 
 `Error` for a definition problem.
 
 **Types.** `types.js` creates one class per prototype (`createType`): `class Type extends
-AbstractType` with static `type`, `kind`, `metadata`. `AbstractType#check` handles optional/null,
-then runs `checkType`, the field's `validate`, and the rule checks (`length`). `TYPES` is a
+AbstractType` with static `type`, `kind`, `metadata`. A field's `check` is **compiled when the
+field is built**: the `AbstractType` constructor copies the definition keys, calls `construct`,
+then `compile()` returns the type check as a closure over the field (`(value, context, key) =>
+void`), and `withRules` wraps it only when the field has rules (`length`) or a `validate`. Each
+built-in prototype has its own `compile` (one `typeof` for a scalar, a `Set` for an enum with more
+than 8 values, `Map`/`Set` iterated directly, `object` through `for...in` + `Object.hasOwn`,
+tuple by index, the struct's compiled check for `schema`, a lookup plus cycle tracking for a
+reference); a custom type has `checkType(value, path)` instead, which the generic `compile`
+runs through the validator contract (`runCheckType`). The compiled closure is a private field
+behind the `check` getter, so it stays out of `toJSON`/`util.inspect`. `TYPES` is a
 **module-global registry**: `typeFactory(customTypes)` (called by `Model`) mutates it. It adds
 metadata to built-ins, aliases (`{ js: 'string' }`) or new prototypes with
 `construct`/`checkType`. Registration is process-wide, by design (see below).
+
+**Structs.** `createStruct` settles `required` from the key (`'tags?'`) and the definition
+(`'?string'`, `required: false`) *before* building the field (the closure captures it), then
+records a frozen **plan** entry `{ key, type, required, own, check }` per validated field and the
+key in a null-prototype `known` dictionary; `fields[STRUCT]` (a global symbol) holds
+`{ plan, known, check }`. The struct check is an index loop over the plan: a keyed load per field,
+`Object.hasOwn` only when the value is `undefined` and the field is required, or when the field
+name is a member of `Object.prototype` (`own`); then `for...in` counts the keys and scans for
+unknown ones only when the count differs from what the plan found. A leaf check receives its key
+and never touches `context.path`; a container pushes its own key before its children.
 
 **Kinds.** A capitalized first key sets kind and metadata via `getKindMetadata`:
 
@@ -152,24 +178,36 @@ Index keys (`index`/`primary`/`unique` arrays) and `many` fields are collected i
 `schema.indexes`. Top-level `validate`/`format`/`parse`/`serialize` functions go to
 `schema.options`; only `validate` is called by metaschema.
 
-**Validation.** Errors are accumulated in `ValidationResult` (`{ valid, errors, issues }`, private
-`#path`) and never thrown for bad data. Every message is also an issue `{ code, path, message }`;
-the library's own checks build theirs with `issue(code, path, detail)` from `util.js` (codes:
-`required`, `type`, `unexpected`, `enum`, `length`, `reference`, `circular`, `exception`), and
-anything else a validator returns gets `custom` (or `type` when it came from a `checkType`).
-Validators and `checkType` may return:
+**Validation.** `schema.check(value, options)` creates a **context** (`createContext` in
+`context.js`: `{ issues, count, limit, path, seen, unknown, root, messages }`, one shape, with
+`options.root` defaulting to the schema name, `maxErrors` clamped to a small integer, `unknown`
+`'reject'`/`'ignore'`, `messages` a locale or a function), runs `this[RUN](value, context)` (the
+compiled schema check: the struct or type check, then `options.validate` only if nothing failed)
+and returns `new ValidationResult(context)`. Issues are **data**, recorded without text by the
+constructors in `issues.js` (`issues.type(context, expected, value, key)`, …):
+`{ code, path: PropertyKey[], message: '', params }`, `path` built from `context.path` plus the
+key, relative to the value (the root is a label only). Messages are rendered **once, at the end**
+(`finalize`) through the locale (`render`: `messages[code] || en[code]`, or the function); a
+validator's own text is kept. `result.errors` is a lazy view: `Field "<root><dotted path>"
+<message>` (`describe`/`toDotPath`, identifiers dotted, other keys bracketed and JSON-quoted,
+keys over 100 characters truncated), kept as is when the message already starts with `Field`.
+Codes: `required`, `type` (`{ expected, received, key? }`), `unexpected` (`{ keys }`, one per
+struct), `enum`, `length`, `reference`, `circular`, `exception` (`{ error }`), `custom`.
+
+The order inside a field is type → rules → `validate`; a type failure cancels the rest, and
+`validate` (field or schema level) runs only when nothing before it failed. Validators and
+`checkType` may return (`absorb` in `issues.js` normalises it):
 
 - `null`, `undefined` or `true`: valid
-- `false`: `'validation error'`
-- a string, or `{ code, message }` (`path` optional)
+- `false`: `'validation error'` (`custom`), or `not of expected type: <name>` from a `checkType`
+- a string, or `{ code, message, path?, params? }` (`path` relative to the field: a key or keys)
 - an array of those
-- a `ValidationResult`
+- a `ValidationResult` (its issues, relative to the field)
 
-`ValidationResult.issuesOf` normalises all of that; `format` is its message-only view, prefixing
-messages with `Field "<path>" ` unless they already start with `Field`. Exceptions inside a type
-check are caught and reported as `validation failed <error>`. `check(value, path, { maxErrors })`
-sets `limits.maxErrors` in `util.js` for the duration of the call (validation is synchronous);
-`result.full` is how every loop over fields, elements and records stops early.
+`runValidate`/`runCheckType` are the only `try/catch` blocks: an exception is an `exception`
+issue. `context.count >= context.limit` is how every loop over fields, elements and records
+stops early. `ValidationResult` (`result.js`) keeps `add()`/`issuesOf()` for results built by
+validators, plus `summary`, `flatten()` and `tree()`.
 
 **Model.** `new Model(types, entities, database = null)`:
 
@@ -182,6 +220,18 @@ sets `limits.maxErrors` in `util.js` for the duration of the call (validation is
 
 `model.dts` joins `toInterface()` of each entity in that order. `entities` is any iterable of
 `[name, definition]`.
+
+## Budgets
+
+`pnpm size --max-gzip 10` is the CI gate (10 KB = 10240 bytes min+gzip per entry). After
+Workstream A the entries are at about 10150 bytes (9.9 KB), with under 100 bytes of headroom:
+the next additive feature needs to measure and, per ROADMAP.md §5.8, revise the budget (12 KB is
+planned for 2.1 with the JSON Schema export). `pnpm bench` on Node 24 (this machine,
+`bench/baseline.json`): flat valid ≈ 11 M ops/s, flat invalid ≈ 3.6 M, nested ≈ 2.8 M / 1.5 M,
+the moltar scenarios ≈ 17 M; `Schema.from` and `new Model` at the 1.0 level. The roadmap's 2.0
+targets were 12 M / 6 M: the valid path is within reach of the closure backend, the invalid path
+is bounded by the cost of plain issue objects (a params object, a path array and a rendered
+message each) and is where the JIT backend of Workstream E picks up.
 
 ## Platform split
 
@@ -208,7 +258,11 @@ a runtime file means updating the `browser` map keys.
   - hot loops avoid destructuring: `for (const pair of Object.entries(x)) { const key = pair[0]; … }`;
     use index loops, not `forEach`;
   - prefer `const`; no `var`;
-  - private class members with `#`.
+  - private class members with `#`;
+  - `value == null` for "null or undefined" (`eqeqeq` ignores `null`), nothing else loose;
+  - in the hot path (`check` closures): no closures or regexes created per call, one object
+    shape per kind of object (context, issue, plan entry), `try/catch` only around user code,
+    and functions chosen at build time instead of lookups in the definition.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Validators return messages; `throw` only for definition errors, always a
   `SchemaDefinitionError` with a code.
@@ -248,9 +302,41 @@ change. **This file wins** if they ever disagree.
   and not) and validates through the result, so a class-name-based identity check cannot come
   back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18.
 - New behavior needs a test that fails without the change.
+- `tests/unit/result.test.js` and `check-options.test.js` cover the issue shape, locales and
+  `check` options; `tests/unit/context.test.js` pins the context shape and the absence of global
+  state. The locale tables are compared key by key, so a new issue code needs a renderer in every
+  locale.
+- Doc example outputs were checked against the code; a scratch script that prints them is the
+  quickest way to re-verify after a message change.
 
 ## Things that look like bugs but aren't
 
+- **There is no global validation state.** `ancestors` and `limits` are gone from `util.js`:
+  every check gets its own context, and a validator may start another check (even of the same
+  value) without touching the outer one.
+- **`field.check` is a getter over a private field.** The compiled closure is set once in the
+  `AbstractType` constructor; assigning it as an own property would show up in `toJSON` and
+  `util.inspect`, and `Object.defineProperty` cost 100 ns per field at construction. `check`,
+  `checkType`, `compile` and `construct` are reserved definition keys whether the type has them.
+- **A missing optional field never calls `Object.hasOwn`.** `value[key]` is read first; `hasOwn`
+  decides only between a missing required key (`required`) and one set to `undefined` (a `type`
+  issue), and is asked first only for a field named after a member of `Object.prototype` (plan
+  entry `own`), which would otherwise read the inherited function. An inherited enumerable
+  property of a custom prototype is therefore validated like an own one.
+- **Cycle detection lives at references only.** A schema without references is a finite tree, so
+  a cyclic value cannot make the walk recurse: it is reported for what it is (unexpected keys,
+  wrong types). The `seen` set is created on the first reference met, and `Schema#check` adds the
+  root value only for a struct with relations (`#tracked`). Do not "fix" the nested-struct case
+  by tracking every object: it costs a `Set` per check.
+- **The schema-level `validate` runs after the fields and only when they all passed**, and a
+  field's `validate` only after its type and rules passed. That is the 2.0 semantics (A5), not an
+  ordering accident.
+- **Unexpected keys are one issue per struct** (`unexpected { keys }` at the struct's path), and
+  the scan runs only when `for...in` counts more keys than the plan found. `maxErrors` therefore
+  counts them as one.
+- **`issue.message` has no location.** The line with the location is `result.errors[i]`; forms
+  use `flatten()`. The `Field` prefix rule (a message that already starts with `Field` is kept)
+  exists for custom types written in the upstream style.
 - **`TYPES` is mutated by `typeFactory`.** Custom types and metadata registered by one `Model` are
   visible to every schema in the process, including `Schema.from` without a namespace. This is
   upstream's design; do not "fix" it by cloning per model without discussing it first.
@@ -270,16 +356,18 @@ change. **This file wins** if they ever disagree.
   (`value?.constructor?.name === 'Map'`), since nothing renames those.
 - **`schema.fields` is a null-prototype object, not a class instance.** `createStruct` builds it
   that way on purpose: a field may be called `check`, `name` or `constructor`, and input keys
-  such as `__proto__` must come back as `is not expected` instead of resolving to
-  `Object.prototype`. `checkStruct(fields, value, path)` is the check; `Schema#check` dispatches on
-  the brand because `fields` is a `Type` for a non-struct schema (`Schema.from('string')`).
+  such as `__proto__` must come back as unexpected instead of resolving to `Object.prototype`.
+  `fields[STRUCT].check` is the compiled check (`checkOf(fields)` in `struct.js`); `Schema`
+  compiles `this[RUN]` from it, or from `fields.check` when `fields` is a `Type` for a non-struct
+  schema (`Schema.from('string')`).
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
-- **Optional nested structs have two mechanisms.** Inside a struct, `createStruct` lowers the flag with
-  `child.required &&= required` (from `'key?'` or `required: false`). `prototypes/schema.js` keeps
-  an explicit `required` with `required ?? true`, which is what makes a nested struct optional as a
-  collection element. Upstream had `required || true`, which ignored `false`; do not bring it back.
-  `tests/unit/structs.test.js` covers every form.
+- **Optional nested structs have two mechanisms.** Inside a struct, `createStruct` settles the flag
+  before building the field: `typeDefs.required = (typeDefs.required ?? true) && required` (from
+  `'key?'` or `required: false`), because the compiled check captures it. `prototypes/schema.js`
+  keeps an explicit `required` with `required ?? true`, which is what makes a nested struct
+  optional as a collection element. Upstream had `required || true`, which ignored `false`; do not
+  bring it back. `tests/unit/structs.test.js` covers every form.
 - **`relations` labels**: a `many` field is recorded as `'many-to-one'`, any other reference as
   `'one-to-many'`. That is upstream's naming.
 

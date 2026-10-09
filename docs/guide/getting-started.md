@@ -41,7 +41,7 @@ const data = {
 };
 
 console.log(schema.check(data));
-// ValidationResult { errors: [], issues: [], valid: true }
+// ValidationResult { valid: true, errors: [], issues: [] }
 ```
 
 When the value does not match, `check` reports every problem it finds:

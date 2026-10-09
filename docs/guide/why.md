@@ -18,7 +18,7 @@ purposes:
 - **Errors are data.** Validation never throws on bad input. Every problem comes back as a string
   in `result.errors`, and `result.valid` tells you whether there were any.
 - **Zero dependencies.** Nothing is installed besides the package itself, and the whole library is
-  under 8 KB min+gzip.
+  under 10 KB min+gzip.
 - **One package for Node.js and browsers.** The browser entry is resolved automatically by
   bundlers.
 - **No build step.** The package is CommonJS that ships exactly as written, with hand-written
