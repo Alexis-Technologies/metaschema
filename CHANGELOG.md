@@ -57,6 +57,10 @@ the corrected error messages.
   the message says where: `Unknown type "strng" in "Order.total"`. Previously a model with many
   entities threw a bare `Error: Unknown type strng` with no hint of the entity or field, and a
   `null` field definition threw `Cannot read properties of null`.
+- **An isolated type registry per model.** `new Model(types, entities, database, { registry:
+  'isolated' })` gives the model its own copy of the built-in types to register into, so two
+  models with conflicting custom types can live in one process. The default, `'shared'`, is the
+  process-wide registry as before.
 - **Readable `console.log`.** A schema or a field printed with `util.inspect` shows its definition
   (`Schema(User) { name: { required: true, type: 'string' } }`) instead of the whole graph with
   `[Circular]` markers.

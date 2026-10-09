@@ -78,6 +78,9 @@ const entries: Record<string, TypeEntry> = {
   hex: { kind: 'scalar', construct() {}, checkType: (value: string) => /^[0-9a-f]+$/.test(value) },
 };
 expectType<Model>(new Model(entries, []));
+expectType<Model>(new Model(entries, [], null, { registry: 'isolated' }));
+expectType<Model>(new Model(entries, [], null, { registry: 'shared' }));
+expectError(new Model(entries, [], null, { registry: 'private' }));
 expectError(new Model({ bad: 42 }, []));
 expectType<string>(model.dts);
 

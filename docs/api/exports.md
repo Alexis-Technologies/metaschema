@@ -56,7 +56,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `field
 
 | Member | Description |
 | --- | --- |
-| `new Model(types, entities, database?)` | builds every entity; `entities` is an iterable of `[name, definition]` |
+| `new Model(types, entities, database?, options?)` | builds every entity; `entities` is an iterable of `[name, definition]`; `options.registry` is `'shared'` (default) or `'isolated'` |
 | `model.entities` | `Map<string, Schema>` |
 | `model.types` | the type table |
 | `model.database` | the `database` argument or `null` |
@@ -101,6 +101,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
+| `ERR_INVALID_OPTIONS` | a `Model` option with a value it does not accept |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
@@ -108,4 +109,5 @@ it; see [Validation](/guide/validation#the-result).
 `index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `Validator`, `ValidationReturn` and `DefinitionErrorCode`.
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `Validator`, `ValidationReturn` and
+`DefinitionErrorCode`.

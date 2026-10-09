@@ -30,6 +30,8 @@ const model = new Model(types, entities, database);
   A definition can also be a `Schema` instance.
 - `database`: any metadata you want to carry with the model. metaschema stores it as
   `model.database` and does not read it.
+- `options`: `{ registry: 'isolated' }` gives the model its own type registry instead of the
+  process-wide one; see [Custom Types](/guide/custom-types#an-isolated-registry).
 
 ## What a model holds
 

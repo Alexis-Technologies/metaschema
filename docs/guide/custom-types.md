@@ -108,3 +108,17 @@ created from (the same `js`, the same `construct` and `checkType` functions) or 
 `metadata` is accepted. A different definition for a name that is already registered, including a
 built-in (`{ string: { js: 'number' } }`), throws `SchemaDefinitionError` with code
 `ERR_TYPE_REGISTERED`, and a `js` that names no registered type throws `ERR_UNKNOWN_JS_TYPE`.
+
+## An isolated registry
+
+When two models in one process need different definitions for the same type name (two tenants,
+two domains in a monorepo, tests that build conflicting models), give each its own registry:
+
+```js
+const payments = new Model(paymentTypes, paymentEntities, null, { registry: 'isolated' });
+const catalog = new Model(catalogTypes, catalogEntities, null, { registry: 'isolated' });
+```
+
+An isolated model starts from its own copy of the built-in types and registers its table into
+that copy. Its entities, and any schema that attaches it as a namespace, resolve types through
+it; the shared registry, and `Schema.from` without a namespace, are untouched.

@@ -53,7 +53,10 @@ const createTypes = (prototypes) => {
   return types;
 };
 
+// The shared, process-wide registry. A model may ask for its own instead.
 const TYPES = createTypes(PROTOTYPES);
+
+const createRegistry = () => createTypes(PROTOTYPES);
 
 const updateTypeMetadata = (Type, metadata = {}) => {
   for (const pair of Object.entries(metadata)) {
@@ -86,7 +89,7 @@ const redefines = (Type, { js, construct, checkType }) => {
   return js !== source.js || construct !== source.construct || checkType !== source.checkType;
 };
 
-const typeFactory = (customTypes) => {
+const typeFactory = (customTypes, registry = TYPES) => {
   for (const pair of Object.entries(customTypes)) {
     const name = pair[0];
     const value = pair[1];
@@ -94,7 +97,7 @@ const typeFactory = (customTypes) => {
       throw customTypeError(name, 'must be an object with methods "construct" and "checkType"');
     }
     const { js, metadata, ...rest } = value;
-    const registered = TYPES[name];
+    const registered = registry[name];
     if (registered) {
       if (redefines(registered, value)) {
         const reason = `Type "${name}" is already registered; only { metadata } may be added`;
@@ -105,7 +108,7 @@ const typeFactory = (customTypes) => {
     }
     let proto = rest;
     if (js !== undefined) {
-      const base = TYPES[js];
+      const base = registry[js];
       if (!base) {
         const reason = `Unknown js type "${js}" for custom type "${name}"`;
         throw new SchemaDefinitionError('ERR_UNKNOWN_JS_TYPE', reason);
@@ -116,9 +119,9 @@ const typeFactory = (customTypes) => {
     const Type = createType(name, proto);
     Type.source = { js, construct: rest.construct, checkType: rest.checkType };
     updateTypeMetadata(Type, metadata);
-    TYPES[name] = Type;
+    registry[name] = Type;
   }
-  return TYPES;
+  return registry;
 };
 
-module.exports = { TYPES, typeFactory };
+module.exports = { TYPES, createRegistry, typeFactory };

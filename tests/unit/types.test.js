@@ -97,3 +97,27 @@ test('Types: js must name a registered type, built-in or custom', () => {
   assert.strictEqual(model.types.created.metadata.pg, 'timestamptz');
   assert.strictEqual(model.types.stamp.metadata.pg, 'timestamp');
 });
+
+test('Types: an isolated model keeps its types to itself', () => {
+  const asString = { js: 'string', metadata: { pg: 'text' } };
+  const asNumber = { js: 'number', metadata: { pg: 'integer' } };
+  const entities = [['Item', { Entity: {}, amount: 'coin' }]];
+  const strings = new Model({ coin: asString }, entities, null, { registry: 'isolated' });
+  const numbers = new Model({ coin: asNumber }, entities, null, { registry: 'isolated' });
+  assert.notStrictEqual(strings.types, numbers.types);
+  assert.notStrictEqual(strings.types, TYPES);
+  assert.strictEqual(strings.entities.get('Item').check({ amount: '1' }).valid, true);
+  assert.strictEqual(strings.entities.get('Item').check({ amount: 1 }).valid, false);
+  assert.strictEqual(numbers.entities.get('Item').check({ amount: 1 }).valid, true);
+  assert.strictEqual(numbers.entities.get('Item').check({ amount: '1' }).valid, false);
+  assert.strictEqual(strings.types.coin.metadata.pg, 'text');
+  assert.strictEqual(numbers.types.coin.metadata.pg, 'integer');
+  assert.strictEqual(TYPES.coin, undefined);
+  assert.throws(() => Schema.from({ amount: 'coin' }), { code: 'ERR_UNKNOWN_TYPE' });
+  assert.strictEqual(Schema.from({ amount: 'coin' }, [numbers]).check({ amount: 2 }).valid, true);
+  assert.strictEqual(strings.types.string.metadata.pg, undefined);
+  assert.throws(() => new Model({}, [], null, { registry: 'private' }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Model option "registry" must be "shared" or "isolated", got "private"',
+  });
+});

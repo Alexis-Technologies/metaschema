@@ -84,6 +84,12 @@ export interface TypeEntry {
   [key: string]: unknown;
 }
 
+export interface ModelOptions {
+  // 'shared' (the default) registers the types into the process-wide registry;
+  // 'isolated' gives the model its own copy of the built-in types to register into.
+  registry?: 'shared' | 'isolated';
+}
+
 export interface KindMetadata {
   kind: Kind;
   scope: Scope;
@@ -112,7 +118,8 @@ export type DefinitionErrorCode =
   | 'ERR_INVALID_REFERENCE'
   | 'ERR_RESERVED_KEY'
   | 'ERR_TYPE_REGISTERED'
-  | 'ERR_UNKNOWN_JS_TYPE';
+  | 'ERR_UNKNOWN_JS_TYPE'
+  | 'ERR_INVALID_OPTIONS';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
@@ -180,6 +187,7 @@ export class Model {
     types: Record<string, TypeEntry>,
     entities: Iterable<readonly [string, object]>,
     database?: Record<string, unknown> | null,
+    options?: ModelOptions,
   );
   get dts(): string;
 }

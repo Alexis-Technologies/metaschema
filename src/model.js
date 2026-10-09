@@ -1,11 +1,23 @@
 const { firstKey } = require('./metautil.js');
 
 const { Schema } = require('./schema.js');
-const { typeFactory } = require('./types.js');
+const { TYPES, createRegistry, typeFactory } = require('./types.js');
+const { SchemaDefinitionError } = require('./errors.js');
+
+const REGISTRIES = ['shared', 'isolated'];
+
+const registryFor = (options) => {
+  const { registry = 'shared' } = options;
+  if (!REGISTRIES.includes(registry)) {
+    const reason = `Model option "registry" must be "shared" or "isolated", got ${JSON.stringify(registry)}`;
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+  }
+  return registry === 'isolated' ? createRegistry() : TYPES;
+};
 
 class Model {
-  constructor(types, entities, database = null) {
-    this.types = typeFactory(types);
+  constructor(types, entities, database = null, options = {}) {
+    this.types = typeFactory(types, registryFor(options));
     this.entities = new Map();
     this.database = database;
     this.order = new Set();
