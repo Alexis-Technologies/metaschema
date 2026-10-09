@@ -1,38 +1,38 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-09T11:41:28.134Z",
+  "date": "2026-10-09T11:43:46.028Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 296556
+      "opsPerSec": 265830
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 106446
+      "opsPerSec": 90712
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 839505
+      "opsPerSec": 2294139
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 721759
+      "opsPerSec": 1036061
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 139408
+      "opsPerSec": 375650
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 142262
+      "opsPerSec": 267050
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 13099
+      "opsPerSec": 18642
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 166662
+      "opsPerSec": 171031
     }
   ]
 }

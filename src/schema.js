@@ -10,6 +10,10 @@ const { createStruct, checkStruct } = require('./struct.js');
 const ES_TYPES = ['number', 'string', 'boolean'];
 
 class Schema extends SchemaMetadata {
+  // The merged type table of the attached namespaces, rebuilt only when they
+  // change.
+  #types = null;
+
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
   }
@@ -52,8 +56,11 @@ class Schema extends SchemaMetadata {
 
   get types() {
     if (this.namespaces.size === 0) return TYPES;
-    const types = Array.from(this.namespaces).map((ns) => ns.types);
-    return Object.assign(Object.create(null), ...types);
+    if (this.#types === null) {
+      const types = Array.from(this.namespaces).map((ns) => ns.types);
+      this.#types = Object.assign(Object.create(null), ...types);
+    }
+    return this.#types;
   }
 
   checkConsistency() {
@@ -123,10 +130,12 @@ class Schema extends SchemaMetadata {
 
   attach(...namespaces) {
     for (const ns of namespaces) this.namespaces.add(ns);
+    this.#types = null;
   }
 
   detach(...namespaces) {
     for (const ns of namespaces) this.namespaces.delete(ns);
+    this.#types = null;
   }
 
   toString() {

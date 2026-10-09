@@ -39,6 +39,10 @@ the corrected error messages.
 - **ESM named imports** work: the root barrel lists every export by name, so
   `import { Schema } from '@alexify/metaschema'` resolves.
 - **`Model`** accepts any iterable of `[name, definition]` pairs, not only a `Map`.
+- **Validation is faster.** A field chooses its rule checks once when it is built instead of
+  scanning the rule table on every check, arrays are walked in place, and a schema caches the type
+  table of its namespaces: `check` runs about 1.7× faster on flat values and 1.5× on nested ones
+  than the 2.2.2 code on the same machine (`pnpm bench`).
 
 ### Added
 

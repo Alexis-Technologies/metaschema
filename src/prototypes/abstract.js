@@ -13,6 +13,11 @@ class AbstractType {
   static checks = Object.create(null);
   static formatters = Object.create(null);
 
+  // The rule checks that apply to this field, chosen once at construction:
+  // `length` only matters to a field that has a length, and check is the hot
+  // path.
+  #rules;
+
   static setRules(rules = []) {
     for (const rule of rules) {
       if (formatters[rule]) AbstractType.formatters[rule] = formatters[rule];
@@ -33,6 +38,11 @@ class AbstractType {
     }
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
+    const rules = [];
+    for (const name of Object.keys(AbstractType.checks)) {
+      if (this[name]) rules.push(AbstractType.checks[name]);
+    }
+    this.#rules = rules;
   }
 
   check(value, path) {
@@ -45,12 +55,7 @@ class AbstractType {
     try {
       result.add(this.checkType(value, path));
       if (this.validate) result.add(this.validate(value, path));
-      for (const pair of Object.entries(AbstractType.checks)) {
-        const name = pair[0];
-        const subCheck = pair[1];
-        if (!this[name]) continue;
-        result.add(subCheck(value, this));
-      }
+      for (const rule of this.#rules) result.add(rule(value, this));
       return result;
     } catch (error) {
       return result.add(`validation failed ${error}`);

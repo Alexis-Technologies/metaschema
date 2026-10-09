@@ -76,7 +76,8 @@ const array = {
     if (!this.isInstance(source)) {
       return `Field "${path}" not of expected type: ${this.type}`;
     }
-    const value = [...source];
+    // A Set is copied to index it; an array is walked as it is.
+    const value = Array.isArray(source) ? source : [...source];
     const errors = [];
     for (let index = 0; index < value.length; index += 1) {
       const element = value[index];
