@@ -189,7 +189,7 @@ the corrected error messages.
 - CI runs lint, types, tests on Node 18–24 (Ubuntu) and 22–24 (Windows), coverage and the docs
   build, with a single `ci-success` check.
 - `pnpm size` reports bundle sizes and, with `--max-gzip <KB>`, fails over budget (CI gates at
-  8 KB; the bundles are about 7 KB). `pnpm bench` runs the benchmarks and, with `--json`, `--save`
+  8 KB; the bundles are under 8 KB). `pnpm bench` runs the benchmarks and, with `--json`, `--save`
   and `--compare`, snapshots them to `bench/baseline.json` and reports the change. The coverage
   table appears in the CI job summary.
 

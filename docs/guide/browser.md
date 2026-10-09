@@ -22,5 +22,5 @@ global symbol brand (`Symbol.for`), not by class names, so a bundler that rename
 minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
 builds both entry points with esbuild, minified and not, and validates through the result.
 
-The whole package is about 7 KB min+gzip in either environment. `pnpm size` in the repository
+The whole package is under 8 KB min+gzip in either environment. `pnpm size` in the repository
 prints the exact numbers.
