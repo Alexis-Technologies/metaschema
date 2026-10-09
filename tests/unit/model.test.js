@@ -320,3 +320,64 @@ test('Model: a many reference needs an array', () => {
     'Field "Person.companies.name" not of expected type: string',
   ]);
 });
+
+test('Model: dts renders collections, enums, tuples, bigint and nested structs', () => {
+  const dtsTypes = {
+    datetime: { js: 'string' },
+    hex: { kind: 'scalar', construct() {}, checkType: () => null },
+  };
+  const entities = [
+    ['Owner', { Entity: {}, name: 'string' }],
+    [
+      'Doc',
+      {
+        Entity: {},
+        tags: { array: 'string' },
+        ids: { set: 'bigint' },
+        scores: { object: { string: 'number' } },
+        byId: { map: { number: 'boolean' } },
+        status: { enum: ['open', 'done'] },
+        levels: { array: { enum: [1, 2] } },
+        point: ['number', 'number'],
+        'meta?': 'json',
+        address: { city: 'string', 'zip?': 'string' },
+        created: 'datetime',
+        color: 'hex',
+        owner: 'Owner',
+        refs: { many: 'Owner' },
+        half: (value) => value.ids.size / 2,
+      },
+    ],
+  ];
+  const model = new Model(dtsTypes, entities);
+  assert.strictEqual(
+    model.dts,
+    `interface Owner {
+  name: string;
+  ownerId?: string;
+}
+
+interface Doc {
+  tags: string[];
+  ids: bigint[];
+  scores: Record<string, number>;
+  byId: Map<number, boolean>;
+  status: "open" | "done";
+  levels: (1 | 2)[];
+  point: [number, number];
+  meta?: unknown;
+  address: { city: string; zip?: string };
+  created: string;
+  color: string;
+  ownerId: string;
+  refsId: string[];
+  docId?: string;
+}
+`,
+  );
+  assert.strictEqual(Schema.from('?string').toInterface(), 'type  = string;');
+  assert.strictEqual(
+    new Schema('Pair', ['number', 'string']).toInterface(),
+    'type Pair = [number, string];',
+  );
+});

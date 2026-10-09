@@ -39,6 +39,11 @@ the corrected error messages.
 - **ESM named imports** work: the root barrel lists every export by name, so
   `import { Schema } from '@alexify/metaschema'` resolves.
 - **`Model`** accepts any iterable of `[name, definition]` pairs, not only a `Map`.
+- **`model.dts` keeps the shape of every field.** Arrays and sets render as `T[]`, an `enum` as
+  a union of its values, `bigint` as `bigint`, a tuple as `[number, number]`, `object` as
+  `Record<K, V>`, `map` as `Map<K, V>`, a nested struct inline and `json` as `unknown`; before,
+  everything but `string`, `number` and `boolean` was rendered as `string`. References still
+  become ids and custom scalar types still render as `string`.
 - **Validation is faster.** A field chooses its rule checks once when it is built instead of
   scanning the rule table on every check, arrays are walked in place, and a schema caches the type
   table of its namespaces: `check` runs about 1.7× faster on flat values and 1.5× on nested ones

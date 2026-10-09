@@ -7,7 +7,40 @@ const { SchemaMetadata, ValidationResult } = require('./metadata.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, checkStruct } = require('./struct.js');
 
-const ES_TYPES = ['number', 'string', 'boolean'];
+const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
+
+const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
+
+// The TypeScript type of a field. A reference is stored as an id, so it
+// renders as a string (an array of them for `many`); a custom scalar with its
+// own check has no known shape and renders as a string too.
+const tsType = (def) => {
+  if (isFirstUpper(def.type)) return def.many ? 'string[]' : 'string';
+  if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
+  if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
+  if (def.schema) return `{ ${tsFields(def.schema).join('; ')} }`;
+  if (Array.isArray(def.value)) return `[${def.value.map(tsType).join(', ')}]`;
+  if (def.key !== undefined && def.value) {
+    const entries = `${def.key}, ${tsType(def.value)}`;
+    return def.isInstance({}) ? `Record<${entries}>` : `Map<${entries}>`;
+  }
+  if (def.value) return listOf(tsType(def.value));
+  if (def.kind === 'struct') return 'unknown';
+  return 'string';
+};
+
+const tsFields = (fields) => {
+  const lines = [];
+  for (const pair of Object.entries(fields)) {
+    const key = pair[0];
+    const def = pair[1];
+    if (!hasBrand(def, 'Type')) continue;
+    const optional = def.required ? '' : '?';
+    const name = isFirstUpper(def.type) ? `${key}Id` : key;
+    lines.push(`${name}${optional}: ${tsType(def)}`);
+  }
+  return lines;
+};
 
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
@@ -109,23 +142,9 @@ class Schema extends SchemaMetadata {
 
   toInterface() {
     const { name, fields } = this;
-    const lines = [`interface ${name} {`];
-    for (const pair of Object.entries(fields)) {
-      const fieldKey = pair[0];
-      const def = pair[1];
-      const { type } = def;
-      if (!type) continue;
-      const optional = def.required ? '' : '?';
-      const isEntity = isFirstUpper(type);
-      const isBuiltin = ES_TYPES.includes(type);
-      const fieldName = isEntity ? `${fieldKey}Id` : fieldKey;
-      let tsType = type;
-      if (isEntity) tsType = def.many ? 'string[]' : 'string';
-      else if (!isBuiltin) tsType = 'string';
-      lines.push(`  ${fieldName}${optional}: ${tsType};`);
-    }
-    lines.push('}');
-    return lines.join('\n');
+    if (!hasBrand(fields, 'Struct')) return `type ${name} = ${tsType(fields)};`;
+    const lines = tsFields(fields).map((line) => `  ${line};`);
+    return [`interface ${name} {`, ...lines, '}'].join('\n');
   }
 
   attach(...namespaces) {

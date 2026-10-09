@@ -35,14 +35,24 @@ interface User {
 
 Rules of the conversion:
 
-- `string`, `number` and `boolean` keep their names. Every other type, including custom types,
-  becomes `string`.
-- Optional fields get `?`.
-- A reference becomes an id: `company: 'Company'` → `companyId: string`, and a `many` reference →
-  `<field>Id: string[]`.
-- Stored kinds include their own id field (`userId?: string`).
+| Definition | TypeScript |
+| --- | --- |
+| `'string'`, `'number'`, `'boolean'`, `'bigint'`, and aliases of them (`{ js: 'string' }`) | the same scalar |
+| `{ enum: ['open', 'done'] }` | `"open" \| "done"` |
+| `{ array: T }`, `{ set: T }` | `T[]` |
+| `['number', 'number']` | `[number, number]` |
+| `{ object: { string: T } }` | `Record<string, T>` |
+| `{ map: { number: T } }` | `Map<number, T>` |
+| a nested struct | an inline object: `{ city: string; zip?: string }` |
+| `'json'` | `unknown` |
+| a custom type with its own `checkType` | `string` |
+| `company: 'Company'` | an id: `companyId: string` |
+| `addresses: { many: 'Address' }` | ids: `addressesId: string[]` |
 
-`schema.toInterface()` renders a single schema the same way.
+Optional fields get `?`, and stored kinds include their own id field (`userId?: string`).
+
+`schema.toInterface()` renders a single schema the same way; a schema whose definition is a single
+type renders as a type alias (`type Pair = [number, string];`).
 
 ### Writing the file
 
