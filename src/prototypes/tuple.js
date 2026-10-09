@@ -26,17 +26,17 @@ const tuple = {
     });
   },
 
-  checkType(source, path) {
+  checkType(source, path, context) {
     if (!Array.isArray(source)) return issue('type', path, `not of expected type: ${this.type}`);
     if (source.length > this.value.length) {
       return issue('length', path, 'value length is more than expected in tuple');
     }
-    const result = new ValidationResult(path);
+    const result = new ValidationResult(path, context);
     for (let index = 0; index < this.value.length; index += 1) {
       if (result.full) break;
       const scalar = this.value[index];
       const itemName = scalar.name || 'item';
-      result.add(scalar.check(source[index], `${path}(${itemName}${index})`));
+      result.add(scalar.check(source[index], `${path}(${itemName}${index})`, context));
     }
     return result;
   },

@@ -1,6 +1,7 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, INSPECT, hasBrand, ancestors, limits } = require('./util.js');
+const { BRAND, INSPECT, RUN, hasBrand } = require('./util.js');
+const { createContext } = require('./context.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata, ValidationResult } = require('./metadata.js');
@@ -8,12 +9,6 @@ const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, checkStruct } = require('./struct.js');
 
 const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
-
-const maxErrorsOf = ({ maxErrors }) => {
-  const valid = typeof maxErrors === 'number' && maxErrors >= 1;
-  if (!valid) throw new TypeError(`maxErrors must be a number of at least 1, got ${maxErrors}`);
-  return maxErrors;
-};
 
 const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
 
@@ -127,26 +122,35 @@ class Schema extends SchemaMetadata {
   }
 
   check(source, path = this.name, options = {}) {
-    const result = new ValidationResult(path);
+    const context = createContext(options, path);
+    return this[RUN](source, path, context);
+  }
+
+  // Validation inside an existing context: `check` starts one, and a reference
+  // field checks its target entity within the context of the outer check, so
+  // the error limit and the cycle detection span the whole value.
+  [RUN](source, path, context) {
+    const result = new ValidationResult(path, context);
     const { fields } = this;
     const isStruct = hasBrand(fields, 'Struct');
-    // The root of a struct joins the path too, unless a field check already put
-    // it there (a reference checks its target through this method). A schema
-    // of any other type delegates to that type's check, which tracks itself.
+    // The root of a struct joins the current path too, unless a field check
+    // already put it there (a reference checks its target through this
+    // method). A schema of any other type delegates to that type's check,
+    // which tracks itself.
     const isObject = typeof source === 'object' && source !== null;
-    const track = isStruct && isObject && !ancestors.has(source);
-    if (track) ancestors.add(source);
-    const previous = limits.maxErrors;
-    if (options.maxErrors !== undefined) limits.maxErrors = maxErrorsOf(options);
+    if (isStruct && isObject && context.seen === null) context.seen = new Set();
+    const track = isStruct && isObject && !context.seen.has(source);
+    if (track) context.seen.add(source);
     try {
       const custom = this.validate(source, path);
       result.add(custom);
       if (result.full) return result;
-      const nested = isStruct ? checkStruct(fields, source, path) : fields.check(source, path);
+      const nested = isStruct
+        ? checkStruct(fields, source, path, context)
+        : fields.check(source, path, context);
       return result.add(nested);
     } finally {
-      limits.maxErrors = previous;
-      if (track) ancestors.delete(source);
+      if (track) context.seen.delete(source);
     }
   }
 

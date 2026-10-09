@@ -1,5 +1,5 @@
 const { ValidationResult } = require('../metadata.js');
-const { BRAND, INSPECT, ancestors, issue, formatters, checks } = require('../util.js');
+const { BRAND, INSPECT, issue, formatters, checks } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
@@ -45,17 +45,22 @@ class AbstractType {
     this.#rules = rules;
   }
 
-  check(value, path) {
-    const result = new ValidationResult(path);
+  check(value, path, context) {
+    const result = new ValidationResult(path, context);
     const isEmpty = value === null || value === undefined;
     if (!this.required && isEmpty) return result;
     const isObject = typeof value === 'object' && value !== null;
-    if (isObject && ancestors.has(value)) {
-      return result.add(issue('circular', path, 'is a circular reference'));
+    // A value met again while it is still being checked is a cycle and is
+    // reported instead of recursed into.
+    if (isObject) {
+      if (context.seen === null) context.seen = new Set();
+      if (context.seen.has(value)) {
+        return result.add(issue('circular', path, 'is a circular reference'));
+      }
+      context.seen.add(value);
     }
-    if (isObject) ancestors.add(value);
     try {
-      result.add(this.checkType(value, path), 'type');
+      result.add(this.checkType(value, path, context), 'type');
       if (this.validate && !result.full) result.add(this.validate(value, path));
       for (const rule of this.#rules) {
         if (result.full) break;
@@ -65,7 +70,7 @@ class AbstractType {
     } catch (error) {
       return result.add(issue('exception', path, `validation failed ${error}`));
     } finally {
-      if (isObject) ancestors.delete(value);
+      if (isObject) context.seen.delete(value);
     }
   }
 

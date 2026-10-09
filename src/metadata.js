@@ -1,5 +1,5 @@
 const { getKindMetadata } = require('./kinds.js');
-const { BRAND, hasBrand, limits, issue } = require('./util.js');
+const { BRAND, hasBrand, issue } = require('./util.js');
 
 const ERR_PREFIX = 'Field';
 
@@ -15,9 +15,13 @@ const METADATA_COLLECTIONS = ['indexes', 'options'];
 
 class ValidationResult {
   #path;
+  #limit;
 
-  constructor(path = '') {
+  // A result built inside a check takes its error limit from the context of
+  // that check; one built by a validator has none.
+  constructor(path = '', context = null) {
     this.#path = path;
+    this.#limit = context === null ? Infinity : context.limit;
     this.errors = [];
     this.issues = [];
     this.valid = true;
@@ -25,7 +29,7 @@ class ValidationResult {
 
   // True once the maxErrors of the current check is reached; loops stop early.
   get full() {
-    return this.errors.length >= limits.maxErrors;
+    return this.errors.length >= this.#limit;
   }
 
   add(error, code = 'custom') {

@@ -16,13 +16,13 @@ const object = {
     this.value = new Type(defs, prep);
   },
 
-  checkType(source, path) {
+  checkType(source, path, context) {
     if (!this.isInstance(source)) {
       return issue('type', path, `not of expected type: ${this.type}`);
     }
     const entries = this.entries(source);
     if (entries.length === 0 && this.required) return issue('required', path, 'is required');
-    const result = new ValidationResult(path);
+    const result = new ValidationResult(path, context);
     for (const pair of entries) {
       if (result.full) break;
       const field = pair[0];
@@ -31,7 +31,7 @@ const object = {
       if (typeof field !== this.key) {
         return result.add(issue('type', path, `keys must be of type ${this.key}`));
       }
-      result.add(this.value.check(fieldValue, `${path}.${shorten(field)}`));
+      result.add(this.value.check(fieldValue, `${path}.${shorten(field)}`, context));
     }
     return result;
   },
@@ -68,16 +68,16 @@ const array = {
     this.value = new Type(defs, prep);
   },
 
-  checkType(source, path) {
+  checkType(source, path, context) {
     if (!this.isInstance(source)) {
       return issue('type', path, `not of expected type: ${this.type}`);
     }
     // A Set is copied to index it; an array is walked as it is.
     const value = Array.isArray(source) ? source : [...source];
-    const result = new ValidationResult(path);
+    const result = new ValidationResult(path, context);
     for (let index = 0; index < value.length; index += 1) {
       if (result.full) break;
-      result.add(this.value.check(value[index], `${path}[${index}]`));
+      result.add(this.value.check(value[index], `${path}[${index}]`, context));
     }
     return result;
   },

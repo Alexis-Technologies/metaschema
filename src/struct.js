@@ -35,8 +35,8 @@ const createStruct = (defs, prep) => {
   return fields;
 };
 
-const checkStruct = (fields, source, path = '') => {
-  const result = new ValidationResult(path);
+const checkStruct = (fields, source, path, context) => {
+  const result = new ValidationResult(path, context);
   const isObject = source !== null && typeof source === 'object';
   if (!isObject) return result.add(issue('type', path, 'not of expected type: object'));
   const keys = fields[KEYS] || Object.keys(fields);
@@ -49,7 +49,7 @@ const checkStruct = (fields, source, path = '') => {
       if (type.required) result.add(issue('required', nestedPath, 'is required'));
       continue;
     }
-    result.add(type.check(source[name], nestedPath));
+    result.add(type.check(source[name], nestedPath, context));
   }
   for (const name of Object.keys(source)) {
     if (result.full) break;

@@ -9,15 +9,10 @@ const INSPECT = Symbol.for('nodejs.util.inspect.custom');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
-// The objects on the current validation path. Validation is synchronous, so
-// one set per process is enough; a value met again while it is still being
-// checked is a cycle and is reported instead of recursed into.
-const ancestors = new Set();
-
-// A result stops collecting once it holds this many messages. Schema#check
-// sets it from its options for the duration of the call (validation is
-// synchronous) and restores it afterwards.
-const limits = { maxErrors: Infinity };
+// The method that validates a value inside an existing context, shared by
+// Schema and the reference type that checks its target through it. A global
+// symbol like BRAND, so a schema from another copy of the package has it too.
+const RUN = Symbol.for('alexify.metaschema.run');
 
 // A validation problem with a code, built by the library's own checks. A
 // message from a custom validator gets the code 'custom' (or 'type' from a
@@ -88,8 +83,7 @@ module.exports = {
   BRAND,
   INSPECT,
   hasBrand,
-  ancestors,
-  limits,
+  RUN,
   issue,
   shorten,
   formatters,
