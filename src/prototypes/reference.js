@@ -5,15 +5,15 @@ const reference = {
 
   construct(def) {
     const key = def.many === undefined ? 'one' : 'many';
-    const reference = def[key];
-    if (typeof reference !== 'string' || reference === '') {
-      const reason = `Reference "${key}" needs an entity name, got ${JSON.stringify(reference)}`;
+    const target = def[key];
+    if (typeof target !== 'string' || target === '') {
+      const reason = `Reference "${key}" needs an entity name, got ${JSON.stringify(target)}`;
       throw new SchemaDefinitionError('ERR_INVALID_REFERENCE', reason);
     }
     const relation = key === 'many' ? 'many-to-one' : 'one-to-many';
-    this[key] = reference;
-    this.type = reference;
-    this.root.relations.add({ to: reference, type: relation });
+    this[key] = target;
+    this.type = target;
+    this.root.relations.add({ to: target, type: relation });
   },
 
   checkType(source, path) {

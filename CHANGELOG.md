@@ -160,7 +160,7 @@ the corrected error messages.
 ### Tooling
 
 - pnpm, oxlint and oxfmt replace npm, ESLint and Prettier; c8, tsd and TypeScript (7.x) check
-  coverage and the typings.
+  coverage and the typings. oxlint runs with its `correctness` and `suspicious` categories on.
 - Sources move to `src/`, tests to `tests/unit/` (with `tests/types/` for tsd), fixtures to
   `tests/fixtures/`.
 - c8 coverage gate, tsd type tests, an export-parity test and a platform test that keeps Node

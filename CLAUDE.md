@@ -189,8 +189,9 @@ a runtime file means updating the `browser` map keys.
 ## Conventions (oxlint/oxfmt + review)
 
 - Formatting: 2 spaces, single quotes, semicolons, trailing commas, **100 columns**, LF
-  (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` (from kerberos, `correctness`
-  category off, explicit rule list). Suppress a rule only for an intentional construct, with a
+  (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` (from kerberos: the explicit rule
+  list, plus the `correctness` and `suspicious` categories as errors and `no-console` everywhere
+  but `scripts/` and `bench/`). Suppress a rule only for an intentional construct, with a
   targeted `// oxlint-disable-next-line <rule>`. `valid-typeof` is disabled at the two places that
   compare `typeof` with a type name held in a property.
 - Keep metaschema's code style:

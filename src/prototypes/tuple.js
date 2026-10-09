@@ -10,8 +10,8 @@ const tuple = {
   kind: 'struct',
 
   construct(def, prep) {
-    const tuple = def.value || def.tuple;
-    this.value = tuple.map((element) => {
+    const elements = def.value || def.tuple;
+    this.value = elements.map((element) => {
       const named = typeof element !== 'string';
       const pair = named ? Object.entries(element)[0] : [null, element];
       const name = pair[0];

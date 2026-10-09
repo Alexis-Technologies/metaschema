@@ -158,9 +158,9 @@ const systemTypes = {
 
 test('Model: from fixture schemas, projection', () => {
   const fixture = require('../fixtures/schemas/index.js');
-  const { database, types: customTypes, ...schemas } = fixture;
-  const types = Object.assign(Object.create(null), systemTypes, customTypes);
-  const model = new Model(types, new Map(Object.entries(schemas)), database);
+  const { database: fixtureDatabase, types: customTypes, ...schemas } = fixture;
+  const fixtureTypes = Object.assign(Object.create(null), systemTypes, customTypes);
+  const model = new Model(fixtureTypes, new Map(Object.entries(schemas)), fixtureDatabase);
   assert.strictEqual(model.entities.size, 6);
   const Account = model.entities.get('Account');
   assert.strictEqual(Account.fields.fullName.constructor.type, 'schema');
@@ -182,7 +182,7 @@ test('Model: from fixture schemas, projection', () => {
 });
 
 test('Model: an alias of the schema type needs a schema definition', () => {
-  const types = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
+  const aliases = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
   const message = `Type "address" needs a schema definition: { type: 'address', schema: { ... } }`;
   for (const field of [
     'address',
@@ -191,7 +191,7 @@ test('Model: an alias of the schema type needs a schema definition', () => {
     { array: 'address' },
   ]) {
     const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
-    assert.throws(() => new Model(types, entities), {
+    assert.throws(() => new Model(aliases, entities), {
       name: 'SchemaDefinitionError',
       code: 'ERR_MISSING_SCHEMA',
       schema: 'Order',
@@ -202,7 +202,7 @@ test('Model: an alias of the schema type needs a schema definition', () => {
   const entities = new Map([
     ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],
   ]);
-  const order = new Model(types, entities).entities.get('Order');
+  const order = new Model(aliases, entities).entities.get('Order');
   assert.deepStrictEqual(order.check({ delivery: { city: 1 } }).errors, [
     'Field "Order.delivery.city" not of expected type: string',
   ]);

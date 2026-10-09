@@ -14,12 +14,12 @@ const schema = {
   kind: 'struct',
 
   construct(defs, prep) {
-    const { schema, required } = defs;
-    if (!isDefinition(schema)) throw missingSchema(this.type);
+    const { schema: definition, required } = defs;
+    if (!isDefinition(definition)) throw missingSchema(this.type);
     this.required = required ?? true;
-    const isStruct = hasBrand(schema, 'Struct');
-    if (isStruct) this.schema = schema;
-    else this.schema = createStruct(schema, prep);
+    const isStruct = hasBrand(definition, 'Struct');
+    if (isStruct) this.schema = definition;
+    else this.schema = createStruct(definition, prep);
     this.validate = defs.schema.validate || undefined;
   },
 
