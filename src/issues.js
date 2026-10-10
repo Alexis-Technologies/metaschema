@@ -57,7 +57,7 @@ const issues = {
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
   circular: (context, key) => record(context, 'circular', EMPTY, key),
-  exception: (context, error) => record(context, 'exception', { error }),
+  exception: (context, error, key) => record(context, 'exception', { error }, key),
 };
 
 // A key of the value that is not an identifier is bracketed and quoted, so

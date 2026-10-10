@@ -27,11 +27,17 @@ const messagesOf = (messages) => {
   return messages;
 };
 
-const unknownOf = (unknown) => {
-  if (unknown !== 'reject' && unknown !== 'ignore') {
-    throw invalid('unknown', '"reject" or "ignore"', unknown);
+// `strip` is a policy of parse alone: the check behind it treats it as
+// `ignore`, and the pass that builds the output drops the keys.
+const unknownOf = (unknown, parsing) => {
+  if (unknown === 'reject' || unknown === 'ignore' || (parsing && unknown === 'strip')) {
+    return unknown;
   }
-  return unknown;
+  throw invalid(
+    'unknown',
+    parsing ? '"reject", "ignore" or "strip"' : '"reject" or "ignore"',
+    unknown,
+  );
 };
 
 const REFERENCES = ['kind', 'embed', 'id'];
@@ -59,11 +65,11 @@ const optionsOf = (options) => {
 // The options of a call, checked and written over the defaults. Kept out of
 // createContext so that the allocation stays small enough for V8 to inline
 // into Schema#check: a check without options is the common call.
-const configure = (context, options) => {
+const configure = (context, options, parsing) => {
   optionsOf(options);
   if (options.maxErrors !== undefined) context.limit = maxErrorsOf(options.maxErrors);
   if (options.messages !== undefined) context.messages = messagesOf(options.messages);
-  if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown);
+  if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown, parsing);
   if (options.references !== undefined) context.references = referencesOf(options.references);
   if (options.root !== undefined) context.root = rootOf(options.root);
 };
@@ -71,8 +77,8 @@ const configure = (context, options) => {
 // One object shape for every context: the keys are always present, in this
 // order, so the hot path sees a single hidden class. `unknown` is what the
 // schema being checked says (its unknown-keys policy); an option of the call
-// wins over it.
-const createContext = (options, name = '', unknown = 'reject') => {
+// wins over it. `parsing` is set by parse, whose options accept `strip`.
+const createContext = (options, name = '', unknown = 'reject', parsing = false) => {
   const context = {
     issues: NONE,
     count: 0,
@@ -88,7 +94,7 @@ const createContext = (options, name = '', unknown = 'reject') => {
     root: name,
     messages: en,
   };
-  if (options !== undefined) configure(context, options);
+  if (options !== undefined) configure(context, options, parsing);
   return context;
 };
 

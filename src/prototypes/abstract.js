@@ -14,6 +14,15 @@ const reservedKey = (key) =>
 const invalidNullable = () =>
   new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Option "nullable" needs a boolean');
 
+const invalidCodec = (key) =>
+  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
+
+// `parse`, the decoder of a field, is read by parse on any type; a
+// definition that gave it anything else can never work.
+const checkCodecs = (type) => {
+  if (type.parse !== undefined && typeof type.parse !== 'function') throw invalidCodec('parse');
+};
+
 // A nullable field accepts null in place of a value of its type, whatever
 // its rules; `required` still says whether the key must be there.
 const nullable = (inner) => (value, context, key) => {
@@ -75,6 +84,7 @@ class AbstractType {
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
     if (this.nullable !== undefined && typeof this.nullable !== 'boolean') throw invalidNullable();
+    checkCodecs(this);
     // The rule checks that apply to this field, compiled once: a field
     // without rules is its type check alone, and check is the hot path.
     const checks = compileRules(this, rules);

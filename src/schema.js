@@ -10,6 +10,7 @@ const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
+const { PREPARE, FINISH, infoOf, apply, looped } = require('./codec.js');
 
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
@@ -33,6 +34,27 @@ const compileSchema = (schema) => {
   };
 };
 
+// The root value joins the cycle detection when the schema can reach it
+// again through a reference.
+const track = (context, source) => {
+  if (source !== null && typeof source === 'object') {
+    context.seen = new Set();
+    context.seen.add(source);
+  }
+};
+
+const resultOf = (context) => {
+  finalize(context.issues, context.messages);
+  return new ValidationResult(context);
+};
+
+// What parse returns: the output only for a valid value, the issues always.
+const parsed = (context, output) => {
+  finalize(context.issues, context.messages);
+  const valid = context.count === 0;
+  return { valid, value: valid ? output : undefined, issues: context.issues };
+};
+
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
   // change.
@@ -48,6 +70,9 @@ class Schema extends SchemaMetadata {
 
   // The Standard Schema props, built on first use.
   #standard = null;
+
+  // What the passes of parse know about the schema, on first use.
+  #codec = null;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -157,16 +182,43 @@ class Schema extends SchemaMetadata {
   // Validates a value: every problem is collected as an issue, and the result
   // never throws because of the value. `options`: root (the label of the
   // error lines, the schema name by default), maxErrors, unknown ('reject'
-  // or 'ignore' keys the schema does not have), messages (a locale).
+  // or 'ignore' keys the schema does not have), references, messages (a
+  // locale).
   check(source, options) {
     const context = createContext(options, this.name, this.unknown);
-    if (this.#tracked && source !== null && typeof source === 'object') {
-      context.seen = new Set();
-      context.seen.add(source);
-    }
+    if (this.#tracked) track(context, source);
     this[RUN](source, context);
-    finalize(context.issues, context.messages);
-    return new ValidationResult(context);
+    return resultOf(context);
+  }
+
+  #pass(phase, source, context) {
+    if (this.#codec === null) this.#codec = infoOf(this);
+    return apply(this.#codec, this, source, context, undefined, phase);
+  }
+
+  // The defaults of the schema over a value, before its check; the objects
+  // met on the way down are not the check's, and a value that loops through
+  // its references is checked as it was given.
+  #prepare(source, context) {
+    const prepared = this.#pass(PREPARE, source, context);
+    const value = looped(context) ? source : prepared;
+    context.seen = null;
+    if (this.#tracked) track(context, value);
+    return value;
+  }
+
+  // Validates a value and builds the value of the program from it: the
+  // defaults fill the missing keys, the check runs, and a valid value goes
+  // through `unknown: 'strip'`, the decoders of its fields (the parts of a
+  // value before the value) and the schema's own `parse`. `{ valid, value,
+  // issues }`: the value is undefined when invalid, and the value given when
+  // there was nothing to apply; the value given is never written to.
+  parse(source, options) {
+    const context = createContext(options, this.name, this.unknown, true);
+    const value = this.#prepare(source, context);
+    this[RUN](value, context);
+    const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
+    return parsed(context, output);
   }
 
   attach(...namespaces) {
