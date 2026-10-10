@@ -11,6 +11,7 @@ const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
 const { warning, lintSchema } = require('./lint.js');
+const { toJSONSchema } = require('./jsonschema.js');
 
 const TS_SCALARS = {
   string: 'string',
@@ -242,6 +243,12 @@ class Schema extends SchemaMetadata {
     this[RUN](source, context);
     finalize(context.issues, context.messages);
     return new ValidationResult(context);
+  }
+
+  // The schema as a JSON Schema document; see src/jsonschema.js for the
+  // options and the mapping.
+  toJSONSchema(options) {
+    return toJSONSchema(this, options);
   }
 
   toInterface() {

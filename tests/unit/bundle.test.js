@@ -93,6 +93,14 @@ const checkBundle = ({ Schema, Model }) => {
   const issues = Array.from(failed.issues, (issue) => [issue.message, Array.from(issue.path)]);
   assert.deepStrictEqual(issues, [['not of expected type: string', ['name']]]);
   assert.strictEqual(JSON.stringify(flat).includes('~standard'), false);
+
+  // The JSON Schema export and the dts options through the bundle.
+  const json = flat.toJSONSchema({ target: 'draft-07' });
+  assert.strictEqual(json.$schema, 'http://json-schema.org/draft-07/schema#');
+  assert.deepStrictEqual(Array.from(json.required), ['name', 'age']);
+  const mongo = model.toJSONSchema({ target: 'mongodb' });
+  assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
+  assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
 };
 
 for (const minify of [false, true]) {

@@ -4,6 +4,7 @@ const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { warning } = require('./lint.js');
+const { modelToJSONSchema } = require('./jsonschema.js');
 
 const REGISTRIES = ['shared', 'isolated'];
 
@@ -92,6 +93,12 @@ class Model {
     }
     visiting.delete(name);
     this.order.add(name);
+  }
+
+  // Every entity as a JSON Schema definition, or the document of the entity
+  // `options.root`; see src/jsonschema.js.
+  toJSONSchema(options) {
+    return modelToJSONSchema(this, options);
   }
 
   get dts() {

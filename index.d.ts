@@ -261,7 +261,8 @@ export type DefinitionErrorCode =
   | 'ERR_RESERVED_KEY'
   | 'ERR_TYPE_REGISTERED'
   | 'ERR_UNKNOWN_JS_TYPE'
-  | 'ERR_INVALID_OPTIONS';
+  | 'ERR_INVALID_OPTIONS'
+  | 'ERR_UNREPRESENTABLE';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
@@ -284,6 +285,52 @@ export function getKindMetadata(
   root?: Schema,
 ): { defs: Record<string, unknown>; metadata: KindMetadata };
 export function saveTypes(outputFile: string, model: Model): Promise<void>;
+
+// ---------------------------------------------------------------------------
+// JSON Schema export: `schema.toJSONSchema(options)` and
+// `model.toJSONSchema(options)` render the rules of `check` as a document of
+// a target dialect; see the JSON Schema guide for the mapping.
+// ---------------------------------------------------------------------------
+
+export type JSONSchemaTarget = 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | 'mongodb';
+
+export type JSONSchema = Record<string, unknown>;
+
+export interface JSONSchemaOptions {
+  // The dialect of the document: JSON Schema draft 2020-12 (the default) or
+  // draft-07, an OpenAPI 3.0 schema object, or a MongoDB `$jsonSchema`
+  // (`bsonType`, no `$ref`, references inline).
+  target?: JSONSchemaTarget;
+  // 'strict' renders the dialect of LLM structured outputs (OpenAI, Anthropic):
+  // an object at the root, every property listed as required (an optional one
+  // accepts null), `additionalProperties: false` on every object, and the
+  // structure only (no `length`, `pattern`, `min` or `max`). For the
+  // draft-2020-12 and draft-07 targets.
+  profile?: 'strict';
+  // Which side of the wire the document describes: 'input' (the default) is
+  // the JSON a value is parsed from (a `date` is a date-time string), 'output'
+  // the value itself (a `date`, `set` or `map` has no JSON form).
+  io?: 'input' | 'output';
+  // What to do with a type that has no form in the target: throw
+  // `ERR_UNREPRESENTABLE` (the default), or render it as `{}`.
+  unrepresentable?: 'throw' | 'any';
+  // How a reference renders, as in `check`: by the kind of its target ('kind',
+  // the default: a stored kind as an id, a memory kind as a `$ref` to its
+  // definition), every reference as the record ('embed') or as an id ('id').
+  references?: 'kind' | 'embed' | 'id';
+  // The pointer the `$ref` of a definition starts with, and where the
+  // definitions are placed in the document: '#/$defs/' for draft-2020-12,
+  // '#/definitions/' for draft-07, '#/components/schemas/' for openapi-3.0.
+  definitions?: string;
+}
+
+export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
+  // The entity at the root of the document, with the definitions it needs;
+  // without it the document holds every entity as a definition, in
+  // dependency order (one document per entity for the mongodb target).
+  root?: string;
+}
+
 
 // ---------------------------------------------------------------------------
 // Static inference: the TypeScript type of a value a definition accepts.
@@ -737,6 +784,8 @@ export class Schema<const D extends string | object = string | object> {
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
   check(value: unknown, options?: CheckOptions): ValidationResult;
+  // The schema as a JSON Schema document of the target dialect.
+  toJSONSchema(options?: JSONSchemaOptions): JSONSchema;
   toInterface(): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;
@@ -761,5 +810,8 @@ export class Model {
     database?: Record<string, unknown> | null,
     options?: ModelOptions,
   );
+  // Every entity as a JSON Schema definition (`$defs`, `definitions` or
+  // `components.schemas` by target), or the document of `options.root`.
+  toJSONSchema(options?: ModelJSONSchemaOptions): JSONSchema;
   get dts(): string;
 }
