@@ -130,6 +130,33 @@ export interface CheckOptions {
   messages?: Messages;
 }
 
+// The options of parse: those of check, and `strip` for the keys the schema
+// does not have, which the output then leaves out.
+export interface ParseOptions extends Omit<CheckOptions, 'unknown'> {
+  unknown?: 'reject' | 'ignore' | 'strip';
+}
+
+// What parse returns: the output only for a valid value, the issues always.
+export type ParseResult<T> =
+  | { valid: true; value: T; issues: [] }
+  | { valid: false; value: undefined; issues: ValidationIssue[] };
+
+// The options of serialize: `check` validates the result with the other
+// options as the options of check.
+export interface SerializeOptions extends CheckOptions {
+  check?: boolean;
+}
+
+export interface Serialized<T> {
+  value: T;
+}
+
+export interface SerializeChecked<T> {
+  valid: boolean;
+  value: T;
+  issues: ValidationIssue[];
+}
+
 export interface ResultOptions {
   // The label the error lines start with (the schema name in a check).
   root?: string;
@@ -175,9 +202,14 @@ export interface CheckContext {
   references: 'kind' | 'embed' | 'id';
   root: string;
   messages: Messages;
+  // The validators that returned a promise, settled after the walk by
+  // checkAsync and parseAsync; null in a synchronous check.
+  async: unknown[] | null;
 }
 
-export type Validator = (value: any, path: string) => ValidationReturn;
+// A validator may return a promise of its result to checkAsync and parseAsync;
+// to check and parse a promise is a TypeError with the code ERR_ASYNC_VALIDATOR.
+export type Validator = (value: any, path: string) => ValidationReturn | Promise<ValidationReturn>;
 
 export type CalculatedField = (value: any) => unknown;
 
@@ -192,6 +224,12 @@ export interface FieldType {
   // (false) whatever the kind of its target.
   embed?: boolean;
   validate?: Validator;
+  // The decoder parse runs on the validated value, and the serializer
+  // serialize runs on the value of the program, when the definition gave them.
+  parse?: (value: any) => unknown;
+  serialize?: (value: any) => unknown;
+  // What parse fills a missing key with: a value, or a function called for one.
+  default?: unknown;
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;
   toJSON(): object;
@@ -218,7 +256,7 @@ export interface TypeEntry {
   // The rules the type accepts in a field definition (`length`, `min`, `max`).
   rules?: string[];
   construct?(def: object, preprocessor: object): void;
-  checkType?(value: any, path: string): ValidationReturn;
+  checkType?(value: any, path: string): ValidationReturn | Promise<ValidationReturn>;
   [key: string]: unknown;
 }
 
@@ -274,6 +312,11 @@ export class SchemaDefinitionError extends TypeError {
   constructor(code: DefinitionErrorCode, reason: string);
   locate(schema: string, field: string): this;
 }
+
+// The code of the TypeError a synchronous check or parse throws when a
+// validator, a custom checkType or a decoder returns a promise: the call,
+// not the definition, is wrong, so it is a plain TypeError with `code`.
+export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR';
 
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
@@ -383,6 +426,11 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 
 type IsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
 
+// The value a definition describes is read twice: as `check` and `parse`
+// accept it ('input') and as `parse` gives it ('output'), where a decoder
+// replaces the value of its field and a default makes its key present.
+type Mode = 'input' | 'output';
+
 type ScalarName =
   | 'string'
   | 'number'
@@ -480,10 +528,10 @@ type Embedded<Name extends string, Embed, E> = Embed extends boolean
       : true
     : false;
 
-type Referenced<Name extends string, Embed, E> =
+type Referenced<Name extends string, Embed, E, M extends Mode> =
   Embedded<Name, Embed, E> extends true
     ? Name extends keyof E
-      ? Infer<E[Name], E>
+      ? Value<E[Name], E, M>
       : unknown
     : string;
 
@@ -520,9 +568,13 @@ type ArgOf<D, N extends string, Alt extends string> = D extends { [P in N]: infe
 type ElementsOf<D, N extends string, Alt extends string> =
   ArgOf<D, N, Alt> extends infer X ? (X extends readonly unknown[] ? X : never) : never;
 
-type TupleOf<T extends readonly unknown[], E> = { -readonly [I in keyof T]: Element<T[I], E> };
+type TupleOf<T extends readonly unknown[], E, M extends Mode> = {
+  -readonly [I in keyof T]: Element<T[I], E, M>;
+};
 
-type UnionOf<T extends readonly unknown[], E> = { [I in keyof T]: Infer<T[I], E> }[number];
+type UnionOf<T extends readonly unknown[], E, M extends Mode> = {
+  [I in keyof T]: Value<T[I], E, M>;
+}[number];
 
 // A one-key object holding a type name names a tuple element (`{ x: 'number'
 // }`); the key must not itself be `type`, a type name or a kind.
@@ -544,67 +596,75 @@ type NamedKey<T> = keyof T extends infer K
     : never
   : never;
 
-type Element<T, E> = T extends string
-  ? Infer<T, E>
+type Element<T, E, M extends Mode> = T extends string
+  ? Value<T, E, M>
   : T extends readonly unknown[]
-    ? Infer<T, E>
+    ? Value<T, E, M>
     : T extends object
       ? NamedKey<T> extends infer K
         ? [K] extends [never]
-          ? Infer<T, E>
+          ? Value<T, E, M>
           : K extends keyof T
             ? T[K] extends string
               ? K extends `${string}?`
-                ? Infer<T[K], E> | null | undefined
-                : Infer<T[K], E>
-              : Infer<T, E>
-            : Infer<T, E>
+                ? Value<T[K], E, M> | null | undefined
+                : Value<T[K], E, M>
+              : Value<T, E, M>
+            : Value<T, E, M>
         : never
-      : Infer<T, E>;
+      : Value<T, E, M>;
 
 // The value type of a type by name, with the definition it is read from.
-type TypeOf<N extends string, D, E> =
+type TypeOf<N extends string, D, E, M extends Mode> =
   IsCapitalized<N> extends true
-    ? Referenced<N, EmbedOf<D>, E>
+    ? Referenced<N, EmbedOf<D>, E, M>
     : N extends 'array'
-      ? Infer<ArgOf<D, 'array', 'value'>, E>[]
+      ? Value<ArgOf<D, 'array', 'value'>, E, M>[]
       : N extends 'set'
-        ? Set<Infer<ArgOf<D, 'set', 'value'>, E>>
+        ? Set<Value<ArgOf<D, 'set', 'value'>, E, M>>
         : N extends 'object'
           ? Pair<D, 'object'> extends [infer K, infer V]
-            ? Record<KeyTypeOf<K> & PropertyKey, Infer<V, E>>
+            ? Record<KeyTypeOf<K> & PropertyKey, Value<V, E, M>>
             : Record<string, unknown>
           : N extends 'map'
             ? Pair<D, 'map'> extends [infer K, infer V]
-              ? Map<KeyTypeOf<K>, Infer<V, E>>
+              ? Map<KeyTypeOf<K>, Value<V, E, M>>
               : Map<unknown, unknown>
             : N extends 'enum'
               ? D extends { enum: readonly (infer V)[] }
                 ? V
                 : unknown
               : N extends 'tuple'
-                ? TupleOf<ElementsOf<D, 'tuple', 'value'>, E>
+                ? TupleOf<ElementsOf<D, 'tuple', 'value'>, E, M>
                 : N extends 'union'
-                  ? UnionOf<ElementsOf<D, 'union', 'union'>, E>
+                  ? UnionOf<ElementsOf<D, 'union', 'union'>, E, M>
                   : N extends 'schema'
                     ? D extends { schema: infer S }
-                      ? Infer<S, E>
+                      ? Value<S, E, M>
                       : unknown
                     : N extends 'one'
                       ? D extends { one: infer T extends string }
-                        ? Referenced<T, EmbedOf<D>, E>
+                        ? Referenced<T, EmbedOf<D>, E, M>
                         : unknown
                       : N extends 'many'
                         ? D extends { many: infer T extends string }
-                          ? Referenced<T, EmbedOf<D>, E>[]
+                          ? Referenced<T, EmbedOf<D>, E, M>[]
                           : unknown
                         : N extends keyof CustomTypes
                           ? CustomTypes[N]
                           : N extends ScalarName
                             ? ScalarOf<N>
                             : D extends { schema: infer S extends object }
-                              ? Infer<S, E>
+                              ? Value<S, E, M>
                               : unknown;
+
+// On the output side a decoder (`parse`) gives the value of its field; a
+// promise of one is awaited.
+type Decoded<T, D, M extends Mode> = M extends 'output'
+  ? D extends { parse: (...args: never[]) => infer R }
+    ? Awaited<R>
+    : T
+  : T;
 
 type Nullable<T, D> = D extends { nullable: true } ? T | null : T;
 
@@ -612,31 +672,31 @@ type Optional<T, D> = D extends { required: false } ? T | null | undefined : T;
 
 // `{ type: 'name', ... }`: the type, `| null` for `nullable: true`, and `|
 // null | undefined` for `'?name'` or `required: false`.
-type LongForm<T extends string, D, E> = T extends `?${infer N}`
-  ? Nullable<TypeOf<N, D, E>, D> | null | undefined
-  : Optional<Nullable<TypeOf<T, D, E>, D>, D>;
+type LongForm<T extends string, D, E, M extends Mode> = T extends `?${infer N}`
+  ? Nullable<Decoded<TypeOf<N, D, E, M>, D, M>, D> | null | undefined
+  : Optional<Nullable<Decoded<TypeOf<T, D, E, M>, D, M>, D>, D>;
 
-type Shorthand<D, E> = D extends { array: unknown }
-  ? LongForm<'array', D, E>
+type Shorthand<D, E, M extends Mode> = D extends { array: unknown }
+  ? LongForm<'array', D, E, M>
   : D extends { set: unknown }
-    ? LongForm<'set', D, E>
+    ? LongForm<'set', D, E, M>
     : D extends { object: object }
-      ? LongForm<'object', D, E>
+      ? LongForm<'object', D, E, M>
       : D extends { map: object }
-        ? LongForm<'map', D, E>
+        ? LongForm<'map', D, E, M>
         : D extends { enum: readonly unknown[] }
-          ? LongForm<'enum', D, E>
+          ? LongForm<'enum', D, E, M>
           : D extends { tuple: readonly unknown[] }
-            ? LongForm<'tuple', D, E>
+            ? LongForm<'tuple', D, E, M>
             : D extends { union: readonly unknown[] }
-              ? LongForm<'union', D, E>
+              ? LongForm<'union', D, E, M>
               : D extends { schema: object }
-                ? LongForm<'schema', D, E>
+                ? LongForm<'schema', D, E, M>
                 : D extends { one: string }
-                  ? LongForm<'one', D, E>
+                  ? LongForm<'one', D, E, M>
                   : D extends { many: string }
-                    ? LongForm<'many', D, E>
-                    : Struct<D, E>;
+                    ? LongForm<'many', D, E, M>
+                    : Decoded<Struct<D, E, M>, D, M>;
 
 // What is not a field of a struct: a function (a calculated field, or the
 // schema-level validate/parse/serialize/format) and an index definition.
@@ -661,13 +721,44 @@ type IsOptionalDef<X> = X extends `?${string}`
       ? true
       : false;
 
+// Whether a key is optional by its name (`'key?'`) or its definition.
+type IsOptionalKey<K, X> = K extends `${string}?` ? true : IsOptionalDef<X>;
+
+// Whether parse fills the key when it is missing.
+type Defaulted<X> = X extends { default: infer V } ? ([V] extends [undefined] ? false : true) : false;
+
 type FieldKeys<D> = { [K in keyof D]: IsField<D[K]> extends true ? K : never }[keyof D];
 
-type OptionalKeys<D> = {
-  [K in FieldKeys<D>]: K extends `${string}?` ? K : IsOptionalDef<D[K]> extends true ? K : never;
+// The keys that may be left out: the optional ones, and on the input side
+// those with a default, which parse fills; on the output side a defaulted
+// key is always there.
+type OptionalKeys<D, M extends Mode> = {
+  [K in FieldKeys<D>]: M extends 'output'
+    ? Defaulted<D[K]> extends true
+      ? never
+      : IsOptionalKey<K, D[K]> extends true
+        ? K
+        : never
+    : IsOptionalKey<K, D[K]> extends true
+      ? K
+      : Defaulted<D[K]> extends true
+        ? K
+        : never;
 }[FieldKeys<D>];
 
-type RequiredKeys<D> = Exclude<FieldKeys<D>, OptionalKeys<D>>;
+type RequiredKeys<D, M extends Mode> = Exclude<FieldKeys<D>, OptionalKeys<D, M>>;
+
+// An optional property accepts null and undefined, as check does; a key that
+// is optional only through its default accepts a missing value.
+type OptionalProperty<K, X, E, M extends Mode> =
+  IsOptionalKey<K, X> extends true ? Value<X, E, M> | null | undefined : Value<X, E, M>;
+
+// On the output side a defaulted key is present: null stays where the key
+// was optional, undefined is gone.
+type RequiredProperty<K, X, E, M extends Mode> =
+  Defaulted<X> extends true
+    ? Exclude<Value<X, E, M>, undefined> | (IsOptionalKey<K, X> extends true ? null : never)
+    : Value<X, E, M>;
 
 type FieldName<K> = K extends `${infer F}?` ? F : K;
 
@@ -676,33 +767,35 @@ type Simplify<T> = { [K in keyof T]: T[K] };
 // The fields of a struct: optional ones (`'key?'`, `'?type'`, `required:
 // false`) are optional properties that accept null and undefined, as `check`
 // does.
-type Struct<D, E> = Simplify<
-  { -readonly [K in RequiredKeys<D>]-?: Infer<D[K], E> } & {
-    -readonly [K in OptionalKeys<D> as FieldName<K>]?: Infer<D[K], E> | null | undefined;
+type Struct<D, E, M extends Mode> = Simplify<
+  {
+    -readonly [K in RequiredKeys<D, M> as FieldName<K>]-?: RequiredProperty<K, D[K], E, M>;
+  } & {
+    -readonly [K in OptionalKeys<D, M> as FieldName<K>]?: OptionalProperty<K, D[K], E, M>;
   }
 >;
 
 // A projection copies fields from its parent, known only through `E`.
-type Projection<D, E> = D extends {
+type Projection<D, E, M extends Mode> = D extends {
   Projection: { schema: infer S extends string; fields: readonly (infer F)[] };
 }
   ? S extends keyof E
-    ? Pick<Infer<E[S], E>, Extract<F, keyof Infer<E[S], E>>>
+    ? Pick<Value<E[S], E, M>, Extract<F, keyof Value<E[S], E, M>>>
     : unknown
   : unknown;
 
-type WithKind<D, K extends keyof D, E> = K extends 'Projection'
-  ? Projection<D, E>
-  : Struct<Omit<D, K>, E>;
+type WithKind<D, K extends keyof D, E, M extends Mode> = K extends 'Projection'
+  ? Projection<D, E, M>
+  : Struct<Omit<D, K>, E, M>;
 
-type ObjectDef<D, E> =
+type ObjectDef<D, E, M extends Mode> =
   KindKey<D> extends infer K
     ? [K] extends [never]
       ? D extends { type: infer T extends string }
-        ? LongForm<T, D, E>
-        : Shorthand<D, E>
+        ? LongForm<T, D, E, M>
+        : Shorthand<D, E, M>
       : K extends keyof D
-        ? WithKind<D, K, E>
+        ? Decoded<WithKind<D, K, E, M>, D, M>
         : never
     : never;
 
@@ -710,29 +803,38 @@ type ObjectDef<D, E> =
 type IdOf<Name extends string, Def> =
   StoreOf<Def> extends 'persistent' ? { [K in `${Uncapitalize<Name>}Id`]?: string } : {};
 
-// The type of a value `check` accepts for the definition `D`. `E` is an
-// optional map of entity definitions by name (the second argument of `Model`
-// as an object): with it a reference to a memory kind is the record and a
-// projection has its parent's fields; without it a memory reference is
-// `unknown` and a stored one is its id. A stored kind's own id field depends
-// on the entity's name, which a definition does not carry: `InferEntity`
-// adds it.
-export type Infer<D, E = {}> =
+type Value<D, E, M extends Mode> =
   IsAny<D> extends true
     ? any
     : D extends string
       ? D extends `?${infer N}`
-        ? Infer<N, E> | null | undefined
+        ? Value<N, E, M> | null | undefined
         : IsCapitalized<D> extends true
-          ? Referenced<D, undefined, E>
+          ? Referenced<D, undefined, E, M>
           : ScalarOf<D>
       : D extends Schema<infer X>
-        ? Infer<X, E>
+        ? Value<X, E, M>
         : D extends readonly unknown[]
-          ? TupleOf<D, E>
+          ? TupleOf<D, E, M>
           : D extends object
-            ? ObjectDef<D, E>
+            ? ObjectDef<D, E, M>
             : unknown;
+
+// The type of a value `check` and `parse` accept for the definition `D` (a
+// key with a `default` may be left out, parse fills it). `E` is an optional
+// map of entity definitions by name (the second argument of `Model` as an
+// object): with it a reference to a memory kind is the record and a
+// projection has its parent's fields; without it a memory reference is
+// `unknown` and a stored one is its id. A stored kind's own id field depends
+// on the entity's name, which a definition does not carry: `InferEntity`
+// adds it.
+export type Infer<D, E = {}> = Value<D, E, 'input'>;
+
+// The type of the value `parse` gives for the definition `D`: `Infer<D, E>`
+// with the result of every `parse` function (a decoder of a field, the
+// schema's own) in place of the value it decodes, and every defaulted key
+// present.
+export type InferOutput<D, E = {}> = Value<D, E, 'output'>;
 
 // The value type of a `Schema<D>` instance: `InferSchema<typeof schema>`.
 export type InferSchema<S> = S extends Schema<infer D> ? Infer<D> : never;
@@ -750,14 +852,15 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
 // devDependency); tests/types/standard.test-d.ts pins that a `Schema<D>` is a
 // `StandardSchemaV1<Infer<D>, Infer<D>>` of that package.
 
-// The vendor-specific options of a `validate` call are the options of `check`.
+// The vendor-specific options of a `validate` call are the options of `parse`.
 export interface StandardOptions {
-  readonly libraryOptions?: CheckOptions | undefined;
+  readonly libraryOptions?: ParseOptions | undefined;
 }
 
-// A verdict, not a transformation: a valid value comes back as it was given,
-// and the issues of an invalid one are the result's own (`message` and
-// `path`, as the specification reads them, plus `code` and `params`).
+// The result of parse as the specification reads it: the value parse gives
+// (the value given, when there was nothing to apply), or the issues of an
+// invalid one, the result's own (`message` and `path`, as the specification
+// reads them, plus `code` and `params`).
 export type StandardResult<T> =
   | { readonly value: T; readonly issues?: undefined }
   | { readonly issues: ReadonlyArray<ValidationIssue> };
@@ -765,13 +868,18 @@ export type StandardResult<T> =
 export interface StandardProps<D = string | object> {
   readonly version: 1;
   readonly vendor: 'alexify.metaschema';
-  readonly validate: (value: unknown, options?: StandardOptions) => StandardResult<Infer<D>>;
+  // `parse` with the policies of the schema; a promise of the result for a
+  // schema with an async validator, decoder or custom type.
+  readonly validate: (
+    value: unknown,
+    options?: StandardOptions,
+  ) => StandardResult<InferOutput<D>> | Promise<StandardResult<InferOutput<D>>>;
   // Standard JSON Schema: `input(options)` and `output(options)` by target.
   // Present once `register()` of the generators subpath has run.
   readonly jsonSchema: StandardConverter;
-  // Nothing is transformed, so the input type is the output type. Type-level
-  // only: no property of the object holds it.
-  readonly types?: { readonly input: Infer<D>; readonly output: Infer<D> } | undefined;
+  // What parse accepts and what it gives. Type-level only: no property of
+  // the object holds it.
+  readonly types?: { readonly input: Infer<D>; readonly output: InferOutput<D> } | undefined;
 }
 
 // `D` is the definition the schema was built from, kept as a type only (no
@@ -814,6 +922,23 @@ export class Schema<const D extends string | object = string | object> {
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
   check(value: unknown, options?: CheckOptions): ValidationResult;
+  // The same check, with the validators that return a promise settled after
+  // the walk, in field order.
+  checkAsync(value: unknown, options?: CheckOptions): Promise<ValidationResult>;
+  // Validates a value and builds the value of the program from it: defaults,
+  // the check, `unknown: 'strip'`, the decoders of the fields (parts before
+  // the whole) and the schema's own `parse`. The value given is never
+  // written to; it is the output itself when there was nothing to apply.
+  parse(value: unknown, options?: ParseOptions): ParseResult<InferOutput<D>>;
+  parseAsync(value: unknown, options?: ParseOptions): Promise<ParseResult<InferOutput<D>>>;
+  // The other direction: the schema's own `serialize`, then the serializers
+  // of the fields, from the value down to its parts; with `check` the
+  // verdict of check over the result as well.
+  serialize(
+    value: InferOutput<D>,
+    options: SerializeOptions & { check: true },
+  ): SerializeChecked<Infer<D>>;
+  serialize(value: InferOutput<D>, options?: SerializeOptions): Serialized<Infer<D>>;
   // The two methods below exist once `register()` of the generators subpath
   // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
   // are the same without it.

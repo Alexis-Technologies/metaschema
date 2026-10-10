@@ -1,6 +1,6 @@
 import { expectAssignable, expectError, expectNotAssignable, expectType } from 'tsd';
 import { Model, Schema } from '../../index.js';
-import type { Infer, InferEntity, InferSchema } from '../../index.js';
+import type { Infer, InferEntity, InferOutput, InferSchema } from '../../index.js';
 
 // Custom types are known to `Infer` through module augmentation; a type name
 // that is neither built in nor declared here infers as unknown.
@@ -343,11 +343,12 @@ const entities = {
 } as const;
 type Entities = typeof entities;
 
+// A key with a default may be left out of the value parse accepts.
 type Account = InferEntity<Entities, 'Account'>;
 expectType<{
   login: string;
   password: string;
-  blocked: boolean;
+  blocked?: boolean;
   company: string;
   fullName: {
     given?: string | null | undefined;
@@ -372,9 +373,10 @@ expectType<unknown>(as<Infer<Entities['Aaa']>>());
 
 // The interfaces model.dts renders for the same entities: the dts names a
 // stored reference after its column (`companyId`) where `check` and `Infer`
-// keep the field (`company`), and leaves `null` out of an optional field,
-// so an entity without references is interchangeable and one with optional
-// fields is assignable from its dts interface.
+// keep the field (`company`), leaves `null` out of an optional field and
+// has every defaulted key, which the input side may leave out, so an entity
+// without references is assignable from its dts interface, and its output
+// side (defaults in place) to it.
 interface IdentifierDts {
   storage: 'master' | 'cache' | 'backup' | 'replica';
   status: 'prealloc' | 'init' | 'actual' | 'historical';
@@ -391,8 +393,20 @@ interface AddressDts {
   building?: string;
   addressId?: string;
 }
-expectAssignable<IdentifierDts>(as<InferEntity<Entities, 'Identifier'>>());
 expectAssignable<InferEntity<Entities, 'Identifier'>>(as<IdentifierDts>());
+expectNotAssignable<IdentifierDts>(as<InferEntity<Entities, 'Identifier'>>());
+expectAssignable<IdentifierDts>(
+  as<InferOutput<Entities['Identifier'], Entities> & { identifierId?: string }>(),
+);
+expectType<{
+  storage: 'master' | 'cache' | 'backup' | 'replica';
+  status: 'prealloc' | 'init' | 'actual' | 'historical';
+  creation: string;
+  change: string;
+  lock: boolean;
+  version: number;
+  hashsum: string;
+}>(as<InferOutput<Entities['Identifier'], Entities>>());
 expectAssignable<InferEntity<Entities, 'Address'>>(as<AddressDts>());
 expectNotAssignable<AddressDts>(as<InferEntity<Entities, 'Address'>>());
 

@@ -70,6 +70,12 @@ expectError(schema.check({}, 'User'));
 expectError(schema.check({}, 'User', { maxErrors: 3 }));
 expectType<ValidationResult>(schema.check({}, { root: 'User', messages: { required: () => 'x' } }));
 expectType<ValidationResult>(schema.check({}, { root: 'User', messages: (issue) => issue.code }));
+expectType<Promise<ValidationResult>>(schema.checkAsync({}, { maxErrors: 1 }));
+expectType<boolean>(schema.parse({}).valid);
+expectType<Promise<boolean>>(schema.parseAsync({}).then((parsed) => parsed.valid));
+expectType<{ name: string; age?: number | null | undefined }>(
+  schema.serialize({ name: 'x', age: null }).value,
+);
 expectError(schema.check({}, { root: 'User', messages: 'uk' }));
 expectAssignable<IssueCode>('required');
 expectAssignable<ValidationIssue['code']>('my-own-code');
