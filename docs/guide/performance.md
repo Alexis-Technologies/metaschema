@@ -3,7 +3,7 @@
 metaschema 2.0 validates about five times faster than 1.0 on the same machine, and the speed
 comes from the shape of the core rather than from a trick in one place. This page explains that
 core, gives the numbers of the repository's benchmark and how to reproduce them, and says what
-2.1 adds.
+3.0 adds.
 
 ## The core
 
@@ -78,7 +78,7 @@ parity, because the unknown-keys scan runs only when the value has more keys tha
 Where the time goes: on a valid value, in the plan loop (a keyed load and a call per field, both
 megamorphic in a closure backend, since every field's closure comes from the same source);
 on an invalid one, in the issue objects (a params object, a path array and a rendered message
-each). The second is what the JIT backend of 2.1 is for.
+each). The second is what the JIT backend of 3.0 is for.
 
 ## Reproducing
 
@@ -97,9 +97,9 @@ so `check` is measured as a callee, the way a program calls it, instead of being
 the measuring loop together with its context and result; the comment at the top of
 `bench/helpers.js` explains why. Run-to-run noise on a quiet machine is a few percent.
 
-## 2.1: the JIT backend
+## 3.0: the JIT backend
 
-The closure backend is the floor, not the ceiling. 2.1 adds `compile(schema, { jit })` from a
+The closure backend is the floor, not the ceiling. 3.0 adds `compile(schema, { jit })` from a
 separate `@alexify/metaschema/compile` entry: the plan is rendered into straight-line JavaScript
 (`typeof value.name === 'string'`, one statement per field, real values such as regular
 expressions and nested schemas passed through a scope, never through the source text) and built

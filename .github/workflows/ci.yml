@@ -33,7 +33,7 @@ jobs:
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
       # ever reaches the browser bundle, and fails over the min+gzip budget.
       # 13 KB per core entry and 5 KB for the ./generators subpath on top of
-      # it are the 2.1 budgets (CLAUDE.md "Budgets"). The JIT entry gets a
+      # it are the 3.0 budgets (CLAUDE.md "Budgets"). The JIT entry gets a
       # budget of its own.
       - run: pnpm size --max-gzip 13 --max-gzip-generators 5
 

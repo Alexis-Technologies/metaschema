@@ -2,7 +2,7 @@
  * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
  * when either core entry exceeds that min+gzip budget, and with
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
- * that on top of the core (CI uses both as gates). The budgets for 2.1 are
+ * that on top of the core (CI uses both as gates). The budgets for 3.0 are
  * 13 KB per core entry and 5 KB for the generators (CLAUDE.md "Budgets"); the
  * `./compile` entry will be measured separately with a budget of its own.
  *

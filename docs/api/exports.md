@@ -30,7 +30,7 @@ Returns `{ defs, metadata }` for a kind: the default `scope`, `store` and `allow
 `meta`, and the fields the kind adds (the id field of stored kinds). Used internally when a
 definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadata).
 
-`saveTypes` moved to the [generators subpath](#alexify-metaschema-generators) in 2.1.
+`saveTypes` moved to the [generators subpath](#alexify-metaschema-generators) in 3.0.
 
 ## `Schema`
 

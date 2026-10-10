@@ -85,7 +85,7 @@ reintroduce any of that. Callers pass schema objects to `Schema` and `Model`, lo
 their own `require`. `saveTypes` (writing the generated dts) stays, in the generators subpath.
 
 **The core entry validates; what a schema is rendered into lives in `./generators`.** JSON
-Schema and TypeScript generation were in the core until 2.1 and were moved out (Alex's decision,
+Schema and TypeScript generation were in the core until 3.0 and were moved out (Alex's decision,
 2026-10-10: a program that only validates should not carry them). The subpath exports functions
 (`toJSONSchema`, `toTypeScript`, `saveTypes`) and an explicit `register()` that installs the
 methods and the `~standard.jsonSchema` converter; nothing is registered by importing. A new
@@ -290,7 +290,7 @@ reads), no copies. It closes over the schema because consumers call it unbound. 
 typed inline in `index.d.ts` (`StandardOptions`, `StandardResult<T>`, `StandardProps<D>`, with
 `types.input` = `types.output` = `Infer<D>` since nothing is transformed) because `index.d.ts`
 cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assignability to
-`StandardSchemaV1` of `@standard-schema/spec`. `~standard.jsonSchema` is D2 (2.1).
+`StandardSchemaV1` of `@standard-schema/spec`. `~standard.jsonSchema` is D2 (3.0, the generators subpath).
 
 **Model.** `new Model(types, entities, database = null)`:
 
@@ -307,7 +307,7 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 2.1 bundle budgets are 13 KB min+gzip per core entry and 5 KB for the generators on top
+**The 3.0 bundle budgets are 13 KB min+gzip per core entry and 5 KB for the generators on top
 of it** (`pnpm size --max-gzip 13 --max-gzip-generators 5` in CI). The core entries are at 12321
 bytes (`index.js`) and 12325 bytes (`browser.js`), 12.0 KB, about 990 bytes of headroom; the
 `./generators` subpath adds 4041 bytes (3.9 KB) to a bundle of the core, measured as the
@@ -321,8 +321,9 @@ pattern and min/max, the references rule and the lint cost about 2.6 KB together
 `~standard` added 174 bytes (2.0 shipped at 12.6 KB with a 13 KB gate); Workstream D2/D3 first
 added 3122 bytes to the core (16051 bytes, gate 16 KB), then the generators (JSON Schema and
 the whole TypeScript rendering, about 3.9 KB) moved to the subpath, which took the core to 12.0
-KB (Alex's decision: the core validates, see "Out of scope by design"). ROADMAP.md §5.8 planned
-10 KB for 2.0 and 12 KB for 2.1. The JIT (`./compile`) gets a budget of its own when it lands.
+KB (Alex's decision: the core validates, see "Out of scope by design"; the move is a breaking
+change, so the release is 3.0.0, planned as 2.1.0). ROADMAP.md §5.8 planned 10 KB for 2.0 and
+12 KB for the release after it. The JIT (`./compile`) gets a budget of its own when it lands.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -554,7 +555,7 @@ change. **This file wins** if they ever disagree.
   throw for a target it does not support, and a `$jsonSchema` is not a JSON Schema; it is
   reached through `toJSONSchema` only.
 - **An array is not a struct.** `compileStruct` rejects an array with `not of expected type:
-  object` (2.1); before, a struct with only optional fields accepted `[]` because `typeof [] ===
+  object` (3.0); before, a struct with only optional fields accepted `[]` because `typeof [] ===
   'object'` and the walk found nothing to complain about.
 - **`schema.toJSONSchema`, `model.dts` and `schema['~standard'].jsonSchema` do not exist until
   `register()` of the generators subpath ran.** The core typings declare them anyway (a
@@ -642,9 +643,9 @@ published to npm, and lint/format do not cover it.
 - When behavior changes, update README and the matching docs page together. Example outputs in the
   docs were checked against the code, so keep them true.
 - The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
-  `guide/performance.md` (the core, the baseline numbers, the 2.1 JIT), `guide/migrating-from-1.md`
+  `guide/performance.md` (the core, the baseline numbers, the 3.0 JIT), `guide/migrating-from-1.md`
   (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
-  produced by the code on `main`) and `guide/standard-schema.md`. The 2.1 page is
+  produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 page is
   `guide/json-schema.md` (options, targets, the mapping table, the strict profile with a tool
   definition, the mongodb target, the boundaries). The sidebar is in `.vitepress/config.mts`; a
   new page goes there and into `docs/public/llms.txt` if it is a key fact.

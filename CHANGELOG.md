@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The next release is **3.0.0**: the generators of JSON Schema and TypeScript leave the core entry
+for the `@alexify/metaschema/generators` subpath, which takes `model.dts`, `schema.toInterface()`
+and `saveTypes` with them (a breaking change, so not 2.1.0). The rest is additive: the JSON
+Schema export with its four targets and the strict profile, Standard JSON Schema, JSDoc and
+named types in the generated TypeScript, and a fix in `check`.
+
 ### Upgrading from 2.0
 
 - **The generators moved to `@alexify/metaschema/generators`.** `model.dts`,

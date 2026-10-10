@@ -150,6 +150,6 @@ does not depend on `@standard-schema/spec`; the compatibility is pinned by its t
 
 - **A verdict, not a transformation.** `value` is the value that was given, untouched: no
   defaults, no coercion, no stripping of unknown keys. A `parse` that applies them is planned for
-  2.2.
+  3.1.
 - **Synchronous.** `validate` never returns a promise; a consumer that awaits the result gets the
   same object.

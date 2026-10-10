@@ -66,7 +66,7 @@ const entities = new Map([
 const model = new Model(types, entities, database);
 ```
 
-`saveTypes` stays, in the `@alexify/metaschema/generators` subpath since 2.1 (with `toTypeScript`
+`saveTypes` stays, in the `@alexify/metaschema/generators` subpath since 3.0 (with `toTypeScript`
 and `toJSONSchema`).
 
 ## No runtime dependencies
@@ -126,7 +126,7 @@ metaschema used are copied into the package.
 - **`Schema#detach`.** The misspelt `detouch` is renamed to `detach`. There is no alias: rename the
   calls.
 - **Browser entry.** `dist.js` is now `browser.js` and exports the same names as the main entry,
-  and `saveTypes` (in the generators subpath since 2.1) rejects in the browser. Bundlers pick it
+  and `saveTypes` (in the generators subpath since 3.0) rejects in the browser. Bundlers pick it
   automatically.
 - **Exports map.** The package has an `exports` field, so deep imports such as
   `metaschema/lib/types.js` are no longer reachable.
