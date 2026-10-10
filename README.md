@@ -36,6 +36,14 @@ result.issues;
 //   { code: 'length', path: ['email'], message: 'value is too short', params: { min: 5, max: 64, actual: 3 } },
 //   { code: 'enum', path: ['roles', 0], message: 'value is not of enum: admin, editor, viewer', params: { values: ['admin', 'editor', 'viewer'] } }
 // ]
+
+const event = Schema.from({
+  name: 'string',
+  'level?': { type: 'integer', default: 1 },
+  when: { type: 'string', parse: (text) => new Date(text) },
+});
+event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
+// { name: 'deploy', when: 2026-10-10T12:00:00.000Z, level: 1 }
 ```
 
 ### 📖 [Read the documentation →](https://metaschema.vercel.app/)
@@ -49,14 +57,18 @@ result.issues;
   a code, the path as an array of keys, the params it was made from, and a message rendered through
   a locale (English built in, `@alexify/metaschema/locales/uk` shipped). Only a broken definition
   throws.
+- **Parse, not only a verdict.** `parse` runs the same check and gives the value of the program:
+  defaults filled in, unknown keys stripped on request, a field's `parse` function decoding its
+  value (a date-time string into a `Date`) and `serialize` the way back; `checkAsync` and
+  `parseAsync` await validators and decoders that return promises.
 - **Domain models.** Entities, registries, dictionaries and projections, with references,
   relations and indexes, ordered by dependency and checked for missing references.
 - **TypeScript.** `InferSchema<typeof schema>` is the type of a value the schema accepts,
   computed from the definition with nothing generated, and a model renders its entities as
   interfaces. The package ships hand-written typings for its own API.
 - **Standard Schema.** Every schema implements [Standard Schema v1](https://standardschema.dev)
-  (`schema['~standard']`), so tRPC, TanStack Form, Hono and any other consumer of the interface
-  take it as they take a zod or valibot schema.
+  (`schema['~standard']`, which is `parse`), so tRPC, TanStack Form, Hono and any other consumer
+  of the interface take it as they take a zod or valibot schema.
 - **JSON Schema.** `toJSONSchema` renders a schema or a whole model as JSON Schema draft 2020-12
   or draft-07, an OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`, with a strict profile for
   LLM structured outputs; `~standard.jsonSchema` is the Standard JSON Schema converter. The
@@ -67,8 +79,8 @@ result.issues;
   million through the JIT backend of `@alexify/metaschema/compile`, which generates the same
   check where `new Function` is allowed and keeps the closures where it is not (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 12.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 3.9 KB and the JIT backend 3.5 KB
+- **Zero dependencies, 15.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 4.0 KB and the JIT backend 3.5 KB
   where they are imported.
 
 ## Installation

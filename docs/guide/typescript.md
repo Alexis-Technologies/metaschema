@@ -2,8 +2,8 @@
 
 ## Inferring types from a schema
 
-`Infer<D>` is the TypeScript type of a value `check` accepts for the definition `D`, computed
-from the definition's type alone, with nothing generated. `Schema.from` and `new Schema` keep
+`Infer<D>` is the TypeScript type of a value `check` and `parse` accept for the definition `D`,
+computed from the definition's type alone, with nothing generated. `Schema.from` and `new Schema` keep
 the definition as a type parameter (`Schema<D>`), and `InferSchema<typeof schema>` reads it:
 
 ```ts
@@ -50,6 +50,8 @@ type User = Infer<typeof definition>; // { name: string; role: 'admin' | 'user' 
 | `'key?': 'T'` | an optional property: `key?: T \| null \| undefined` |
 | `{ type: 'T', nullable: true }` | `T \| null` |
 | `{ type: 'T', ...options }` | `T`; the options do not change the type |
+| `{ type: 'T', default: x }` | `T`; in a struct, an optional property (`parse` fills it in) |
+| `{ type: 'T', parse: (value) => R }` | `T` on the input side; `R` in [`InferOutput`](#the-output-of-parse) |
 | `{ enum: ['open', 'done'] }` | `'open' \| 'done'` |
 | `{ array: T }`, `{ set: T }` | `T[]`, `Set<T>` |
 | `{ object: { string: T } }`, `{ map: { number: T } }` | `Record<string, T>`, `Map<number, T>` |
@@ -135,12 +137,43 @@ const model = new Model({}, new Map(Object.entries(entities)));
 The entities of a model are plain `Schema` instances (`model.entities.get('Person')` is a
 `Schema | undefined` and infers nothing); the entity map is the typed source.
 
+### The output of `parse`
+
+`InferOutput<D>` is the type of the value [`parse`](/guide/parse) gives: `Infer<D>` with the
+result of every `parse` function (a field's decoder, a nested struct's, the schema's own) in place
+of the value it decodes (`Awaited`, for an async decoder), and every key with a `default`
+present. `parse` returns `ParseResult<InferOutput<D>>`, which narrows on `valid`, and `serialize`
+takes an `InferOutput<D>` and gives an `Infer<D>`:
+
+```ts
+import { Schema, type Infer, type InferOutput } from '@alexify/metaschema';
+
+const event = Schema.from({
+  name: 'string',
+  'level?': { type: 'integer', default: 1 },
+  when: { type: 'string', parse: (text: string) => new Date(text) },
+});
+
+type EventInput = Infer<typeof event>;
+// { name: string; level?: number | null | undefined; when: string }
+type Event = InferOutput<typeof event>;
+// { name: string; level: number | null; when: Date }
+
+const result = event.parse(body);
+if (result.valid) result.value.when.getTime(); // result.value is Event
+```
+
+A defaulted key is optional on the input side, because `parse` fills it, and present on the
+output side; where the key was declared optional, `null` stays in its type (a given `null` is not
+defaulted) and `undefined` goes. `InferOutput<D, E>` takes an entity map like `Infer`.
+
 ### `Infer` and the generated interfaces
 
-Both follow the same rules, with two differences. The dts names a stored reference after its
+Both follow the same rules, with three differences. The dts names a stored reference after its
 column (`employerId: string`), where `check` reads the field (`employer`) and `Infer` types it as
 such. The dts renders an optional field as `street?: string`, where `check` also accepts `null`
-and `Infer` says `string | null | undefined`.
+and `Infer` says `string | null | undefined`. And the dts has every field with a `default`, which
+`Infer` lets a value leave out (the output side, `InferOutput`, has it too).
 
 The typings need TypeScript 5.0 or later (const type parameters). The examples of this page are
 compiled by `tests/types/infer.test-d.ts`. A `Schema<D>` is also a Standard Schema whose input
@@ -303,9 +336,10 @@ system. In the browser it rejects.
 ## Typings for the package
 
 `@alexify/metaschema` ships hand-written declarations in `index.d.ts`. Besides the classes and
-functions, it exports a type for everything public: `Infer`, `InferSchema`, `InferEntity`,
-`CustomTypes`, `Kind`, `Scope`, `Fields`, `FieldType`, `TypeEntry`, `ValidationIssue`,
-`DefinitionErrorCode` and the rest listed in the [API reference](/api/exports#types):
+functions, it exports a type for everything public: `Infer`, `InferOutput`, `InferSchema`,
+`InferEntity`, `CustomTypes`, `Kind`, `Scope`, `Fields`, `FieldType`, `TypeEntry`,
+`ValidationIssue`, `ParseResult`, `DefinitionErrorCode` and the rest listed in the
+[API reference](/api/exports#types):
 
 ```ts
 import { Schema, type Kind, type ValidationResult } from '@alexify/metaschema';

@@ -36,14 +36,14 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 13 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 16 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
+`pnpm size --max-gzip 16 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
 There is no build step.
 
 ## No build step: CommonJS + hand-written types
@@ -115,8 +115,9 @@ src/
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
   schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], ~standard
   struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
-  context.js        createContext: the state of one check ({ issues, count, limit, path, seen, unknown, root, messages })
-  issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType
+  context.js        createContext: the state of one check ({ issues, count, limit, path, seen, unknown, references, root, messages, async })
+  issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType, settle (the async drain)
+  codec.js          the passes of parse and serialize over the built types: defaults, strip, decoders, serializers, hasAsync
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
   rules.js          rules per type: FORMAT (length, min, max, pattern), compileRules, code points
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field)
@@ -125,7 +126,7 @@ src/
   types.js          TYPES registry, createType (static rules/options per type), typeFactory
   model.js          Model: entities, ordering, warnings (lazy); branded 'Model'
   util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
-  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions
+  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR)
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       type prototypes: abstract, scalars (string, number, integer, bigint, boolean, date,
                     null, any/unknown, enum), collections, reference, schema, tuple, union, json
@@ -152,16 +153,20 @@ docs/               VitePress site (metaschema.vercel.app), not published
 Module graph (no cycles; nothing checks this automatically, so look at the `require`s when adding
 an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 
-- `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util` and
-  `locales/en`; `rules.js` (+ `errors`), `result.js` (+ `util`, `locales/en`) and `context.js`
-  (+ `locales/en`) require `issues`. `util.js` must not require `issues.js`.
+- `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util`,
+  `errors` and `locales/en`; `rules.js` (+ `errors`), `result.js` (+ `util`, `locales/en`) and
+  `context.js` (+ `locales/en`) require `issues`. `util.js` must not require `issues.js`.
 - `kinds → metadata` (+ `result`, `errors`); `struct` (`util`, `issues`, `errors`) →
   `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
   (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`)
   and `lint` (`util`) stand alone.
+- `codec.js` requires `util`, `issues`, `context`, `struct`, `errors` and the prototypes
+  (`collections`, `schema`, `tuple`, `union`, `reference`: it tells a node's shape by the
+  identity of its `compile`, as `compile/emit.js` does) and never `schema.js`: a reference is
+  followed through `root.findReference` at parse time.
 - `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct` and `lint`; `model.js` requires `schema`, `types`, `lint`, `util`; `src/index.js`
-  requires nothing else (no runtime).
+  `struct`, `lint` and `codec`; `model.js` requires `schema`, `types`, `lint`, `util`;
+  `src/index.js` requires nothing else (no runtime).
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
   `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
   generators), never `schema.js` or `model.js`: they take the instances and read `fields`,
@@ -286,6 +291,42 @@ the same function for the dts (`asId`/`tsReference`): a stored target renders as
 string`, a memory target as its interface name (inline when the target is anonymous, the name when
 it cannot be resolved and `embed: true`, the id form when it cannot be resolved otherwise).
 
+**Parse.** `schema.parse(value, options)` is the check between two passes of `src/codec.js`
+and returns `{ valid, value, issues }` (`value` undefined when invalid; `issues` always an
+array): `prepare` fills the `default` of every missing or `undefined` struct key (a function is
+a factory, called per parse), at any depth; then `this[RUN]` (whichever backend is installed:
+the passes never validate, so the JIT needs no second generator); then, on a valid value,
+`finish` rebuilds every struct from its known keys under `unknown: 'strip'` (the check behind
+it treats `strip` as `ignore`; `createContext` takes a fourth argument, `parsing`, to accept
+it) and runs the decoders, a field's `parse(value)`, from the parts of a value up to the value
+(elements before the collection, fields before the nested struct's own `parse`, the record of an
+embedded reference through its entity), and the schema's `options.parse` last. A decoder's
+exception is an `exception` issue at the field and makes the result invalid; after the first
+failure no decoder runs. `serialize(value, { check })` is one pass the other way (the schema's
+`options.serialize`, then the fields' `serialize` top down; `format` is collected and never
+called). The passes are one `walk` over the built types, dispatched on the shape of a node
+(Schema, struct dictionary, nested struct, list, keyed, tuple, union, reference, leaf) with a
+memoized info per node (`infoOf`, a WeakMap: the bits of what a subtree carries, so a schema
+without defaults, decoders or serializers is returned as it is after one bit test, and the root
+info is cached on the schema in `#codec`), copy-on-write output (a container is copied at the
+first part that changed; the value given is never written to), a cycle guard in the passes that
+run before the check (`context.seen` as the stack, cleared before the check; a looped value is
+checked as given), and a scratch context to pick the branch of a plain union as the check
+does. `~standard.validate` is `parse` with the schema's policies.
+
+**Async.** `checkAsync`/`parseAsync` set `context.async = []`; `guarded` in `issues.js`, the one
+place where user code runs (field and schema `validate`, custom `checkType`, on both backends,
+the JIT reaching it through `runValidate` in the scope), keeps a promise it gets with the path
+it was met at, and every validator met after it as a deferred call, so that "a validator runs
+only when nothing under it failed" holds across promises; `settle` runs the list after the walk,
+in field order, each entry under its path, skipping a deferred call when an issue recorded since
+lies under its path, and stops at `maxErrors`. The sync `check`/`parse` throw a `TypeError`
+with `code: 'ERR_ASYNC_VALIDATOR'` (`asyncReturn` in `errors.js`) for a promise. Decoders that
+return promises are awaited by `parseAsync` inside the `finish` pass (`Promise.all` over the
+parts of a container, then the container's own decoder). `hasAsync(schema)` (an `AsyncFunction`
+among the validators, decoders and `checkType`s, the referenced entities included) decides, on
+the first use of `~standard`, that `validate` returns a promise.
+
 The order inside a field is type → rules → `validate`; a type failure cancels the rest, and
 `validate` (field or schema level) runs only when nothing before it failed. Validators and
 `checkType` may return (`absorb` in `issues.js` normalises it):
@@ -347,11 +388,11 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 3.0 bundle budgets are 13 KB min+gzip per core entry, 5 KB for the generators and 4 KB
-for the compile subpath on top of it** (`pnpm size --max-gzip 13 --max-gzip-generators 5
---max-gzip-compile 4` in CI). The core entries are at 12358 bytes (`index.js`) and 12361 bytes
-(`browser.js`), 12.1 KB, about 950 bytes of headroom; the `./generators` subpath adds 4042
-bytes (3.9 KB) and the `./compile` subpath 3539 bytes (3.5 KB) to a bundle of the core, each
+**The 3.0 bundle budgets are 16 KB min+gzip per core entry, 5 KB for the generators and 4 KB
+for the compile subpath on top of it** (`pnpm size --max-gzip 16 --max-gzip-generators 5
+--max-gzip-compile 4` in CI). The core entries are at 15504 bytes (`index.js`) and 15507 bytes
+(`browser.js`), 15.1 KB, about 1 KB of headroom; the `./generators` subpath adds 4060
+bytes (4.0 KB) and the `./compile` subpath 3558 bytes (3.5 KB) to a bundle of the core, each
 measured as the difference between a bundle of `index.js` plus the subpath's `index.js` and
 `index.js` alone (a subpath requires the core for `register()`, so on its own it would bundle
 the core again). The figures are quoted in README, `docs/index.md`, `docs/guide/why.md`,
@@ -365,7 +406,11 @@ the whole TypeScript rendering, about 3.9 KB) moved to the subpath, which took t
 KB (Alex's decision: the core validates, see "Out of scope by design"; the move is a breaking
 change, so the release is 3.0.0, planned as 2.1.0); Workstream E added 37 bytes to the core
 (the `Schema[HOOK]` slot and the `lengthOf` export) and the `./compile` subpath at 3.5 KB
-with a 4 KB gate. ROADMAP.md §5.8 planned 10 KB for 2.0 and 12 KB for the release after it.
+with a 4 KB gate; Workstream F added 3146 bytes to the core (`src/codec.js` is 2.7 KB of it,
+the rest is `parse`/`parseAsync`/`checkAsync`/`serialize` in `schema.js` and the async drain in
+`issues.js`), which took it to 15.1 KB with a 16 KB gate: parse is core behaviour, not a
+subpath, because `~standard.validate` is parse (Alex's instruction). ROADMAP.md §5.8 planned
+10 KB for 2.0 and 12 KB for the release after it.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -385,12 +430,19 @@ it is allocated. Verify a harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
 
-`bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream E): on the
-closures flat valid ≈ 10.7 M ops/s, flat invalid ≈ 3.5 M, nested ≈ 2.6 M / 1.5 M, the moltar
+`bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream F): on the
+closures flat valid ≈ 10.4 M ops/s, flat invalid ≈ 3.4 M, nested ≈ 2.5 M / 1.4 M, the moltar
 modes ≈ 7.1–7.4 M flat and 4.2–4.4 M nested; on the JIT (`check (jit) — …`, a second schema
-compiled by `./compile`) flat ≈ 30.9 M / 5.6 M, nested ≈ 16.9 M / 2.0 M, moltar ≈ 30.2–33.3 M
-flat and 24.0–30.2 M nested (the strict modes count the keys of the value, the loose ones skip
-it); `Schema.from` ≈ 275 K / 93 K, `new Model` ≈ 16 K (about 8% under A: every field checks
+compiled by `./compile`) flat ≈ 30.0 M / 5.6 M, nested ≈ 17.4 M / 2.0 M, moltar ≈ 30.2–33.0 M
+flat and 24.1–30.2 M nested (the strict modes count the keys of the value, the loose ones skip
+it); `parse — …` of a plain schema ≈ 9.6 M flat / 2.5 M nested on the closures and 26.8 M /
+14.7 M on the JIT (the two passes return after one bit test each on the root info the schema
+caches; the rest of the gap to `check` is the result object and the `strip` test), and
+`parse — flat struct, defaults and a decoder` ≈ 2.1 M / 2.9 M, where the two copies of the
+object and `new Date(text)` in the decoder are most of the time (the struct info keeps, per
+phase, the indexes of the fields that carry something, and the infos of its children, so a
+pass never looks a field up in the WeakMap nor visits a field with nothing to apply);
+`Schema.from` ≈ 263 K / 88 K, `new Model` ≈ 16 K (about 8% under A: every field checks
 its rules against its type and a projection re-parses its parent's fields), `model.dts` ≈ 83 K
 (102 K in a run of the same code earlier that day: the allocation-heavy scenarios move by a
 fifth on this machine). **The moltar schema carries `Struct: {}` since E**: its first key is
@@ -518,9 +570,22 @@ change. **This file wins** if they ever disagree.
 - New behavior needs a test that fails without the change.
 - `tests/unit/standard.test.js` covers `~standard`: the props, the pass-through of the result's
   issues, `libraryOptions`, non-enumerability, a consumer that reads only the specification
-  (`standardValidate` from its README) and the fixture model; `bundle.test.js` reads it through
-  the minified bundles; `tests/types/standard.test-d.ts` is the only place that imports
-  `@standard-schema/spec`.
+  (`standardValidate` from its README, awaiting a promise), the fixture model, `validate` as
+  parse (defaults, decoders, the same reference when nothing applied, the schema's `unknown`)
+  and the promise of an async schema; `bundle.test.js` reads it through the minified bundles;
+  `tests/types/standard.test-d.ts` is the only place that imports `@standard-schema/spec`.
+- Workstream F suites: `parse.test.js` (the value itself when nothing applied, defaults as
+  values and factories at every depth, strip at every depth, decoders bottom up through every
+  container and embedded references, decoder exceptions and their paths, keys named like
+  `Object.prototype` members, `maxErrors`, the input never written to), `serialize.test.js`
+  (top down, the round trip, `check: true`, a looping program value, `format` never called),
+  `async.test.js` (`ERR_ASYNC_VALIDATOR` from the sync calls, the settle order, the "nothing
+  under it failed" rule across promises, `maxErrors`, exceptions, async `checkType`, decoders
+  in every container, references and unions), the compile suite's parse/async/serialize
+  equivalence on both backends, the bundle test through the minified bundles and
+  `tests/types/parse.test-d.ts` (`InferOutput`, defaults on both sides, the parse result, the
+  serialize overloads, `RuntimeErrorCode`). The new suites run under `test`, `test:jit` and
+  `test:nojit`.
 - `tests/unit/result.test.js` and `check-options.test.js` cover the issue shape, locales and
   `check` options; `tests/unit/context.test.js` pins the context shape and the absence of global
   state. The locale tables are compared key by key, so a new issue code needs a renderer in every
@@ -553,6 +618,34 @@ change. **This file wins** if they ever disagree.
 
 ## Things that look like bugs but aren't
 
+- **`default` is applied by `parse` only.** `check` reports a missing required key as `required`
+  whatever its `default`; `parse` fills it (and an `undefined` one) before the check, at any
+  depth, calling a function default on every parse. `Infer` therefore makes a defaulted key
+  optional and `InferOutput` makes it present. A default is validated like any value.
+- **`parse` returns the value itself when nothing applied, and never writes to it.** Copy-on-write:
+  a container is copied at the first part a default, a decoder or `strip` changed, so
+  `parse(value).value === value` for a plain schema (what `~standard.validate` returned in 2.0),
+  while under `strip` every struct of the output is new. Pinned in `tests/unit/parse.test.js`.
+- **`format` is collected and never called.** `schema.options.format` exists for code that
+  builds on the schema; `parse` and `serialize` call `options.parse` and `options.serialize`
+  only, and a field's `format` key is an `unknown-option` warning.
+- **A field's `parse`/`serialize` key is a codec, and a nested struct's is that struct's.**
+  `{ a: 'string', parse: fn }` as a nested definition makes `fn` the decoder of the struct value
+  (as a nested `validate` is its validate); it is also a calculated field in `fields`, as
+  `validate` always was. A struct whose *field* is named `parse` (`{ parse: 'string' }`) is a
+  struct. A non-function `parse`/`serialize` on a field is `ERR_INVALID_DEFINITION`.
+- **A validator's promise throws from the synchronous calls.** `check`/`parse` throw a
+  `TypeError` with `code: 'ERR_ASYNC_VALIDATOR'` (not a `SchemaDefinitionError`: the call is
+  wrong, not the definition) for a promise from a `validate`, a `checkType` or a decoder;
+  `checkAsync`/`parseAsync` settle them after the walk, in field order, and `~standard.validate`
+  returns a promise only for a schema with an `async function` among them (detected on first
+  use through `hasAsync`), so a plain function that returns a promise throws there too.
+- **A plain union's branch is found by a second check of the union value in the passes.**
+  `codec.js` tries the branches with a scratch context (limit 1, the policies of the call,
+  pending promises set aside as the check sets them aside) only when the union's subtree
+  carries something for the phase; a `discriminator` picks the branch in one lookup. In
+  `serialize` that second check runs on the program value, so a plain union is entered only
+  while the value still has the form of a branch.
 - **A compiled schema's `check` is a function named `jit`, installed as `schema[RUN]`.**
   `compile()` of the `./compile` subpath replaces the own `[RUN]` property and returns
   `{ accelerated }`, not the schema; the plan entries, `field.check` and `fields[STRUCT].check`
@@ -578,7 +671,9 @@ change. **This file wins** if they ever disagree.
   `Object.keys`, `JSON.stringify`, `toJSON` and `util.inspect` never show it, while
   `'~standard' in schema` is `true`, which is how Standard Schema consumers detect it. The props
   object is cached per instance (`#standard`) and `validate` is an arrow closure over the schema
-  because consumers call it unbound.
+  because consumers call it unbound. Since 3.0 `validate` is `parse` (defaults and decoders
+  applied, the schema's `unknown` policy), not `check`, and its typings say
+  `StandardResult | Promise<StandardResult>`.
 - **The first key of an object decides what it is, and `type` must come first for the long
   form.** `{ name: 'string', type: 'string' }` is a struct with two fields; `{ type: 'string',
   name: 'string' }` is a string with a `name` option; `{ required: false, type: 'string' }`

@@ -9,12 +9,12 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 12.1 KB min+gzip for the core entry (the generators subpath adds
-  3.9 KB, the compile subpath 3.5 KB); about 10 million checks a second of a flat struct on the
+- Zero runtime dependencies, 15.1 KB min+gzip for the core entry (the generators subpath adds
+  4.0 KB, the compile subpath 3.5 KB); about 10 million checks a second of a flat struct on the
   closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
-  `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
+  `Infer`, `InferOutput`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
   `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
   `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
   options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods), and
@@ -31,9 +31,20 @@ Key facts:
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
   with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
   `references`, `messages`; a `validate` function may build and return a result
-- Every schema is a Standard Schema v1 (`schema['~standard']`; the Standard JSON Schema
+- `schema.parse(value, options)` runs the same check and returns `{ valid, value, issues }`: the
+  value of the program with every `default` of a missing key filled in (a function is a
+  factory), unknown keys stripped with `unknown: 'strip'`, the `parse` function of every field
+  decoding its validated value (parts before the whole: a `'datetime'` string into a `Date`) and
+  the schema's own `parse` last; `value` is `undefined` when invalid and the value given when
+  nothing applied (the input is never written to). `schema.serialize(value, { check })` is the
+  way back through the `serialize` functions, top down. `checkAsync` and `parseAsync` await
+  validators, custom `checkType`s and decoders that return promises (settled after the walk, in
+  field order); the synchronous calls throw `ERR_ASYNC_VALIDATOR` for a promise
+- Every schema is a Standard Schema v1 (`schema['~standard']`, whose `validate` is `parse` with
+  the schema's policies, a promise for a schema with async functions; the Standard JSON Schema
   converter `jsonSchema` joins it after `register()` of the generators); `InferSchema<typeof
-  schema>` is the TypeScript type of a value it accepts
+  schema>` is the TypeScript type of a value it accepts, `InferOutput<typeof schema>` of the
+  value `parse` gives
 - `toJSONSchema(schema, { target, profile, io, unrepresentable, references, definitions })` and
   `toJSONSchema(model, { root, ... })` render JSON Schema draft 2020-12 (default), draft-07, an
   OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`; `profile: 'strict'` is the dialect of LLM
@@ -63,6 +74,7 @@ Docs:
 - Getting started: https://metaschema.vercel.app/guide/getting-started
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
+- Parse and serialize: https://metaschema.vercel.app/guide/parse
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema

@@ -75,12 +75,15 @@ before 2.0; the closure column is what every `check` does, the JIT column the sa
 | --- | ---: | ---: | ---: |
 | `Schema.from`, flat struct (4 fields) | 276 K ops/s | 275 K ops/s | — |
 | `Schema.from`, nested struct, collections, tuple | 94 K | 93 K | — |
-| `check`, flat struct, valid | 2.1 M | 10.7 M | 30.9 M |
-| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.5 M | 5.6 M |
-| `check`, nested struct, valid | 0.33 M | 2.6 M | 16.9 M |
-| `check`, nested struct, invalid | 0.23 M | 1.5 M | 2.0 M |
-| moltar flat (6 fields), four modes | — | 7.1–7.4 M | 30.2–33.3 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.2–4.4 M | 24.0–30.2 M |
+| `check`, flat struct, valid | 2.1 M | 10.4 M | 30.0 M |
+| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.4 M | 5.6 M |
+| `check`, nested struct, valid | 0.33 M | 2.5 M | 17.4 M |
+| `check`, nested struct, invalid | 0.23 M | 1.4 M | 2.0 M |
+| `parse`, flat struct, valid | — | 9.6 M | 26.8 M |
+| `parse`, nested struct, valid | — | 2.5 M | 14.7 M |
+| `parse`, flat struct, a default and a `Date` decoder | — | 2.1 M | 2.9 M |
+| moltar flat (6 fields), four modes | — | 7.1–7.4 M | 30.2–33.0 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.2–4.4 M | 24.1–30.2 M |
 | `new Model`, fixture model (6 entities) | 18 K | 16 K | — |
 | `toTypeScript(model)`, fixture model | — | 83 K | — |
 
@@ -100,6 +103,13 @@ its 32 ns); on an invalid one, in the issue objects (a params object, a path arr
 rendered message each, about 40 ns an issue on both backends), which is why the invalid path
 gains 1.6 times where the valid one gains 3. The `check` of 1.0 was slower than
 `JSON.stringify` of the same value; the JIT is about seven times faster than it.
+
+[`parse`](/guide/parse) is the same check between two passes over the built types, each of
+which returns after one bit test when the schema has nothing for it, so a schema without
+defaults and decoders parses at 90% of its check on the closures and 90% on the JIT (the
+difference is the result object and the strip test). With a default to fill and a `Date` to
+decode the flat struct parses at 2.1 M and 2.9 M: a copy of the object for the default, another
+for the decoded field, and `new Date(text)` itself, which is a third of the time.
 
 ## Other libraries
 

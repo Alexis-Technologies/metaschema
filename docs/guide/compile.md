@@ -100,6 +100,9 @@ out, which is where the generated check gains most over the closures on nested v
 
 - A compiled schema is the same object with another check: `toJSONSchema`, `toTypeScript`,
   `~standard`, `warnings` and everything else read the definition and do not change.
+  [`parse`, `parseAsync`, `checkAsync` and `serialize`](/guide/parse) run over the compiled
+  check: the defaults, the decoders and the stripping are passes over the same plan on both
+  backends, and the JIT generates nothing for them.
 - References resolve at check time, so `attach` and `detach` after `compile` need no second
   call, and an entity reached through a reference runs its own check, compiled or not: compile
   the model, or `register()` before building it, to have every entity accelerated.

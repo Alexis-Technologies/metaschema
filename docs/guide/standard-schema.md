@@ -33,13 +33,30 @@ validate({ age: 'old' });
 // }
 ```
 
-`validate(value)` is [`check(value)`](/guide/validation) read as the specification does: a value
-that passes comes back as `{ value }`, the same reference, and one that fails as `{ issues }`,
-the [issues of the result](/guide/validation#the-result) themselves. Each has the `message` and
-the `path` the specification reads (an array of keys from the root of the value, empty for the
-value itself), plus the `code` and `params` of metaschema. The property is an accessor of the
-prototype, so `JSON.stringify(schema)` and `Object.keys(schema)` do not see it, and
-`'~standard' in schema` is how a consumer tells a Standard Schema from anything else.
+`validate(value)` is [`parse(value)`](/guide/parse) read as the specification does: a value
+that passes comes back as `{ value }`, the value `parse` gives (the [defaults](/guide/parse#defaults)
+filled in and the [decoders](/guide/parse#codecs-parse-and-serialize-on-a-field) applied; the
+value itself, the same reference, when the schema has neither), and one that fails as
+`{ issues }`, the [issues of the result](/guide/validation#the-result) themselves. Each has the
+`message` and the `path` the specification reads (an array of keys from the root of the value,
+empty for the value itself), plus the `code` and `params` of metaschema. The property is an
+accessor of the prototype, so `JSON.stringify(schema)` and `Object.keys(schema)` do not see it,
+and `'~standard' in schema` is how a consumer tells a Standard Schema from anything else.
+
+```js
+const event = Schema.from({
+  name: 'string',
+  'level?': { type: 'integer', default: 1 },
+  when: { type: 'string', parse: (text) => new Date(text) },
+});
+
+event['~standard'].validate({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' });
+// { value: { name: 'deploy', when: 2026-10-10T12:00:00.000Z, level: 1 } }
+```
+
+Keys the schema does not have follow the schema's own `unknown` metadata (rejected unless it
+says `ignore`), as they do in `parse`; a consumer that wants them stripped passes
+`{ libraryOptions: { unknown: 'strip' } }`.
 
 ## In a consumer
 
@@ -84,7 +101,7 @@ account['~standard'].validate({ login: 'marcus', company: 'c1' /* ... */ });
 ## Options
 
 The specification lets a consumer pass vendor-specific options as `libraryOptions`. metaschema
-reads them as the [options of `check`](/guide/validation#options):
+reads them as the [options of `parse`](/guide/parse#options):
 
 ```js
 const uk = require('@alexify/metaschema/locales/uk');
@@ -129,10 +146,11 @@ registration `~standard` has `version`, `vendor` and `validate` only; the typing
 ## TypeScript
 
 The typings declare `~standard` as `StandardProps<D>`, and a `Schema<D>` is a
-`StandardSchemaV1<Infer<D>, Infer<D>>` and a `StandardJSONSchemaV1<Infer<D>, Infer<D>>` of
-[`@standard-schema/spec`](https://www.npmjs.com/package/@standard-schema/spec): nothing is
-transformed, so the input type is the output type, and both are what
-[`InferSchema`](/guide/typescript) gives:
+`StandardSchemaV1<Infer<D>, InferOutput<D>>` and a `StandardJSONSchemaV1<Infer<D>, Infer<D>>` of
+[`@standard-schema/spec`](https://www.npmjs.com/package/@standard-schema/spec): the input type is
+what `parse` accepts ([`Infer`](/guide/typescript)) and the output type what it gives
+([`InferOutput`](/guide/typescript#the-output-of-parse)); the two are the same for a schema
+without decoders or defaults:
 
 ```ts
 import type { StandardSchemaV1 } from '@standard-schema/spec';
@@ -140,16 +158,33 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 type User = StandardSchemaV1.InferOutput<typeof user>;
 // { name: string; age?: number | null | undefined }
 const schema: StandardSchemaV1<User> = user;
+
+type EventInput = StandardSchemaV1.InferInput<typeof event>;
+// { name: string; level?: number | null | undefined; when: string }
+type EventOutput = StandardSchemaV1.InferOutput<typeof event>;
+// { name: string; level: number | null; when: Date }
 ```
+
+`validate` is typed as returning the result or a promise of it, which the specification allows
+and every consumer of it awaits.
 
 `StandardProps<D>`, `StandardResult<T>`, `StandardOptions`, `StandardConverter` and
 `StandardJSONSchemaOptions` are exported for code that reads the interface itself. The package
 does not depend on `@standard-schema/spec`; the compatibility is pinned by its type tests.
 
+## Async
+
+A schema whose functions include an `async function` (a `validate` of a field or of the schema,
+a decoder, a custom type's `checkType`, in it or in an entity it references) validates through
+[`parseAsync`](/guide/parse#async): `validate` returns a promise of the result, as the
+specification allows, and the consumers of the specification await it. Any other schema returns
+the result itself. The detection reads the functions of the schema the first time `~standard` is
+used; a validator that returns a promise without being an `async function` is to `validate` what
+it is to `parse`: a `TypeError` with the code `ERR_ASYNC_VALIDATOR`.
+
 ## What it is not
 
-- **A verdict, not a transformation.** `value` is the value that was given, untouched: no
-  defaults, no coercion, no stripping of unknown keys. A `parse` that applies them is planned for
-  3.1.
-- **Synchronous.** `validate` never returns a promise; a consumer that awaits the result gets the
-  same object.
+- **Not a coercion.** `value` is the value that was given with the schema's defaults and decoders
+  applied, and nothing else: a string is not turned into a number because the field is a number.
+  A decoder is the place for that, explicitly.
+- **Not a JSON Schema.** `jsonSchema` renders the schema; `validate` validates the value.

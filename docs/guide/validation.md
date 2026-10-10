@@ -103,6 +103,10 @@ user.check({ name: 'Marcus', extra: true }, { unknown: 'ignore' }).valid; // tru
 person.check(payload, { references: 'embed' }); // the whole graph, stored records included
 ```
 
+`check` answers with a verdict and never changes the value: no defaults, no decoding, no
+stripping. [`parse`](/guide/parse) does those over the same check and returns the value of the
+program, and `checkAsync` is `check` for validators that return a promise.
+
 `check` collects every problem it finds instead of stopping at the first one, and it never throws
 because of the value. An exception means the **definition** is broken (for example, an unknown
 type), and is raised when the schema is built, not when data is checked. It is a
@@ -116,7 +120,9 @@ new Schema('Order', { total: 'strng' });
 ```
 
 An option with a value it does not accept also throws a `TypeError`, as does a string in place of
-the options (the second argument of `check` was the root path in 1.x).
+the options (the second argument of `check` was the root path in 1.x), and so does a `validate`
+function or a custom type's `checkType` that returns a promise: the code of that error is
+`ERR_ASYNC_VALIDATOR`, and [`checkAsync`](/guide/parse#async) is the call that awaits them.
 
 ## Messages and locales
 
@@ -199,7 +205,8 @@ schema.check({ range: '0123456789' }).errors;
 ```
 
 If the function throws, the error becomes an `exception` issue (`validation failed Error: ...`)
-instead of propagating.
+instead of propagating. A function that returns a promise of one of these is awaited by
+[`checkAsync`](/guide/parse#async); `check` throws for it.
 
 ### On a schema
 

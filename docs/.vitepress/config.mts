@@ -129,6 +129,7 @@ export default defineConfig({
           text: 'Using Schemas',
           items: [
             { text: 'Validation', link: '/guide/validation' },
+            { text: 'Parse and serialize', link: '/guide/parse' },
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },

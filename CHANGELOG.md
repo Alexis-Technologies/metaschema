@@ -9,12 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The next release is **3.0.0**: the generators of JSON Schema and TypeScript leave the core entry
 for the `@alexify/metaschema/generators` subpath, which takes `model.dts`, `schema.toInterface()`
-and `saveTypes` with them (a breaking change, so not 2.1.0). The rest is additive: the JIT
-backend of the new `@alexify/metaschema/compile` subpath, the JSON Schema export with its four
-targets and the strict profile, Standard JSON Schema, JSDoc and named types in the generated
-TypeScript, and a fix in `check`.
+and `saveTypes` with them (a breaking change, so not 2.1.0), and `schema['~standard'].validate`
+is `parse` rather than `check` (a second one). The rest is additive: `parse`, `serialize`,
+`checkAsync` and `parseAsync` in the core, the JIT backend of the new
+`@alexify/metaschema/compile` subpath, the JSON Schema export with its four targets and the
+strict profile, Standard JSON Schema, JSDoc and named types in the generated TypeScript, and a
+fix in `check`.
 
 ### Upgrading from 2.0
+
+- **`schema['~standard'].validate` is `parse`.** A consumer of Standard Schema (tRPC, TanStack
+  Form, Hono, …) gets the value `parse` gives: the `default` of a missing key filled in and the
+  `parse` function of every field applied, with the schema's own `unknown` metadata as the
+  policy for other keys (`libraryOptions` are the options of `parse`, `unknown: 'strip'`
+  included). A schema without defaults and decoders returns the value it was given, the same
+  reference, as 2.0 did. A schema with an `async function` among its validators, decoders and
+  custom `checkType`s (in it or in an entity it references) returns a promise of the result,
+  which the specification allows and its consumers await; the typings of `validate` say
+  `StandardResult<T> | Promise<StandardResult<T>>` now, with `types.input` as `Infer<D>` and
+  `types.output` as `InferOutput<D>`.
+- **`Infer<D>` leaves out a key with a `default`.** A field with a `default` is an optional
+  property on the input side, because `parse` fills it; `InferOutput<D>` has it present. The
+  generated TypeScript interfaces are unchanged (every field present), so a value typed from the
+  dts is still assignable to `Infer`, and the output type to the dts.
+- **`CheckContext` has an `async` slot** (`null` in a synchronous check), and `issues.exception`
+  takes the key of the field, for code that builds on the internals.
 
 - **The generators moved to `@alexify/metaschema/generators`.** `model.dts`,
   `schema.toInterface()` and `saveTypes` are no longer in the core entry: the subpath exports
@@ -27,6 +46,42 @@ TypeScript, and a fix in `check`.
 
 ### Added
 
+- **`parse`.** `schema.parse(value, options)` validates a value and builds the value of the
+  program from it: `{ valid, value, issues }`, where `issues` is always an array and `value`
+  is `undefined` for an invalid value. The pipeline is the `default` of every missing or
+  `undefined` struct key (a value, or a function called on every parse, at any depth: nested
+  structs, the elements of collections, the records a reference embeds), the check of the
+  schema (whichever backend installed it: the passes validate nothing, so a compiled schema
+  parses through its generated code), `unknown: 'strip'` (a third policy, of `parse` alone:
+  the keys the schema does not have are accepted and left out of every struct of the output),
+  the `parse` function of every field on its validated value, from the parts of a value up to
+  the value (elements before the collection, the fields of a nested struct before its own
+  `parse`, an embedded record through its entity), and the schema's own `parse` last. A
+  decoder's exception is an `exception` issue at the field and makes the result invalid.
+  `default` is applied by `parse` only: `check` still reports a missing required key. The value
+  given is never written to, and it is the output itself when nothing was applied; otherwise
+  the containers on the way to a change are new and the rest is shared. The options are those
+  of `check`, with `unknown` also `'strip'`.
+- **`serialize`.** `schema.serialize(value, options)` is the other direction: the schema's own
+  `serialize`, then the `serialize` function of every field from the value down to its parts,
+  through the same collections, tuples, nested structs and embedded references; `{ value }`
+  without validation, or `{ valid, value, issues }` with `options.check`, the other options
+  being those of `check`. `format` stays collected and uncalled. `parse` and `serialize` are
+  known keys of every field for the lint, and a non-function one is `ERR_INVALID_DEFINITION`.
+- **`checkAsync` and `parseAsync`.** A `validate` function (of a field or of the schema), a
+  custom type's `checkType` and a decoder may return a promise. The walk of the value is
+  synchronous; a validator that returns a promise is set aside with its path, and every
+  validator met after it with it, so that a validator still runs only when nothing under it
+  failed; after the walk they are settled one after the other, in field order, each recording
+  at its path, and `maxErrors` stops the list. The synchronous `check` and `parse` throw a
+  `TypeError` with the new code `ERR_ASYNC_VALIDATOR` for such a promise (`RuntimeErrorCode`
+  in the typings). Both backends go through the same helper, so the JIT needed no change.
+- **Typings for parse.** `InferOutput<D, E>` is the type of the value `parse` gives: `Infer`
+  with the result of every `parse` function (`Awaited`) in place of the value it decodes and
+  every defaulted key present (`null` stays where the key was optional); `ParseResult<T>`,
+  `ParseOptions`, `SerializeOptions`, `Serialized<T>` and `SerializeChecked<T>` type the new
+  methods, `FieldType` declares `parse`, `serialize` and `default`, and `Validator` and
+  `TypeEntry.checkType` may return a promise.
 - **The JIT backend.** `compile(target, options)` of the new `@alexify/metaschema/compile`
   subpath replaces the check of a schema, or of every entity of a model, with one straight-line
   function generated from the plan the closures walk and built with `new Function`; it records
@@ -97,10 +152,12 @@ TypeScript, and a fix in `check`.
 
 ### Changed
 
-- **The core entry is 12.1 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
-  the array check of a struct and the hook of the compile subpath joined it), the generators
-  subpath adds 3.9 KB and the compile subpath 3.5 KB. CI gates at 13 KB per core entry, 5 KB for
-  the generators and 4 KB for the compile subpath (`pnpm size --max-gzip 13
+- **The core entry is 15.1 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
+  3.9 KB; the array check of a struct and the hook of the compile subpath joined it; then
+  `parse`, `serialize` and the async calls added 3.1 KB, in the core rather than a subpath
+  because `~standard.validate` is `parse` and every schema is a Standard Schema), the
+  generators subpath adds 4.0 KB and the compile subpath 3.5 KB. CI gates at 16 KB per core
+  entry, 5 KB for the generators and 4 KB for the compile subpath (`pnpm size --max-gzip 16
   --max-gzip-generators 5 --max-gzip-compile 4`).
 
 ### Fixed
@@ -112,6 +169,15 @@ TypeScript, and a fix in `check`.
 
 ### Tooling
 
+- `pnpm bench` has `parse — flat struct, valid`, `parse — nested struct, valid` and `parse —
+  flat struct, defaults and a decoder` on both backends, measured as `check` is (through a
+  megamorphic call site); `bench/baseline.json` is re-saved, and the performance guide quotes
+  the rows.
+- New test suites `parse`, `serialize` and `async`, the Standard Schema suite extended for
+  `validate` as parse and for a promise, the compile suite holding `parse`, `parseAsync`,
+  `checkAsync` and `serialize` to the same results on both backends, the bundle test running
+  them through the minified bundles, and `tests/types/parse.test-d.ts` for the typings; all
+  under `test`, `test:jit` and `test:nojit`.
 - `pnpm run test:jit` runs the whole suite with every schema compiled by the JIT
   (`tests/helpers/jit.js` registers it before the suites) and `pnpm run test:nojit` the same
   under `--disallow-code-generation-from-strings`, through the fallback; CI runs both on Node
