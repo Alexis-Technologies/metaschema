@@ -35,7 +35,7 @@ test('Context: a check runs in a context of its own, not in module globals', () 
   for (const maxErrors of [0, -1, '3', NaN, null]) {
     assert.throws(() => createContext({ maxErrors }), {
       name: 'TypeError',
-      message: `maxErrors must be a number of at least 1, got ${JSON.stringify(maxErrors) ?? maxErrors}`,
+      message: `maxErrors must be an integer of at least 1, got ${JSON.stringify(maxErrors) ?? maxErrors}`,
     });
   }
 });
@@ -77,4 +77,16 @@ test('Context: the objects on the path are tracked per check', () => {
   loop.next = loop;
   assert.deepStrictEqual(node.check(loop).errors, ['Field "Node.next" is a circular reference']);
   assert.strictEqual(node.check(first).valid, true);
+});
+
+test('Context: maxErrors is a whole number, and a bigint option is named as one', () => {
+  assert.throws(() => createContext({ maxErrors: 1.5 }), {
+    message: 'maxErrors must be an integer of at least 1, got 1.5',
+  });
+  assert.throws(() => createContext({ maxErrors: 10n }), {
+    message: 'maxErrors must be an integer of at least 1, got 10n',
+  });
+  assert.strictEqual(createContext({ maxErrors: 2 }).limit, 2);
+  const schema = Schema.from({ a: 'string', b: 'string' });
+  assert.strictEqual(schema.check({}, { maxErrors: 1 }).issues.length, 1);
 });

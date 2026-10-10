@@ -200,7 +200,7 @@ test('Standard: libraryOptions are the options of check', () => {
   assert.strictEqual(validate(value, { libraryOptions: { unknown: 'ignore' } }).value, value);
   assert.throws(() => validate({}, { libraryOptions: { maxErrors: 0 } }), {
     name: 'TypeError',
-    message: 'maxErrors must be a number of at least 1, got 0',
+    message: 'maxErrors must be an integer of at least 1, got 0',
   });
 });
 
@@ -258,5 +258,31 @@ test('Standard: a consumer that knows only the specification', () => {
       ]);
       return true;
     },
+  );
+});
+
+test('Standard Schema: attaching a namespace rebuilds the props, async included', async () => {
+  const model = new Model({}, [
+    [
+      'Company',
+      { Struct: {}, name: { type: 'string', validate: async (value) => value !== 'bad' || 'bad' } },
+    ],
+  ]);
+  const person = new Schema('Person', { Struct: {}, employer: { type: 'Company', embed: true } });
+  const before = person['~standard'];
+  // Unresolved: a synchronous result with a reference issue.
+  const sync = before.validate({ employer: { name: 'x' } });
+  assert.strictEqual(sync instanceof Promise, false);
+  assert.strictEqual(sync.issues[0].message, 'Entity "Company" is not found');
+  person.attach(model);
+  const after = person['~standard'];
+  assert.notStrictEqual(after, before);
+  const result = after.validate({ employer: { name: 'bad' } });
+  assert.strictEqual(result instanceof Promise, true);
+  assert.deepStrictEqual((await result).issues[0].message, 'bad');
+  person.detach(model);
+  assert.strictEqual(
+    person['~standard'].validate({ employer: { name: 'x' } }) instanceof Promise,
+    false,
   );
 });

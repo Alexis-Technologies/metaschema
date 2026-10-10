@@ -266,14 +266,19 @@ class Schema extends SchemaMetadata {
     return { valid: context.count === 0, value, issues: context.issues };
   }
 
+  // The types and the Standard Schema props depend on the namespaces (the
+  // latter through the entities an async validator may be in), so both are
+  // rebuilt on the next use.
   attach(...namespaces) {
     for (const ns of namespaces) this.namespaces.add(ns);
     this.#types = null;
+    this.#standard = null;
   }
 
   detach(...namespaces) {
     for (const ns of namespaces) this.namespaces.delete(ns);
     this.#types = null;
+    this.#standard = null;
   }
 
   toString() {

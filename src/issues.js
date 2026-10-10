@@ -4,7 +4,7 @@
 // are rendered once, at the end of the check, through the locale of that check.
 // Every issue has the same keys in the same order, so loops over them see one
 // shape.
-const { hasBrand, shorten } = require('./util.js');
+const { hasBrand, shorten, safeString } = require('./util.js');
 const { asyncReturn } = require('./errors.js');
 const en = require('./locales/en.js');
 
@@ -128,7 +128,7 @@ const absorb = (context, output, code, fallback) => {
     push(context, { code: output.code || code, path, message: output.message, params });
     return;
   }
-  record(context, code, EMPTY, undefined, String(output));
+  record(context, code, EMPTY, undefined, safeString(output));
 };
 
 // The renderer of a code: the locale's own, else the built-in one; a code a

@@ -1,7 +1,7 @@
 // The English messages. A locale is a table of renderers by issue code: each
 // one turns the params of an issue into the text that follows the field in a
 // message. `field` renders the location prefix of an error line.
-const { shorten } = require('../util.js');
+const { shorten, safeString } = require('../util.js');
 
 const field = (path) => `Field "${path}"`;
 
@@ -39,7 +39,7 @@ const circular = () => 'is a circular reference';
 
 const depth = ({ max }) => `is nested deeper than ${max} references`;
 
-const exception = ({ error }) => `validation failed ${error}`;
+const exception = ({ error }) => `validation failed ${safeString(error)}`;
 
 const custom = () => 'validation error';
 

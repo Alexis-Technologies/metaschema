@@ -10,12 +10,16 @@ const { NONE } = require('./issues.js');
 // with the count on every field stays an integer comparison.
 const UNLIMITED = 2 ** 30 - 1;
 
-const invalid = (name, expected, value) =>
-  new TypeError(`${name} must be ${expected}, got ${JSON.stringify(value) ?? String(value)}`);
+const shown = (value) =>
+  typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 
+const invalid = (name, expected, value) =>
+  new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
+
+// A whole number of issues, or no limit at all.
 const maxErrorsOf = (maxErrors) => {
-  const valid = typeof maxErrors === 'number' && maxErrors >= 1;
-  if (!valid) throw invalid('maxErrors', 'a number of at least 1', maxErrors);
+  const valid = (Number.isInteger(maxErrors) || maxErrors === Infinity) && maxErrors >= 1;
+  if (!valid) throw invalid('maxErrors', 'an integer of at least 1', maxErrors);
   return Math.min(maxErrors, UNLIMITED);
 };
 

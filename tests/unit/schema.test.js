@@ -566,3 +566,17 @@ test('Schema: an index or an option may be called like a method, a metadata key 
   assert.strictEqual(Object.hasOwn(model.types.string.metadata, PROTO), true);
   assert.strictEqual({}.polluted, undefined);
 });
+
+test('Schema: the schema-level validate runs on the schema, and never returns a promise', () => {
+  const schema = new Schema('Doc', {
+    Struct: {},
+    a: 'string',
+    validate(value, path) {
+      return this.name === 'Doc' && path === 'body' ? null : 'wrong this or path';
+    },
+  });
+  assert.strictEqual(schema.validate({ a: 'x' }, 'body').valid, true);
+  assert.strictEqual(schema.check({ a: 'x' }).valid, false);
+  const async = Schema.from({ a: 'string', validate: async () => true });
+  assert.throws(() => async.validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+});

@@ -49,6 +49,14 @@ const shorten = (key) => {
   return name.length > KEY_LIMIT ? `${name.slice(0, KEY_LIMIT)}...` : name;
 };
 
+// The text of a value that may have none (a symbol, an object without a
+// prototype), for a message: what a validator threw or returned is anything.
+const safeString = (value) => {
+  if (typeof value === 'symbol') return value.toString();
+  const bare = value !== null && typeof value === 'object' && typeof value.toString !== 'function';
+  return bare ? Object.prototype.toString.call(value) : String(value);
+};
+
 const formatters = {
   type: (type, req = true) => {
     const required = !type.startsWith('?');
@@ -75,5 +83,6 @@ module.exports = {
   HOOK,
   ENUM_SET_SIZE,
   shorten,
+  safeString,
   formatters,
 };

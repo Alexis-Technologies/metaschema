@@ -234,3 +234,31 @@ test('Issues: a code a validator made up renders its own message, whatever the c
     'Field "c" and again',
   ]);
 });
+
+test('Issues: what a validator throws or returns is rendered whatever it is', () => {
+  const bare = Object.create(null);
+  const schema = Schema.from({
+    a: {
+      type: 'string',
+      validate: () => {
+        throw Symbol('sym');
+      },
+    },
+    b: {
+      type: 'string',
+      validate: () => {
+        throw bare;
+      },
+    },
+    c: { type: 'string', validate: () => bare },
+    d: { type: 'string', validate: () => Symbol('out') },
+  });
+  const result = schema.check({ a: 'a', b: 'b', c: 'c', d: 'd' });
+  assert.deepStrictEqual(result.errors, [
+    'Field "a" validation failed Symbol(sym)',
+    'Field "b" validation failed [object Object]',
+    'Field "c" [object Object]',
+    'Field "d" Symbol(out)',
+  ]);
+  assert.strictEqual(result.issues[0].params.error.toString(), 'Symbol(sym)');
+});

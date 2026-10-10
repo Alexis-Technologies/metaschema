@@ -700,3 +700,16 @@ test('Parse: the trial of a plain union branch runs under the path and root of t
     message: 'The validator of "Pick.u.n" returned a promise; use checkAsync or parseAsync',
   });
 });
+
+test('Parse: a default factory that throws is a programming error, as a serializer is', () => {
+  const schema = Schema.from({
+    'a?': {
+      type: 'string',
+      default: () => {
+        throw new Error('no default');
+      },
+    },
+  });
+  assert.throws(() => schema.parse({}), { message: 'no default' });
+  assert.strictEqual(schema.parse({ a: 'x' }).valid, true);
+});

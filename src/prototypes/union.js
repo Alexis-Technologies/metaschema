@@ -65,6 +65,13 @@ const union = {
     const seen = new Set();
     for (let index = 0; index < built.length; index += 1) {
       const values = valuesOf(built[index], discriminator, index);
+      // The branch is picked by the value before any default is applied, so
+      // a default on the discriminator could never decide anything.
+      if (built[index].schema[discriminator].default !== undefined) {
+        throw invalidUnion(
+          `discriminator "${discriminator}" of branch ${index} cannot have a default`,
+        );
+      }
       for (let at = 0; at < values.length; at += 1) {
         const value = values[at];
         if (seen.has(value)) {
