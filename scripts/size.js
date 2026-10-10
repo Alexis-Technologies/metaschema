@@ -1,6 +1,8 @@
 /**
  * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
- * when either entry exceeds that min+gzip budget (CI uses it as a gate).
+ * when either entry exceeds that min+gzip budget (CI uses it as a gate). The
+ * budget for 2.0 is 13 KB per entry (`pnpm size --max-gzip 13`); the `./compile`
+ * entry of 2.1 will be measured separately with a budget of its own.
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
