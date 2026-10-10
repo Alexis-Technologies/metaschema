@@ -216,6 +216,8 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 
 **A6. A benchmark gate.** Extend `bench/` with moltar-style scenarios (parseSafe/parseStrict/assertLoose/assertStrict) and a comparison with zod 4, valibot, ajv, typebox (devDependencies, only `pnpm bench --compare-libs`). Targets for 2.0 on the flat schema: valid ≥ 12 M ops/s, invalid ≥ 6 M (today 2.1 M / 0.86 M).
 
+*Status (2026-10-10):* the moltar scenarios landed and `check` is measured as a callee (`bench/helpers.js`); the comparison with other libraries moves to 2.1 with the JIT. Measured on this machine (`bench/baseline.json`, Node 24): flat valid 10.7 M, flat invalid 3.5 M, nested 2.7 M / 1.5 M, moltar 14.1–14.7 M. The valid target is a closure-backend ceiling (megamorphic loads and calls in the plan loop); the invalid path is bounded by the issue objects and is what Workstream E addresses. See §6.
+
 ### 5.2 Workstream B: language semantics (2.0, breaking)
 
 | # | Change | Files | Details |
@@ -267,6 +269,8 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 - `scripts/size.js`: budgets `index` ≤ 10 KB (2.0) / ≤ 12 KB (2.1 with JSON Schema), `./compile` ≤ 4 KB; update after measuring.
 - A cross-check test: for random values `metaschema.check(x).valid === ajv.validate(toJSONSchema(schema), x)` (ajv in devDependencies), i.e. differential testing of the export.
 
+*Status (2026-10-10):* done for 2.0 in Workstream H, with two revisions. The entries measured 12.6 KB min+gzip after D1 (A alone was 9.9 KB; union, the new types, pattern, min/max, references by kind and the lint cost about 2.6 KB), so the 2.0 budget is **13 KB per entry** (`pnpm size --max-gzip 13` in CI, CLAUDE.md "Budgets"); D2 has to measure first and either fit into it or move it. The `./compile` budget and the ajv differential test are deferred to 2.1, since they need E and D2.
+
 ---
 
 ## 6. Roadmap
@@ -279,6 +283,19 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | **2.3.0** | Ecosystem | G3 (`sample`), G4 (`fromJSONSchema`, `merge`), adapters in the sibling repositories: wrpc `signature` ↔ metaschema, migronaut `converge` from a `Model`, protoarray layout from field order, kerberos on one schema | no |
 | later | — | record-wise/streaming validation of large arrays; `Schema.infer(samples)`; more locales | — |
 
+### Status (2026-10-10, branch `feature/v2`)
+
+| Workstream | State | Where |
+| --- | --- | --- |
+| A (§5.1) validation core | done | merge 3032ce9, 2026-10-09 |
+| B (§5.2) language semantics | done | merge 67a8f41, 2026-10-10 |
+| C (§5.3) `Infer`, `Schema<D>` | done | cc8f392 + 7506c40, 2026-10-10 (no `Model<E>`: `InferEntity<E, Name>` instead, see CLAUDE.md) |
+| D1 (§5.4) Standard Schema | done | 41d3801 + b25619b, 2026-10-10 |
+| H (§5.8) docs, budgets, migration guide | done | the `docs`/`chore(ci)` commits after D1, 2026-10-10 |
+| E (§5.5) JIT, D2 JSON Schema, D3 dts annotations | next, 2.1 | with the `./compile` budget, the ajv differential test and the library comparison bench |
+
+What 2.0 delivers against the plan: all of A1–A6 except the library comparison; all of B1–B9 except "unused references" in B8 (no well-defined meaning, dropped); C without `Model<E>`; D1 with `types.input = Infer<D>`; H in full. The bundle budget is 13 KB (§5.8) and the measured `check` numbers are below the A6 targets (§5.1 status, §7).
+
 Prioritization inside 2.0 (if something has to be cut): A1–A4 and B1/B6/B7 (the fixes that change the result shape) are mandatory for 2.0; B3 `union`/`date`, B9 `pattern` and C `Infer` can ship in 2.0.x as additive if the core takes longer. D1 is cheap (≈ 20 lines) and stays in 2.0.
 
 Product consequences in the Alexis stack (outside this repository, after 2.1): kerberos keeps one schema instead of three copies (JSON Schema for Ajv, Standard Schema, `Infer`); wrpc accepts a `Schema` as `input`/`output` and generates `signature`/OpenAPI from `toJSONSchema`; migronaut runs `converge` from a `Model` (indexes, `$jsonSchema`, versioning) and validates its config through a schema instead of three copies; protoarray uses it as the IDL for the positional layout; alioth uses the metaschema snapshot as its data-model format.
@@ -289,7 +306,7 @@ Product consequences in the Alexis stack (outside this repository, after 2.1): k
 
 1. `pnpm test`, `pnpm run test:coverage` (thresholds 98/98/90/100, not relaxed), `pnpm run test:types` (new `infer.test-d.ts`, `standard.test-d.ts`), `pnpm run check:dts`, `pnpm lint`, `pnpm run format:check`, `pnpm size` with the new budgets, `pnpm docs:build` (dead links).
 2. Both backends pass one test suite; separately `node --disallow-code-generation-from-strings --test tests/unit/*.test.js` (the fallback) and the bundle test through esbuild (minified and not) for `index.js`, `browser.js`, `src/compile`.
-3. `pnpm bench --compare` against the saved baseline: check the targets (2.0: ≥ 12 M / ≥ 6 M ops/s flat valid/invalid; 2.1 JIT: ≥ 25 M) and no regressions in `Schema.from`/`new Model`.
+3. `pnpm bench --compare` against the saved baseline: check the targets (2.0: ≥ 12 M / ≥ 6 M ops/s flat valid/invalid, measured 10.7 M / 3.5 M, see §5.1 status; 2.1 JIT: ≥ 25 M) and no regressions in `Schema.from`/`new Model`.
 4. Differential tests: `check` ↔ ajv over `toJSONSchema`; `Infer` ↔ `model.dts` (tsd: the generated interface is assignable to `Infer<def>` and vice versa).
 5. Integration fixture tests: `~standard` through the `@standard-schema/spec` types; `toJSONSchema({ target: 'mongodb' })` is accepted by the `$jsonSchema` validator (a syntactic check of the keys); `toJSONSchema({ profile: 'strict' })` meets the OpenAI/Anthropic constraints (root object, `additionalProperties: false`, everything `required`).
 6. A manual pass over the documentation: the example outputs in docs are verified against the code (as today), the migration guide is run against `tests/fixtures/schemas`.
@@ -297,7 +314,7 @@ Product consequences in the Alexis stack (outside this repository, after 2.1): k
 ## 8. Risks
 
 - **The size of 2.0.** Mitigation: the order A → B → C → D1, every workstream a separate PR with a bench; the decision to move `union`/`pattern`/`Infer` into 2.0.x is taken on the facts.
-- **The size budget.** JSON Schema and union may push `index` past 8 KB; the budget is revised by measurement, the JIT always stays a separate entry.
+- **The size budget.** JSON Schema and union may push `index` past 8 KB; the budget is revised by measurement, the JIT always stays a separate entry. *Revised:* 2.0 is at 12.6 KB with a 13 KB gate (§5.8 status).
 - **JIT and security.** Generated code never contains values from a schema other than through JSON quoting/scope; injection tests are mandatory; `new Function` is never called without an explicit `compile()`.
 - **Reference semantics (B6).** The most "conceptual" change; write it up as a separate ADR paragraph in the docs with stored/memory kind examples before implementing.
 - **Compatibility with upstream ports.** After 2.0, porting metarhia fixes becomes even more manual (CLAUDE.md "Upstream sync"); this is a conscious price.
