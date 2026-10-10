@@ -74,14 +74,18 @@ class Code {
     this.lines.push(line);
   }
 
-  // The source of a factory over the scope that returns the check.
-  source() {
+  // The source of a factory over the scope that returns the check: strict
+  // code, named after the schema in a stack trace (`name` has no line
+  // terminator once encoded).
+  source(name = '') {
     let names = '';
     for (let index = 0; index < this.values.length; index += 1) {
       names += `${index === 0 ? '' : ', '}s${index} = scope[${index}]`;
     }
     const preamble = names === '' ? '' : `const ${names};\n`;
-    return `${preamble}return function jit(v, c, k) {\n${this.lines.join('\n')}\n};`;
+    const url = `alexify-metaschema-jit/${encodeURIComponent(name) || 'anonymous'}`;
+    const body = this.lines.join('\n');
+    return `"use strict";\n${preamble}return function jit(v, c, k) {\n${body}\n};\n//# sourceURL=${url}`;
   }
 }
 

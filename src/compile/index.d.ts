@@ -1,4 +1,4 @@
-import type { Model, Schema } from '../../index.js';
+import type { Model, Schema, SchemaDefinitionError } from '../../index.js';
 
 export interface CompileOptions {
   // 'auto' (the default) generates the check where the environment allows
@@ -6,17 +6,27 @@ export interface CompileOptions {
   // it does not; true throws `SchemaDefinitionError` with the code
   // `ERR_NO_EVAL` instead of falling back; false never generates code.
   jit?: 'auto' | boolean;
+  // Told of every schema the default mode could not compile, with the
+  // `ERR_JIT_BUILD` error (the error of the generator as its `cause`); the
+  // schema keeps its closures.
+  onFallback?: (schema: Schema, error: SchemaDefinitionError) => void;
 }
 
 export interface Compiled {
   // Whether the check runs generated code now; false in the fallback, where
   // the closure backend is left as it is.
   accelerated: boolean;
+  // What stopped the first check that could not be generated (`ERR_JIT_BUILD`,
+  // the generator's error as its `cause`); absent where the environment allows
+  // no code generation at all, and after `{ jit: false }`.
+  error?: SchemaDefinitionError;
 }
 
 // Replaces the check of a schema, or of every entity of a model, with the
 // generated one. The issues are the ones the closure backend records, in the
-// same order. A target that is neither is a `TypeError`.
+// same order. A target that is neither is a `TypeError`. With `jit: true` a
+// check that cannot be generated throws `ERR_JIT_BUILD` and nothing is
+// installed; `{ jit: false }` puts the closures back.
 export function compile(target: Schema | Model, options?: CompileOptions): Compiled;
 
 // Compiles every schema built from now on with these options; a later call

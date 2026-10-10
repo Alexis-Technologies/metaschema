@@ -839,9 +839,13 @@ test('Compile: the code builder quotes, names and literals', () => {
   code.push('return 1;');
   assert.strictEqual(
     code.source(),
-    'const s0 = scope[0], s1 = scope[1], s2 = scope[2];\nreturn function jit(v, c, k) {\nreturn 1;\n};',
+    '"use strict";\nconst s0 = scope[0], s1 = scope[1], s2 = scope[2];\n' +
+      'return function jit(v, c, k) {\nreturn 1;\n};\n//# sourceURL=alexify-metaschema-jit/anonymous',
   );
-  assert.strictEqual(new Code().source(), 'return function jit(v, c, k) {\n\n};');
+  assert.strictEqual(
+    new Code().source(),
+    '"use strict";\nreturn function jit(v, c, k) {\n\n};\n//# sourceURL=alexify-metaschema-jit/anonymous',
+  );
 });
 
 test('Compile: jit false leaves the closures, bad options and targets throw', () => {
@@ -907,18 +911,37 @@ test(
       throw new EvalError('blocked');
     };
     try {
-      assert.deepStrictEqual(compile(schema), { accelerated: false });
+      // The default mode reports what stopped the generation and keeps the
+      // closures; the demanded one throws it, under one code with the cause.
+      const fallen = compile(schema);
+      assert.strictEqual(fallen.accelerated, false);
+      assert.strictEqual(fallen.error.name, 'SchemaDefinitionError');
+      assert.strictEqual(fallen.error.code, 'ERR_JIT_BUILD');
+      assert.strictEqual(fallen.error.message, 'The check of "" could not be generated: blocked');
+      assert.strictEqual(fallen.error.cause.message, 'blocked');
       assert.strictEqual(schema[RUN], run);
       assert.throws(() => compile(schema, { jit: true }), {
-        name: 'EvalError',
-        message: 'blocked',
+        name: 'SchemaDefinitionError',
+        code: 'ERR_JIT_BUILD',
+        message: 'The check of "" could not be generated: blocked',
       });
       assert.strictEqual(schema[RUN], run);
+      // register tells onFallback of every schema it could not compile.
+      const calls = [];
+      register({ onFallback: (built, error) => calls.push([built.name, error.code]) });
+      const later = new Schema('Later', { a: 'string' });
+      register({ jit: false });
+      assert.deepStrictEqual(calls, [['Later', 'ERR_JIT_BUILD']]);
+      assert.strictEqual(later[RUN].name, '');
     } finally {
       globalThis.Function = Original;
     }
     assert.deepStrictEqual(compile(schema), { accelerated: true });
     assert.strictEqual(schema[RUN].name, 'jit');
+    assert.throws(() => register({ onFallback: 1 }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Compile option "onFallback" must be a function',
+    });
     // A model is compiled all or nothing when the JIT is demanded: an error
     // on the second entity leaves the first one as it was.
     const model = new Model({}, [
@@ -932,7 +955,10 @@ test(
       return Original(...args);
     };
     try {
-      assert.throws(() => compile(model, { jit: true }), { message: 'second' });
+      assert.throws(() => compile(model, { jit: true }), {
+        code: 'ERR_JIT_BUILD',
+        message: 'The check of "B" could not be generated: second',
+      });
     } finally {
       globalThis.Function = Original;
     }
@@ -1060,4 +1086,25 @@ test('Compile: a failed branch of a plain union drops its deferred validators on
   const expected = await run(closures);
   assert.deepStrictEqual(expected[0], []);
   assert.deepStrictEqual(await run(compiled), expected);
+});
+
+test('Compile: the generated source is strict and named after the schema', () => {
+  const user = new Schema('User', { name: 'string' });
+  const source = sourceOf(user);
+  assert.strictEqual(source.startsWith('"use strict";\n'), true);
+  // The builder is given the name by compile; the test builder has none.
+  assert.strictEqual(source.endsWith('\n//# sourceURL=alexify-metaschema-jit/anonymous'), true);
+  const code = new Code();
+  emitRoot(user, code);
+  assert.strictEqual(
+    code.source('Us er/1').endsWith('//# sourceURL=alexify-metaschema-jit/Us%20er%2F1'),
+    true,
+  );
+  if (canEval()) {
+    compile(user, { jit: true });
+    assert.strictEqual(user[RUN].name, 'jit');
+    assert.deepStrictEqual(user.check({ name: 1 }).errors, [
+      'Field "User.name" not of expected type: string',
+    ]);
+  }
 });

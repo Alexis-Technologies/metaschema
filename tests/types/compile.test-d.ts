@@ -2,7 +2,7 @@ import { expectAssignable, expectError, expectType } from 'tsd';
 import { Model, Schema } from '../../index.js';
 import { canEval, compile, register } from '../../src/compile/index.js';
 import type { CompileOptions, Compiled } from '../../src/compile/index.js';
-import type { DefinitionErrorCode } from '../../index.js';
+import type { DefinitionErrorCode, SchemaDefinitionError } from '../../index.js';
 
 const user = Schema.from({ name: 'string', age: '?number' });
 const model = new Model({}, [['User', { name: 'string' }]]);
@@ -28,5 +28,10 @@ expectType<boolean>(canEval());
 const options: CompileOptions = { jit: true };
 expectType<'auto' | boolean | undefined>(options.jit);
 
-// The code of the error `jit: true` throws without eval.
+// The code of the error `jit: true` throws without eval, and the one of a
+// check that could not be generated, reported in the default mode.
 expectAssignable<DefinitionErrorCode>('ERR_NO_EVAL');
+expectAssignable<DefinitionErrorCode>('ERR_JIT_BUILD');
+expectType<SchemaDefinitionError | undefined>(compile(user).error);
+expectType<void>(register({ onFallback: (schema, error) => void [schema, error.code] }));
+expectError(register({ onFallback: 1 }));

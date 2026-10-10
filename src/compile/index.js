@@ -12,19 +12,23 @@ const { SchemaDefinitionError } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
-const MODES = ['auto', true, false];
+const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
 
-const modeOf = (options) => {
+// The options of compile and register: the mode, and the function told of
+// every schema the default mode could not compile.
+const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    const reason = `Compile options must be an object, got ${JSON.stringify(options)}`;
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+    throw invalidOptions(`Compile options must be an object, got ${JSON.stringify(options)}`);
   }
-  const { jit = 'auto' } = options;
-  if (!MODES.includes(jit)) {
-    const reason = `Compile option "jit" must be "auto", true or false, got ${JSON.stringify(jit)}`;
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+  const { jit = 'auto', onFallback } = options;
+  if (jit !== 'auto' && jit !== true && jit !== false) {
+    const got = JSON.stringify(jit);
+    throw invalidOptions(`Compile option "jit" must be "auto", true or false, got ${got}`);
   }
-  return jit;
+  if (onFallback !== undefined && typeof onFallback !== 'function') {
+    throw invalidOptions('Compile option "onFallback" must be a function');
+  }
+  return { mode: jit, onFallback };
 };
 
 let evaluates = null;
@@ -58,12 +62,30 @@ const accelerates = (mode) => {
   return false;
 };
 
+// What went wrong when the check of a schema could not be generated: the
+// error of the emitter or of `new Function` as the cause, under one code.
+const failure = (target, error) => {
+  const reason = `The check of "${target.name}" could not be generated: ${error.message}`;
+  const wrapped = new SchemaDefinitionError('ERR_JIT_BUILD', reason);
+  wrapped.cause = error;
+  return wrapped;
+};
+
 const build = (target) => {
   const code = new Code();
   emitRoot(target, code);
   // oxlint-disable-next-line no-new-func
-  const factory = new Function('scope', code.source());
+  const factory = new Function('scope', code.source(target.name));
   return factory(code.values);
+};
+
+// The generated check, or ERR_JIT_BUILD: the JIT was demanded.
+const generate = (target) => {
+  try {
+    return build(target);
+  } catch (error) {
+    throw failure(target, error);
+  }
 };
 
 // The check a schema was built with, kept when the generated one replaces it
@@ -81,16 +103,18 @@ const restore = (target) => {
 };
 
 // Replaces the check of a schema with the generated one; a failure to build
-// it is a fallback.
-const install = (target) => {
+// it is a fallback, reported to `onFallback` and returned.
+const install = (target, onFallback) => {
   let run;
   try {
     run = build(target);
-  } catch {
-    return false;
+  } catch (error) {
+    const wrapped = failure(target, error);
+    if (onFallback !== undefined) onFallback(target, wrapped);
+    return wrapped;
   }
   replace(target, run);
-  return true;
+  return undefined;
 };
 
 const schemasOf = (target) => {
@@ -101,37 +125,40 @@ const schemasOf = (target) => {
   return schemas;
 };
 
-// `{ accelerated }`: whether the check of the schema (of every entity of the
-// model) runs generated code now; false in the fallback, where the closure
-// backend is left as it is, and after `{ jit: false }`, which puts the
-// closures back. When the JIT is demanded every check is built before any is
-// installed, so an error leaves the model as it was.
+// `{ accelerated, error }`: whether the check of the schema (of every entity
+// of the model) runs generated code now, and what stopped the first one that
+// does not; false without an error where the environment allows no code
+// generation and after `{ jit: false }`, which puts the closures back. When
+// the JIT is demanded every check is built before any is installed, so an
+// error leaves the model as it was.
 const compile = (target, options = {}) => {
-  const mode = modeOf(options);
+  const { mode, onFallback } = optionsOf(options);
   const schemas = schemasOf(target);
   const { length } = schemas;
   if (!accelerates(mode)) {
     for (let index = 0; index < length; index += 1) restore(schemas[index]);
     return { accelerated: false };
   }
-  let accelerated = true;
   if (mode === true) {
     const runs = [];
-    for (let index = 0; index < length; index += 1) runs.push(build(schemas[index]));
+    for (let index = 0; index < length; index += 1) runs.push(generate(schemas[index]));
     for (let index = 0; index < length; index += 1) replace(schemas[index], runs[index]);
-  } else {
-    for (let index = 0; index < length; index += 1) {
-      if (!install(schemas[index])) accelerated = false;
-    }
+    return { accelerated: true };
   }
-  return { accelerated };
+  let error;
+  for (let index = 0; index < length; index += 1) {
+    const failed = install(schemas[index], onFallback);
+    if (failed !== undefined && error === undefined) error = failed;
+  }
+  return error === undefined ? { accelerated: true } : { accelerated: false, error };
 };
 
 // Compiles every schema built from now on, with these options; a later call
 // replaces them, and `{ jit: false }` stops it. A schema built before the
-// call is not touched.
+// call is not touched. In the default mode `onFallback` is told of every
+// schema that keeps its closures because its check could not be generated.
 const register = (options = {}) => {
-  const mode = modeOf(options);
+  const { mode, onFallback } = optionsOf(options);
   if (!accelerates(mode)) {
     Schema[HOOK] = undefined;
     return;
@@ -139,10 +166,10 @@ const register = (options = {}) => {
   Schema[HOOK] =
     mode === true
       ? (schema) => {
-          replace(schema, build(schema));
+          replace(schema, generate(schema));
         }
       : (schema) => {
-          install(schema);
+          install(schema, onFallback);
         };
 };
 

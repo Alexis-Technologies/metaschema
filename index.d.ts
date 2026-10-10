@@ -308,7 +308,11 @@ export type DefinitionErrorCode =
   | 'ERR_UNREPRESENTABLE'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
-  | 'ERR_NO_EVAL';
+  | 'ERR_NO_EVAL'
+  // The check of a schema could not be generated (the generator's error is the
+  // `cause`): thrown with `jit: true`, reported as `error` and to `onFallback`
+  // in the default mode.
+  | 'ERR_JIT_BUILD';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
