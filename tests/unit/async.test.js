@@ -600,3 +600,28 @@ test('Async: a promise the check cannot wait for never rejects unhandled', async
     process.off('unhandledRejection', listen);
   }
 });
+
+test('Async: the decoders that reject respect maxErrors', async () => {
+  const schema = Schema.from({
+    a: {
+      type: 'string',
+      parse: async () => {
+        throw new Error('a');
+      },
+    },
+    b: {
+      type: 'string',
+      parse: async () => {
+        throw new Error('b');
+      },
+    },
+  });
+  const limited = await schema.parseAsync({ a: 'x', b: 'y' }, { maxErrors: 1 });
+  assert.strictEqual(limited.valid, false);
+  assert.strictEqual(limited.issues.length, 1);
+  const all = await schema.parseAsync({ a: 'x', b: 'y' });
+  assert.deepStrictEqual(summarize(all.issues), [
+    [['a'], 'validation failed Error: a'],
+    [['b'], 'validation failed Error: b'],
+  ]);
+});

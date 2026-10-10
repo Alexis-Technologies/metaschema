@@ -259,7 +259,7 @@ const decode = (info, node, value, context, key) => {
   // A real Promise of a box from here on, whatever the decoder returned; a
   // decoder that failed resolves to nothing and records its issue.
   return Promise.resolve(out).then(boxed, (error) => {
-    at(context, where, () => issues.exception(context, error));
+    if (context.count < context.limit) at(context, where, () => issues.exception(context, error));
     return boxed(undefined);
   });
 };
@@ -363,21 +363,35 @@ const walkKeyed = (info, node, value, context, key, phase) => {
   return leave(state);
 };
 
-// A context for trying the branches of a plain union: the policies of the
-// parse, one issue at most, and the promises of an async parse set aside as
-// the check sets them aside, so the branch is the one the check picks.
-const accepts = (branch, value, scratch, async) => {
+// The context for trying the branches of a plain union, one per parse, made
+// at the first plain union met: the policies and the root of the parse, one
+// issue at most, and a list for the promises so that a validator is set aside
+// as the check sets it aside instead of failing the trial.
+const scratchOf = (context) => {
+  let scratch = context.scratch;
+  if (scratch === null) {
+    scratch = createContext(undefined, context.root, context.unknown);
+    scratch.references = context.references;
+    scratch.limit = 1;
+    scratch.async = [];
+    context.scratch = scratch;
+  }
+  return scratch;
+};
+
+// Whether a branch accepts the value, as the check decides it: under the
+// path of the parse (the branch pushes the key as the union's check does).
+// The validators the trial set aside are not run: the check of the value
+// picks the branch and runs them for real.
+const accepts = (branch, value, scratch, path, key) => {
   scratch.issues = NONE;
   scratch.count = 0;
-  scratch.async = async ? [] : null;
-  branch.check(value, scratch);
-  // The validators the trial set aside are not run: the check of the value
-  // picks the branch and runs them for real.
-  if (async) {
-    const list = scratch.async;
-    for (let index = 0; index < list.length; index += 1) {
-      if (list[index].promise !== null) abandon(list[index].promise);
-    }
+  scratch.path = path;
+  const list = scratch.async;
+  list.length = 0;
+  branch.check(value, scratch, key);
+  for (let index = 0; index < list.length; index += 1) {
+    if (list[index].promise !== null) abandon(list[index].promise);
   }
   return scratch.count === 0;
 };
@@ -394,15 +408,12 @@ const walkUnion = (info, node, value, context, key, phase) => {
     if (index === undefined) return value;
     return apply(infos[index], children[index], value, context, key, phase);
   }
-  const scratch = createContext(undefined, '', context.unknown);
-  scratch.references = context.references;
-  scratch.limit = 1;
-  const async = context.async !== null;
+  const scratch = scratchOf(context);
   for (let index = 0; index < children.length; index += 1) {
     const branch = children[index];
     const sub = infos[index];
     const prepared = phase === DEFAULTS ? apply(sub, branch, value, context, key, phase) : value;
-    if (!accepts(branch, prepared, scratch, async)) continue;
+    if (!accepts(branch, prepared, scratch, context.path, key)) continue;
     return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase);
   }
   return value;

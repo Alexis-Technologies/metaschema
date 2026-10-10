@@ -97,6 +97,9 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     // the walk by checkAsync and parseAsync; null in a synchronous check,
     // where such a promise is an error.
     async: null,
+    // The context parse tries the branches of a plain union in, made at the
+    // first such union of a pass and reused for the rest; null in a check.
+    scratch: null,
   };
   if (options !== undefined) configure(context, options, parsing);
   return context;

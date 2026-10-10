@@ -651,3 +651,52 @@ test('Parse: a thenable in the data is data, never awaited or adopted', () => {
   const value = { then: (resolve) => resolve('hijacked') };
   assert.strictEqual(named.parse(value, { unknown: 'strip' }).value.then, value.then);
 });
+
+test('Parse: the trial of a plain union branch runs under the path and root of the parse', () => {
+  const paths = [];
+  const schema = new Schema('Pick', {
+    box: {
+      u: {
+        union: [
+          {
+            Struct: {},
+            n: {
+              type: 'number',
+              validate: (value, path) => {
+                paths.push(path);
+                return true;
+              },
+            },
+            'd?': { type: 'number', default: 1 },
+          },
+          'string',
+        ],
+      },
+    },
+  });
+  const result = schema.parse({ box: { u: { n: 1 } } });
+  assert.deepStrictEqual(result, {
+    valid: true,
+    value: { box: { u: { n: 1, d: 1 } } },
+    issues: [],
+  });
+  // The trial before the check, then the check itself: the same path both times.
+  assert.deepStrictEqual(paths, ['Pick.box.u.n', 'Pick.box.u.n']);
+  // A validator that returns a promise is reported by the check, at its path.
+  const async = new Schema('Pick', {
+    u: {
+      union: [
+        {
+          Struct: {},
+          n: { type: 'number', validate: async () => true },
+          'd?': { type: 'number', default: 1 },
+        },
+        'string',
+      ],
+    },
+  });
+  assert.throws(() => async.parse({ u: { n: 1 } }), {
+    code: 'ERR_ASYNC_VALIDATOR',
+    message: 'The validator of "Pick.u.n" returned a promise; use checkAsync or parseAsync',
+  });
+});

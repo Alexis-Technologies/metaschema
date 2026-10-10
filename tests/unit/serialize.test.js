@@ -257,3 +257,19 @@ test('Serialize: format is collected and never called', () => {
   schema.check({ a: 'x' });
   assert.deepStrictEqual(calls, []);
 });
+
+test('Serialize: an async validator inside a plain union is no error of the serialization', () => {
+  const schema = Schema.from({
+    u: {
+      union: [
+        {
+          Struct: {},
+          n: { type: 'number', validate: async () => true, serialize: (n) => String(n) },
+        },
+        'string',
+      ],
+    },
+  });
+  assert.deepStrictEqual(schema.serialize({ u: { n: 1 } }), { value: { u: { n: '1' } } });
+  assert.deepStrictEqual(schema.serialize({ u: 's' }), { value: { u: 's' } });
+});
