@@ -153,4 +153,4 @@ const compileRules = (type, rules) => {
   return checks;
 };
 
-module.exports = { FORMAT, notApplicable, compileRules, codePoints };
+module.exports = { FORMAT, notApplicable, compileRules, codePoints, lengthOf };

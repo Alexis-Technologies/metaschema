@@ -1,6 +1,6 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, INSPECT, RUN, hasBrand } = require('./util.js');
+const { BRAND, INSPECT, RUN, HOOK, hasBrand } = require('./util.js');
 const { createContext } = require('./context.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
@@ -89,6 +89,8 @@ class Schema extends SchemaMetadata {
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
     this[RUN] = compileSchema(this);
+    const hook = Schema[HOOK];
+    if (hook !== undefined) hook(this);
   }
 
   // What is not wrong enough to throw: `Warning [code]: text` strings.

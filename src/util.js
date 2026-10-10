@@ -14,6 +14,12 @@ const hasBrand = (value, name) => value?.[BRAND] === name;
 // symbol like BRAND, so a schema from another copy of the package has it too.
 const RUN = Symbol.for('alexify.metaschema.run');
 
+// A slot on the Schema class for a function to call with every schema built
+// (`Schema[HOOK]`): the `./compile` subpath installs its JIT there, so a
+// program that registered it gets every later schema compiled. Nothing in the
+// core sets it, and it is read once per construction, never per check.
+const HOOK = Symbol.for('alexify.metaschema.hook');
+
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
 const KEY_LIMIT = 100;
@@ -44,6 +50,7 @@ module.exports = {
   INSPECT,
   hasBrand,
   RUN,
+  HOOK,
   shorten,
   formatters,
 };
