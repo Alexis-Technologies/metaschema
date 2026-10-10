@@ -221,3 +221,16 @@ test('Issues: maxErrors stops collecting and walking', () => {
     assert.throws(() => schema.check({}, { maxErrors }), { name: 'TypeError' });
   }
 });
+
+test('Issues: a code a validator made up renders its own message, whatever the code', () => {
+  const schema = Schema.from({
+    a: { type: 'string', validate: () => ({ code: 'constructor', message: 'made up' }) },
+    b: { type: 'string', validate: () => ({ code: '__proto__', message: 'also made up' }) },
+    c: { type: 'string', validate: () => ({ code: 'toString', message: 'and again' }) },
+  });
+  assert.deepStrictEqual(schema.check({ a: 'x', b: 'y', c: 'z' }).errors, [
+    'Field "a" made up',
+    'Field "b" also made up',
+    'Field "c" and again',
+  ]);
+});

@@ -6,11 +6,9 @@ const { TYPES, createRegistry, typeFactory } = require('./types.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { warning } = require('./lint.js');
 
-const REGISTRIES = ['shared', 'isolated'];
-
 const registryFor = (options) => {
   const { registry = 'shared' } = options;
-  if (!REGISTRIES.includes(registry)) {
+  if (registry !== 'shared' && registry !== 'isolated') {
     const reason = `Model option "registry" must be "shared" or "isolated", got ${JSON.stringify(registry)}`;
     throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
   }
@@ -54,13 +52,17 @@ class Model {
   get warnings() {
     if (this.#warnings !== null) return this.#warnings;
     const warnings = [];
+    const add = (list) => {
+      for (let index = 0; index < list.length; index += 1) warnings.push(list[index]);
+    };
     for (const pair of this.entities) {
       const name = pair[0];
       const entity = pair[1];
       if (name.startsWith('.')) continue;
-      warnings.push(...entity.warnings, ...entity.checkConsistency());
+      add(entity.warnings);
+      add(entity.checkConsistency());
     }
-    warnings.push(...this.#cycles);
+    add(this.#cycles);
     this.#warnings = warnings;
     return warnings;
   }

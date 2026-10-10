@@ -60,7 +60,7 @@ const modelMethods = {
 // never sees them.
 const install = (prototype, members) => {
   const descriptors = Object.getOwnPropertyDescriptors(members);
-  for (const name of Object.keys(descriptors)) {
+  for (const name in descriptors) {
     descriptors[name].enumerable = false;
     Object.defineProperty(prototype, name, descriptors[name]);
   }

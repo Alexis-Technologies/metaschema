@@ -41,15 +41,20 @@ const lintField = (field, path, warnings) => {
     warnings.push(warning('unbounded-pattern', text));
   }
   if (field.schema !== undefined) lintStruct(field.schema, path, warnings);
-  if (field.value !== undefined) {
-    if (Array.isArray(field.value)) {
-      field.value.forEach((element, index) => lintField(element, `${path}[${index}]`, warnings));
+  const { value, union } = field;
+  if (value !== undefined) {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        lintField(value[index], `${path}[${index}]`, warnings);
+      }
     } else {
-      lintField(field.value, `${path}[]`, warnings);
+      lintField(value, `${path}[]`, warnings);
     }
   }
-  if (field.union !== undefined) {
-    field.union.forEach((branch, index) => lintField(branch, `${path}|${index}`, warnings));
+  if (union !== undefined) {
+    for (let index = 0; index < union.length; index += 1) {
+      lintField(union[index], `${path}|${index}`, warnings);
+    }
   }
 };
 

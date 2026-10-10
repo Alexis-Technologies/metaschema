@@ -4,8 +4,7 @@ const { SchemaDefinitionError } = require('../errors.js');
 // The keys of a keyed collection are strings or numbers; anything else can
 // never match a key, and the JIT quotes the key type into its source.
 const invalidKey = (type) => {
-  const hint = `{ ${type}: { string: ... } } or { type: '${type}', key: 'string', value: ... }`;
-  const reason = `Type "${type}" needs a key type of "string" or "number": ${hint}`;
+  const reason = `Type "${type}" needs a key type of "string" or "number"`;
   return new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
 };
 

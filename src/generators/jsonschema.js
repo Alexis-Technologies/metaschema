@@ -72,7 +72,10 @@ const option = (options, name, allowed) => {
   const value = options[name];
   if (value === undefined) return allowed[0];
   if (!allowed.includes(value)) {
-    const list = allowed.map((item) => JSON.stringify(item)).join(', ');
+    let list = '';
+    for (let index = 0; index < allowed.length; index += 1) {
+      list += `${index === 0 ? '' : ', '}${JSON.stringify(allowed[index])}`;
+    }
     const got = JSON.stringify(value);
     throw invalidOptions(`JSON Schema option "${name}" must be one of ${list}, got ${got}`);
   }
@@ -236,11 +239,14 @@ const isJSON = (value) =>
 
 const enumeration = (field, context) => {
   const values = field.enum;
-  for (const value of values) {
+  const copy = [];
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
     if (!isJSON(value)) return unrepresentable(context, `Enum value ${String(value)}`);
+    copy.push(value);
   }
-  if (values.length === 1 && context.target.const === true) return { const: values[0] };
-  return { enum: values.slice() };
+  if (copy.length === 1 && context.target.const === true) return { const: copy[0] };
+  return { enum: copy };
 };
 
 // A tuple is `prefixItems` in 2020-12 and an `items` list before it; OpenAPI
@@ -249,7 +255,14 @@ const tuple = (field, context) => {
   const form = context.target.tuple;
   if (form === undefined) return unrepresentable(context, 'Type "tuple"');
   const elements = field.value;
-  const items = elements.map((element) => render(element, context));
+  const items = [];
+  // The elements, and the position of the last required one in one pass.
+  let min = 0;
+  for (let index = 0; index < elements.length; index += 1) {
+    const element = elements[index];
+    items.push(render(element, context));
+    if (element.required) min = index + 1;
+  }
   const json = { [context.key]: 'array' };
   if (form === 'prefixItems') {
     json.prefixItems = items;
@@ -259,16 +272,15 @@ const tuple = (field, context) => {
     json.additionalItems = false;
   }
   if (context.strict) return json;
-  let min = 0;
-  elements.forEach((element, index) => {
-    if (element.required) min = index + 1;
-  });
   if (min > 0) json.minItems = min;
   return json;
 };
 
 const union = (field, context) => {
-  const branches = field.union.map((branch) => render(branch, context));
+  const branches = [];
+  for (let index = 0; index < field.union.length; index += 1) {
+    branches.push(render(field.union[index], context));
+  }
   if (field.discriminator !== undefined && context.target.oneOf === true) {
     return { oneOf: branches, discriminator: { propertyName: field.discriminator } };
   }

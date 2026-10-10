@@ -6,6 +6,7 @@ class ValidationResult {
   #root;
   #messages;
   #errors = null;
+  #summary = null;
 
   // A check builds its result from its context, which carries the root label,
   // the locale of the call and the issues under these names; a validator that
@@ -33,7 +34,8 @@ class ValidationResult {
   }
 
   get summary() {
-    return this.errors.join('\n');
+    if (this.#summary === null) this.#summary = this.errors.join('\n');
+    return this.#summary;
   }
 
   add(error, code = 'custom') {
@@ -42,6 +44,7 @@ class ValidationResult {
     this.issues = context.issues;
     finalize(this.issues, this.#messages);
     this.#errors = null;
+    this.#summary = null;
     return this;
   }
 

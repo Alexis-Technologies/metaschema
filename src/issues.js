@@ -83,13 +83,8 @@ const toDotPath = (path, root = '') => {
 
 // The path of an issue returned by a validator is relative to the field the
 // validator belongs to: an array of keys, or a single key.
-const relative = (context, path) => {
-  if (path === undefined) return context.path.slice();
-  if (Array.isArray(path)) return context.path.concat(path);
-  const keys = context.path.slice();
-  keys.push(path);
-  return keys;
-};
+const relative = (context, path) =>
+  Array.isArray(path) ? context.path.concat(path) : pathOf(context, path);
 
 const isIssue = (output) =>
   output !== null && typeof output === 'object' && typeof output.message === 'string';
@@ -135,10 +130,17 @@ const absorb = (context, output, code, fallback) => {
   record(context, code, EMPTY, undefined, String(output));
 };
 
+// The renderer of a code: the locale's own, else the built-in one; a code a
+// validator made up (`constructor` included) has none.
+const rendererOf = (messages, code) => {
+  if (Object.hasOwn(messages, code)) return messages[code];
+  return Object.hasOwn(en, code) ? en[code] : undefined;
+};
+
 const render = (messages, issue) => {
   if (typeof messages === 'function') return messages(issue);
-  const detail = messages[issue.code] || en[issue.code];
-  return detail === undefined ? issue.message : detail(issue.params, issue);
+  const detail = rendererOf(messages, issue.code);
+  return typeof detail === 'function' ? detail(issue.params, issue) : issue.message;
 };
 
 // Messages are produced once, after the walk, for the issues that have none

@@ -6,7 +6,7 @@ const { SchemaDefinitionError } = require('./errors.js');
 // The first key of an object decides what it is: a Schema or a built field is
 // used as it is, a capitalized key is a kind, `type` is the long form, a type
 // name is that type's shorthand, and anything else is a nested struct.
-const PARSERS = {
+const PARSERS = Object.assign(Object.create(null), {
   string: ['stringShorthand'],
   object: [
     'schemaInstance',
@@ -18,7 +18,7 @@ const PARSERS = {
   ],
   function: ['functionField'],
   array: ['tupleShorthand'],
-};
+});
 
 const sourceType = (src) => {
   if (src === null) return 'null';

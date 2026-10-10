@@ -40,10 +40,8 @@ const unknownOf = (unknown, parsing) => {
   );
 };
 
-const REFERENCES = ['kind', 'embed', 'id'];
-
 const referencesOf = (references) => {
-  if (!REFERENCES.includes(references)) {
+  if (references !== 'kind' && references !== 'embed' && references !== 'id') {
     throw invalid('references', '"kind", "embed" or "id"', references);
   }
   return references;

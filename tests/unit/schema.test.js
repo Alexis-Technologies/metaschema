@@ -548,3 +548,21 @@ test('Schema: validate(value, path) runs only the schema-level function', () => 
   assert.ok(thrown.issues[0].params.error instanceof Error);
   assert.strictEqual(Schema.from({ field: 'string' }).validate({}), null);
 });
+
+test('Schema: an index or an option may be called like a method, a metadata key like anything', () => {
+  // `indexes` and `options` are dictionaries, not instances with methods.
+  const schema = new Schema('Table', {
+    Entity: {},
+    a: 'string',
+    extract: { index: ['a'] },
+    constructor: { unique: ['a'] },
+  });
+  assert.deepStrictEqual(Object.keys(schema.indexes), ['extract', 'constructor']);
+  assert.strictEqual(schema.check({ a: 'x' }).valid, true);
+  assert.strictEqual(Object.getPrototypeOf(schema.options), null);
+  // The metadata of a type is a dictionary: `__proto__` is a key of it.
+  const PROTO = '__proto__';
+  const model = new Model({ string: { metadata: { [PROTO]: { polluted: true } } } }, []);
+  assert.strictEqual(Object.hasOwn(model.types.string.metadata, PROTO), true);
+  assert.strictEqual({}.polluted, undefined);
+});

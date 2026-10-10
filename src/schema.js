@@ -147,8 +147,9 @@ class Schema extends SchemaMetadata {
   get types() {
     if (this.namespaces.size === 0) return TYPES;
     if (this.#types === null) {
-      const types = Array.from(this.namespaces).map((ns) => ns.types);
-      this.#types = Object.assign(Object.create(null), ...types);
+      const types = Object.create(null);
+      for (const ns of this.namespaces) Object.assign(types, ns.types);
+      this.#types = types;
     }
     return this.#types;
   }

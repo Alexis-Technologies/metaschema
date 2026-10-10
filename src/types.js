@@ -25,7 +25,8 @@ const customTypeError = (name, reason) =>
 
 const createType = (name, prototype) => {
   class Type extends AbstractType {
-    static metadata = {};
+    // A null-prototype dictionary: a metadata key may be anything.
+    static metadata = Object.create(null);
     static type = name;
     static kind = prototype.kind;
     static rules = new Set(prototype.rules);

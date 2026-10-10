@@ -50,13 +50,14 @@ const formatPattern = (value) => {
   }
 };
 
-// The formatter of each rule, by name; the names are the rules that exist.
-const FORMAT = {
+// The formatter of each rule, by name; the names are the rules that exist. A
+// null-prototype dictionary: a definition key may be called `constructor`.
+const FORMAT = Object.assign(Object.create(null), {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
-};
+});
 
 const notApplicable = (rule, type, rules) => {
   const hint = rule === 'length' && rules.has('min') ? '; use min and max' : '';
@@ -138,19 +139,33 @@ const compilePattern = (type) => {
   };
 };
 
-// The checks of the rules a field carries, in the order the type lists them.
-const compileRules = (type, rules) => {
-  const checks = [];
-  if (rules.size === 0) return checks;
+// The rules a field carries, by name, in the order its type lists them, min
+// and max as the one `range`: the order the closures run them in and the JIT
+// emits them in.
+const ruleNames = (type) => {
+  const names = [];
   let range = false;
-  for (const name of rules) {
+  for (const name of type.constructor.rules) {
     if (type[name] === undefined) continue;
-    if (name === 'length') checks.push(compileLength(type));
-    else if (name === 'pattern') checks.push(compilePattern(type));
-    else if (name === 'min' || name === 'max') range = true;
+    if (name === 'min' || name === 'max') range = true;
+    else names.push(name);
   }
-  if (range) checks.push(compileRange(type));
+  if (range) names.push('range');
+  return names;
+};
+
+const COMPILERS = Object.assign(Object.create(null), {
+  length: compileLength,
+  pattern: compilePattern,
+  range: compileRange,
+});
+
+// The checks of the rules a field carries.
+const compileRules = (type) => {
+  const names = ruleNames(type);
+  const checks = [];
+  for (let index = 0; index < names.length; index += 1) checks.push(COMPILERS[names[index]](type));
   return checks;
 };
 
-module.exports = { FORMAT, notApplicable, compileRules, codePoints, lengthOf };
+module.exports = { FORMAT, notApplicable, ruleNames, compileRules, codePoints, lengthOf };

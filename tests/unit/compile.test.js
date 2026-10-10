@@ -50,12 +50,17 @@ const snapshot = (schema, values) =>
   values.map((value) => OPTIONS.map((options) => outcome(schema, value, options)));
 
 const compare = (schema, values, before) => {
-  values.forEach((value, index) => {
-    OPTIONS.forEach((options, position) => {
+  for (let index = 0; index < values.length; index += 1) {
+    for (let position = 0; position < OPTIONS.length; position += 1) {
+      const options = OPTIONS[position];
       const label = `${schema.name || 'schema'}: value ${index}, options ${JSON.stringify(options)}`;
-      assert.deepStrictEqual(outcome(schema, value, options), before[index][position], label);
-    });
-  });
+      assert.deepStrictEqual(
+        outcome(schema, values[index], options),
+        before[index][position],
+        label,
+      );
+    }
+  }
 };
 
 // The closure backend's verdict on every value under every option, then the

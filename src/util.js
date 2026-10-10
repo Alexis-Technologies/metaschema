@@ -36,6 +36,10 @@ const RUN = Symbol.for('alexify.metaschema.run');
 // core sets it, and it is read once per construction, never per check.
 const HOOK = Symbol.for('alexify.metaschema.hook');
 
+// Past this many values an enum is checked through a Set instead of a chain
+// of comparisons, on both backends.
+const ENUM_SET_SIZE = 8;
+
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
 const KEY_LIMIT = 100;
@@ -69,6 +73,7 @@ module.exports = {
   define,
   RUN,
   HOOK,
+  ENUM_SET_SIZE,
   shorten,
   formatters,
 };

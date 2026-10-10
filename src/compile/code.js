@@ -76,8 +76,11 @@ class Code {
 
   // The source of a factory over the scope that returns the check.
   source() {
-    const names = this.values.map((value, index) => `s${index} = scope[${index}]`);
-    const preamble = names.length === 0 ? '' : `const ${names.join(', ')};\n`;
+    let names = '';
+    for (let index = 0; index < this.values.length; index += 1) {
+      names += `${index === 0 ? '' : ', '}s${index} = scope[${index}]`;
+    }
+    const preamble = names === '' ? '' : `const ${names};\n`;
     return `${preamble}return function jit(v, c, k) {\n${this.lines.join('\n')}\n};`;
   }
 }

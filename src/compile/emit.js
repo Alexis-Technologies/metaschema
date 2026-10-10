@@ -7,19 +7,17 @@
 //
 // Generated code names three things: `v` the value, `c` the context and `k`
 // the key the root was called with. Every other identifier is fresh.
+const { ENUM_SET_SIZE } = require('../util.js');
 const { issues, runValidate } = require('../issues.js');
-const { codePoints, lengthOf } = require('../rules.js');
+const { codePoints, lengthOf, ruleNames } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
 const { schema } = require('../prototypes/schema.js');
 const { tuple } = require('../prototypes/tuple.js');
-const { union } = require('../prototypes/union.js');
+const { union, nameOf, tableOf } = require('../prototypes/union.js');
 const { json } = require('../prototypes/json.js');
 const { prop, quote, literal } = require('./code.js');
-
-// Past this many values a Set lookup replaces a chain of comparisons.
-const ENUM_SET_SIZE = 8;
 
 // The key of the field under check, as source: a quoted name, an index, a
 // loop variable, or nothing at the root (`undefined` here, `void 0` there).
@@ -96,19 +94,17 @@ const emitRange = (type, x, key, state) => {
   code.push('}');
 };
 
-const RULES = { length: emitLength, pattern: emitPattern };
+const RULES = Object.assign(Object.create(null), {
+  length: emitLength,
+  pattern: emitPattern,
+  range: emitRange,
+});
 
-// The rules of a field in the order the closure backend runs them: length,
-// pattern, then one range check for min and max.
+// The rules of a field in the order the closure backend runs them.
 const rulesOf = (type) => {
+  const names = ruleNames(type);
   const list = [];
-  let range = false;
-  for (const name of type.constructor.rules) {
-    if (type[name] === undefined) continue;
-    if (name === 'min' || name === 'max') range = true;
-    else list.push(RULES[name]);
-  }
-  if (range) list.push(emitRange);
+  for (let index = 0; index < names.length; index += 1) list.push(RULES[names[index]]);
   return list;
 };
 
@@ -177,14 +173,23 @@ const emitAny = (type, x, key, state) => emitTail(type, x, key, state, []);
 const emitEnum = (type, x, key, state) => {
   const { code } = state;
   const values = type.enum;
-  const texts = values.map(literal);
+  const { length } = values;
   let fails;
-  if (values.length <= ENUM_SET_SIZE && texts.every((text) => text !== undefined)) {
-    fails = texts.map((text) => `${x} !== ${text}`).join(' && ');
-  } else if (values.length > ENUM_SET_SIZE) {
+  if (length > ENUM_SET_SIZE) {
     fails = `!${code.ref(new Set(values))}.has(${x})`;
   } else {
-    fails = `!${code.ref(values)}.includes(${x})`;
+    // A chain of comparisons with the literals, unless a value has none
+    // (NaN, an object): then the list itself, as the closure backend scans it.
+    let chain = '';
+    for (let index = 0; index < length; index += 1) {
+      const text = literal(values[index]);
+      if (text === undefined) {
+        chain = null;
+        break;
+      }
+      chain += `${index === 0 ? '' : ' && '}${x} !== ${text}`;
+    }
+    fails = chain === null ? `!${code.ref(values)}.includes(${x})` : chain;
   }
   const failure = issue(state, 'enum', `${code.ref(values)}, ${keyOf(key)}`);
   typed(type, x, key, state, fails, failure);
@@ -328,10 +333,11 @@ const emitStruct = (fields, x, key, state) => {
   // The scan of struct.js with the known keys as cases: a key for...in
   // yields is an internalized string, so a case is a pointer comparison
   // where a dictionary lookup would hash it.
-  const cases = Object.keys(known).map((field) => `case ${quote(field)}:`);
+  let cases = '';
+  for (const field in known) cases += `case ${quote(field)}: `;
   code.push(`let ${unexpected} = null;`);
   code.push(`for (const ${name} in ${x}) {`);
-  if (cases.length > 0) code.push(`switch (${name}) { ${cases.join(' ')} continue; }`);
+  if (cases !== '') code.push(`switch (${name}) { ${cases}continue; }`);
   code.push(`if (!Object.hasOwn(${x}, ${name})) continue;`);
   code.push(`if (${unexpected} === null) ${unexpected} = [];`);
   code.push(`${unexpected}.push(${name});`);
@@ -355,9 +361,6 @@ const emitSchema = (type, x, key, state) => {
   const body = () => emitStruct(fields, x, key, state);
   typed(type, x, key, state, notObject(x), typeIssue(state, 'object', x, key), body);
 };
-
-// What a branch is called in the message of a value that matched none.
-const branchName = (branch) => (branch.type === 'schema' ? 'object' : branch.type);
 
 // Without a discriminator the branches are tried in order and what a failed
 // branch recorded is dropped, so the error limit inside a branch stops that
@@ -384,8 +387,9 @@ const emitUnion = (type, x, key, state) => {
       code.push(`c.issues.length = ${before}; c.count = ${before};`);
       code.push(`if (c.async !== null) c.async.length = ${pending};`);
     }
-    const expected = code.ref(branches.map(branchName));
-    record(state, issue(state, 'union', `${expected}, void 0, ${keyOf(key)}`));
+    const names = [];
+    for (let index = 0; index < branches.length; index += 1) names.push(nameOf(branches[index]));
+    record(state, issue(state, 'union', `${code.ref(names)}, void 0, ${keyOf(key)}`));
     code.push('}');
     if (!type.validate) return;
     code.push(`if (c.count === ${before}) {`);
@@ -395,32 +399,37 @@ const emitUnion = (type, x, key, state) => {
   }
   const fails = `${x} === null || typeof ${x} !== "object"`;
   typed(type, x, key, state, fails, typeIssue(state, 'object', x, key), () => {
+    // The literals of the discriminator values, by branch; a value with no
+    // literal (NaN, an object) selects its branch through the table of value
+    // to branch index the closure backend uses.
     const expected = [];
-    const cases = branches.map((branch) => {
-      const values = branch.schema[discriminator].enum;
-      expected.push(...values);
-      return values.map(literal);
-    });
-    const direct = cases.every((texts) => texts.every((text) => text !== undefined));
-    // A value with no literal (NaN, an object) selects its branch through a
-    // Map of value to branch index, as the closure backend's table does.
-    const table = direct
-      ? null
-      : new Map(
-          branches.flatMap((branch, index) =>
-            branch.schema[discriminator].enum.map((value) => [value, index]),
-          ),
-        );
+    const cases = [];
+    let direct = true;
+    for (let index = 0; index < branches.length; index += 1) {
+      const values = branches[index].schema[discriminator].enum;
+      const texts = [];
+      for (let at = 0; at < values.length; at += 1) {
+        const text = literal(values[at]);
+        if (text === undefined) direct = false;
+        expected.push(values[at]);
+        texts.push(text);
+      }
+      cases.push(texts);
+    }
     const subject = prop(x, discriminator);
-    code.push(`switch (${direct ? subject : `${code.ref(table)}.get(${subject})`}) {`);
-    branches.forEach((branch, index) => {
-      const labels = direct ? cases[index] : [String(index)];
-      for (const text of labels) code.push(`case ${text}:`);
+    code.push(`switch (${direct ? subject : `${code.ref(tableOf(type))}.get(${subject})`}) {`);
+    for (let index = 0; index < branches.length; index += 1) {
+      if (direct) {
+        const texts = cases[index];
+        for (let at = 0; at < texts.length; at += 1) code.push(`case ${texts[at]}:`);
+      } else {
+        code.push(`case ${index}:`);
+      }
       code.push('{');
-      emitField(branch, x, key, state);
+      emitField(branches[index], x, key, state);
       code.push('break;');
       code.push('}');
-    });
+    }
     code.push('default: {');
     const name = quote(discriminator);
     record(inside(state, key), issue(state, 'union', `${code.ref(expected)}, ${name}, ${name}`));

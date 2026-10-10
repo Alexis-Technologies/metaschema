@@ -15,7 +15,7 @@ const { asyncReturn } = require('./errors.js');
 const collections = require('./prototypes/collections.js');
 const { schema: struct } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
-const { union } = require('./prototypes/union.js');
+const { union, tableOf } = require('./prototypes/union.js');
 const { reference, embeds } = require('./prototypes/reference.js');
 
 // What a subtree carries, as bits; a phase is the bit it applies.
@@ -96,15 +96,9 @@ const infoOf = (node) => {
   else if (shape === TUPLE) {
     for (let index = 0; index < node.value.length; index += 1) children.push(node.value[index]);
   } else if (shape === UNION) {
-    const { union: branches, discriminator } = node;
-    if (discriminator !== undefined) table = new Map();
-    for (let index = 0; index < branches.length; index += 1) {
-      const branch = branches[index];
-      children.push(branch);
-      if (table === null) continue;
-      const values = branch.schema[discriminator].enum;
-      for (let at = 0; at < values.length; at += 1) table.set(values[at], index);
-    }
+    const branches = node.union;
+    if (node.discriminator !== undefined) table = tableOf(node);
+    for (let index = 0; index < branches.length; index += 1) children.push(branches[index]);
   } else if (shape === REFERENCE) {
     bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
@@ -231,9 +225,11 @@ const leave = (state, wrap) => {
 const at = (context, path, fn) => {
   const saved = context.path;
   context.path = path;
-  const out = fn();
-  context.path = saved;
-  return out;
+  try {
+    return fn();
+  } finally {
+    context.path = saved;
+  }
 };
 
 // The decoder of a node over a value whose parts decoded: its exception is an

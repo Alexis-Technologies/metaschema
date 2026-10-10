@@ -90,7 +90,7 @@ class AbstractType {
     checkCodecs(this);
     // The rule checks that apply to this field, compiled once: a field
     // without rules is its type check alone, and check is the hot path.
-    const checks = compileRules(this, rules);
+    const checks = compileRules(this);
     const inner = this.compile();
     const plain = checks.length === 0 && !this.validate;
     const check = plain ? inner : withRules(this, inner, checks);

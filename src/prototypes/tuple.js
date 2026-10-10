@@ -24,25 +24,30 @@ const tuple = {
   construct(def, prep) {
     const elements = def.value || def.tuple;
     if (!Array.isArray(elements)) throw invalidTuple('needs a list of element definitions');
-    this.value = elements.map((element, index) => {
+    const built = [];
+    for (let index = 0; index < elements.length; index += 1) {
+      const element = elements[index];
       const key = nameOf(element, prep.types);
       const source = key === null ? element : element[key];
       const { Type, defs } = prep.parse(source);
       if (!Type) throw invalidTuple(`element ${index} cannot be a function`);
+      let name = null;
       if (key !== null) {
-        const { field, required } = formatters.key(key);
-        defs.required = (defs.required ?? true) && required;
-        const type = new Type(defs, prep);
-        type.name = field;
-        return type;
+        const parsed = formatters.key(key);
+        defs.required = (defs.required ?? true) && parsed.required;
+        name = parsed.field;
       }
-      return new Type(defs, prep);
-    });
+      const type = new Type(defs, prep);
+      if (name !== null) type.name = name;
+      built.push(type);
+    }
+    this.value = built;
   },
 
   compile() {
     const { required, type } = this;
-    const checks = this.value.map((element) => element.check);
+    const checks = [];
+    for (let index = 0; index < this.value.length; index += 1) checks.push(this.value[index].check);
     const { length } = checks;
     return (value, context, key) => {
       if (!Array.isArray(value)) {
