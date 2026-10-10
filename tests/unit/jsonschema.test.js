@@ -1240,3 +1240,52 @@ test('JSON Schema: the Standard JSON Schema converter', () => {
     message: 'JSON Schema target "mongodb" is not supported',
   });
 });
+
+test('JSON Schema: keys and names of the schema are data of the document', () => {
+  // A field called __proto__ is a property, listed as required.
+  const PROTO = '__proto__';
+  const proto = Schema.from({ [PROTO]: 'string', b: 'number' });
+  const document = proto.toJSONSchema();
+  assert.strictEqual(Object.hasOwn(document.properties, PROTO), true);
+  assert.deepStrictEqual(document.properties[PROTO], { type: 'string' });
+  assert.deepStrictEqual(document.required, [PROTO, 'b']);
+  // The definitions pointer may name any key, and merges into what is there.
+  const model = new Model({}, [
+    ['A/b~c', { Struct: {}, x: 'string' }],
+    ['Root', { Struct: {}, r: 'A/b~c', 'props?': { Struct: {}, y: 'number' } }],
+  ]);
+  const root = model.entities.get('Root');
+  const odd = root.toJSONSchema({ definitions: '#/__proto__/' });
+  assert.strictEqual(Object.hasOwn(odd, PROTO), true);
+  assert.deepStrictEqual(Object.keys(odd[PROTO]), ['A/b~c']);
+  const merged = root.toJSONSchema({ definitions: '#/properties/' });
+  assert.deepStrictEqual(Object.keys(merged.properties), ['r', 'props', 'A/b~c']);
+  // A $ref escapes the name of the entity as a JSON pointer in a fragment.
+  const plain = root.toJSONSchema();
+  assert.deepStrictEqual(plain.properties.r, { $ref: '#/$defs/A~1b~0c' });
+  assert.deepStrictEqual(Object.keys(plain.$defs), ['A/b~c']);
+  assert.deepStrictEqual(model.toJSONSchema({ target: 'mongodb' })['A/b~c'].properties.x, {
+    bsonType: 'string',
+  });
+});
+
+test('JSON Schema: the metadata of a custom type and the annotations are never written to', () => {
+  const jsonSchema = { anyOf: [{ type: 'string' }, { type: 'number' }] };
+  const model = new Model({ eitherish: { js: 'string', metadata: { jsonSchema } } }, [
+    ['Thing', { Struct: {}, 'v?': 'eitherish', 'old?': { type: 'string', deprecated: 'use v' } }],
+  ]);
+  const thing = model.entities.get('Thing');
+  const first = thing.toJSONSchema();
+  const second = thing.toJSONSchema();
+  assert.deepStrictEqual(first.properties.v, {
+    anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'null' }],
+  });
+  assert.deepStrictEqual(second.properties.v, first.properties.v);
+  assert.deepStrictEqual(jsonSchema, { anyOf: [{ type: 'string' }, { type: 'number' }] });
+  // `deprecated` is a boolean in the dialects: a note is not copied.
+  assert.deepStrictEqual(first.properties.old, { type: ['string', 'null'] });
+  assert.deepStrictEqual(
+    Schema.from({ x: { type: 'string', deprecated: true } }).toJSONSchema().properties.x,
+    { type: 'string', deprecated: true },
+  );
+});

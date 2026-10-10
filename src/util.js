@@ -9,6 +9,22 @@ const INSPECT = Symbol.for('nodejs.util.inspect.custom');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
+// A JavaScript identifier: what generated code may write as `object.key` and
+// a TypeScript declaration as a bare name.
+const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+
+// Defines an own data property, so a key such as `__proto__` taken from a
+// path or a definition lands on the object instead of changing its prototype.
+const define = (target, key, value) => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  return value;
+};
+
 // The method that validates a value inside an existing context, shared by
 // Schema and the reference type that checks its target through it. A global
 // symbol like BRAND, so a schema from another copy of the package has it too.
@@ -49,6 +65,8 @@ module.exports = {
   BRAND,
   INSPECT,
   hasBrand,
+  IDENTIFIER,
+  define,
   RUN,
   HOOK,
   shorten,

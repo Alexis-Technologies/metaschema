@@ -5,7 +5,7 @@
 // target. What has no JSON form (a bigint, a Date or a Set on the way out, a
 // custom type without metadata) throws, or renders as `{}` when the call says
 // `unrepresentable: 'any'`.
-const { hasBrand } = require('../util.js');
+const { hasBrand, define } = require('../util.js');
 const { isStruct } = require('../struct.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
@@ -13,8 +13,10 @@ const { embeds } = require('../prototypes/reference.js');
 // What differs between the dialects: the keyword of a type, where the
 // definitions live, whether `const`, tuples, `propertyNames` and siblings of
 // `$ref` exist, how null is allowed (OpenAPI 3.0 has `nullable`), which
-// annotations pass through and whether the strict profile applies.
-const TARGETS = {
+// annotations pass through and whether the strict profile applies. The
+// tables of this file are null-prototype dictionaries: a type or a target is
+// looked up by a name that may be `constructor`.
+const TARGETS = Object.assign(Object.create(null), {
   'draft-2020-12': {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     definitions: '#/$defs/',
@@ -44,12 +46,19 @@ const TARGETS = {
     tuple: 'items',
     annotations: ['title', 'description'],
   },
-};
+});
 
 const TARGET_NAMES = Object.keys(TARGETS);
 
 // BSON type names where they differ from the JSON Schema ones.
-const BSON = { boolean: 'bool', integer: ['int', 'long'], bigint: 'long' };
+const BSON = Object.assign(Object.create(null), {
+  boolean: 'bool',
+  integer: ['int', 'long'],
+  bigint: 'long',
+});
+
+// The name of an entity inside a JSON pointer (RFC 6901) in a URI fragment.
+const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
 
 // The keys of a JSON object are strings, so a number key is a pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
@@ -139,25 +148,26 @@ const withNull = (json, context) => {
   if (context.target.nullable === true) {
     const wrapped = json.$ref === undefined ? json : { allOf: [json] };
     if (wrapped.enum !== undefined && !wrapped.enum.includes(null)) {
-      wrapped.enum = [...wrapped.enum, null];
+      wrapped.enum = wrapped.enum.concat([null]);
     }
     wrapped.nullable = true;
     return wrapped;
   }
   if (json.const !== undefined) return { enum: [json.const, null] };
-  if (json.enum !== undefined && !json.enum.includes(null)) json.enum = [...json.enum, null];
+  if (json.enum !== undefined && !json.enum.includes(null)) json.enum = json.enum.concat([null]);
   const type = json[key];
   if (typeof type === 'string') {
     if (type !== 'null') json[key] = [type, 'null'];
     return json;
   }
   if (Array.isArray(type)) {
-    if (!type.includes('null')) json[key] = [...type, 'null'];
+    if (!type.includes('null')) json[key] = type.concat(['null']);
     return json;
   }
   if (json.enum !== undefined) return json;
   if (json.anyOf !== undefined) {
-    json.anyOf.push({ [key]: 'null' });
+    // A copy: the list may be the one of a custom type's metadata.
+    json.anyOf = json.anyOf.concat([{ [key]: 'null' }]);
     return json;
   }
   return Object.keys(json).length === 0 ? json : { anyOf: [json, { [key]: 'null' }] };
@@ -176,6 +186,8 @@ const annotate = (json, field, context) => {
       if (!Array.isArray(value) || value.length === 0) continue;
       value = value[0];
     }
+    // `deprecated` is a boolean in every dialect; a note is not copied.
+    if (name === 'deprecated' && value !== true) continue;
     json[name] = value;
   }
   return json;
@@ -299,10 +311,10 @@ const definition = (schema, context) => {
     context.defs.set(name, null);
     context.defs.set(name, renderSchema(schema, context));
   }
-  return { $ref: context.prefix + name };
+  return { $ref: context.prefix + escapePointer(name) };
 };
 
-const RENDER = {
+const RENDER = Object.assign(Object.create(null), {
   string: (field, context) => {
     const json = typed('string', context);
     if (context.strict) return json;
@@ -343,7 +355,7 @@ const RENDER = {
   reference,
   one: reference,
   many: reference,
-};
+});
 
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in.
@@ -384,11 +396,13 @@ const render = (field, context) => {
 const struct = (fields, context) => {
   const properties = {};
   const required = [];
-  for (const key of Object.keys(fields)) {
+  // A struct is a null-prototype dictionary: its own keys, in order; a key
+  // such as `__proto__` is defined as data on the document.
+  for (const key in fields) {
     const field = fields[key];
     if (!hasBrand(field, 'Type')) continue;
     try {
-      properties[key] = render(field, context);
+      define(properties, key, render(field, context));
     } catch (error) {
       const own = error.field === '' || error.schema === context.owner;
       if (error instanceof SchemaDefinitionError && own) error.locate(context.owner, key);
@@ -432,18 +446,28 @@ const renderRoot = (schema, context) => {
   return json;
 };
 
+// The documents of a model by entity name, the names defined as data.
+const documentsOf = (documents) => {
+  const out = {};
+  for (const pair of documents) define(out, pair[0], pair[1]);
+  return out;
+};
+
 // The definitions go where the `definitions` pointer says: `$defs`,
-// `definitions` or `components.schemas`.
+// `definitions` or `components.schemas`, into the object already there when
+// the document has one on the way.
 const place = (document, context) => {
   if (context.target.$schema !== undefined) document.$schema = context.target.$schema;
   if (context.defs.size === 0) return document;
   const path = context.prefix.slice(2, -1).split('/');
   let node = document;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    node[path[index]] = {};
-    node = node[path[index]];
+  for (let index = 0; index < path.length; index += 1) {
+    const name = path[index];
+    const existing = Object.hasOwn(node, name) ? node[name] : undefined;
+    const isObject = existing !== null && typeof existing === 'object' && !Array.isArray(existing);
+    node = isObject ? existing : define(node, name, {});
   }
-  node[path[path.length - 1]] = Object.fromEntries(context.defs);
+  for (const pair of context.defs) define(node, pair[0], pair[1]);
   return document;
 };
 
@@ -475,7 +499,7 @@ const modelToJSONSchema = (model, options = {}) => {
     context.defs = context.mongo ? new Map() : documents;
     documents.set(name, renderRoot(entities.get(name), context));
   }
-  if (context.mongo) return Object.fromEntries(documents);
+  if (context.mongo) return documentsOf(documents);
   context.defs = documents;
   return place({}, context);
 };

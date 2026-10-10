@@ -32,3 +32,10 @@ test('saveTypes: writes the TypeScript of a model or a schema to a file', async 
     await fs.promises.rm(dir, { recursive: true, force: true });
   }
 });
+
+test('saveTypes: an error of the rendering is a rejection, never a throw', async () => {
+  await assert.rejects(saveTypes(path.join(os.tmpdir(), 'never.d.ts'), {}), {
+    name: 'TypeError',
+    message: 'A Schema or a Model is expected',
+  });
+});

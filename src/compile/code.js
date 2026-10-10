@@ -3,7 +3,7 @@
 // function, a nested check or a dictionary of known keys goes into the scope
 // and is reached by name (the ajv and schemasafe rule, ROADMAP P9), so
 // nothing taken from a schema is ever part of the source text.
-const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+const { IDENTIFIER } = require('../util.js');
 
 // JSON.stringify leaves U+2028 and U+2029 in place (legal in a string literal
 // since ES2019); they are escaped anyway, so the source holds no line

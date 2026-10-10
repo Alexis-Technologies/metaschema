@@ -30,7 +30,9 @@ const toTypeScript = (target, options) =>
     ? typescript.modelToTypeScript(target, options)
     : typescript.toInterface(target, options);
 
-const saveTypes = (outputFile, target, options) =>
+// Async, so that an error of the rendering (a target that is neither, a type
+// with no form) is the rejection the typings promise, never a throw.
+const saveTypes = async (outputFile, target, options) =>
   writeFile(outputFile, toTypeScript(target, options));
 
 const schemaMethods = {

@@ -140,9 +140,14 @@ test('dts: named types outside a model, and a schema of one type', () => {
     new Schema('Pair', ['number', { enum: ['q'] }]).toInterface({ named: true }),
     'type Pair1 = "q";\n\ntype Pair = [number, Pair1];',
   );
+  // The alias of a schema of one type is the name of its type already.
   assert.strictEqual(
     new Schema('Status', { enum: ['a'] }).toInterface({ named: true }),
-    'type Status = "a";\n\ntype Status = Status;',
+    'type Status = "a";',
+  );
+  assert.strictEqual(
+    new Schema('Point', { x: 'number', 'tag?': { enum: ['t'] } }).toInterface({ named: true }),
+    'type PointTag = "t";\n\ninterface Point {\n  x: number;\n  tag?: PointTag;\n}',
   );
   assert.strictEqual(new Schema('Status', { enum: ['a'] }).toInterface(), 'type Status = "a";');
   // A Schema instance of one type as a field renders as that type.
@@ -150,4 +155,95 @@ test('dts: named types outside a model, and a schema of one type', () => {
     Schema.from({ x: { schema: Schema.from('?number') } }).toInterface(),
     'interface  {\n  x: number;\n}',
   );
+});
+
+test('dts: keys, comments and names are escaped or refused', () => {
+  const schema = new Schema('Odd', {
+    'a-b': 'string',
+    '1x?': 'number',
+    'q"': { type: 'string', description: 'Ends a comment */ export const pwn = 1; /*' },
+    multi: { type: 'string', description: 'First line\nSecond line' },
+    old: { type: 'string', deprecated: 'use multi' },
+    'owner-ref': 'Owner',
+    weird: { enum: [NaN, 10n, 'a', null, true] },
+  });
+  assert.strictEqual(
+    schema.toInterface(),
+    `interface Odd {
+  "a-b": string;
+  "1x"?: number;
+  /** Ends a comment *\\/ export const pwn = 1; /* */
+  "q\\"": string;
+  /**
+   * First line
+   * Second line
+   */
+  multi: string;
+  /** @deprecated use multi */
+  old: string;
+  "owner-refId": string;
+  weird: number | 10n | "a" | null | true;
+}`,
+  );
+  // A nested type takes a clean name; two that would share one are told apart.
+  const named = new Schema('User', {
+    'a-b': { Struct: {}, x: 'string' },
+    aB: { enum: ['x'] },
+    AB: { enum: ['y'] },
+    e1: { enum: ['p'] },
+    E1: { enum: ['q'] },
+  });
+  assert.strictEqual(
+    named.toInterface({ named: true }),
+    `interface UserA_b {
+  x: string;
+}
+
+type UserAB = "x";
+
+type UserAB2 = "y";
+
+type UserE1 = "p";
+
+type UserE12 = "q";
+
+interface User {
+  "a-b": UserA_b;
+  aB: UserAB;
+  AB: UserAB2;
+  e1: UserE1;
+  E1: UserE12;
+}`,
+  );
+  // Through a model a nested type never takes the name of an entity.
+  const model = new Model({}, [
+    ['UserRole', { Struct: {}, level: 'number' }],
+    ['User', { Struct: {}, role: { enum: ['admin'] }, kind: 'UserRole' }],
+  ]);
+  assert.strictEqual(
+    model.toTypeScript({ named: true }),
+    `interface UserRole {
+  level: number;
+}
+
+type UserRole2 = "admin";
+
+interface User {
+  role: UserRole2;
+  kind: UserRole;
+}
+`,
+  );
+  // An entity whose name is no identifier has no interface.
+  const broken = new Model({}, [['A/b', { Struct: {}, x: 'string' }]]);
+  assert.throws(() => broken.toTypeScript(), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_UNREPRESENTABLE',
+    message: 'Entity name "A/b" (not an identifier) cannot be represented in TypeScript',
+  });
+  // An unresolved reference is an id unless it embeds, where it is the name.
+  assert.strictEqual(Schema.from({ r: 'A/b' }).toInterface(), 'interface  {\n  rId: string;\n}');
+  assert.throws(() => Schema.from({ r: { type: 'A/b', embed: true } }).toInterface(), {
+    code: 'ERR_UNREPRESENTABLE',
+  });
 });

@@ -1,18 +1,6 @@
-const { BRAND, INSPECT, hasBrand } = require('./util.js');
+const { BRAND, INSPECT, hasBrand, define } = require('./util.js');
 const { EMPTY, NONE, absorb, finalize, describe, toDotPath } = require('./issues.js');
 const en = require('./locales/en.js');
-
-// Defines an own data property, so a key such as `__proto__` taken from a
-// path lands on the object instead of changing its prototype.
-const define = (target, key, value) => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    writable: true,
-    configurable: true,
-  });
-  return value;
-};
 
 class ValidationResult {
   #root;
