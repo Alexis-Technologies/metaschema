@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-10
+
 2.0 rewrites the validation core and settles the semantics of the schema language. Every check
 is compiled into a closure when the schema is built and runs in a context of its own; issues
 are data (a code, the path as an array of keys, the params the message is made from), messages
@@ -641,7 +643,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Alexis-Technologies/metaschema/releases/tag/v1.0.0
 [upstream-2.2.2]: https://github.com/metarhia/metaschema/compare/v2.2.1...v2.2.2
 [upstream-2.2.1]: https://github.com/metarhia/metaschema/compare/v2.2.0...v2.2.1

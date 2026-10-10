@@ -6,7 +6,8 @@ Only the latest published version receives fixes.
 
 | Version | Supported |
 |---|---|
-| 1.x | ✅ |
+| 2.x | ✅ |
+| 1.x | ❌ |
 | `metaschema` (metarhia) 2.x | ❌ (report upstream) |
 
 ## Reporting a vulnerability
