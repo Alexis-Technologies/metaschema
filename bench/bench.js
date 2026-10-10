@@ -11,8 +11,8 @@
  * zod, valibot, ajv and typebox instead (bench/libs.js). Manual only, not
  * part of CI.
  *
- * The `check` scenarios run twice: on the closure backend and, as
- * `(jit)`, on a second schema compiled by the ./compile subpath.
+ * The `check` and `parse` scenarios run twice: on the closure backend and,
+ * as `(jit)`, on a second schema compiled by the ./compile subpath.
  */
 
 const fs = require('node:fs');
@@ -24,9 +24,12 @@ const { compile } = require('../src/compile/index.js');
 const {
   bench,
   callCheck,
+  callParse,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
+  CODEC_SCHEMA,
   FLAT_VALID,
+  CODEC_VALID,
   FLAT_INVALID,
   NESTED_VALID,
   NESTED_INVALID,
@@ -96,8 +99,10 @@ const main = () => {
   const nested = Schema.from(NESTED_SCHEMA);
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
   const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
+  const codec = Schema.from(CODEC_SCHEMA);
   const flatJit = jit(FLAT_SCHEMA);
   const nestedJit = jit(NESTED_SCHEMA);
+  const codecJit = jit(CODEC_SCHEMA);
   const moltarFlatJit = jit(MOLTAR_FLAT_SCHEMA);
   const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
@@ -114,6 +119,12 @@ const main = () => {
     ['check (jit) — flat struct, invalid', () => callCheck(FLAT_INVALID), flatJit],
     ['check (jit) — nested struct, valid', () => callCheck(NESTED_VALID), nestedJit],
     ['check (jit) — nested struct, invalid', () => callCheck(NESTED_INVALID), nestedJit],
+    ['parse — flat struct, valid', () => callParse(FLAT_VALID), flat],
+    ['parse — nested struct, valid', () => callParse(NESTED_VALID), nested],
+    ['parse — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codec],
+    ['parse (jit) — flat struct, valid', () => callParse(FLAT_VALID), flatJit],
+    ['parse (jit) — nested struct, valid', () => callParse(NESTED_VALID), nestedJit],
+    ['parse (jit) — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codecJit],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',

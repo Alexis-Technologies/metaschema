@@ -1,118 +1,142 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-10T18:22:49.644Z",
+  "date": "2026-10-10T20:01:35.536Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 275137
+      "opsPerSec": 263219
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 93035
+      "opsPerSec": 88391
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 10695396
+      "opsPerSec": 10377471
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 3463899
+      "opsPerSec": 3395371
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 2577476
+      "opsPerSec": 2450459
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 1479788
+      "opsPerSec": 1439228
     },
     {
       "name": "check (jit) — flat struct, valid",
-      "opsPerSec": 30903074
+      "opsPerSec": 30029375
     },
     {
       "name": "check (jit) — flat struct, invalid",
-      "opsPerSec": 5647146
+      "opsPerSec": 5649841
     },
     {
       "name": "check (jit) — nested struct, valid",
-      "opsPerSec": 16893142
+      "opsPerSec": 17433848
     },
     {
       "name": "check (jit) — nested struct, invalid",
-      "opsPerSec": 2019457
+      "opsPerSec": 1983977
+    },
+    {
+      "name": "parse — flat struct, valid",
+      "opsPerSec": 9585769
+    },
+    {
+      "name": "parse — nested struct, valid",
+      "opsPerSec": 2462153
+    },
+    {
+      "name": "parse — flat struct, defaults and a decoder",
+      "opsPerSec": 2067251
+    },
+    {
+      "name": "parse (jit) — flat struct, valid",
+      "opsPerSec": 26817749
+    },
+    {
+      "name": "parse (jit) — nested struct, valid",
+      "opsPerSec": 14736315
+    },
+    {
+      "name": "parse (jit) — flat struct, defaults and a decoder",
+      "opsPerSec": 2878792
     },
     {
       "name": "parseSafe — moltar flat (6 fields)",
-      "opsPerSec": 7449700
+      "opsPerSec": 7375736
     },
     {
       "name": "parseStrict — moltar flat (6 fields)",
-      "opsPerSec": 7118650
+      "opsPerSec": 7090630
     },
     {
       "name": "assertLoose — moltar flat (6 fields)",
-      "opsPerSec": 7384599
+      "opsPerSec": 7256720
     },
     {
       "name": "assertStrict — moltar flat (6 fields)",
-      "opsPerSec": 7148344
+      "opsPerSec": 7100128
     },
     {
       "name": "parseSafe — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4402749
+      "opsPerSec": 4384177
     },
     {
       "name": "parseStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4197542
+      "opsPerSec": 4162263
     },
     {
       "name": "assertLoose — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4415099
+      "opsPerSec": 4348561
     },
     {
       "name": "assertStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4199271
+      "opsPerSec": 4157359
     },
     {
       "name": "parseSafe (jit) — moltar flat (6 fields)",
-      "opsPerSec": 33315121
+      "opsPerSec": 33045646
     },
     {
       "name": "parseStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 30187586
+      "opsPerSec": 30228029
     },
     {
       "name": "assertLoose (jit) — moltar flat (6 fields)",
-      "opsPerSec": 33112086
+      "opsPerSec": 32150334
     },
     {
       "name": "assertStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 30250226
+      "opsPerSec": 30187656
     },
     {
       "name": "parseSafe (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 30229729
+      "opsPerSec": 30211452
     },
     {
       "name": "parseStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 23961970
+      "opsPerSec": 24196911
     },
     {
       "name": "assertLoose (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 29946108
+      "opsPerSec": 29089968
     },
     {
       "name": "assertStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 24237912
+      "opsPerSec": 24072472
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 16281
+      "opsPerSec": 16378
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 82685
+      "opsPerSec": 83189
     }
   ]
 }
