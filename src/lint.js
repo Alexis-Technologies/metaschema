@@ -10,7 +10,7 @@ const warning = (code, text) => `Warning [${code}]: ${text}`;
 // annotations that any field may carry for code that reads the schema, and
 // the options of its own type. A custom type with its own construct owns
 // its vocabulary and is not linted.
-const COMMON = ['root', 'type', 'required', 'nullable', 'validate', 'parse'];
+const COMMON = ['root', 'type', 'required', 'nullable', 'validate', 'parse', 'serialize'];
 
 const ANNOTATIONS = [
   'default',

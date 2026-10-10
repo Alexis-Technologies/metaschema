@@ -571,8 +571,8 @@ test('Parse: custom types are leaves, and a value of any shape is left alone', (
   ]);
 });
 
-test('Parse: a definition with a parse that is not a function throws', () => {
-  for (const key of ['parse']) {
+test('Parse: a definition with a parse or serialize that is not a function throws', () => {
+  for (const key of ['parse', 'serialize']) {
     assert.throws(() => new Schema('Doc', { a: { type: 'string', [key]: 'yes' } }), {
       name: 'SchemaDefinitionError',
       code: 'ERR_INVALID_DEFINITION',
@@ -587,7 +587,7 @@ test('Parse: a definition with a parse that is not a function throws', () => {
   });
   // The keys are known to the lint on every type.
   const linted = Schema.from({
-    a: { type: 'string', parse: (text) => text },
+    a: { type: 'string', parse: (text) => text, serialize: (text) => text },
     b: { array: 'number', parse: (list) => list.length },
   });
   assert.deepStrictEqual(linted.warnings, []);

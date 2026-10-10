@@ -17,10 +17,13 @@ const invalidNullable = () =>
 const invalidCodec = (key) =>
   new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
 
-// `parse`, the decoder of a field, is read by parse on any type; a
-// definition that gave it anything else can never work.
+// `parse` (the decoder) and `serialize` are read by parse and serialize, on
+// any type; a definition that gave them anything else can never work.
 const checkCodecs = (type) => {
   if (type.parse !== undefined && typeof type.parse !== 'function') throw invalidCodec('parse');
+  if (type.serialize !== undefined && typeof type.serialize !== 'function') {
+    throw invalidCodec('serialize');
+  }
 };
 
 // A nullable field accepts null in place of a value of its type, whatever

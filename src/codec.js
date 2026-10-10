@@ -1,11 +1,12 @@
-// What parse does beyond the check: the defaults, the decoders and the
-// stripping of unknown keys, as passes over the built types. `parse` is the
-// check of the schema (whichever backend installed it) between two passes,
-// defaults before and decoders after. The passes read the same plan the
-// closures walk and validate nothing themselves, so the JIT needs no second
-// generator. A node whose subtree carries nothing for a phase is returned as
-// it is, and a container is copied only when one of its parts changed: the
-// value given is never written to.
+// What parse and serialize do beyond the check: the defaults, the decoders,
+// the serializers and the stripping of unknown keys, as passes over the built
+// types. `parse` is the check of the schema (whichever backend installed it)
+// between two passes, defaults before and decoders after; `serialize` is one
+// pass the other way. The passes read the same plan the closures walk and
+// validate nothing themselves, so the JIT needs no second generator. A node
+// whose subtree carries nothing for a phase is returned as it is, and a
+// container is copied only when one of its parts changed: the value given is
+// never written to.
 const { hasBrand } = require('./util.js');
 const { NONE, issues } = require('./issues.js');
 const { createContext } = require('./context.js');
@@ -19,6 +20,7 @@ const { reference, embeds } = require('./prototypes/reference.js');
 // What a subtree carries, as bits; a phase is the bit it applies.
 const DEFAULTS = 1;
 const DECODERS = 2;
+const ENCODERS = 4;
 const STRUCTS = 8;
 
 // The shape of a node: a Schema, a struct (the dictionary of its fields), or
@@ -52,8 +54,8 @@ const shapeOf = (node) => {
 };
 
 // What the passes know about a node, computed on first use and kept apart
-// from the node: its shape, the bits of its subtree, its own decoder, its
-// children with their infos, the fields of a struct a phase
+// from the node: its shape, the bits of its subtree, its own decoder and
+// serializer, its children with their infos, the fields of a struct a phase
 // has to visit (`parts`, by phase bit; every field under `strip`), and the
 // reference fields beneath it (their targets are resolved at parse time, so a
 // reference counts as carrying everything).
@@ -66,7 +68,9 @@ const infoOf = (node) => {
   // A struct's own functions belong to the node that holds it.
   const own = shape === SCHEMA ? node.options : shape === FIELDS ? {} : node;
   const decode = own.parse || undefined;
+  const encode = own.serialize || undefined;
   let bits = decode === undefined ? 0 : DECODERS;
+  if (encode !== undefined) bits |= ENCODERS;
   let children = [];
   let plan = null;
   let extra = null;
@@ -94,7 +98,7 @@ const infoOf = (node) => {
       });
     }
   } else if (shape === REFERENCE) {
-    bits |= DEFAULTS | DECODERS | STRUCTS;
+    bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
   }
   const infos = children.map(infoOf);
@@ -102,12 +106,12 @@ const infoOf = (node) => {
     bits |= sub.bits;
     refs.push(...sub.refs);
   }
-  const parts = { [DEFAULTS]: [], [DECODERS]: [], [STRUCTS]: [] };
+  const parts = { [DEFAULTS]: [], [DECODERS]: [], [ENCODERS]: [], [STRUCTS]: [] };
   if (plan !== null) {
     plan.forEach((entry, index) => {
       const sub = infos[index];
       if (entry.type.default !== undefined) bits |= DEFAULTS;
-      for (const phase of [DEFAULTS, DECODERS]) {
+      for (const phase of [DEFAULTS, DECODERS, ENCODERS]) {
         if ((sub.bits & phase) !== 0 || (phase === DEFAULTS && entry.type.default !== undefined)) {
           parts[phase].push(index);
         }
@@ -115,7 +119,7 @@ const infoOf = (node) => {
       parts[STRUCTS].push(index);
     });
   }
-  info = { shape, bits, decode, children, infos, plan, parts, extra, table, refs };
+  info = { shape, bits, decode, encode, children, infos, plan, parts, extra, table, refs };
   INFO.set(node, info);
   return info;
 };
@@ -188,9 +192,9 @@ const walkLeaf = (info, node, value) => value;
 const walkInner = (info, node, value, context, key, phase) =>
   apply(info.infos[0], info.children[0], value, context, key, phase);
 
-// Before the check (the defaults) a graph may loop through its references;
-// the records on the way down are kept in `seen`, which the caller clears
-// before the check. A loop is marked there: the copies the
+// Before the check (the defaults, a serialization) a graph may loop through
+// its references; the records on the way down are kept in `seen`, which the
+// caller clears before the check. A loop is marked there: the copies the
 // defaults make cannot close it, so parse checks such a value as it was
 // given, and the check reports the loop. After the check a loop cannot be
 // there.
@@ -341,19 +345,26 @@ const WALKERS = [
 ];
 
 // One pass over a value from a node whose info is known, by the shape of
-// each node. A decoder runs after the parts of its value; stripping concerns
-// every struct, so under `strip` the pass enters any subtree with one.
+// each node. A serializer runs before the parts of its value, a decoder
+// after them; stripping concerns every struct, so under `strip` the pass
+// enters any subtree with one.
 const apply = (info, node, value, context, key, phase) => {
   if (value == null) return value;
   const want = phase === DECODERS && context.unknown === 'strip' ? DECODERS | STRUCTS : phase;
   if ((info.bits & want) === 0) return value;
-  const out = WALKERS[info.shape](info, node, value, context, key, phase, want);
+  let input = value;
+  if (phase === ENCODERS && info.encode !== undefined) {
+    input = info.encode.call(node, value);
+    if (input == null) return input;
+  }
+  const out = WALKERS[info.shape](info, node, input, context, key, phase, want);
   return phase === DECODERS ? decode(info, node, out, context, key) : out;
 };
 
 module.exports = {
   PREPARE: DEFAULTS,
   FINISH: DECODERS,
+  SERIALIZE: ENCODERS,
   infoOf,
   apply,
   looped,

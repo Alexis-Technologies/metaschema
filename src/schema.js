@@ -10,7 +10,7 @@ const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
-const { PREPARE, FINISH, infoOf, apply, looped } = require('./codec.js');
+const { PREPARE, FINISH, SERIALIZE, infoOf, apply, looped } = require('./codec.js');
 
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
@@ -71,7 +71,7 @@ class Schema extends SchemaMetadata {
   // The Standard Schema props, built on first use.
   #standard = null;
 
-  // What the passes of parse know about the schema, on first use.
+  // What the passes of parse and serialize know about the schema, on first use.
   #codec = null;
 
   static from(source, namespaces) {
@@ -219,6 +219,20 @@ class Schema extends SchemaMetadata {
     this[RUN](value, context);
     const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
     return parsed(context, output);
+  }
+
+  // The other direction: the schema's own `serialize`, then the serializers
+  // of the fields, from the value down to its parts. `{ value }`, or with
+  // `options.check` the verdict of `check` over the result as well.
+  serialize(source, options) {
+    const context = createContext(options, this.name, this.unknown);
+    const value = this.#pass(SERIALIZE, source, context);
+    if (options === undefined || options.check !== true) return { value };
+    context.seen = null;
+    if (this.#tracked) track(context, value);
+    this[RUN](value, context);
+    finalize(context.issues, context.messages);
+    return { valid: context.count === 0, value, issues: context.issues };
   }
 
   attach(...namespaces) {
