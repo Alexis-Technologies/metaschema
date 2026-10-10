@@ -45,7 +45,7 @@ features:
     linkText: TypeScript
   - icon: 📦
     title: Zero dependencies
-    details: "No runtime dependencies at all, under 10 KB min+gzip. The whole package is CommonJS that ships as written, with no build step."
+    details: "No runtime dependencies at all, 12.6 KB min+gzip. The whole package is CommonJS that ships as written, with no build step."
     link: /guide/why
     linkText: Why metaschema?
   - icon: 🌐

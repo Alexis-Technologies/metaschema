@@ -50,7 +50,7 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
   take it as they take a zod or valibot schema.
 - **Fast.** Every check is compiled into a closure when the schema is built: about 11 million
   validations a second of a flat struct on Node 24 (`pnpm bench`).
-- **Zero dependencies, under 10 KB min+gzip.** CommonJS with ESM named imports, no build step,
+- **Zero dependencies, 12.6 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers.
 
 ## Installation
