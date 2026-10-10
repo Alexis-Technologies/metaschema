@@ -63,6 +63,8 @@
   },
   "scripts": {
     "test": "node --test tests/unit/*.test.js",
+    "test:jit": "node --require ./tests/helpers/jit.js --test tests/unit/*.test.js",
+    "test:nojit": "node --disallow-code-generation-from-strings --require ./tests/helpers/jit.js --test tests/unit/*.test.js",
     "test:coverage": "c8 --all --include 'src/**' --check-coverage --lines 98 --statements 98 --branches 90 --functions 100 --reporter text --reporter lcov node --test tests/unit/*.test.js",
     "test:types": "tsd",
     "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts src/locales/en.d.ts src/locales/uk.d.ts",

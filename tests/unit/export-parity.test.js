@@ -21,6 +21,7 @@ const entryPoints = [
   ['index.js', 'index.d.ts'],
   ['browser.js', 'index.d.ts'],
   ['src/generators/index.js', 'src/generators/index.d.ts'],
+  ['src/compile/index.js', 'src/compile/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -58,6 +59,28 @@ test('Exports: the generators are reachable through their subpath export', () =>
     'interface  {\n  name: string;\n}',
     'function',
     'object',
+  ]);
+});
+
+test('Exports: the compile subpath is reachable through its subpath export', () => {
+  const compile = require('@alexify/metaschema/compile');
+  assert.strictEqual(compile, require(path.join(ROOT, 'src/compile/index.js')));
+  assert.deepStrictEqual(Object.keys(compile), ['compile', 'register', 'canEval']);
+  const source = [
+    "import { compile, register, canEval } from '@alexify/metaschema/compile';",
+    "import { Schema } from '@alexify/metaschema';",
+    "const schema = Schema.from({ name: 'string' });",
+    'const { accelerated } = compile(schema);',
+    'const errors = schema.check({ name: 1 }).errors;',
+    'process.stdout.write(JSON.stringify([accelerated, canEval(), typeof register, errors]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [
+    true,
+    true,
+    'function',
+    ['Field "name" not of expected type: string'],
   ]);
 });
 

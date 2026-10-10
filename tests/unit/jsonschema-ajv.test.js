@@ -20,6 +20,12 @@ const addFormats = require('ajv-formats');
 
 const { Schema, Model } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
+const { canEval } = require('../../src/compile/index.js');
+
+// ajv builds its validators with `new Function`, so the comparison is skipped
+// where code generation from strings is not allowed (`pnpm run test:nojit`):
+// it holds ajv against `check`, not the fallback of the compile subpath.
+const skip = canEval() ? false : 'ajv needs code generation from strings';
 const { hasBrand } = require('../../src/util.js');
 const { isFirstUpper } = require('../../src/metautil.js');
 const { embeds } = require('../../src/prototypes/reference.js');
@@ -230,7 +236,7 @@ const TARGETS = ['draft-2020-12', 'draft-07'];
 
 const differential = (name, schema, options = {}) => {
   for (const target of TARGETS) {
-    test(`JSON Schema differential: ${name} (${target})`, () => {
+    test(`JSON Schema differential: ${name} (${target})`, { skip }, () => {
       const valid = compare(schema, target, options, 42);
       assert.ok(valid > 0, 'no valid value was generated');
       assert.ok(valid < VALUES_PER_SCHEMA, 'no invalid value was generated');

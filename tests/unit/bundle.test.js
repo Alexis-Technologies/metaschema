@@ -12,11 +12,17 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
-// One bundle of the core entry and the generators subpath, the way an
-// application that uses both gets them: the subpath shares the core's
-// modules, and its register() reaches the same Schema and Model classes.
+// One bundle of the core entry and the two subpaths, the way an application
+// that uses them gets them: a subpath shares the core's modules, and its
+// register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
-  const contents = `module.exports = { core: require('./${entry}'), generators: require('./src/generators/index.js') };`;
+  const contents = [
+    'module.exports = {',
+    `core: require('./${entry}'),`,
+    "generators: require('./src/generators/index.js'),",
+    "compile: require('./src/compile/index.js'),",
+    '};',
+  ].join(' ');
   const result = await esbuild.build({
     stdin: { contents, resolveDir: ROOT },
     bundle: true,
@@ -51,9 +57,34 @@ const loadNode = async (minify) => {
 // which deepStrictEqual rejects, so results are copied into this realm first.
 const errorsOf = (result) => Array.from(result.errors);
 
-const checkBundle = async ({ core, generators }, browser) => {
+// Whether this process may build a function from source: not under
+// --disallow-code-generation-from-strings (pnpm run test:nojit), which binds
+// the main context; a vm context of its own, where the browser bundle runs,
+// is not bound by it, so that bundle is held to its own probe.
+const evaluates = (() => {
+  try {
+    // oxlint-disable-next-line no-new-func
+    return typeof new Function('') === 'function';
+  } catch {
+    return false;
+  }
+})();
+
+const checkBundle = async ({ core, generators, compile }, browser) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The compile subpath through the bundle: the generated check validates
+  // like the closures, inside a vm context too, or the fallback does.
+  const fast = Schema.from({ name: 'string', 'age?': 'number', tags: { array: 'string' } });
+  const accelerated = browser ? compile.canEval() : evaluates;
+  assert.strictEqual(compile.canEval(), accelerated);
+  // The result is an object of the bundle's realm, so its fields are read.
+  assert.strictEqual(compile.compile(fast).accelerated, accelerated);
+  assert.deepStrictEqual(errorsOf(fast.check({ name: 1, tags: ['a', 2], age: null })), [
+    'Field "name" not of expected type: string',
+    'Field "tags[1]" not of expected type: string',
+  ]);
+  assert.strictEqual(fast.check({ name: 'x', tags: [] }).valid, true);
   const flat = Schema.from({ name: 'string', age: 'number' });
   assert.deepStrictEqual(errorsOf(flat.check({ name: 1, age: 'x' })), [
     'Field "name" not of expected type: string',
@@ -85,6 +116,10 @@ const checkBundle = async ({ core, generators }, browser) => {
     ['Person', { Entity: {}, employer: 'Company' }],
   ]);
   const person = model.entities.get('Person');
+  assert.deepStrictEqual(errorsOf(person.check({ employer: { name: 1 } })), [
+    'Field "Person.employer.name" not of expected type: string',
+  ]);
+  assert.strictEqual(compile.compile(model).accelerated, accelerated);
   assert.deepStrictEqual(errorsOf(person.check({ employer: { name: 1 } })), [
     'Field "Person.employer.name" not of expected type: string',
   ]);
