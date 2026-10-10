@@ -39,6 +39,10 @@
     "./generators": {
       "types": "./src/generators/index.d.ts",
       "default": "./src/generators/index.js"
+    },
+    "./compile": {
+      "types": "./src/compile/index.d.ts",
+      "default": "./src/compile/index.js"
     }
   },
   "directories": {

@@ -262,7 +262,10 @@ export type DefinitionErrorCode =
   | 'ERR_TYPE_REGISTERED'
   | 'ERR_UNKNOWN_JS_TYPE'
   | 'ERR_INVALID_OPTIONS'
-  | 'ERR_UNREPRESENTABLE';
+  | 'ERR_UNREPRESENTABLE'
+  // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
+  // subpath with `jit: true` where code generation from strings is not allowed.
+  | 'ERR_NO_EVAL';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
