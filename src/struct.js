@@ -32,7 +32,7 @@ const scanUnknown = (value, known, context) => {
 // more keys than the plan found, so a value with exactly the expected keys is
 // never scanned twice.
 const compileStruct = (plan, known) => (value, context, key) => {
-  if (value === null || typeof value !== 'object') {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     issues.type(context, 'object', value, key);
     return;
   }

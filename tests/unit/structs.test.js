@@ -433,3 +433,21 @@ test('Structs: a value set to undefined and an inherited member', () => {
     'Field "meta" not of expected type: object',
   ]);
 });
+
+test('Structs: an array is not a struct, even when every field is optional', () => {
+  const schema = new Schema('Name', { 'given?': 'string', 'family?': 'string' });
+  assert.strictEqual(schema.check({}).valid, true);
+  for (const value of [[], ['x'], [{ given: 'a' }]]) {
+    assert.deepStrictEqual(schema.check(value).errors, [
+      'Field "Name" not of expected type: object',
+    ]);
+    assert.deepStrictEqual(schema.check(value).issues[0].params, {
+      expected: 'object',
+      received: 'array',
+    });
+  }
+  const nested = Schema.from({ name: { 'given?': 'string' } });
+  assert.deepStrictEqual(nested.check({ name: [] }).errors, [
+    'Field "name" not of expected type: object',
+  ]);
+});
