@@ -86,11 +86,15 @@ const union = {
     return (value, context, key) => {
       if (!required && value == null) return;
       const { count } = context;
+      // The validators a failed branch set aside in an async check go with
+      // its issues: they belong to a branch the value does not match.
+      const pending = context.async === null ? 0 : context.async.length;
       for (let index = 0; index < length; index += 1) {
         checks[index](value, context, key);
         if (context.count === count) return;
         context.issues.length = count;
         context.count = count;
+        if (context.async !== null) context.async.length = pending;
       }
       issues.union(context, expected, undefined, key);
     };

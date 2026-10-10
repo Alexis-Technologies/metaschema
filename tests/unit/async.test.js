@@ -483,3 +483,42 @@ test('Async: a validator may run another check, sync or async', async () => {
     'Field "b" is required',
   ]);
 });
+
+test('Async: a failed branch of a plain union leaves no deferred validator behind', async () => {
+  const schema = new Schema('Pick', {
+    u: {
+      union: [
+        {
+          Struct: {},
+          a: { type: 'string', validate: async () => 'branch0 async says no' },
+          b: 'number',
+        },
+        { Struct: {}, a: 'string', b: 'string' },
+      ],
+    },
+  });
+  // The value matches the second branch: the first one fails on `b` after its
+  // async validator of `a` was set aside, and that validator must go with
+  // the branch.
+  const value = { u: { a: 'x', b: 'y' } };
+  assert.deepStrictEqual((await schema.checkAsync(value)).errors, []);
+  assert.deepStrictEqual(await schema.parseAsync(value), { valid: true, value, issues: [] });
+  // The first branch taken: its async validator settles and may still fail
+  // the value; the next branch is not tried for it.
+  const first = await schema.checkAsync({ u: { a: 'x', b: 1 } });
+  assert.deepStrictEqual(first.errors, ['Field "Pick.u.a" branch0 async says no']);
+  // A deferred validator (met after a promise) inside a failed branch goes too.
+  const later = new Schema('Later', {
+    first: { type: 'string', validate: async () => true },
+    u: {
+      union: [
+        { Struct: {}, a: { type: 'string', validate: () => 'sync says no' }, b: 'number' },
+        { Struct: {}, a: 'string', b: 'string' },
+      ],
+    },
+  });
+  assert.deepStrictEqual(
+    (await later.checkAsync({ first: 'f', u: { a: 'x', b: 'y' } })).errors,
+    [],
+  );
+});

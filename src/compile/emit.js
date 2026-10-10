@@ -367,8 +367,12 @@ const emitUnion = (type, x, key, state) => {
   const branches = type.union;
   if (discriminator === undefined) {
     const before = code.name('b');
+    const pending = code.name('a');
     const label = code.name('u');
     code.push(`const ${before} = c.count;`);
+    // The validators a failed branch set aside in an async check go with its
+    // issues, as in the closure backend.
+    code.push(`const ${pending} = c.async === null ? 0 : c.async.length;`);
     code.push(`${label}: {`);
     for (const branch of branches) {
       const own = code.name('u');
@@ -377,6 +381,7 @@ const emitUnion = (type, x, key, state) => {
       code.push('}');
       code.push(`if (c.count === ${before}) break ${label};`);
       code.push(`c.issues.length = ${before}; c.count = ${before};`);
+      code.push(`if (c.async !== null) c.async.length = ${pending};`);
     }
     const expected = code.ref(branches.map(branchName));
     record(state, issue(state, 'union', `${expected}, void 0, ${keyOf(key)}`));

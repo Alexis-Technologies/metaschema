@@ -959,3 +959,38 @@ test('Compile: without code generation from strings, auto falls back and true th
     false,
   ]);
 });
+
+test('Compile: a failed branch of a plain union drops its deferred validators on both backends', async () => {
+  const build = () =>
+    new Schema('Pick', {
+      first: { type: 'string', validate: async () => true },
+      u: {
+        union: [
+          {
+            Struct: {},
+            a: { type: 'string', validate: async () => 'branch0 says no' },
+            b: 'number',
+          },
+          { Struct: {}, a: 'string', b: 'string' },
+        ],
+      },
+    });
+  const values = [
+    { first: 'f', u: { a: 'x', b: 'y' } },
+    { first: 'f', u: { a: 'x', b: 1 } },
+    { first: 'f', u: { a: 1, b: true } },
+  ];
+  const run = async (schema) => {
+    const out = [];
+    for (const value of values) {
+      out.push((await schema.checkAsync(value)).errors, (await schema.parseAsync(value)).issues);
+    }
+    return out;
+  };
+  const closures = build();
+  const compiled = build();
+  assert.deepStrictEqual(compile(compiled, JIT), { accelerated: canEval() });
+  const expected = await run(closures);
+  assert.deepStrictEqual(expected[0], []);
+  assert.deepStrictEqual(await run(compiled), expected);
+});
