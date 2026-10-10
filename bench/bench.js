@@ -49,6 +49,19 @@ const flags = new Set(args.filter((arg) => arg.startsWith('--')));
 const filter = args.find((arg) => !arg.startsWith('--')) || '';
 const json = flags.has('--json');
 
+// `--fail-under=<percent>` with `--compare`: a scenario slower than the
+// baseline by more than that fails the run (a non-zero exit code).
+const failUnder = (() => {
+  const flag = args.find((arg) => arg.startsWith('--fail-under='));
+  if (flag === undefined) return null;
+  const value = Number(flag.slice('--fail-under='.length));
+  if (!(value >= 0)) {
+    console.error(`--fail-under needs a percentage, got ${JSON.stringify(flag)}`);
+    process.exit(1);
+  }
+  return value;
+})();
+
 const percent = (current, base) => {
   const delta = ((current - base) / base) * 100;
   const sign = delta >= 0 ? '+' : '';
@@ -64,10 +77,20 @@ const compare = (results) => {
   const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
   const base = new Map(baseline.results.map((row) => [row.name, row.opsPerSec]));
   console.log(`\nAgainst baseline from ${baseline.date} (${baseline.node}):`);
+  const regressions = [];
   for (const { name, opsPerSec } of results) {
     const before = base.get(name);
     const change = before ? percent(opsPerSec, before) : 'no baseline';
     console.log(`${name.padEnd(52)} ${change.padStart(12)}`);
+    if (before && failUnder !== null && ((opsPerSec - before) / before) * 100 < -failUnder) {
+      regressions.push(name);
+    }
+  }
+  if (regressions.length > 0) {
+    console.error(
+      `\n${regressions.length} scenario(s) slower than the baseline by more than ${failUnder}%`,
+    );
+    process.exitCode = 1;
   }
 };
 

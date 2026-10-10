@@ -34,8 +34,8 @@ node --test --test-name-pattern="Tuple" tests/unit/*.test.js   # filter by name
 pnpm run test:coverage             # c8 over src/, gated at 98 lines/statements, 90 branches, 100 functions
 pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.d.ts
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
-pnpm run lint                      # oxlint src tests scripts bench
-pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
+pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
+pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
 pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 17 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
