@@ -96,16 +96,30 @@ const lengthOf = (value) => {
   return name === 'Set' || name === 'Map' ? value.size : keyCount(value);
 };
 
-const units = (value) => value.length;
-
 // A string field measures its units, or its code points when it asks for
-// them; anything else is measured by what it is. Chosen once, here.
+// them; anything else is measured by what it is. One closure per case, each
+// calling its measure directly: a measure held in a variable is a call site
+// shared by every length rule of the process, which V8 then cannot inline.
 const compileLength = (type) => {
   const { min, max } = type.length;
-  const string = type.scalar === 'string';
-  const measure = string ? (type.unicode === true ? codePoints : units) : lengthOf;
+  if (type.scalar === 'string') {
+    if (type.unicode === true) {
+      return (value, context, key) => {
+        const actual = codePoints(value);
+        const short = min !== undefined && actual < min;
+        const long = max !== undefined && actual > max;
+        if (short || long) issues.length(context, min, max, actual, key);
+      };
+    }
+    return (value, context, key) => {
+      const actual = value.length;
+      const short = min !== undefined && actual < min;
+      const long = max !== undefined && actual > max;
+      if (short || long) issues.length(context, min, max, actual, key);
+    };
+  }
   return (value, context, key) => {
-    const actual = measure(value);
+    const actual = lengthOf(value);
     const short = min !== undefined && actual < min;
     const long = max !== undefined && actual > max;
     if (short || long) issues.length(context, min, max, actual, key);

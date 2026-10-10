@@ -19,15 +19,12 @@ const unknownOf = (unknown) => {
   return unknown;
 };
 
-// `options` and `indexes` are null-prototype dictionaries keyed by definition
-// keys, which may be called `extract` or `constructor`.
-const createOptions = () =>
-  Object.assign(Object.create(null), {
-    validate: null,
-    format: null,
-    parse: null,
-    serialize: null,
-  });
+// `indexes` is a null-prototype dictionary keyed by definition keys, which may
+// be called `extract` or `constructor`; `options` only ever holds the four
+// keys below and stays a plain object with fast properties: the compiled
+// check reads `options.validate` on every call, and V8 keeps an object made
+// by `Object.create(null)` in dictionary mode.
+const createOptions = () => ({ validate: null, format: null, parse: null, serialize: null });
 
 const extractOption = (options, key, field) => {
   const isOption = typeof field === 'function' && OPTIONS.has(key);

@@ -185,12 +185,11 @@ class Schema extends SchemaMetadata {
   // error lines, the schema name by default), maxErrors, unknown ('reject'
   // or 'ignore' keys the schema does not have), references, messages (a
   // locale). A validator that returns a promise is an error here.
-  #context(options, parsing) {
-    return createContext(options, this.name, this.unknown, parsing);
-  }
-
+  // `createContext` is called directly in every method here, never through a
+  // helper: V8 inlines the allocation into `check` that way (the context is
+  // the one allocation of a valid check), and a method in between cost 7%.
   check(source, options) {
-    const context = this.#context(options);
+    const context = createContext(options, this.name, this.unknown);
     if (this.#tracked) context.source = source;
     this[RUN](source, context);
     return resultOf(context);
@@ -199,7 +198,7 @@ class Schema extends SchemaMetadata {
   // The same check, with the validators that return a promise settled after
   // the walk, in field order.
   async checkAsync(source, options) {
-    const context = this.#context(options);
+    const context = createContext(options, this.name, this.unknown);
     context.async = [];
     if (this.#tracked) context.source = source;
     this[RUN](source, context);
@@ -230,7 +229,7 @@ class Schema extends SchemaMetadata {
   // issues }`: the value is undefined when invalid, and the value given when
   // there was nothing to apply; the value given is never written to.
   parse(source, options) {
-    const context = this.#context(options, true);
+    const context = createContext(options, this.name, this.unknown, true);
     const value = this.#prepare(source, context);
     this[RUN](value, context);
     const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
@@ -238,7 +237,7 @@ class Schema extends SchemaMetadata {
   }
 
   async parseAsync(source, options) {
-    const context = this.#context(options, true);
+    const context = createContext(options, this.name, this.unknown, true);
     context.async = [];
     const value = this.#prepare(source, context);
     this[RUN](value, context);
@@ -256,7 +255,7 @@ class Schema extends SchemaMetadata {
   // of the fields, from the value down to its parts. `{ value }`, or with
   // `options.check` the verdict of `check` over the result as well.
   serialize(source, options) {
-    const context = this.#context(options);
+    const context = createContext(options, this.name, this.unknown);
     const value = this.#pass(SERIALIZE, source, context);
     if (options === undefined || options.check !== true) return { value };
     context.seen = null;

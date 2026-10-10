@@ -131,16 +131,13 @@ const absorb = (context, output, code, fallback) => {
   record(context, code, EMPTY, undefined, safeString(output));
 };
 
-// The renderer of a code: the locale's own, else the built-in one; a code a
-// validator made up (`constructor` included) has none.
-const rendererOf = (messages, code) => {
-  if (Object.hasOwn(messages, code)) return messages[code];
-  return Object.hasOwn(en, code) ? en[code] : undefined;
-};
-
+// The renderer of a code: the locale's own, else the built-in one. The tables
+// have no prototype (the built-in ones by construction, a caller's through
+// `messagesOf` in context.js), so a code a validator made up (`constructor`
+// included) finds no renderer and keeps the validator's message.
 const render = (messages, issue) => {
   if (typeof messages === 'function') return messages(issue);
-  const detail = rendererOf(messages, issue.code);
+  const detail = messages[issue.code] || en[issue.code];
   return typeof detail === 'function' ? detail(issue.params, issue) : issue.message;
 };
 

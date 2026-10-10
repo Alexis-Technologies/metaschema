@@ -59,3 +59,8 @@ module.exports = {
   exception,
   custom,
 };
+
+// A table without a prototype: a code a validator makes up (`constructor`)
+// finds no renderer here. Set after the literal, which cjs-module-lexer reads
+// for the named exports of the ESM interop.
+Object.setPrototypeOf(module.exports, null);

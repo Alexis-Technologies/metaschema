@@ -559,7 +559,8 @@ test('Schema: an index or an option may be called like a method, a metadata key 
   });
   assert.deepStrictEqual(Object.keys(schema.indexes), ['extract', 'constructor']);
   assert.strictEqual(schema.check({ a: 'x' }).valid, true);
-  assert.strictEqual(Object.getPrototypeOf(schema.options), null);
+  assert.strictEqual(Object.getPrototypeOf(schema.indexes), null);
+  assert.deepStrictEqual(Object.keys(schema.options), ['validate', 'format', 'parse', 'serialize']);
   // The metadata of a type is a dictionary: `__proto__` is a key of it.
   const PROTO = '__proto__';
   const model = new Model({ string: { metadata: { [PROTO]: { polluted: true } } } }, []);

@@ -34,12 +34,23 @@ const maxDepthOf = (maxDepth) => {
   return maxDepth;
 };
 
+// A caller's locale table as a null-prototype copy, made once per table: the
+// renderers are looked up by issue code, and a code a validator made up must
+// find nothing on Object.prototype.
+const TABLES = new WeakMap();
+
 const messagesOf = (messages) => {
-  const isTable = messages !== null && typeof messages === 'object';
-  if (!isTable && typeof messages !== 'function') {
+  if (typeof messages === 'function') return messages;
+  if (messages === null || typeof messages !== 'object') {
     throw invalid('messages', 'a locale table or a function', messages);
   }
-  return messages;
+  if (Object.getPrototypeOf(messages) === null) return messages;
+  let table = TABLES.get(messages);
+  if (table === undefined) {
+    table = Object.assign(Object.create(null), messages);
+    TABLES.set(messages, table);
+  }
+  return table;
 };
 
 // `strip` is a policy of parse alone: the check behind it treats it as

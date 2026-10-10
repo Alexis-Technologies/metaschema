@@ -233,6 +233,17 @@ test('Issues: a code a validator made up renders its own message, whatever the c
     'Field "b" also made up',
     'Field "c" and again',
   ]);
+  // A caller's table has a prototype; it is looked up by code all the same.
+  const custom = { custom: () => 'own text', field: (path) => `At ${path}` };
+  const result = schema.check({ a: 'x', b: 'y', c: 'z' }, { messages: custom });
+  assert.deepStrictEqual(result.errors, ['At a made up', 'At b also made up', 'At c and again']);
+  assert.deepStrictEqual(
+    Schema.from({ d: { type: 'string', validate: () => false } }).check(
+      { d: 'd' },
+      { messages: custom },
+    ).errors,
+    ['At d own text'],
+  );
 });
 
 test('Issues: what a validator throws or returns is rendered whatever it is', () => {

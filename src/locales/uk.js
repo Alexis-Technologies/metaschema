@@ -58,3 +58,5 @@ module.exports = {
   exception,
   custom,
 };
+
+Object.setPrototypeOf(module.exports, null);
