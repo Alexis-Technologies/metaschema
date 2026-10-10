@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **JSON Schema export.** `schema.toJSONSchema(options)` renders the rules of `check` as a
+  JSON Schema document and `model.toJSONSchema(options)` every entity of a model as a
+  definition (`$defs`, `definitions` or `components.schemas` by target), or the document of
+  `options.root`. Targets: `draft-2020-12` (the default), `draft-07`, `openapi-3.0` (a schema
+  object: `nullable`, no type lists, `oneOf` with `discriminator` for a discriminated union)
+  and `mongodb` (a `$jsonSchema` validator: `bsonType`, references inlined, no `$ref`,
+  `format` or `default`, `_id` allowed at the root). A struct is a closed object with its
+  required keys (open when the root says `unknown: 'ignore'`), an optional or nullable field
+  accepts `null`, `length`/`pattern`/`min`/`max` are the matching keywords, a required
+  `object` or `map` has `minProperties: 1` as `check` requires, a tuple is `prefixItems` (an
+  `items` list before 2020-12), a union is `anyOf`, an enum of one value is `const`, and a
+  reference follows the kind of its target (an id for a stored kind, a `$ref` for a memory
+  kind; `references: 'kind' | 'embed' | 'id'` as in `check`). `title`, `description`,
+  `default`, `examples` and `deprecated` pass through where the dialect has them; a custom type
+  renders through `metadata.jsonSchema` (`metadata.bson` for mongodb) or the built-in it
+  aliases. `io: 'input'` (the default) describes the JSON a value is parsed from (a `date` is a
+  `date-time` string, a `set` an array of unique items, a `map` an object); `io: 'output'`
+  describes the value itself, where those three have no form. What has no form in the target
+  (`bigint`, a tuple for openapi-3.0, a cycle for mongodb, a custom type without metadata)
+  throws `SchemaDefinitionError` with the new code `ERR_UNREPRESENTABLE`, located in the
+  schema and the field, or renders as `{}` with `unrepresentable: 'any'`. `validate`
+  functions, custom `checkType`s, calculated fields, indexes and kind metadata are not
+  exported.
+- **The strict profile.** `toJSONSchema({ profile: 'strict' })` renders the dialect of LLM
+  structured outputs (OpenAI, Anthropic): an object at the root, every property listed as
+  required (an optional one as `['T', 'null']`, an optional `$ref` as an `anyOf` with null),
+  `additionalProperties: false` on every object, and the structure only: `minLength`,
+  `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `uniqueItems` and
+  `minProperties` are left out, and a value without a type (`any`, `json`, an `object` or
+  `map` of free keys) has no form. For the `draft-2020-12` and `draft-07` targets.
+- **Standard JSON Schema.** `schema['~standard'].jsonSchema` is the converter of the
+  specification: `input(options)` and `output(options)` are `toJSONSchema` for the `target` the
+  consumer names (`draft-2020-12`, `draft-07` or `openapi-3.0`; anything else throws, as the
+  specification asks) with `libraryOptions` as the other options. A `Schema<D>` is a
+  `StandardJSONSchemaV1<Infer<D>, Infer<D>>`; the typings add `StandardConverter` and
+  `StandardJSONSchemaOptions`.
+- **JSDoc and named types in the generated TypeScript.** The `description` of a field is the
+  JSDoc of its member and `deprecated: true` adds `@deprecated`. `model.toTypeScript({ named:
+  true })` and `schema.toInterface({ named: true })` give every enum a `type` and every nested
+  struct an `interface`, named after the entity and the field (`type UserRole`, `interface
+  UserName`) and rendered before the interface that uses them; `model.dts` is
+  `model.toTypeScript()`, and `saveTypes(file, model, options)` passes the options on.
+  `InterfaceOptions` is the type of the options.
+- **Typings** for the export: `JSONSchema` (`Record<string, unknown>`), `JSONSchemaOptions`,
+  `ModelJSONSchemaOptions`, `JSONSchemaTarget`, and `ERR_UNREPRESENTABLE` in
+  `DefinitionErrorCode`.
+
+### Changed
+
+- **The bundle is 15.7 KB min+gzip** (2.0 was 12.6 KB): the JSON Schema export lives in the
+  core, since `~standard.jsonSchema` has to be on the schema object, and costs 3 KB with the
+  dts annotations. CI gates at 16 KB (`pnpm size --max-gzip 16`).
+
+### Fixed
+
+- **A struct rejects an array.** `check` accepted `[]` for a struct whose fields are all
+  optional (`typeof [] === 'object'`, no keys to look at); an array is now `not of expected
+  type: object`, as it is for a struct with required fields. Found by the differential test
+  against ajv.
+
+### Tooling
+
+- `ajv` and `ajv-formats` are devDependencies, used by `tests/unit/jsonschema-ajv.test.js`: for
+  values a deterministic generator produces from the schemas (every form of the language, the
+  fixture model, references by kind, embedded and as ids), `check` and ajv over `toJSONSchema`
+  must agree on every verdict, for draft 2020-12 and draft-07. The known differences (UTF-16
+  units against code points, instances on the output side, number keys) are documented in the
+  file and in the guide.
+- New test suites: `jsonschema` (every form by target, the strict profile, the mongodb target,
+  the fixture model, the Standard converter), `jsonschema-ajv`, `dts` (JSDoc and named types),
+  `tests/types/jsonschema.test-d.ts`; the bundle and saveTypes tests cover the new API.
+
 ## [2.0.0] - 2026-10-10
 
 2.0 rewrites the validation core and settles the semantics of the schema language. Every check

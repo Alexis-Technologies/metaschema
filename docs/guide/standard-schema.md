@@ -95,10 +95,34 @@ validate({}, { libraryOptions: { maxErrors: 1, messages: uk } });
 // }
 ```
 
+## JSON Schema
+
+`schema['~standard'].jsonSchema` is the converter of
+[Standard JSON Schema](https://standardschema.dev): `input(options)` and `output(options)` render
+the schema as a JSON Schema document for the `target` the consumer names (`'draft-2020-12'`,
+`'draft-07'` or `'openapi-3.0'`; anything else throws, as the specification asks), with the
+other [options of `toJSONSchema`](/guide/json-schema#options) as `libraryOptions`:
+
+```js
+user['~standard'].jsonSchema.input({ target: 'draft-07' });
+// {
+//   $schema: 'http://json-schema.org/draft-07/schema#',
+//   type: 'object',
+//   properties: { name: { type: 'string' }, age: { type: ['number', 'null'] } },
+//   required: ['name'],
+//   additionalProperties: false
+// }
+```
+
+`input` describes the JSON a value is parsed from and `output` the value `check` accepts; the
+two differ only for a `date`, `set` or `map`, which have no JSON form on the way out (see
+[Input and output](/guide/json-schema#input-and-output)). The `mongodb` target is not a JSON
+Schema and is reached through [`toJSONSchema`](/guide/json-schema) only.
+
 ## TypeScript
 
 The typings declare `~standard` as `StandardProps<D>`, and a `Schema<D>` is a
-`StandardSchemaV1<Infer<D>, Infer<D>>` of
+`StandardSchemaV1<Infer<D>, Infer<D>>` and a `StandardJSONSchemaV1<Infer<D>, Infer<D>>` of
 [`@standard-schema/spec`](https://www.npmjs.com/package/@standard-schema/spec): nothing is
 transformed, so the input type is the output type, and both are what
 [`InferSchema`](/guide/typescript) gives:
@@ -111,9 +135,9 @@ type User = StandardSchemaV1.InferOutput<typeof user>;
 const schema: StandardSchemaV1<User> = user;
 ```
 
-`StandardProps<D>`, `StandardResult<T>` and `StandardOptions` are exported for code that reads
-the interface itself. The package does not depend on `@standard-schema/spec`; the compatibility
-is pinned by its type tests.
+`StandardProps<D>`, `StandardResult<T>`, `StandardOptions`, `StandardConverter` and
+`StandardJSONSchemaOptions` are exported for code that reads the interface itself. The package
+does not depend on `@standard-schema/spec`; the compatibility is pinned by its type tests.
 
 ## What it is not
 
@@ -122,5 +146,3 @@ is pinned by its type tests.
   2.2.
 - **Synchronous.** `validate` never returns a promise; a consumer that awaits the result gets the
   same object.
-- **Not JSON Schema.** `~standard.jsonSchema`, the Standard JSON Schema interface, comes with the
-  JSON Schema export planned for 2.1.

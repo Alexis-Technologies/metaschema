@@ -201,6 +201,8 @@ Rules of the conversion:
 | `addresses: { many: 'Address' }`, a stored kind | ids: `addressesId: string[]` |
 | `label: 'Tag'`, a memory kind | the interface: `label: Tag` (`tags: Tag[]` for `many`) |
 | `{ type: 'Company', embed: true }` / `{ type: 'Tag', embed: false }` | the record / the id, whatever the kind |
+| `{ type: T, description: 'text' }` | a JSDoc comment above the member: `/** text */` |
+| `{ type: T, deprecated: true }` | a `@deprecated` tag in the JSDoc |
 
 Optional fields get `?`, and stored kinds include their own id field (`userId?: string`). Whether a
 reference is an id or the interface follows the [storage view and graph view](/guide/references#storage-view-and-graph-view)
@@ -209,18 +211,89 @@ rule of `check`; a reference `toInterface()` cannot resolve (outside a model) re
 `schema.toInterface()` renders a single schema the same way; a schema whose definition is a single
 type renders as a type alias (`type Pair = [number, string];`).
 
+### JSDoc and named types
+
+The `description` of a field is the JSDoc of its member, and `deprecated: true` adds the
+`@deprecated` tag, so an editor shows both where the type is used. By default an enum renders as
+a union of literals and a nested struct as an inline object type; `model.toTypeScript({ named:
+true })` gives each a type of its own, named after the entity and the field and rendered before
+the interface that uses it (`model.dts` is `model.toTypeScript()` without options, and
+`schema.toInterface(options)` takes the same option):
+
+```js
+const entities = new Map([
+  ['Company', { Dictionary: {}, name: { type: 'string', unique: true }, addresses: { many: 'Address' } }],
+  ['Address', { Entity: {}, city: 'string', street: 'string', building: '?string' }],
+  ['User', {
+    Registry: {},
+    login: { type: 'string', length: { min: 3, max: 32 }, description: 'The login name' },
+    role: { enum: ['admin', 'editor'] },
+    name: { first: 'string', 'last?': 'string' },
+    legacyId: { type: 'string', deprecated: true, required: false },
+    company: 'Company',
+    active: 'boolean',
+  }],
+]);
+
+console.log(new Model(types, entities).toTypeScript({ named: true }));
+```
+
+```ts
+interface Address {
+  city: string;
+  street: string;
+  building?: string;
+  addressId?: string;
+}
+
+interface Company {
+  name: string;
+  addressesId: string[];
+  companyId?: string;
+}
+
+type UserRole = "admin" | "editor";
+
+interface UserName {
+  first: string;
+  last?: string;
+}
+
+interface User {
+  /** The login name */
+  login: string;
+  role: UserRole;
+  name: UserName;
+  /** @deprecated */
+  legacyId?: string;
+  companyId: string;
+  active: boolean;
+  userId?: string;
+}
+```
+
+Without the option `role` is `"admin" | "editor"` and `name` is `{ first: string; last?: string }`
+inline. A name is the entity, then every key on the way to the field, capitalized
+(`UserName`, `UserAddressGeo` for a struct inside a struct); the element of a collection takes
+the name of its field (`levels: { array: { enum: [1, 2] } }` renders `type DocLevels = 1 | 2`
+and `levels: DocLevels[]`), and the elements of a tuple or the branches of a union take an index
+(`DocPair0`, `DocEither1`). An inline object type has no room for JSDoc, so the description of a
+field of a nested struct appears only with named types.
+
 ### Writing the file
 
-`saveTypes(outputFile, model)` writes `model.dts` to a file and returns a promise:
+`saveTypes(outputFile, model, options?)` writes `model.toTypeScript(options)` to a file and
+returns a promise:
 
 ```js
 const { saveTypes } = require('@alexify/metaschema');
 
 await saveTypes('./types/model.d.ts', model);
+await saveTypes('./types/model.d.ts', model, { named: true });
 ```
 
-It is a thin wrapper over `fs.promises.writeFile(outputFile, model.dts)`, and the only API that
-touches the file system. In the browser it rejects.
+It is a thin wrapper over `fs.promises.writeFile`, and the only API that touches the file
+system. In the browser it rejects.
 
 ## Typings for the package
 

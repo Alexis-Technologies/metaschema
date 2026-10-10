@@ -132,6 +132,7 @@ export default defineConfig({
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },
+            { text: 'JSON Schema', link: '/guide/json-schema' },
             { text: 'Browser', link: '/guide/browser' },
           ],
         },

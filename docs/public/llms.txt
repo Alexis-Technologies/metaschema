@@ -9,7 +9,7 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 12.6 KB min+gzip; about 10 million checks a second of a flat struct
+- Zero runtime dependencies, 15.7 KB min+gzip; about 10 million checks a second of a flat struct
 - Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
   `ValidationResult`, the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
   `ALLOW`, the types `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, and the locales
@@ -18,8 +18,14 @@ Key facts:
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
   with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
   `references`, `messages`; a `validate` function may build and return a result
-- Every schema is a Standard Schema v1 (`schema['~standard']`); `InferSchema<typeof schema>` is
-  the TypeScript type of a value it accepts
+- Every schema is a Standard Schema v1 (`schema['~standard']`, with the Standard JSON Schema
+  converter `jsonSchema`); `InferSchema<typeof schema>` is the TypeScript type of a value it accepts
+- `schema.toJSONSchema({ target, profile, io, unrepresentable, references, definitions })` and
+  `model.toJSONSchema({ root, ... })` render JSON Schema draft 2020-12 (default), draft-07, an
+  OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`; `profile: 'strict'` is the dialect of LLM
+  structured outputs (root object, every property required, optional as `[T, 'null']`,
+  `additionalProperties: false`, no value constraints); a stored reference is an id, a memory
+  reference a `$ref`; `validate` functions are not exported
 - A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
   `field`, when the schema is built, never during `check`
 - Safe to bundle and minify: identity checks use a global symbol brand, not class names
@@ -35,7 +41,8 @@ Key facts:
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
   kind
 - `new Model(types, entities, database)` resolves references, orders entities and renders
-  `model.dts`
+  `model.dts`; `model.toTypeScript({ named: true })` names enums and nested structs, a field's
+  `description` is its JSDoc and `deprecated: true` adds `@deprecated`
 - Does not load schemas from files or evaluate source strings; pass schema objects directly
 
 Docs:
@@ -44,4 +51,5 @@ Docs:
 - Validation: https://metaschema.vercel.app/guide/validation
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
+- JSON Schema: https://metaschema.vercel.app/guide/json-schema
 - API: https://metaschema.vercel.app/api/exports

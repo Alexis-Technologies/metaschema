@@ -28,10 +28,10 @@ Returns `{ defs, metadata }` for a kind: the default `scope`, `store` and `allow
 `meta`, and the fields the kind adds (the id field of stored kinds). Used internally when a
 definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadata).
 
-### `saveTypes(outputFile, model)`
+### `saveTypes(outputFile, model, options?)`
 
-Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the browser. See
-[TypeScript](/guide/typescript#writing-the-file).
+Writes `model.toTypeScript(options)` to `outputFile`. Returns `Promise<void>`. Rejects in the
+browser. See [TypeScript](/guide/typescript#writing-the-file).
 
 ## `Schema`
 
@@ -42,8 +42,9 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
-| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }` |
-| `schema.toInterface()` | the schema as a TypeScript interface |
+| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate, jsonSchema }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }`; `jsonSchema.input(options)` and `jsonSchema.output(options)` are `toJSONSchema` for `options.target` (`draft-2020-12`, `draft-07` or `openapi-3.0`) with `options.libraryOptions` |
+| `schema.toJSONSchema(options?)` | the schema as a [JSON Schema](/guide/json-schema) document; `options`: `target` (`'draft-2020-12'`, `'draft-07'`, `'openapi-3.0'`, `'mongodb'`), `profile` (`'strict'`), `io` (`'input'`, `'output'`), `unrepresentable` (`'throw'`, `'any'`), `references` (`'kind'`, `'embed'`, `'id'`), `definitions` (a pointer) |
+| `schema.toInterface(options?)` | the schema as a TypeScript interface, the `description` of a field as JSDoc; `options.named` gives enums and nested structs types of their own; see [TypeScript](/guide/typescript#jsdoc-and-named-types) |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
@@ -64,7 +65,9 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
 | `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
-| `model.dts` | TypeScript interfaces for every entity |
+| `model.dts` | TypeScript interfaces for every entity, `model.toTypeScript()` |
+| `model.toTypeScript(options?)` | the interfaces of every entity in dependency order; `options` are those of `schema.toInterface` |
+| `model.toJSONSchema(options?)` | every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of the entity `options.root`; the other options are those of `schema.toJSONSchema` |
 
 ## `ValidationResult`
 
@@ -117,7 +120,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option, or the `unknown` metadata of a schema, with a value it does not accept |
+| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, or an option of `toJSONSchema` with a value it does not accept (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) |
+| `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
@@ -135,11 +139,15 @@ it; see [Validation](/guide/validation#the-result).
 | `StandardProps<D>` | the type of `schema['~standard']` of a `Schema<D>`: `version`, `vendor`, `validate` and the type-level `types` (`input` and `output`, both `Infer<D>`); see [Standard Schema](/guide/standard-schema#typescript) |
 | `StandardResult<T>` | what `validate` returns: `{ value: T }` or `{ issues: ReadonlyArray<ValidationIssue> }` |
 | `StandardOptions` | the options of `validate`: `libraryOptions`, the `CheckOptions` of the call |
+| `StandardConverter` | the type of `schema['~standard'].jsonSchema`: `input` and `output`, from `StandardJSONSchemaOptions` (`target` and `libraryOptions`) to `JSONSchema` |
+| `JSONSchema` | what `toJSONSchema` returns: `Record<string, unknown>` |
+| `JSONSchemaOptions`, `ModelJSONSchemaOptions`, `JSONSchemaTarget` | the options of `schema.toJSONSchema`, those of `model.toJSONSchema` (plus `root`), and the four targets |
+| `InterfaceOptions` | the options of `toInterface`, `toTypeScript` and `saveTypes`: `named` |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`,
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`, `StandardJSONSchemaOptions`,
 `Validator`, `ValidationReturn`, `ValidationIssue` (a union by code), `IssueOf<Code>`,
 `IssueParams`, `IssueInput`, `IssueCode`, `Locale`, `Messages`, `FlatIssues`, `IssueTree` and
 `DefinitionErrorCode`.

@@ -101,6 +101,12 @@ model.types.datetime.metadata; // { pg: 'timestamp with time zone' }
 payment.fields.amount.constructor.metadata; // { pg: 'decimal' }
 ```
 
+Two keys are read by metaschema itself, by the [JSON Schema export](/guide/json-schema#custom-types):
+`metadata.jsonSchema` is the schema of the type (`{ type: 'string', format: 'date-time' }` for
+`datetime`) and `metadata.bson` its BSON type for the `mongodb` target (`'date'`). An alias
+without them renders as the type it aliases; a type with its own `checkType` and no
+`jsonSchema` has no JSON Schema form.
+
 ## Types are registered globally
 
 Type registration is process-wide: once a `Model` registers `ip` or adds metadata to `string`,

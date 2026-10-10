@@ -271,6 +271,8 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 
 *Status (2026-10-10):* done for 2.0 in Workstream H, with two revisions. The entries measured 12.6 KB min+gzip after D1 (A alone was 9.9 KB; union, the new types, pattern, min/max, references by kind and the lint cost about 2.6 KB), so the 2.0 budget is **13 KB per entry** (`pnpm size --max-gzip 13` in CI, CLAUDE.md "Budgets"); D2 has to measure first and either fit into it or move it. The `./compile` budget and the ajv differential test are deferred to 2.1, since they need E and D2.
 
+*Status (2026-10-10, later, branch `feature/v2.1`):* D2 measured 3.0 KB (the export with four targets and the strict profile, plus the D3 annotations) and the entries are at 15.7 KB, so the 2.1 budget is **16 KB per entry** (`pnpm size --max-gzip 16`, 0eb1a37); the export stays in the core because `~standard.jsonSchema` has to be on the schema object (the subpath alternative is in the D2 hand-over note). The ajv differential test exists (`tests/unit/jsonschema-ajv.test.js`, 307ea8c) for draft 2020-12 and draft-07, and found one bug in `check` (a struct accepted an array, 94bb1e3). The `./compile` budget still waits for E.
+
 ---
 
 ## 6. Roadmap
@@ -292,9 +294,13 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | C (§5.3) `Infer`, `Schema<D>` | done | cc8f392 + 7506c40, 2026-10-10 (no `Model<E>`: `InferEntity<E, Name>` instead, see CLAUDE.md) |
 | D1 (§5.4) Standard Schema | done | 41d3801 + b25619b, 2026-10-10 |
 | H (§5.8) docs, budgets, migration guide | done | the `docs`/`chore(ci)` commits after D1, 2026-10-10 |
-| E (§5.5) JIT, D2 JSON Schema, D3 dts annotations | next, 2.1 | with the `./compile` budget, the ajv differential test and the library comparison bench |
+| D2 (§5.4) JSON Schema export, `~standard.jsonSchema` | done, 2.1 | 30c0426 + 90ae650 (branch `feature/v2.1`, 2026-10-10), the ajv differential test 307ea8c, the 16 KB budget 0eb1a37, the `fix(check)` 94bb1e3 it found |
+| D3 (§5.4) dts annotations | done, 2.1 | c1f6caf: JSDoc from `description`/`deprecated`, `toTypeScript({ named: true })` |
+| E (§5.5) JIT | next, 2.1 | with the `./compile` budget and the library comparison bench |
 
 What 2.0 delivers against the plan: all of A1–A6 except the library comparison; all of B1–B9 except "unused references" in B8 (no well-defined meaning, dropped); C without `Model<E>`; D1 with `types.input = Infer<D>`; H in full. The bundle budget is 13 KB (§5.8) and the measured `check` numbers are below the A6 targets (§5.1 status, §7).
+
+What D2/D3 deliver against §5.4 (2.1): the four targets, the strict profile, `model.toJSONSchema` with `$defs` per entity (and `root`), `~standard.jsonSchema`, the annotations, `metadata.jsonSchema`/`metadata.bson` for custom types, and the dts JSDoc and named types. Decisions beyond the plan, each held by the differential test or a dialect's rules: an optional field allows `null` in every mode (as `check` does), a required `object`/`map` has `minProperties: 1`, the strict profile emits structure only (no `minLength`/`minimum`/`uniqueItems`/..., which the LLM dialects reject), a tuple has no form in OpenAPI 3.0 (`items` must be an object there), the mongodb root allows `_id`, and `~standard.jsonSchema` refuses the mongodb target. `model.toJSONSchema()` moved from 2.2 (§6 table) into 2.1 with D2.
 
 Prioritization inside 2.0 (if something has to be cut): A1–A4 and B1/B6/B7 (the fixes that change the result shape) are mandatory for 2.0; B3 `union`/`date`, B9 `pattern` and C `Infer` can ship in 2.0.x as additive if the core takes longer. D1 is cheap (≈ 20 lines) and stays in 2.0.
 
@@ -307,7 +313,7 @@ Product consequences in the Alexis stack (outside this repository, after 2.1): k
 1. `pnpm test`, `pnpm run test:coverage` (thresholds 98/98/90/100, not relaxed), `pnpm run test:types` (new `infer.test-d.ts`, `standard.test-d.ts`), `pnpm run check:dts`, `pnpm lint`, `pnpm run format:check`, `pnpm size` with the new budgets, `pnpm docs:build` (dead links).
 2. Both backends pass one test suite; separately `node --disallow-code-generation-from-strings --test tests/unit/*.test.js` (the fallback) and the bundle test through esbuild (minified and not) for `index.js`, `browser.js`, `src/compile`.
 3. `pnpm bench --compare` against the saved baseline: check the targets (2.0: ≥ 12 M / ≥ 6 M ops/s flat valid/invalid, measured 10.7 M / 3.5 M, see §5.1 status; 2.1 JIT: ≥ 25 M) and no regressions in `Schema.from`/`new Model`.
-4. Differential tests: `check` ↔ ajv over `toJSONSchema`; `Infer` ↔ `model.dts` (tsd: the generated interface is assignable to `Infer<def>` and vice versa).
+4. Differential tests: `check` ↔ ajv over `toJSONSchema` (done in 2.1, `tests/unit/jsonschema-ajv.test.js`); `Infer` ↔ `model.dts` (tsd: the generated interface is assignable to `Infer<def>` and vice versa).
 5. Integration fixture tests: `~standard` through the `@standard-schema/spec` types; `toJSONSchema({ target: 'mongodb' })` is accepted by the `$jsonSchema` validator (a syntactic check of the keys); `toJSONSchema({ profile: 'strict' })` meets the OpenAI/Anthropic constraints (root object, `additionalProperties: false`, everything `required`).
 6. A manual pass over the documentation: the example outputs in docs are verified against the code (as today), the migration guide is run against `tests/fixtures/schemas`.
 

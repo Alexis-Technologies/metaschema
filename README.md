@@ -57,10 +57,13 @@ result.issues;
 - **Standard Schema.** Every schema implements [Standard Schema v1](https://standardschema.dev)
   (`schema['~standard']`), so tRPC, TanStack Form, Hono and any other consumer of the interface
   take it as they take a zod or valibot schema.
+- **JSON Schema.** `toJSONSchema` renders a schema or a whole model as JSON Schema draft 2020-12
+  or draft-07, an OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`, with a strict profile for
+  LLM structured outputs; `~standard.jsonSchema` is the Standard JSON Schema converter.
 - **Fast.** Every check is compiled into a closure when the schema is built and runs in a context
   of its own: about 10 million validations a second of a flat struct on Node 24 (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 12.6 KB min+gzip.** CommonJS with ESM named imports, no build step,
+- **Zero dependencies, 15.7 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers.
 
 ## Installation
@@ -156,7 +159,8 @@ interface User {
 }
 ```
 
-`saveTypes(outputFile, model)` writes `model.dts` to a file. The first key of a definition sets
+`saveTypes(outputFile, model, options?)` writes `model.dts` to a file (`model.toTypeScript({ named:
+true })` names enums and nested structs, and a field's `description` is its JSDoc). The first key of a definition sets
 its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
 `View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
 `scope: 'application'` and `store: 'persistent'`, and they get an id field; a reference to a
@@ -205,6 +209,37 @@ A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-sch
 `schema['~standard']` is typed as `StandardProps<D>`, with `StandardResult<T>` and
 `StandardOptions` beside it. See
 [Standard Schema](https://metaschema.vercel.app/guide/standard-schema).
+
+## JSON Schema
+
+`schema.toJSONSchema(options)` renders the rules of `check` as a JSON Schema document, and
+`model.toJSONSchema(options)` every entity of a model as a definition:
+
+```js
+user.toJSONSchema({ target: 'draft-07' });
+// {
+//   $schema: 'http://json-schema.org/draft-07/schema#',
+//   type: 'object',
+//   properties: {
+//     name: { type: 'object', properties: { first: { type: 'string' }, last: { type: 'string' } }, required: ['first', 'last'], additionalProperties: false },
+//     email: { type: 'string', minLength: 5, maxLength: 64 },
+//     age: { type: ['number', 'null'] },
+//     roles: { type: 'array', items: { enum: ['admin', 'editor', 'viewer'] } }
+//   },
+//   required: ['name', 'email', 'roles'],
+//   additionalProperties: false
+// }
+
+answer.toJSONSchema({ profile: 'strict' }); // the dialect of OpenAI and Anthropic structured outputs
+model.toJSONSchema({ target: 'mongodb' }); // one $jsonSchema validator per entity
+```
+
+The targets are `draft-2020-12` (the default), `draft-07`, `openapi-3.0` and `mongodb`; an
+optional field accepts `null`, a reference to a stored kind is its id and a reference to a memory
+kind a `$ref`, `validate` functions are not exported, and a type with no form in the target
+(`bigint`, a `Date` on the way out) throws unless the call says `unrepresentable: 'any'`. The
+export is checked against ajv for every form of the language. See
+[JSON Schema](https://metaschema.vercel.app/guide/json-schema).
 
 ## Exports
 

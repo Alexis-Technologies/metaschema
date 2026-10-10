@@ -31,13 +31,13 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 13 KB min+gzip
+pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 16 KB min+gzip
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual only; --save writes bench/baseline.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
-before a merge adds what CI also runs: `pnpm size --max-gzip 13` and `pnpm docs:build`. There is
+before a merge adds what CI also runs: `pnpm size --max-gzip 16` and `pnpm docs:build`. There is
 no build step.
 
 ## No build step: CommonJS + hand-written types
@@ -95,10 +95,11 @@ src/
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
   rules.js          rules per type: FORMAT (length, min, max, pattern), compileRules, code points
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field)
+  jsonschema.js     toJSONSchema/modelToJSONSchema (targets, strict profile, mongodb) and the ~standard converter
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
   types.js          TYPES registry, createType (static rules/options per type), typeFactory
-  model.js          Model: entities, ordering, warnings (lazy), dts
+  model.js          Model: entities, ordering, warnings (lazy), dts/toTypeScript, toJSONSchema
   util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
   errors.js         SchemaDefinitionError (code, schema, field) for broken definitions
   metautil.js       helpers copied from metautil v5.5.2
@@ -127,9 +128,13 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
   (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`)
   and `lint` (`util`) stand alone.
+- `jsonschema.js` requires `util`, `struct`, `errors` and `prototypes/reference.js` (`embeds`),
+  never `schema.js` or `model.js`: it takes their instances and reads `fields`, `unknown`,
+  `name`, `findReference` and the kind metadata.
 - `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct`, `lint` and `prototypes/reference.js` (for `embeds`, the one rule shared by `check` and
-  the dts); `model.js` requires `schema`, `types`, `lint`; `src/index.js` adds `runtime/node.js`.
+  `struct`, `lint`, `jsonschema` and `prototypes/reference.js` (for `embeds`, the one rule shared
+  by `check`, the dts and the JSON Schema export); `model.js` requires `schema`, `types`, `lint`,
+  `jsonschema`; `src/index.js` adds `runtime/node.js`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -286,16 +291,19 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 2.0 bundle budget is 13 KB min+gzip per entry** (`pnpm size --max-gzip 13` in CI; 13 KB =
-13312 bytes). The entries are at 12929 bytes (`index.js`) and 12950 bytes (`browser.js`), 12.6 KB,
-about 380 bytes of headroom. The figure is quoted in README, `docs/index.md`, `docs/guide/why.md`,
+**The 2.1 bundle budget is 16 KB min+gzip per entry** (`pnpm size --max-gzip 16` in CI; 16 KB =
+16384 bytes). The entries are at 16051 bytes (`index.js`) and 16063 bytes (`browser.js`), 15.7 KB,
+about 330 bytes of headroom. The figure is quoted in README, `docs/index.md`, `docs/guide/why.md`,
 `docs/guide/browser.md` and `docs/public/llms.txt`; change them together from `pnpm size`.
 History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took the entries to 9.9 KB (gate
 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer, pattern and min/max, the references
-rule and the lint cost about 2.6 KB together; gate 13 KB); `~standard` added 174 bytes. ROADMAP.md
-§5.8 planned 10 KB for 2.0 and 12 KB for 2.1 with the JSON Schema export; both are spent, so D2
-has to measure first and either fit into the 13 KB or move the budget, and the JIT (`./compile`)
-gets a budget of its own when it lands (ROADMAP §5.8 status).
+rule and the lint cost about 2.6 KB together; gate 13 KB); `~standard` added 174 bytes (2.0 shipped
+at 12.6 KB with a 13 KB gate); Workstream D2/D3 added 3122 bytes (the JSON Schema export with its
+four targets and the strict profile about 2.8 KB, the dts annotations and named types about 0.35
+KB; gate 16 KB). ROADMAP.md §5.8 planned 10 KB for 2.0 and 12 KB for 2.1; both were spent before
+D2, and the export stays in the core because `~standard.jsonSchema` has to be on the schema object
+(the alternative, a `./json-schema` subpath that registers a converter, is in the D2 hand-over
+note). The JIT (`./compile`) gets a budget of its own when it lands (ROADMAP §5.8 status).
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -393,7 +401,25 @@ change. **This file wins** if they ever disagree.
   so files do not leak custom types into each other. Within one file, tests do share it.
 - `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
   and not) and validates through the result, so a class-name-based identity check cannot come
-  back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18.
+  back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18. It also
+  calls `toJSONSchema`, `~standard.jsonSchema` and `toTypeScript({ named: true })` through the
+  bundles.
+- `tests/unit/jsonschema.test.js` pins every form of the language by target (a `fieldOf(def,
+  options)` helper renders `{ x: def }` and reads `properties.x`), the strict profile, the
+  mongodb target, the error locations, the fixture model and the Standard converter. The type
+  registry is process-wide, so a custom type registered in one test must not share a name with
+  a field that starts a struct in another (a `text` type turned `{ text: {...} }` into a
+  shorthand once).
+- `tests/unit/jsonschema-ajv.test.js` is the differential test: a deterministic generator
+  (mulberry32, seed 42) produces 400 values per schema from the built fields (mostly valid, with
+  mutations), and `check` and ajv (`ajv/dist/2020` and `ajv` for draft-07, strict mode with
+  `allowUnionTypes` and `strictTuples: false`, `ajv-formats` for `date-time`) must agree on every
+  verdict; each run asserts that both verdicts came up. The generator leaves out what cannot
+  agree (documented at the top of the file): `date`/`set`/`map`/`bigint` fields, astral
+  characters, number keys, `validate` and `checkType`. The strict profile is not differential
+  (it drops the rules by design).
+- `tests/unit/dts.test.js` covers the JSDoc and the named types; `save-types.test.js` the
+  options of `saveTypes`.
 - New behavior needs a test that fails without the change.
 - `tests/unit/standard.test.js` covers `~standard`: the props, the pass-through of the result's
   issues, `libraryOptions`, non-enumerability, a consumer that reads only the specification
@@ -407,6 +433,9 @@ change. **This file wins** if they ever disagree.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
   the fixtures cannot be imported for inference) and the interfaces `model.dts` renders for it.
+- Workstream D2/D3 suites: `jsonschema.test.js`, `jsonschema-ajv.test.js`, `dts.test.js` (see
+  above) and `tests/types/jsonschema.test-d.ts`, which pins the assignability to
+  `StandardJSONSchemaV1` of `@standard-schema/spec` and the option types.
 - Workstream B suites: `syntax.test.js` (the first key), `numbers.test.js` (min/max, integer,
   rules per type, unicode length), `pattern.test.js`, `nullable.test.js`, `values.test.js` (date,
   null, any), `union.test.js`, `references.test.js` (storage view, graph view, dts) and
@@ -478,6 +507,25 @@ change. **This file wins** if they ever disagree.
 - **`Schema.extractSchema` is public but no longer used internally.** The schema prototype's
   `construct` accepts a `Schema` instance itself; the static stays for callers and the bundle
   test.
+- **The JSON Schema of an optional field allows null, and a required `object` has
+  `minProperties: 1`.** Both are what `check` does (`'?string'` accepts `null`; an empty
+  required `object` or `map` is a `required` issue), and the differential test holds the export
+  to it. The strict profile drops every value rule (`minLength`, `minimum`, `uniqueItems`,
+  `minProperties`, ...) on purpose: the LLM dialects reject or ignore them, and `check` applies
+  them to the model's answer afterwards.
+- **A reference to the root schema is `{ $ref: '#' }`, and `model.toJSONSchema()` has no root.**
+  A single schema is its own document, so a self-reference points at the document; through the
+  model every entity is a definition and a reference is `<prefix><Name>`. OpenAPI consumers
+  should export through the model (`components.schemas`), where `#` never appears.
+- **The mongodb root allows `_id`.** A closed `$jsonSchema` root would reject every stored
+  document otherwise; `_id: {}` is added only when the root is closed and the schema has no
+  `_id` field of its own. Embedded documents do not get it.
+- **`~standard.jsonSchema` refuses the mongodb target.** The specification asks a library to
+  throw for a target it does not support, and a `$jsonSchema` is not a JSON Schema; it is
+  reached through `toJSONSchema` only.
+- **An array is not a struct.** `compileStruct` rejects an array with `not of expected type:
+  object` (2.1); before, a struct with only optional fields accepted `[]` because `typeof [] ===
+  'object'` and the walk found nothing to complain about.
 - **A missing optional field never calls `Object.hasOwn`.** `value[key]` is read first; `hasOwn`
   decides only between a missing required key (`required`) and one set to `undefined` (a `type`
   issue), and is asked first only for a field named after a member of `Object.prototype` (plan
@@ -560,9 +608,10 @@ published to npm, and lint/format do not cover it.
 - The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
   `guide/performance.md` (the core, the baseline numbers, the 2.1 JIT), `guide/migrating-from-1.md`
   (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
-  produced by the code on `main`) and `guide/standard-schema.md`. The sidebar is in
-  `.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
-  fact.
+  produced by the code on `main`) and `guide/standard-schema.md`. The 2.1 page is
+  `guide/json-schema.md` (options, targets, the mapping table, the strict profile with a tool
+  definition, the mongodb target, the boundaries). The sidebar is in `.vitepress/config.mts`; a
+  new page goes there and into `docs/public/llms.txt` if it is a key fact.
 
 ## Release process
 

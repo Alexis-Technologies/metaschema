@@ -24,7 +24,7 @@ purposes:
 - **Fast.** Every check is compiled into a closure when the schema is built: about 10 million
   validations a second of a flat struct on Node 24; see [Performance](/guide/performance).
 - **Zero dependencies.** Nothing is installed besides the package itself, and the whole library is
-  12.6 KB min+gzip.
+  15.7 KB min+gzip.
 - **One package for Node.js and browsers.** The browser entry is resolved automatically by
   bundlers.
 - **No build step.** The package is CommonJS that ships exactly as written, with hand-written
