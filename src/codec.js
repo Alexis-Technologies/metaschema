@@ -23,6 +23,7 @@ const DEFAULTS = 1;
 const DECODERS = 2;
 const ENCODERS = 4;
 const STRUCTS = 8;
+const ASYNC = 16;
 
 // The shape of a node: a Schema, a struct (the dictionary of its fields), or
 // a field by the identity of its prototype's compile, as the JIT tells them
@@ -54,6 +55,8 @@ const shapeOf = (node) => {
   return shape === undefined ? LEAF : shape;
 };
 
+const isAsyncFunction = (fn) => typeof fn === 'function' && fn.constructor.name === 'AsyncFunction';
+
 // What the passes know about a node, computed on first use and kept apart
 // from the node: its shape, the bits of its subtree, its own decoder and
 // serializer, its children with their infos, the fields of a struct a phase
@@ -72,6 +75,7 @@ const infoOf = (node) => {
   const encode = own.serialize || undefined;
   let bits = decode === undefined ? 0 : DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
+  if ([own.validate, decode, own.checkType].some(isAsyncFunction)) bits |= ASYNC;
   let children = [];
   let plan = null;
   let extra = null;
@@ -123,6 +127,20 @@ const infoOf = (node) => {
   info = { shape, bits, decode, encode, children, infos, plan, parts, extra, table, refs };
   INFO.set(node, info);
   return info;
+};
+
+// Whether a schema has an async function among its validators, decoders and
+// custom checkTypes, the entities it references included: `~standard` then
+// validates through parseAsync.
+const hasAsync = (schema, visited = new Set()) => {
+  const info = infoOf(schema);
+  if ((info.bits & ASYNC) !== 0) return true;
+  visited.add(schema);
+  for (const ref of info.refs) {
+    const target = ref.root.findReference(ref.one || ref.many);
+    if (target !== null && !visited.has(target) && hasAsync(target, visited)) return true;
+  }
+  return false;
 };
 
 // Writes into an object of the output: a key of the plan or of the value is
@@ -415,4 +433,5 @@ module.exports = {
   infoOf,
   apply,
   looped,
+  hasAsync,
 };

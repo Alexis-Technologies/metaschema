@@ -10,7 +10,7 @@ const { finalize, runValidate, settle } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
-const { PREPARE, FINISH, SERIALIZE, infoOf, apply, looped } = require('./codec.js');
+const { PREPARE, FINISH, SERIALIZE, infoOf, apply, looped, hasAsync } = require('./codec.js');
 
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
@@ -54,6 +54,10 @@ const parsed = (context, output) => {
   const valid = context.count === 0;
   return { valid, value: valid ? output : undefined, issues: context.issues };
 };
+
+// The result of parse read as Standard Schema does.
+const standardize = (result) =>
+  result.valid ? { value: result.value } : { issues: result.issues };
 
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
@@ -126,18 +130,23 @@ class Schema extends SchemaMetadata {
 
   // Standard Schema v1 (https://standardschema.dev): the interface tRPC,
   // TanStack Form, Hono and the other consumers of the specification validate
-  // through. A verdict only: a valid value comes back as it is, and the
-  // issues of an invalid one are the result's own (a message and a path of
-  // keys each). The vendor-specific `libraryOptions` of a call are the
-  // options of `check`. An accessor of the prototype stays out of toJSON,
+  // through. `validate` is `parse` with the policies of the schema: the value
+  // that comes back has the defaults and the decoders applied (the value
+  // itself when there was nothing to apply), and the issues of an invalid one
+  // are the result's own (a message and a path of keys each). A schema with
+  // an async validator or decoder validates through parseAsync, as the
+  // specification allows. The vendor-specific `libraryOptions` of a call are
+  // the options of `parse`. An accessor of the prototype stays out of toJSON,
   // inspect and Object.keys, and `validate` closes over the schema because a
   // consumer calls it unbound. The `./generators` subpath adds the
   // `jsonSchema` converter of Standard JSON Schema to the props.
   get '~standard'() {
     if (this.#standard === null) {
+      const async = hasAsync(this);
       const validate = (value, options) => {
-        const result = this.check(value, options == null ? undefined : options.libraryOptions);
-        return result.valid ? { value } : { issues: result.issues };
+        const libraryOptions = options == null ? undefined : options.libraryOptions;
+        if (async) return this.parseAsync(value, libraryOptions).then(standardize);
+        return standardize(this.parse(value, libraryOptions));
       };
       this.#standard = { version: 1, vendor: 'alexify.metaschema', validate };
     }
