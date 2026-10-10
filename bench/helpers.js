@@ -4,10 +4,39 @@ const WARMUP_ITERATIONS = 2_000;
 const MEASURE_MS = 1_000;
 const BATCH = 100;
 
+// Schema#check is measured as a callee. Called straight from a scenario
+// closure, V8 inlines it, createContext, the walk and ValidationResult into
+// the measuring loop, and in that fused loop a few bytes of bytecode in
+// check swing the moltar scenarios by 10–20% either way, scenario by
+// scenario. Two things keep it a real call here, the way any program calls
+// it: the schema under measurement sits in a holder that `bench` writes, so
+// the receiver is never a constant V8 can fold the method out of, and the
+// call site is made megamorphic once, with five `check` methods on objects
+// of five shapes, so V8 calls whatever it finds there generically.
+const subject = { schema: null };
+
+const callCheck = (value, options) => subject.schema.check(value, options);
+
+const DECOYS = [
+  { check: () => 0 },
+  { a: 1, check: () => 1 },
+  { a: 1, b: 1, check: () => 2 },
+  { a: 1, b: 1, c: 1, check: () => 3 },
+  { a: 1, b: 1, c: 1, d: 1, check: () => 4 },
+];
+for (let round = 0; round < 2_000; round++) {
+  for (const decoy of DECOYS) {
+    subject.schema = decoy;
+    callCheck(null, undefined);
+  }
+}
+
 // The clock is read once per batch, not once per call: at ten million calls
 // a second the clock itself would be a visible share of every measurement.
+// `schema` is the schema a scenario measures through callCheck.
 const bench = (name, fn, options = {}) => {
-  const { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS, quiet = false } = options;
+  const { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS, quiet = false, schema } = options;
+  if (schema !== undefined) subject.schema = schema;
   for (let i = 0; i < warmup; i++) fn();
   let iterations = 0;
   const start = performance.now();
@@ -128,6 +157,7 @@ const loadModelFixture = () => {
 
 module.exports = {
   bench,
+  callCheck,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
   FLAT_VALID,
