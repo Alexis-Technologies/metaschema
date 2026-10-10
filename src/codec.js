@@ -7,7 +7,7 @@
 // whose subtree carries nothing for a phase is returned as it is, and a
 // container is copied only when one of its parts changed: the value given is
 // never written to.
-const { hasBrand } = require('./util.js');
+const { hasBrand, define } = require('./util.js');
 const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct } = require('./struct.js');
@@ -150,16 +150,8 @@ const hasAsync = (schema, visited = new Set()) => {
 // Writes into an object of the output: a key of the plan or of the value is
 // data, so `__proto__` lands as an own property.
 const putKey = (out, key, value) => {
-  if (key === '__proto__') {
-    Object.defineProperty(out, key, {
-      value,
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
-  } else {
-    out[key] = value;
-  }
+  if (key === '__proto__') define(out, key, value);
+  else out[key] = value;
 };
 
 const putIndex = (out, index, value) => {
@@ -331,15 +323,17 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   return leave(state);
 };
 
-// The elements of an array or a Set, each through the one child; a Set comes
-// back as a Set.
-const walkElements = (child, sub, value, context, key, phase) => {
+// The elements of an array, a Set or a tuple, by position; a Set comes back
+// as a Set.
+const walkItems = (children, infos, fixed, value, context, key, phase) => {
   const set = !Array.isArray(value);
-  if (set && value.constructor?.name !== 'Set') return value;
+  if (set && (fixed || value.constructor?.name !== 'Set')) return value;
   const state = enter(context, key, value, Array.from, putIndex);
   let index = 0;
   for (const item of value) {
-    const result = apply(sub, child, item, context, index, phase);
+    const slot = fixed ? index : 0;
+    if (slot >= children.length) break;
+    const result = apply(infos[slot], children[slot], item, context, index, phase);
     if (result !== item) take(state, index, result, phase);
     index += 1;
   }
@@ -347,21 +341,7 @@ const walkElements = (child, sub, value, context, key, phase) => {
 };
 
 const walkList = (info, node, value, context, key, phase) =>
-  walkElements(info.children[0], info.infos[0], value, context, key, phase);
-
-// The elements of a tuple, each through the child at its position.
-const walkTuple = (info, node, value, context, key, phase) => {
-  if (!Array.isArray(value)) return value;
-  const { children, infos } = info;
-  const length = Math.min(value.length, children.length);
-  const state = enter(context, key, value, Array.from, putIndex);
-  for (let index = 0; index < length; index += 1) {
-    const item = value[index];
-    const result = apply(infos[index], children[index], item, context, index, phase);
-    if (result !== item) take(state, index, result, phase);
-  }
-  return leave(state);
-};
+  walkItems(info.children, info.infos, info.shape === TUPLE, value, context, key, phase);
 
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, value, context, key, phase) => {
@@ -457,7 +437,15 @@ const walkReference = (info, node, value, context, key, phase) => {
   context.depth += 1;
   let out = value;
   if (one) out = apply(sub, target, value, context, key, phase);
-  else if (Array.isArray(value)) out = walkElements(target, sub, value, context, key, phase);
+  else if (Array.isArray(value)) {
+    // The target as the one child of the list, kept on the info from one
+    // visit to the next (it changes only when the namespaces do).
+    if (info.children[0] !== target) {
+      info.children[0] = target;
+      info.infos[0] = sub;
+    }
+    out = walkItems(info.children, info.infos, false, value, context, key, phase);
+  }
   context.depth -= 1;
   return out;
 };
@@ -469,7 +457,7 @@ const WALKERS = [
   walkInner,
   walkList,
   walkKeyed,
-  walkTuple,
+  walkList,
   walkUnion,
   walkReference,
 ];

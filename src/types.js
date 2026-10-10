@@ -33,10 +33,6 @@ const createType = (name, prototype) => {
     // The definition keys the type reads; the lint reports the others.
     static options = new Set(prototype.options);
 
-    static assign(key, value) {
-      this.metadata[key] = value;
-    }
-
     constructor(def, preprocessor) {
       super(def, preprocessor);
       const { type } = this;
@@ -62,12 +58,9 @@ const TYPES = createTypes(PROTOTYPES);
 
 const createRegistry = () => createTypes(PROTOTYPES);
 
-const updateTypeMetadata = (Type, metadata = {}) => {
-  for (const pair of Object.entries(metadata)) {
-    const key = pair[0];
-    const value = pair[1];
-    Type.assign(key, value);
-  }
+// The own keys of the metadata given, as data: the table has no prototype.
+const updateTypeMetadata = (Type, metadata) => {
+  Object.assign(Type.metadata, metadata);
 };
 
 // A custom prototype brings `construct` and `checkType`; a built-in one, reused

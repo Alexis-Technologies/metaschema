@@ -20,14 +20,13 @@ const unknownOf = (unknown) => {
 
 // `options` and `indexes` are null-prototype dictionaries keyed by definition
 // keys, which may be called `extract` or `constructor`.
-const createOptions = () => {
-  const options = Object.create(null);
-  options.validate = null;
-  options.format = null;
-  options.parse = null;
-  options.serialize = null;
-  return options;
-};
+const createOptions = () =>
+  Object.assign(Object.create(null), {
+    validate: null,
+    format: null,
+    parse: null,
+    serialize: null,
+  });
 
 const extractOption = (options, key, field) => {
   const isOption = typeof field === 'function' && OPTIONS.has(key);
