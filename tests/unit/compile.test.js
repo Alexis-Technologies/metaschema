@@ -876,7 +876,16 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
   for (const entity of model.entities.values()) {
     assert.strictEqual(entity[RUN].name === 'jit', canEval());
   }
+  // `jit: false` puts the closures back, the very functions the schemas were
+  // built with.
   assert.deepStrictEqual(compile(model, { jit: false }), { accelerated: false });
+  for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
+  const single = Schema.from({ a: 'string' });
+  const closure = single[RUN];
+  compile(single);
+  assert.deepStrictEqual(compile(single, { jit: false }), { accelerated: false });
+  assert.strictEqual(single[RUN], closure);
+  assert.deepStrictEqual(single.check({ a: 1 }).errors, ['Field "a" not of expected type: string']);
   assert.deepStrictEqual(compile(new Model({}, [])), { accelerated: canEval() });
 });
 
@@ -903,6 +912,24 @@ test(
     }
     assert.deepStrictEqual(compile(schema), { accelerated: true });
     assert.strictEqual(schema[RUN].name, 'jit');
+    // A model is compiled all or nothing when the JIT is demanded: an error
+    // on the second entity leaves the first one as it was.
+    const model = new Model({}, [
+      ['A', { Struct: {}, a: 'string' }],
+      ['B', { Struct: {}, b: 'string' }],
+    ]);
+    let calls = 0;
+    globalThis.Function = function Second(...args) {
+      calls += 1;
+      if (calls === 2) throw new EvalError('second');
+      return Original(...args);
+    };
+    try {
+      assert.throws(() => compile(model, { jit: true }), { message: 'second' });
+    } finally {
+      globalThis.Function = Original;
+    }
+    for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
   },
 );
 

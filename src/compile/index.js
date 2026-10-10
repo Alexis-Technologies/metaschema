@@ -66,33 +66,62 @@ const build = (target) => {
   return factory(code.values);
 };
 
-// Replaces the check of a schema with the generated one. A failure to build
-// it is a fallback in the default mode, an error when the JIT was demanded.
-const install = (target, mode) => {
+// The check a schema was built with, kept when the generated one replaces it
+// so that `{ jit: false }` can put it back.
+const ORIGINAL = new WeakMap();
+
+const replace = (target, run) => {
+  if (!ORIGINAL.has(target)) ORIGINAL.set(target, target[RUN]);
+  target[RUN] = run;
+};
+
+const restore = (target) => {
+  const run = ORIGINAL.get(target);
+  if (run !== undefined) target[RUN] = run;
+};
+
+// Replaces the check of a schema with the generated one; a failure to build
+// it is a fallback.
+const install = (target) => {
   let run;
   try {
     run = build(target);
-  } catch (error) {
-    if (mode === true) throw error;
+  } catch {
     return false;
   }
-  target[RUN] = run;
+  replace(target, run);
   return true;
+};
+
+const schemasOf = (target) => {
+  if (hasBrand(target, 'Schema')) return [target];
+  if (!hasBrand(target, 'Model')) throw new TypeError('A Schema or a Model is expected');
+  const schemas = [];
+  for (const schema of target.entities.values()) schemas.push(schema);
+  return schemas;
 };
 
 // `{ accelerated }`: whether the check of the schema (of every entity of the
 // model) runs generated code now; false in the fallback, where the closure
-// backend is left as it is.
+// backend is left as it is, and after `{ jit: false }`, which puts the
+// closures back. When the JIT is demanded every check is built before any is
+// installed, so an error leaves the model as it was.
 const compile = (target, options = {}) => {
   const mode = modeOf(options);
-  const schemas = hasBrand(target, 'Schema') ? [target] : null;
-  if (schemas === null && !hasBrand(target, 'Model')) {
-    throw new TypeError('A Schema or a Model is expected');
+  const schemas = schemasOf(target);
+  const { length } = schemas;
+  if (!accelerates(mode)) {
+    for (let index = 0; index < length; index += 1) restore(schemas[index]);
+    return { accelerated: false };
   }
-  let accelerated = accelerates(mode);
-  if (accelerated) {
-    for (const schema of schemas || target.entities.values()) {
-      if (!install(schema, mode)) accelerated = false;
+  let accelerated = true;
+  if (mode === true) {
+    const runs = [];
+    for (let index = 0; index < length; index += 1) runs.push(build(schemas[index]));
+    for (let index = 0; index < length; index += 1) replace(schemas[index], runs[index]);
+  } else {
+    for (let index = 0; index < length; index += 1) {
+      if (!install(schemas[index])) accelerated = false;
     }
   }
   return { accelerated };
@@ -103,11 +132,18 @@ const compile = (target, options = {}) => {
 // call is not touched.
 const register = (options = {}) => {
   const mode = modeOf(options);
-  Schema[HOOK] = accelerates(mode)
-    ? (schema) => {
-        install(schema, mode);
-      }
-    : undefined;
+  if (!accelerates(mode)) {
+    Schema[HOOK] = undefined;
+    return;
+  }
+  Schema[HOOK] =
+    mode === true
+      ? (schema) => {
+          replace(schema, build(schema));
+        }
+      : (schema) => {
+          install(schema);
+        };
 };
 
 module.exports = { compile, register, canEval };
