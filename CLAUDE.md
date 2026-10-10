@@ -265,29 +265,33 @@ validators, plus `summary`, `flatten()` and `tree()`.
 Workstream B the entries are at 12755 bytes (`index.js`) and 12775 bytes (`browser.js`), 12.5 KB,
 up from 9.9 KB after Workstream A: union, date/null/any/integer, pattern and min/max, the
 references rule and the lint cost about 2.6 KB together. ROADMAP.md §5.8 planned 12 KB for 2.1
-with the JSON Schema export; that budget has to be revised again when D2 lands. `pnpm bench` on
-Node 24 (this machine, `bench/baseline.json` is still the Workstream A snapshot): flat valid
-≈ 10.7 M ops/s, flat invalid ≈ 3.6 M, nested ≈ 2.7 M / 1.5 M, `Schema.from` and `new Model` at the
-1.0 level (`new Model` about 8% under A: every field now checks its rules against its type and a
-projection re-parses its parent's fields). The moltar strict modes are at ≈ 17 M, the loose modes
-(an options object on every call) at ≈ 14.8 M against ≈ 17 M after A.
+with the JSON Schema export; that budget has to be revised again when D2 lands.
 
-**The moltar gap is the harness, not `check`.** `bench()` in `bench/helpers.js` lets V8 inline
-the scenario closure, `check`, `createContext`, the struct walk and `ValidationResult` into one
-optimized loop; in that fused loop a few bytes of bytecode in `check` (a third argument to
-`createContext`, a private-field read, frame size 32 → 40) swing the register allocation by
-10–20% in either direction, and which mode loses depends on the shape of `createContext` and on
-what ran before. Measured on 2026-10-09 with the two trees in separate processes: with the bench
-loop kept unoptimized (`%NeverOptimizeFunction`) every shape is within 2% of A on the strict modes
-and within 5% on the loose ones; with the scenario closures unoptimized too, so that `check` is a
-real callee as in any program, every shape is at parity with A on all four modes (≈ 13.5 M each,
-the harness overhead included). Swapping only `src/context.js` between the trees moves the whole
-gap, nothing else does. Two shapes of `createContext` do cost real time and are documented in the
-file: a string literal inside the context literal (`references: 'kind'`, 12–16% on its own,
-because V8 tracks the field as a constant) and writing the object after it is allocated. The
-split into `createContext` + `configure` is kept because it is the shape the harness punishes
-least; the harness itself should measure `check` as a callee, which changes every number in
-`bench/baseline.json` and is a separate decision. The roadmap's 2.0 targets were 12 M / 6 M: the valid
+**`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
+`callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
+writes, so the receiver is never a constant V8 can fold the method out of, and the call site is
+primed once with five `check` methods on objects of five shapes, so the load and the call are
+megamorphic and V8 calls `check` generically, the way any program does. Before that (until
+2026-10-10) the scenario closure, `check`, `createContext`, the walk and `ValidationResult` were
+inlined into one optimized loop, where a few bytes of bytecode in `check` (a third argument to
+`createContext`, a private-field read, frame size 32 → 40) swung the moltar scenarios by 10–20%
+in either direction, scenario by scenario, which is what the "loose-mode gap" of Workstream B was;
+swapping only `src/context.js` between the trees moved the whole gap, and with the loop and the
+closures unoptimized every shape was at parity. With the new harness the same swap moves the
+moltar numbers by 3–5%, this machine's run-to-run band. Two shapes of `createContext` do cost real
+time and are documented in the file: a string literal inside the context literal (`references:
+'kind'`, 12–16% on its own, because V8 tracks the field as a constant) and writing the object after
+it is allocated. Verify a harness change with
+`node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
+from `src/` may be inlined into `bench` or into a scenario closure.
+
+`bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream B): flat valid
+≈ 10.7 M ops/s, flat invalid ≈ 3.5 M, nested ≈ 2.7 M / 1.5 M, the eight moltar modes ≈ 14.1–14.7 M
+(no strict/loose asymmetry), `Schema.from` ≈ 280 K / 93 K, `new Model` ≈ 17 K (about 8% under A:
+every field now checks its rules against its type and a projection re-parses its parent's
+fields), `model.dts` ≈ 102 K. The Workstream A merge (3032ce9) measured with this harness in a
+separate process is within 3% on every `check` and moltar scenario. The roadmap's 2.0 targets were
+12 M / 6 M: the valid
 path is within reach of the closure backend, the invalid path is bounded by the cost of plain
 issue objects (a params object, a path array and a rendered message each) and is where the JIT
 backend of Workstream E picks up.

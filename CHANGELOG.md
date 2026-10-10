@@ -142,7 +142,8 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
 - **Construction** reads the first key of a definition once, lints on first use of `warnings`,
   and keeps `createContext` small enough to inline into `check`.
 - **Bundle budget.** CI gates at 13 KB min+gzip (the entries are at 12.5 KB), and `pnpm bench`
-  reads the clock once per hundred calls.
+  reads the clock once per hundred calls and calls `check` through a megamorphic site, so it is
+  measured as a callee instead of being inlined into the measuring loop.
 
 ## [1.0.0] - 2026-10-09
 
