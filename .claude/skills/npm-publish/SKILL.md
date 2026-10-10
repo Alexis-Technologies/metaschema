@@ -34,7 +34,14 @@ pnpm run test:types              # tsd
 pnpm run check:dts               # tsc over index.d.ts
 ```
 
-These are the same gates `prepublishOnly` runs. Then in parallel: `pnpm outdated` and `pnpm audit` (report to user; devDependencies only, the package has no runtime dependencies).
+These are the same gates `prepublishOnly` runs. CI adds two more; run them too:
+
+```bash
+pnpm size --max-gzip 13          # the bundle budget (CLAUDE.md "Budgets")
+pnpm run docs:build              # the docs site; a dead link fails it
+```
+
+Then in parallel: `pnpm outdated` and `pnpm audit` (report to user; devDependencies only, the package has no runtime dependencies).
 
 If any gate fails, stop and fix issues before continuing.
 
@@ -60,6 +67,7 @@ The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - **Order**: newest first; every version gets an entry
 - **Release body**: a short prose paragraph saying what the release is about, then subsections
 - **Types of changes**: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`, plus `Tooling` and `Upgrading from X.Y` when they apply. Omit empty subsections
+- **Major releases**: `Upgrading from X.y` is the migration guide (every change to the shape of a result or the meaning of a definition, with the old and the new form) and has a docs twin, `docs/guide/migrating-from-<major>.md`, with before-and-after examples; keep the two in step
 - **Entries**: bullets starting with a **bold lead-in**, then the explanation; human-readable and curated (no raw git diffs); call out breaking changes clearly
 - **Links**: reference-style link block at the bottom: `[unreleased]: ...`, `[X.Y.Z]: ...`
 - **Upstream history**: the `## Upstream history (metarhia/metaschema)` section and its `[upstream-*]` links stay at the bottom unchanged
@@ -132,8 +140,9 @@ Scan for staleness:
 1. **README.md usage examples**: do they match the current API? Run them if in doubt; the documented outputs must be true
 2. **Badges**: do the URLs point to `@alexify/<name>` and the `Alexis-Technologies` repository?
 3. **docs/**: guide and API pages for anything the release changed; the nav version label is read from `package.json` automatically. `pnpm run docs:build` must pass (dead links fail it)
-4. **docs/public/llms.txt**: key facts (exports, Node.js version, size)
-5. **SECURITY.md**: the supported-versions table on a major release
+4. **docs/public/llms.txt**: key facts (exports, Node.js version, size). The min+gzip figure also appears in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md` and CLAUDE.md "Budgets"; take it from `pnpm size` and update them together
+5. **docs/guide/performance.md**: the numbers come from `bench/baseline.json`; if the baseline was re-saved, update the table
+6. **SECURITY.md**: the supported-versions table on a major release
 
 Only edit if something is factually wrong or outdated. Don't rewrite style or add unsolicited content.
 
@@ -172,7 +181,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:types && pnpm run check:dts && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 13 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

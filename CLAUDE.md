@@ -13,8 +13,10 @@ runs in Node.js ≥ 18 and browsers.
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
 `@alexify/migronaut`. The git remote `upstream` points at metarhia; `origin` at
-`Alexis-Technologies/metaschema`. The schema language and validation semantics are upstream's.
-The package around them (no loader, no dependencies, tooling, layout) is ours.
+`Alexis-Technologies/metaschema`. The schema language is upstream's; 2.0 settled its semantics
+(ROADMAP.md §5.1–5.4, CHANGELOG "Upgrading from 1.x": issues as data, the first key, `min`/`max`,
+references by kind, `union`, `nullable`, `Infer`, Standard Schema). The package around it (no
+loader, no dependencies, tooling, layout) is ours.
 
 Package manager is **pnpm** (pinned in `packageManager`).
 
@@ -34,8 +36,9 @@ pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual on
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
-`prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. Treat it as the
-pre-merge gate. There is no build step.
+`prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
+before a merge adds what CI also runs: `pnpm size --max-gzip 13` and `pnpm docs:build`. There is
+no build step.
 
 ## No build step: CommonJS + hand-written types
 
@@ -114,13 +117,19 @@ docs/               VitePress site (metaschema.vercel.app), not published
 
 ## Architecture
 
-Module graph (no cycles): `locales/en → issues → rules/result/context`, then
-`kinds → metadata → struct → prototypes/* → types → preprocessor → lint → schema → model`;
-`util.js` and `errors.js` are leaves required from several of them, `issues.js` is required by
-`struct`, `rules`, `result`, `context`, `schema` and every prototype; `schema.js` also requires
-`prototypes/reference.js` for `embeds` (the one rule shared by `check` and the dts). `src/index.js`
-adds `runtime/node.js`. `util.js` must not require `issues.js` (the locales require `util.js` for
-`shorten`).
+Module graph (no cycles; nothing checks this automatically, so look at the `require`s when adding
+an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
+
+- `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util` and
+  `locales/en`; `rules.js` (+ `errors`), `result.js` (+ `util`, `locales/en`) and `context.js`
+  (+ `locales/en`) require `issues`. `util.js` must not require `issues.js`.
+- `kinds → metadata` (+ `result`, `errors`); `struct` (`util`, `issues`, `errors`) →
+  `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
+  (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`)
+  and `lint` (`util`) stand alone.
+- `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
+  `struct`, `lint` and `prototypes/reference.js` (for `embeds`, the one rule shared by `check` and
+  the dts); `model.js` requires `schema`, `types`, `lint`; `src/index.js` adds `runtime/node.js`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -277,12 +286,16 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-`pnpm size --max-gzip 13` is the CI gate (13 KB = 13312 bytes min+gzip per entry). After
-Workstream D1 the entries are at 12929 bytes (`index.js`) and 12950 bytes (`browser.js`), 12.6 KB:
-`~standard` cost 174 bytes over Workstream B (12755/12775, 12.5 KB), which was up from 9.9 KB
-after Workstream A: union, date/null/any/integer, pattern and min/max, the references rule and
-the lint cost about 2.6 KB together. ROADMAP.md §5.8 planned 12 KB for 2.1
-with the JSON Schema export; that budget has to be revised again when D2 lands.
+**The 2.0 bundle budget is 13 KB min+gzip per entry** (`pnpm size --max-gzip 13` in CI; 13 KB =
+13312 bytes). The entries are at 12929 bytes (`index.js`) and 12950 bytes (`browser.js`), 12.6 KB,
+about 380 bytes of headroom. The figure is quoted in README, `docs/index.md`, `docs/guide/why.md`,
+`docs/guide/browser.md` and `docs/public/llms.txt`; change them together from `pnpm size`.
+History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took the entries to 9.9 KB (gate
+10 KB); Workstream B to 12.5 KB (union, date/null/any/integer, pattern and min/max, the references
+rule and the lint cost about 2.6 KB together; gate 13 KB); `~standard` added 174 bytes. ROADMAP.md
+§5.8 planned 10 KB for 2.0 and 12 KB for 2.1 with the JSON Schema export; both are spent, so D2
+has to measure first and either fit into the 13 KB or move the budget, and the JIT (`./compile`)
+gets a budget of its own when it lands (ROADMAP §5.8 status).
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -399,15 +412,44 @@ change. **This file wins** if they ever disagree.
   null, any), `union.test.js`, `references.test.js` (storage view, graph view, dts) and
   `lint.test.js`; `tuple.test.js` has the any-element cases.
 - `tests/fixtures/schemas/Account.js` marks `birth` with `Struct: {}` because its first field is
-  called `date`; without the marker the fixture is a `date` field and the lint says so.
-- Doc example outputs were checked against the code; a scratch script that prints them is the
-  quickest way to re-verify after a message change.
+  called `date`; without the marker the fixture is a `date` field and the lint says so. The
+  fixture model is the one the migration guide (`docs/guide/migrating-from-1.md`) was run
+  against: it builds with no warnings, validates rows (ids) by default and the graph with
+  `{ references: 'embed' }`.
+- `bench/bench.js` has no test. Its scenarios are `Schema.from` flat/nested, `check` flat/nested
+  valid/invalid, the eight moltar modes (`bench/helpers.js`) and `new Model`/`model.dts` over the
+  fixture; `pnpm bench moltar` filters by name. `tests/unit/scripts.test.js` covers
+  `scripts/size.js` (both entries, the budget flag, a bad flag).
+- Doc example outputs were checked against the code (every `// ...` output in `docs/guide`,
+  README and the migration guide, the 1.x column of the latter against a checkout of `main`); a
+  scratch script that prints them is the quickest way to re-verify after a message change.
+  `docs/guide/performance.md` quotes `bench/baseline.json`; update the table when the baseline is
+  re-saved.
 
 ## Things that look like bugs but aren't
 
-- **There is no global validation state.** `ancestors` and `limits` are gone from `util.js`:
-  every check gets its own context, and a validator may start another check (even of the same
-  value) without touching the outer one.
+- **A validator may run another check, even of the same value.** Every check gets its own
+  context (`createContext`), and nothing in the package is global to a check; only the type
+  registry is process-wide. `tests/unit/context.test.js` pins it.
+- **`result.errors` is lazy, and `issue.message` is filled in after the walk.** The constructors
+  in `issues.js` record `message: ''`; `finalize` renders every message once at the end of
+  `check` through the locale of that call, and `result.errors` (the lines with the location) is
+  built on first use and cached (`#errors`), so a check nobody reads the lines of never renders
+  them. `result.add` re-finalizes and drops the cache. A debugger showing an issue mid-walk shows
+  an empty message; that is not a bug.
+- **`schema['~standard']` is not an own property.** It is an accessor on `Schema.prototype`, so
+  `Object.keys`, `JSON.stringify`, `toJSON` and `util.inspect` never show it, while
+  `'~standard' in schema` is `true`, which is how Standard Schema consumers detect it. The props
+  object is cached per instance (`#standard`) and `validate` is an arrow closure over the schema
+  because consumers call it unbound.
+- **The first key of an object decides what it is, and `type` must come first for the long
+  form.** `{ name: 'string', type: 'string' }` is a struct with two fields; `{ type: 'string',
+  name: 'string' }` is a string with a `name` option; `{ required: false, type: 'string' }`
+  throws `ERR_INVALID_DEFINITION` (`false` is not a field definition). `Infer` cannot see key
+  order and reads the keys that are there (see below); a kind settles both.
+- **A string as the second argument of `check` throws.** `check(value, 'body')` was the 1.x
+  signature; `context.js` turns it into a `TypeError` naming `options.root` on purpose, so a
+  caller that was not migrated fails loudly instead of validating with the wrong options.
 - **`field.check` is a getter over a private field.** The compiled closure is set once in the
   `AbstractType` constructor; assigning it as an own property would show up in `toJSON` and
   `util.inspect`, and `Object.defineProperty` cost 100 ns per field at construction. `check`,
@@ -515,6 +557,12 @@ published to npm, and lint/format do not cover it.
   og:image).
 - When behavior changes, update README and the matching docs page together. Example outputs in the
   docs were checked against the code, so keep them true.
+- The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
+  `guide/performance.md` (the core, the baseline numbers, the 2.1 JIT), `guide/migrating-from-1.md`
+  (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
+  produced by the code on `main`) and `guide/standard-schema.md`. The sidebar is in
+  `.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
+  fact.
 
 ## Release process
 

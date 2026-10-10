@@ -60,11 +60,14 @@ Use following conventions for JavaScript and TypeScript code.
 - Decompose long expressions into intermediate variables
 - Prefer explicit loops (`for`, `for..of`) in hot paths
 - Use array methods when they improve readability
-- Use `===` and `!==` only
+- Use `===` and `!==`; the one loose comparison is `value == null` for "null or undefined"
+  (`eqeqeq` ignores `null`)
 - Keep return types consistent
 - Avoid nested ternaries and deep callback nesting
 - Self-documented and self-descriptive code: do not add
   obvious comments, code should be clear without comments
+- Validators return messages; `throw` only for a broken definition, always a
+  `SchemaDefinitionError` with a code, never a bare `Error`
 - Use iteration methods like `.map`, `.filter`, `.reduce` if it is good for code semantic
 - Try to avoid `.forEach` if callback operates with outer context
 
@@ -90,3 +93,6 @@ Use following conventions for JavaScript and TypeScript code.
 - Use `Object.create(null)` for pure dictionaries
 - Use typed arrays for numeric and binary workloads
 - Reduce GC pressure: reuse arrays, objects, and buffers when safe
+- In the hot path (the compiled `check` closures): no closure or `RegExp` created per call, one
+  object shape per kind of object (context, issue, plan entry), `try/catch` only around user
+  code, and functions chosen at build time instead of lookups in the definition
