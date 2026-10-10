@@ -100,6 +100,7 @@
     "metarhia"
   ],
   "devDependencies": {
+    "@sinclair/typebox": "^0.34.52",
     "@standard-schema/spec": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -111,6 +112,8 @@
     "oxlint": "^1.75.0",
     "tsd": "^0.33.0",
     "typescript": "^7.0.2",
-    "vitepress": "^1.6.4"
+    "valibot": "^1.5.0",
+    "vitepress": "^1.6.4",
+    "zod": "^4.6.5"
   }
 }

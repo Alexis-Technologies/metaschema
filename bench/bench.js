@@ -1,13 +1,18 @@
 /**
  * Zero-dependency ops/sec benchmark for metaschema's hot paths.
  *
- * Run: pnpm bench [filter] [--json] [--save] [--compare]
+ * Run: pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]
  *
  * An optional filter runs only the scenarios whose name contains it, e.g.
  * `pnpm bench check`. `--json` prints the results as JSON, `--save` writes
  * them to bench/baseline.json, and `--compare` prints the change against
  * that baseline (numbers are machine-specific: compare on one machine, before
- * and after a change). Manual only, not part of CI.
+ * and after a change). `--compare-libs` runs the moltar scenarios through
+ * zod, valibot, ajv and typebox instead (bench/libs.js). Manual only, not
+ * part of CI.
+ *
+ * The `check` scenarios run twice: on the closure backend and, as
+ * `(jit)`, on a second schema compiled by the ./compile subpath.
  */
 
 const fs = require('node:fs');
@@ -15,6 +20,7 @@ const path = require('node:path');
 
 const { Schema, Model } = require('../index.js');
 const { toTypeScript } = require('../src/generators/index.js');
+const { compile } = require('../src/compile/index.js');
 const {
   bench,
   callCheck,
@@ -66,19 +72,34 @@ const LOOSE = { unknown: 'ignore' };
 
 // The four modes of the moltar suite over one schema and its values; check
 // is called through the harness so that it is measured as a callee.
-const modes = (label, schema, value, loose) => [
-  [`parseSafe — ${label}`, () => (callCheck(value, LOOSE).valid ? value : null), schema],
-  [`parseStrict — ${label}`, () => (callCheck(value).valid ? value : null), schema],
-  [`assertLoose — ${label}`, () => callCheck(loose, LOOSE).valid, schema],
-  [`assertStrict — ${label}`, () => callCheck(value).valid, schema],
+const modes = (label, schema, value, loose, tag = '') => [
+  [`parseSafe${tag} — ${label}`, () => (callCheck(value, LOOSE).valid ? value : null), schema],
+  [`parseStrict${tag} — ${label}`, () => (callCheck(value).valid ? value : null), schema],
+  [`assertLoose${tag} — ${label}`, () => callCheck(loose, LOOSE).valid, schema],
+  [`assertStrict${tag} — ${label}`, () => callCheck(value).valid, schema],
 ];
 
+// A second schema of the same definition, compiled by the JIT backend.
+const jit = (definition) => {
+  const schema = Schema.from(definition);
+  compile(schema, { jit: true });
+  return schema;
+};
+
 const main = () => {
+  if (flags.has('--compare-libs')) {
+    require('./libs.js').compareLibraries({ json });
+    return;
+  }
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
   const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
+  const flatJit = jit(FLAT_SCHEMA);
+  const nestedJit = jit(NESTED_SCHEMA);
+  const moltarFlatJit = jit(MOLTAR_FLAT_SCHEMA);
+  const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
   const model = new Model(types, entities, database);
 
@@ -89,12 +110,30 @@ const main = () => {
     ['check — flat struct, invalid', () => callCheck(FLAT_INVALID), flat],
     ['check — nested struct, valid', () => callCheck(NESTED_VALID), nested],
     ['check — nested struct, invalid', () => callCheck(NESTED_INVALID), nested],
+    ['check (jit) — flat struct, valid', () => callCheck(FLAT_VALID), flatJit],
+    ['check (jit) — flat struct, invalid', () => callCheck(FLAT_INVALID), flatJit],
+    ['check (jit) — nested struct, valid', () => callCheck(NESTED_VALID), nestedJit],
+    ['check (jit) — nested struct, invalid', () => callCheck(NESTED_INVALID), nestedJit],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',
       moltarNested,
       MOLTAR_NESTED_VALUE,
       MOLTAR_NESTED_LOOSE,
+    ),
+    ...modes(
+      'moltar flat (6 fields)',
+      moltarFlatJit,
+      MOLTAR_FLAT_VALUE,
+      MOLTAR_FLAT_LOOSE,
+      ' (jit)',
+    ),
+    ...modes(
+      'moltar nested (6 + 3 fields)',
+      moltarNestedJit,
+      MOLTAR_NESTED_VALUE,
+      MOLTAR_NESTED_LOOSE,
+      ' (jit)',
     ),
     ['new Model — fixture model (6 entities)', () => new Model(types, entities, database)],
     // The scenario keeps its name from the baseline; the rendering is the

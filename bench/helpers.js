@@ -107,8 +107,12 @@ const NESTED_INVALID = {
 // suite's four modes: parseSafe (unknown keys ignored, the value returned),
 // parseStrict (unknown keys rejected, the value returned), assertLoose and
 // assertStrict (the verdict only). metaschema has no parse step yet, so the
-// parse modes return the value when it is valid.
+// parse modes return the value when it is valid. The first field is called
+// `number`, a type name, so the kind marker says the definition is a struct
+// (without it the schema is a number field with five unknown options, and
+// every check fails at once).
 const MOLTAR_FLAT_SCHEMA = {
+  Struct: {},
   number: 'number',
   negNumber: 'number',
   maxNumber: 'number',

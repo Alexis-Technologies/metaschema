@@ -1,70 +1,118 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-10T13:26:37.443Z",
+  "date": "2026-10-10T18:22:49.644Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 280494
+      "opsPerSec": 275137
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 93380
+      "opsPerSec": 93035
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 10744569
+      "opsPerSec": 10695396
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 3519549
+      "opsPerSec": 3463899
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 2717667
+      "opsPerSec": 2577476
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 1497129
+      "opsPerSec": 1479788
+    },
+    {
+      "name": "check (jit) — flat struct, valid",
+      "opsPerSec": 30903074
+    },
+    {
+      "name": "check (jit) — flat struct, invalid",
+      "opsPerSec": 5647146
+    },
+    {
+      "name": "check (jit) — nested struct, valid",
+      "opsPerSec": 16893142
+    },
+    {
+      "name": "check (jit) — nested struct, invalid",
+      "opsPerSec": 2019457
     },
     {
       "name": "parseSafe — moltar flat (6 fields)",
-      "opsPerSec": 14250097
+      "opsPerSec": 7449700
     },
     {
       "name": "parseStrict — moltar flat (6 fields)",
-      "opsPerSec": 14495972
+      "opsPerSec": 7118650
     },
     {
       "name": "assertLoose — moltar flat (6 fields)",
-      "opsPerSec": 14174776
+      "opsPerSec": 7384599
     },
     {
       "name": "assertStrict — moltar flat (6 fields)",
-      "opsPerSec": 14714191
+      "opsPerSec": 7148344
     },
     {
       "name": "parseSafe — moltar nested (6 + 3 fields)",
-      "opsPerSec": 14095219
+      "opsPerSec": 4402749
     },
     {
       "name": "parseStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 14613067
+      "opsPerSec": 4197542
     },
     {
       "name": "assertLoose — moltar nested (6 + 3 fields)",
-      "opsPerSec": 14175312
+      "opsPerSec": 4415099
     },
     {
       "name": "assertStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 14652155
+      "opsPerSec": 4199271
+    },
+    {
+      "name": "parseSafe (jit) — moltar flat (6 fields)",
+      "opsPerSec": 33315121
+    },
+    {
+      "name": "parseStrict (jit) — moltar flat (6 fields)",
+      "opsPerSec": 30187586
+    },
+    {
+      "name": "assertLoose (jit) — moltar flat (6 fields)",
+      "opsPerSec": 33112086
+    },
+    {
+      "name": "assertStrict (jit) — moltar flat (6 fields)",
+      "opsPerSec": 30250226
+    },
+    {
+      "name": "parseSafe (jit) — moltar nested (6 + 3 fields)",
+      "opsPerSec": 30229729
+    },
+    {
+      "name": "parseStrict (jit) — moltar nested (6 + 3 fields)",
+      "opsPerSec": 23961970
+    },
+    {
+      "name": "assertLoose (jit) — moltar nested (6 + 3 fields)",
+      "opsPerSec": 29946108
+    },
+    {
+      "name": "assertStrict (jit) — moltar nested (6 + 3 fields)",
+      "opsPerSec": 24237912
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 17151
+      "opsPerSec": 16281
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 102174
+      "opsPerSec": 82685
     }
   ]
 }
