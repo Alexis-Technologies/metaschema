@@ -173,24 +173,38 @@ const abandon = (thenable) => {
   Promise.resolve(thenable).then(undefined, swallow);
 };
 
-// The two places where user code runs, and the only ones with a try/catch:
-// an exception from a validator or a custom checkType is reported as an
-// issue, not thrown. Both get the dotted path of the field. In an async
-// check (`context.async` is a list) a promise is kept with the path it was
-// met at, and every validator after it is kept too, as a call, so that the
-// rule "a validator runs only when nothing before it failed" holds over the
-// promises as well; `settle` runs the list after the walk, in field order.
-// In a synchronous check a promise is an error of the call.
-const guarded = (context, code, fallback, call) => {
+// The params of a bare `false`: for a checkType the type it expected and what
+// it got, built only now that there is something to record.
+const fallbackOf = (code, owner, value) =>
+  code === 'type' ? { expected: owner.type, received: typeOf(value) } : EMPTY;
+
+// What a validator or a checkType returned, into the context.
+const conclude = (context, output, code, owner, value) => {
+  if (output === true || output == null) return;
+  const bare = output === false || Array.isArray(output);
+  absorb(context, output, code, bare ? fallbackOf(code, owner, value) : EMPTY);
+};
+
+// Where user code runs (a validator, a custom checkType; the decoders have
+// their own place in codec.js): an exception is reported as an issue, not
+// thrown, and the function gets the value and the dotted path of the field,
+// called on its owner here rather than through a closure made per call. In
+// an async check (`context.async` is a list) a promise is kept with the path
+// it was met at, and every validator after it is kept too, with what it needs
+// to be called, so that the rule "a validator runs only when nothing before
+// it failed" holds over the promises as well; `settle` runs the list after
+// the walk, in field order. In a synchronous check a promise is an error of
+// the call.
+const guarded = (context, code, owner, fn, value) => {
   const pending = context.async;
   const { path, count } = context;
   if (pending !== null && pending.length > 0) {
-    pending.push({ call, promise: null, path: path.slice(), code, fallback, count });
+    pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
     return;
   }
   let output;
   try {
-    output = call(toDotPath(path, context.root));
+    output = fn.call(owner, value, toDotPath(path, context.root));
   } catch (error) {
     issues.exception(context, error);
     return;
@@ -200,10 +214,10 @@ const guarded = (context, code, fallback, call) => {
       abandon(output);
       throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
     }
-    pending.push({ call: null, promise: output, path: path.slice(), code, fallback, count });
+    pending.push({ owner, fn: null, value, promise: output, path: path.slice(), code, count });
     return;
   }
-  absorb(context, output, code, fallback);
+  conclude(context, output, code, owner, value);
 };
 
 // Whether an issue recorded since the validator was deferred lies under its
@@ -236,30 +250,28 @@ const settle = async (context) => {
       break;
     }
     const entry = pending[index];
-    if (entry.call !== null && failedUnder(context, entry)) continue;
+    if (entry.fn !== null && failedUnder(context, entry)) continue;
     context.path = entry.path;
     let output;
     try {
       output =
-        entry.call === null
+        entry.fn === null
           ? await entry.promise
-          : await entry.call(toDotPath(entry.path, context.root));
+          : await entry.fn.call(entry.owner, entry.value, toDotPath(entry.path, context.root));
     } catch (error) {
       issues.exception(context, error);
       continue;
     }
-    absorb(context, output, entry.code, entry.fallback);
+    conclude(context, output, entry.code, entry.owner, entry.value);
   }
   context.path = [];
 };
 
 const runValidate = (owner, validate, value, context) =>
-  guarded(context, 'custom', EMPTY, (path) => validate.call(owner, value, path));
+  guarded(context, 'custom', owner, validate, value);
 
-const runCheckType = (type, value, context) => {
-  const fallback = { expected: type.type, received: typeOf(value) };
-  guarded(context, 'type', fallback, (path) => type.checkType(value, path));
-};
+const runCheckType = (type, value, context) =>
+  guarded(context, 'type', type, type.checkType, value);
 
 module.exports = {
   EMPTY,
