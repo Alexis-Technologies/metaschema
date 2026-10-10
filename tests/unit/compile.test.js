@@ -987,6 +987,39 @@ test('Compile: without code generation from strings, auto falls back and true th
   ]);
 });
 
+test('Compile: the length of a collection is measured the same way on both backends', () => {
+  const schema = Schema.from({
+    dict: { object: { string: 'any' }, length: { min: 1, max: 2 } },
+    table: { map: { string: 'any' }, length: { max: 1 } },
+    bag: { set: 'any', length: { max: 1 } },
+    list: { array: 'any', length: [1, 2] },
+    text: { type: 'string', length: { max: 2 } },
+    wide: { type: 'string', unicode: true, length: { max: 2 } },
+  });
+  equivalent(schema, [
+    {
+      dict: { size: 10 },
+      table: new Map([['a', 1]]),
+      bag: new Set([1]),
+      list: [1],
+      text: 'ab',
+      wide: '😀😀',
+    },
+    {
+      dict: { a: 1, b: 2, c: 3 },
+      table: new Map([
+        ['a', 1],
+        ['b', 2],
+      ]),
+      bag: new Set([1, 2]),
+      list: [],
+      text: 'abc',
+      wide: '😀😀😀',
+    },
+    { dict: {}, table: new Map(), bag: new Set(), list: [1, 2, 3], text: '', wide: 'ab' },
+  ]);
+});
+
 test('Compile: a failed branch of a plain union drops its deferred validators on both backends', async () => {
   const build = () =>
     new Schema('Pick', {

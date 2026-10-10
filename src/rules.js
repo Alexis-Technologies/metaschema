@@ -79,32 +79,32 @@ const codePoints = (text) => {
   return count;
 };
 
-// The length of a value: the size of a Map or Set, the length of a string or
-// an array, the number of keys of an object. A string is UTF-16 units unless
-// the field asks for code points.
-const lengthOf = (value) => {
-  if (typeof value === 'string') return value.length;
-  const { size, length } = value;
-  if (typeof size === 'number') return size;
-  if (typeof length === 'number') return length;
-  return Object.keys(value).length;
+// The own keys of an object, counted without a list of them.
+const keyCount = (value) => {
+  let count = 0;
+  for (const name in value) if (Object.hasOwn(value, name)) count += 1;
+  return count;
 };
 
-const lengthOfUnicode = (value) =>
-  typeof value === 'string' ? codePoints(value) : lengthOf(value);
+// The length of a value, by what the value is rather than by what it carries
+// (an object with a `size` key is an object): the units of a string, the
+// length of an array, the size of a Set or a Map, the own keys of an object.
+const lengthOf = (value) => {
+  if (typeof value === 'string' || Array.isArray(value)) return value.length;
+  const name = value.constructor?.name;
+  return name === 'Set' || name === 'Map' ? value.size : keyCount(value);
+};
 
+const units = (value) => value.length;
+
+// A string field measures its units, or its code points when it asks for
+// them; anything else is measured by what it is. Chosen once, here.
 const compileLength = (type) => {
   const { min, max } = type.length;
-  if (type.unicode === true) {
-    return (value, context, key) => {
-      const actual = lengthOfUnicode(value);
-      const short = min !== undefined && actual < min;
-      const long = max !== undefined && actual > max;
-      if (short || long) issues.length(context, min, max, actual, key);
-    };
-  }
+  const string = type.scalar === 'string';
+  const measure = string ? (type.unicode === true ? codePoints : units) : lengthOf;
   return (value, context, key) => {
-    const actual = lengthOf(value);
+    const actual = measure(value);
     const short = min !== undefined && actual < min;
     const long = max !== undefined && actual > max;
     if (short || long) issues.length(context, min, max, actual, key);
