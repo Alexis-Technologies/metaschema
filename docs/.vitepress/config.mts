@@ -130,6 +130,7 @@ export default defineConfig({
             { text: 'Validation', link: '/guide/validation' },
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'TypeScript', link: '/guide/typescript' },
+            { text: 'Standard Schema', link: '/guide/standard-schema' },
             { text: 'Browser', link: '/guide/browser' },
           ],
         },

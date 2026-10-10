@@ -143,7 +143,8 @@ such. The dts renders an optional field as `street?: string`, where `check` also
 and `Infer` says `string | null | undefined`.
 
 The typings need TypeScript 5.0 or later (const type parameters). The examples of this page are
-compiled by `tests/types/infer.test-d.ts`.
+compiled by `tests/types/infer.test-d.ts`. A `Schema<D>` is also a Standard Schema whose input
+and output types are `Infer<D>`; see [Standard Schema](/guide/standard-schema#typescript).
 
 ## Generating interfaces from a model
 

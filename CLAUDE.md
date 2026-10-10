@@ -85,7 +85,7 @@ src/
   index.js          public barrel (explicit named exports)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
-  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], dts rendering
+  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], dts rendering, ~standard
   struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
   context.js        createContext: the state of one check ({ issues, count, limit, path, seen, unknown, root, messages })
   issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType
@@ -250,6 +250,18 @@ issue. `context.count >= context.limit` is how every loop over fields, elements 
 stops early. `ValidationResult` (`result.js`) keeps `add()`/`issuesOf()` for results built by
 validators, plus `summary`, `flatten()` and `tree()`.
 
+**Standard Schema.** `Schema.prototype['~standard']` is a class accessor in `schema.js` (so
+non-enumerable: `toJSON`, `inspect` and `Object.keys` never see it) that builds
+`{ version: 1, vendor: 'alexify.metaschema', validate }` once per instance (`#standard`).
+`validate(value, options)` is `check(value, options?.libraryOptions)` read as the specification
+does: `{ value }` (the same reference) when valid, else `{ issues: result.issues }`, the issue
+objects themselves (each has `message` and `path: PropertyKey[]`, which is all the specification
+reads), no copies. It closes over the schema because consumers call it unbound. The shape is
+typed inline in `index.d.ts` (`StandardOptions`, `StandardResult<T>`, `StandardProps<D>`, with
+`types.input` = `types.output` = `Infer<D>` since nothing is transformed) because `index.d.ts`
+cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assignability to
+`StandardSchemaV1` of `@standard-schema/spec`. `~standard.jsonSchema` is D2 (2.1).
+
 **Model.** `new Model(types, entities, database = null)`:
 
 1. registers types;
@@ -266,9 +278,10 @@ validators, plus `summary`, `flatten()` and `tree()`.
 ## Budgets
 
 `pnpm size --max-gzip 13` is the CI gate (13 KB = 13312 bytes min+gzip per entry). After
-Workstream B the entries are at 12755 bytes (`index.js`) and 12775 bytes (`browser.js`), 12.5 KB,
-up from 9.9 KB after Workstream A: union, date/null/any/integer, pattern and min/max, the
-references rule and the lint cost about 2.6 KB together. ROADMAP.md §5.8 planned 12 KB for 2.1
+Workstream D1 the entries are at 12929 bytes (`index.js`) and 12950 bytes (`browser.js`), 12.6 KB:
+`~standard` cost 174 bytes over Workstream B (12755/12775, 12.5 KB), which was up from 9.9 KB
+after Workstream A: union, date/null/any/integer, pattern and min/max, the references rule and
+the lint cost about 2.6 KB together. ROADMAP.md §5.8 planned 12 KB for 2.1
 with the JSON Schema export; that budget has to be revised again when D2 lands.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
@@ -369,6 +382,11 @@ change. **This file wins** if they ever disagree.
   and not) and validates through the result, so a class-name-based identity check cannot come
   back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18.
 - New behavior needs a test that fails without the change.
+- `tests/unit/standard.test.js` covers `~standard`: the props, the pass-through of the result's
+  issues, `libraryOptions`, non-enumerability, a consumer that reads only the specification
+  (`standardValidate` from its README) and the fixture model; `bundle.test.js` reads it through
+  the minified bundles; `tests/types/standard.test-d.ts` is the only place that imports
+  `@standard-schema/spec`.
 - `tests/unit/result.test.js` and `check-options.test.js` cover the issue shape, locales and
   `check` options; `tests/unit/context.test.js` pins the context shape and the absence of global
   state. The locale tables are compared key by key, so a new issue code needs a renderer in every

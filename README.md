@@ -45,6 +45,9 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
 - **TypeScript.** `InferSchema<typeof schema>` is the type of a value the schema accepts,
   computed from the definition with nothing generated, and a model renders its entities as
   interfaces. The package ships hand-written typings for its own API.
+- **Standard Schema.** Every schema implements [Standard Schema v1](https://standardschema.dev)
+  (`schema['~standard']`), so tRPC, TanStack Form, Hono and any other consumer of the interface
+  take it as they take a zod or valibot schema.
 - **Fast.** Every check is compiled into a closure when the schema is built: about 11 million
   validations a second of a flat struct on Node 24 (`pnpm bench`).
 - **Zero dependencies, under 10 KB min+gzip.** CommonJS with ESM named imports, no build step,
@@ -182,6 +185,11 @@ tuples, unions, nested structs, references (an id, or the record through an enti
 `Infer<D, E>` and `InferEntity<E, 'Name'>`) and custom types declared through module
 augmentation of `CustomTypes`. A model renders its entities as interfaces with `model.dts`. See
 [TypeScript](https://metaschema.vercel.app/guide/typescript).
+
+A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-schema/spec`:
+`schema['~standard']` is typed as `StandardProps<D>`, with `StandardResult<T>` and
+`StandardOptions` beside it. See
+[Standard Schema](https://metaschema.vercel.app/guide/standard-schema).
 
 ## Exports
 

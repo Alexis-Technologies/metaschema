@@ -44,7 +44,7 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
 - **Warnings carry a code**: `Warning [missing-reference]: "Address" referenced by "Company" is
   not found`, `Warning [recursive-reference]: …`. `schema.warnings` and `model.warnings` are
   computed on first use.
-- **Bundle budget.** The entries are at 12.5 KB min+gzip; CI gates at 13 KB (was 10 KB).
+- **Bundle budget.** The entries are at 12.6 KB min+gzip; CI gates at 13 KB (was 10 KB).
 - **The typings need TypeScript 5.0 or later.** `Schema` is generic over its definition
   (`Schema<D>`, a const type parameter); `Schema` written on its own is still any schema, and
   `Model.entities` is still a `Map<string, Schema>`.
@@ -96,6 +96,16 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
   'Name'>` adds the id field of a stored kind. Custom types are declared for inference through
   module augmentation of `CustomTypes`; an unknown name infers as `unknown`. The typings need
   TypeScript 5.0 or later.
+- **Standard Schema v1.** Every `Schema` exposes `schema['~standard']`
+  (`{ version: 1, vendor: 'alexify.metaschema', validate }`), the interface tRPC, TanStack Form,
+  Hono and the other consumers of [standardschema.dev](https://standardschema.dev) accept
+  without an adapter. `validate(value)` is `check(value)` read as the specification does:
+  `{ value }` (the same reference) or `{ issues }`, the issues of the result themselves
+  (`message` and an array `path`, plus `code` and `params`); the `libraryOptions` of a call are
+  the options of `check`. The accessor lives on the prototype and stays out of `toJSON` and
+  `Object.keys`. The typings declare it as `StandardProps<D>` (with `StandardResult<T>` and
+  `StandardOptions`), and a `Schema<D>` is a `StandardSchemaV1<Infer<D>, Infer<D>>` of
+  `@standard-schema/spec`, which the package does not depend on.
 - **New built-in types.** `integer` (`Number.isInteger`), `date` (a `Date` with a valid time),
   `null`, `any` and `unknown` (one type under two names, differing in the TypeScript they render),
   and `union`: `{ union: ['string', 'number'] }` keeps the first branch that reports nothing;

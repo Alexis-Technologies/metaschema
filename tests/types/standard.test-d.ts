@@ -19,6 +19,7 @@ type User = InferSchema<typeof user>;
 expectAssignable<StandardSchemaV1>(user);
 expectAssignable<StandardSchemaV1<unknown, User>>(user);
 expectAssignable<StandardSchemaV1<User, User>>(user);
+expectAssignable<StandardSchemaV1<User>>(user);
 expectNotAssignable<StandardSchemaV1<unknown, { name: number }>>(user);
 expectAssignable<StandardSchemaV1.Props<User, User>>(user['~standard']);
 expectType<User>(as<StandardSchemaV1.InferOutput<typeof user>>());

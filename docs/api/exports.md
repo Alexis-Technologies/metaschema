@@ -42,6 +42,7 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
+| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }` |
 | `schema.toInterface()` | the schema as a TypeScript interface |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
@@ -131,6 +132,9 @@ it; see [Validation](/guide/validation#the-result).
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
 | `Schema<D>` | the class, generic over its definition; `Schema` on its own is any schema |
+| `StandardProps<D>` | the type of `schema['~standard']` of a `Schema<D>`: `version`, `vendor`, `validate` and the type-level `types` (`input` and `output`, both `Infer<D>`); see [Standard Schema](/guide/standard-schema#typescript) |
+| `StandardResult<T>` | what `validate` returns: `{ value: T }` or `{ issues: ReadonlyArray<ValidationIssue> }` |
+| `StandardOptions` | the options of `validate`: `libraryOptions`, the `CheckOptions` of the call |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
