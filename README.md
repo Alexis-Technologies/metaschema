@@ -21,11 +21,20 @@ const user = new Schema('User', {
   roles: { array: { enum: ['admin', 'editor', 'viewer'] } },
 });
 
-user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors;
+const result = user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] });
+
+result.errors;
 // [
 //   'Field "User.name.last" is required',
 //   'Field "User.email" value is too short',
 //   'Field "User.roles[0]" value is not of enum: admin, editor, viewer'
+// ]
+
+result.issues;
+// [
+//   { code: 'required', path: ['name', 'last'], message: 'is required', params: {} },
+//   { code: 'length', path: ['email'], message: 'value is too short', params: { min: 5, max: 64, actual: 3 } },
+//   { code: 'enum', path: ['roles', 0], message: 'value is not of enum: admin, editor, viewer', params: { values: ['admin', 'editor', 'viewer'] } }
 // ]
 ```
 
@@ -48,8 +57,9 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
 - **Standard Schema.** Every schema implements [Standard Schema v1](https://standardschema.dev)
   (`schema['~standard']`), so tRPC, TanStack Form, Hono and any other consumer of the interface
   take it as they take a zod or valibot schema.
-- **Fast.** Every check is compiled into a closure when the schema is built: about 11 million
-  validations a second of a flat struct on Node 24 (`pnpm bench`).
+- **Fast.** Every check is compiled into a closure when the schema is built and runs in a context
+  of its own: about 10 million validations a second of a flat struct on Node 24 (`pnpm bench`,
+  see [Performance](https://metaschema.vercel.app/guide/performance)).
 - **Zero dependencies, 12.6 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers.
 
@@ -61,16 +71,18 @@ pnpm add @alexify/metaschema
 npm install @alexify/metaschema
 ```
 
-Requires Node.js 18 or newer. Works in browsers through any bundler.
+Requires Node.js 18 or newer. Works in browsers through any bundler. The typings need
+TypeScript 5.0 or newer.
 
 ## Schema syntax
 
 | Form | Example | Meaning |
 | --- | --- | --- |
 | Type name | `title: 'string'` | a required string |
-| Optional | `subtitle: '?string'` or `'subtitle?': 'string'` | `undefined` / `null` allowed |
+| Optional | `subtitle: '?string'` or `'subtitle?': 'string'` | the key may be absent, `undefined` or `null` |
 | Nullable | `parent: { type: 'string', nullable: true }` | the key is required, the value may be `null` |
 | Long form | `login: { type: 'string', length: [3, 32] }` | a type with options, `type` first |
+| Rules | `{ type: 'integer', min: 18, max: 120 }`, `{ type: 'string', pattern: '^[a-z]+$', length: { max: 32 } }` | `min`/`max` for numbers, `length`/`pattern` for strings, `length` for collections |
 | Collections | `{ array: 'number' }`, `{ set: 'string' }`, `{ object: { string: 'number' } }`, `{ map: { string: 'string' } }` | |
 | Enum | `{ enum: ['admin', 'user'] }` | one of the values |
 | Tuple | `point: ['number', 'number']` | a fixed-length array, each element its own definition |
@@ -92,6 +104,7 @@ can have a top-level `validate` for rules across fields. `check(value, options)`
 `flatten()` and `tree()`. `schema.warnings` lints the definition (a mistyped option, a `pattern`
 without `length.max`). See [Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax),
 [Types](https://metaschema.vercel.app/guide/types),
+[Unions, nullable and null](https://metaschema.vercel.app/guide/unions),
 [References](https://metaschema.vercel.app/guide/references) and
 [Validation](https://metaschema.vercel.app/guide/validation).
 
@@ -116,6 +129,8 @@ const model = new Model(types, entities);
 
 model.order; // Set { 'Address', 'Company', 'User' }
 model.warnings; // [] (lint and consistency warnings, `Warning [code]: text`, end up here)
+model.entities.get('User').check({ login: 'ab', company: 'c1', active: true }).errors;
+// [ 'Field "User.login" value is too short' ]
 console.log(model.dts);
 ```
 
@@ -198,33 +213,53 @@ const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
   getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
+
+const en = require('@alexify/metaschema/locales/en'); // the built-in messages
+const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })
 ```
 
 ```js
 import { Schema, Model } from '@alexify/metaschema';
+import type { Infer, InferSchema, InferEntity, CustomTypes, ValidationIssue } from '@alexify/metaschema';
 ```
 
 In the browser every export works the same, except `saveTypes`, which rejects because there is no
-file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member.
+file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
+and every exported type.
 
-## Migrating from `metaschema` (metarhia)
+## Migrating
 
-`@alexify/metaschema` is a fork of [`metaschema`](https://github.com/metarhia/metaschema) 2.2. The
-schema language and the validation rules are the same. What changed:
+### From 1.x
+
+2.0 changes the shape of a result (`issue.path` is an array of keys, `issue.message` has no
+location, unknown keys are one issue per struct), the signature of `check`
+(`check(value, { root, maxErrors, unknown, references, messages })`), and a few rules of the
+language: the first key of an object decides what it is, numbers are bounded by `min`/`max`
+instead of `length`, a reference to a stored kind is its id, a `set` renders as `Set<T>`, the
+`relations` labels follow the referencing side, and a type failure cancels the rules and
+`validate` of the field. Everything else is additive: `integer`, `date`, `null`, `any`, `union`,
+`nullable`, `pattern`, locales, the lint, `Infer` and Standard Schema. The step-by-step guide
+with before-and-after examples is
+[Migrating from 1.x](https://metaschema.vercel.app/guide/migrating-from-1); the full list is
+under "Upgrading from 1.x" in the [CHANGELOG](./CHANGELOG.md).
+
+### From `metaschema` (metarhia)
+
+`@alexify/metaschema` is a fork of [`metaschema`](https://github.com/metarhia/metaschema) 2.2 with
+the same schema language. What changed in 1.0:
 
 - **No loader.** `createSchema`, `loadSchema`, `readDirectory` and `loadModel` are removed along
   with the `metavm` sandbox. Use `new Schema(name, require('./schemas/User.js'))` and
   `new Model(types, new Map([...]), database)`. Schema files written as `({ ... })` become modules
   (`module.exports = { ... }`).
 - **No runtime dependencies:** `metautil`, `metavm` and `metaskills` are gone.
-- **Fixed messages, no old text kept:** `Field "..."` instead of `Filed "..."`,
-  `not of expected type: object` instead of `is not a object`, and "more than" instead of
-  "more then".
+- **Fixed messages, no old text kept:** `Field "..."` instead of `Filed "..."` and
+  `not of expected type: object` instead of `is not a object`.
 - **`detouch` is renamed to `detach`**, with no alias.
 - **`browser.js`** replaces `dist.js`, and an `exports` map closes deep imports.
 
-The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia)
-and the [CHANGELOG](./CHANGELOG.md).
+The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia),
+and the 2.0 changes above apply on top of it.
 
 ## Changelog
 
