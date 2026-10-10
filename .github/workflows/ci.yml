@@ -32,7 +32,9 @@ jobs:
       - run: pnpm format:check
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
       # ever reaches the browser bundle, and fails over the min+gzip budget.
-      - run: pnpm size --max-gzip 8
+      # 13 KB per entry is the 2.0 budget (CLAUDE.md "Budgets"); the JIT entry
+      # of 2.1 gets a budget of its own.
+      - run: pnpm size --max-gzip 13
 
   types:
     runs-on: ubuntu-latest

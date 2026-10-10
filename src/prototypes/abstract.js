@@ -1,72 +1,109 @@
-const { ValidationResult } = require('../metadata.js');
-const { BRAND, INSPECT, ancestors, issue, formatters, checks } = require('../util.js');
+const { BRAND, INSPECT } = require('../util.js');
+const { FORMAT, notApplicable, compileRules } = require('../rules.js');
+const { runValidate, runCheckType } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
-// names one of its methods (or the prototype itself) would replace it.
-const RESERVED = new Set(['__proto__', 'prototype']);
+// names one of its methods (or the prototype itself) would replace it. The
+// methods of the type contract are reserved whether the type has them or not.
+const RESERVED = new Set(['__proto__', 'prototype', 'check', 'checkType', 'compile', 'construct']);
 
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
 
-class AbstractType {
-  static checks = Object.create(null);
-  static formatters = Object.create(null);
+const invalidNullable = () =>
+  new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Option "nullable" needs a boolean');
 
-  // The rule checks that apply to this field, chosen once at construction:
-  // `length` only matters to a field that has a length, and check is the hot
-  // path.
-  #rules;
+// A nullable field accepts null in place of a value of its type, whatever
+// its rules; `required` still says whether the key must be there.
+const nullable = (inner) => (value, context, key) => {
+  if (value === null) return;
+  inner(value, context, key);
+};
 
-  static setRules(rules = []) {
-    for (const rule of rules) {
-      if (formatters[rule]) AbstractType.formatters[rule] = formatters[rule];
-      if (checks[rule]) AbstractType.checks[rule] = checks[rule];
+// The check of a field with rules or a validate function: the type check,
+// then the rules, then the validate function. A type failure cancels the
+// rest (a length or a validator makes no sense for a value of another type),
+// and validate runs only on a value that passed everything before it, so it
+// can rely on the type and the rules. A field with neither is its type check
+// alone.
+const withRules = (type, inner, rules) => {
+  const { required, validate } = type;
+  return (value, context, key) => {
+    if (value == null && !required) return;
+    const before = context.count;
+    inner(value, context, key);
+    if (context.count !== before) return;
+    for (let index = 0; index < rules.length; index += 1) {
+      if (context.count >= context.limit) break;
+      rules[index](value, context, key);
     }
-  }
+    if (validate && context.count === before) {
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      runValidate(type, validate, value, context);
+      if (nested) context.path.pop();
+    }
+  };
+};
+
+class AbstractType {
+  // The rules the type accepts and the definition keys it reads, by name; a
+  // type class sets its own.
+  static rules = new Set();
+  static options = new Set();
+
+  // The compiled check of the field: a closure built once from the field,
+  // kept out of its definition (toJSON, util.inspect) as a private field.
+  #check;
 
   constructor(def, preprocessor) {
     this.root = preprocessor.root;
-    const { formatters: typeFormatters } = AbstractType;
-    for (const pair of Object.entries(def)) {
-      const key = pair[0];
-      const value = pair[1];
+    const { rules } = this.constructor;
+    for (const key of Object.keys(def)) {
+      const value = def[key];
       if (key === 'type' || key === this.type) continue;
       if (RESERVED.has(key) || typeof this[key] === 'function') throw reservedKey(key);
-      if (typeFormatters[key]) this[key] = typeFormatters[key](value);
-      else this[key] = value;
+      const format = FORMAT[key];
+      if (format === undefined) {
+        this[key] = value;
+        continue;
+      }
+      if (!rules.has(key)) throw notApplicable(key, this.type, rules);
+      this[key] = format(value);
     }
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
-    const rules = [];
-    for (const name of Object.keys(AbstractType.checks)) {
-      if (this[name]) rules.push(AbstractType.checks[name]);
-    }
-    this.#rules = rules;
+    if (this.nullable !== undefined && typeof this.nullable !== 'boolean') throw invalidNullable();
+    // The rule checks that apply to this field, compiled once: a field
+    // without rules is its type check alone, and check is the hot path.
+    const checks = compileRules(this, rules);
+    const inner = this.compile();
+    const plain = checks.length === 0 && !this.validate;
+    const check = plain ? inner : withRules(this, inner, checks);
+    this.#check = this.nullable === true ? nullable(check) : check;
   }
 
-  check(value, path) {
-    const result = new ValidationResult(path);
-    const isEmpty = value === null || value === undefined;
-    if (!this.required && isEmpty) return result;
-    const isObject = typeof value === 'object' && value !== null;
-    if (isObject && ancestors.has(value)) {
-      return result.add(issue('circular', path, 'is a circular reference'));
-    }
-    if (isObject) ancestors.add(value);
-    try {
-      result.add(this.checkType(value, path), 'type');
-      if (this.validate && !result.full) result.add(this.validate(value, path));
-      for (const rule of this.#rules) {
-        if (result.full) break;
-        result.add(rule(value, this, path));
-      }
-      return result;
-    } catch (error) {
-      return result.add(issue('exception', path, `validation failed ${error}`));
-    } finally {
-      if (isObject) ancestors.delete(value);
-    }
+  // Records the problems of a value into the context of the current check,
+  // under `key` when the field is reached through one.
+  get check() {
+    return this.#check;
+  }
+
+  // The type check of a field, as a closure built once from the field. A
+  // built-in prototype compiles its own; a custom type has a
+  // `checkType(value, path)` that returns messages, run through the
+  // validator contract.
+  compile() {
+    const type = this;
+    const { required } = this;
+    return (value, context, key) => {
+      if (value == null && !required) return;
+      const nested = key !== undefined;
+      if (nested) context.path.push(key);
+      runCheckType(type, value, context);
+      if (nested) context.path.pop();
+    };
   }
 
   toJSON() {

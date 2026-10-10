@@ -17,11 +17,11 @@ test('Tuple: basic implementation', () => {
   assert.strictEqual(schema1.check(['abc', 1]).valid, true);
   assert.strictEqual(schema1.check(['abc', 1, 2]).valid, true);
   assert.deepStrictEqual(schema1.check(['abc', 'ab', 2]).errors, [
-    'Field "(item1)" not of expected type: number',
+    'Field "[1]" not of expected type: number',
   ]);
-  assert.deepStrictEqual(schema1.check(['abc', 2, 2, 123]).errors, [
-    'Field "" value length is more than expected in tuple',
-  ]);
+  const overflow = schema1.check(['abc', 2, 2, 123]);
+  assert.deepStrictEqual(overflow.errors, ['Field "" exceeds the maximum length']);
+  assert.deepStrictEqual(overflow.issues[0].params, { min: undefined, max: 3, actual: 4 });
 
   const short2 = { tuple: ['bigint', 'boolean'] };
   const schema2 = Schema.from(short2);
@@ -32,11 +32,11 @@ test('Tuple: basic implementation', () => {
   const bigIntValue = BigInt(9007199254740991);
   assert.strictEqual(schema2.check([bigIntValue, true]).valid, true);
   assert.deepStrictEqual(schema2.check(['abc', 1]).errors, [
-    'Field "(item0)" not of expected type: bigint',
-    'Field "(item1)" not of expected type: boolean',
+    'Field "[0]" not of expected type: bigint',
+    'Field "[1]" not of expected type: boolean',
   ]);
   assert.deepStrictEqual(schema2.check([bigIntValue, false, 123]).errors, [
-    'Field "" value length is more than expected in tuple',
+    'Field "" exceeds the maximum length',
   ]);
 
   const long = { type: 'tuple', value: ['string'] };
@@ -55,9 +55,7 @@ test('Tuple: with field names', () => {
   assert.strictEqual(schema1.fields.value[1].required, true);
   assert.strictEqual(schema1.fields.value[1].name, 'length');
   assert.strictEqual(schema1.check([1, '123']).valid, true);
-  assert.deepStrictEqual(schema1.check([1]).errors, [
-    'Field "(length1)" not of expected type: string',
-  ]);
+  assert.deepStrictEqual(schema1.check([1]).errors, ['Field "[1]" not of expected type: string']);
 });
 
 test('Tuple: usage with schema', () => {
@@ -70,7 +68,7 @@ test('Tuple: usage with schema', () => {
   assert.strictEqual(schema.fields.field.value[1].name, 'count');
   assert.strictEqual(schema.check({ field: [true, 123] }).valid, true);
   assert.deepStrictEqual(schema.check({ field: [false, { some: 'wrong data' }] }).errors, [
-    'Field "field(count1)" not of expected type: number',
+    'Field "field[1]" not of expected type: number',
   ]);
 });
 
@@ -87,4 +85,59 @@ test('Tuple: a tuple field is required unless marked optional', () => {
 
   const long = Schema.from({ point: { type: 'tuple', value: ['number'], required: false } });
   assert.strictEqual(long.fields.point.required, false);
+});
+
+test('Tuple: a value that is not an array is a type error', () => {
+  const schema = Schema.from({ point: ['number', 'number'] });
+  assert.deepStrictEqual(schema.check({ point: 5 }).issues, [
+    {
+      code: 'type',
+      path: ['point'],
+      message: 'not of expected type: tuple',
+      params: { expected: 'tuple', received: 'number' },
+    },
+  ]);
+  assert.deepStrictEqual(schema.check({ point: null }).errors, [
+    'Field "point" not of expected type: tuple',
+  ]);
+  assert.strictEqual(schema.check({ point: [1, 'x', 3] }, { maxErrors: 1 }).errors.length, 1);
+  assert.deepStrictEqual(Schema.from(['number', 'string']).check([1, 2], { maxErrors: 1 }).errors, [
+    'Field "[1]" not of expected type: string',
+  ]);
+});
+
+test('Tuple: elements may be any definition, named elements stay scalars', () => {
+  const schema = Schema.from({
+    row: ['string', { array: 'number' }, { x: 'number', y: 'number' }, ['boolean'], 'json'],
+  });
+  const row = schema.fields.row.value;
+  assert.deepStrictEqual(
+    row.map((element) => element.type),
+    ['string', 'array', 'schema', 'tuple', 'json'],
+  );
+  assert.strictEqual(
+    schema.check({ row: ['a', [1, 2], { x: 1, y: 2 }, [true], { any: 'thing' }] }).valid,
+    true,
+  );
+  assert.deepStrictEqual(schema.check({ row: ['a', [1, 'b'], { x: 1 }, [1], 5] }).errors, [
+    'Field "row[1][1]" not of expected type: number',
+    'Field "row[2].y" is required',
+    'Field "row[3][0]" not of expected type: boolean',
+    'Field "row[4]" not of expected type: object',
+  ]);
+  assert.strictEqual(
+    Schema.from({
+      row: ['string', { array: 'number' }, { x: 'number', y: 'number' }],
+    }).toInterface(),
+    'interface  {\n  row: [string, number[], { x: number; y: number }];\n}',
+  );
+  // One key holding a type name is a named element; a kind or a type name as
+  // the key is read as what it says.
+  const named = Schema.from({ p: [{ x: 'number' }, { 'y?': 'number' }, { array: 'string' }] });
+  assert.strictEqual(named.fields.p.value[0].name, 'x');
+  assert.strictEqual(named.fields.p.value[1].name, 'y');
+  assert.strictEqual(named.fields.p.value[1].required, false);
+  assert.strictEqual(named.fields.p.value[2].type, 'array');
+  assert.strictEqual(named.check({ p: [1, null, ['a']] }).valid, true);
+  assert.strictEqual(named.check({ p: [1] }).valid, false);
 });

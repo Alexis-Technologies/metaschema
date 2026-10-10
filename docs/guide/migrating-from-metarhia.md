@@ -5,6 +5,10 @@ The schema language and the validation rules are the same. What changed is the p
 them, plus the fixes listed below: more precise messages and paths, definition errors that say
 where they are, and definitions that used to pass silently and now throw.
 
+2.0 goes further: the shape of a result, the signature of `check` and a few rules of the language
+change on top of this page, and the outputs below are the 2.0 ones. Read this page, then
+[Migrating from 1.x](/guide/migrating-from-1).
+
 ## Install
 
 ```bash
@@ -82,12 +86,12 @@ metaschema used are copied into the package.
   | `Filed "x" is not a object` | `Field "x" not of expected type: object` |
   | `Filed "x" is not a map` | `Field "x" not of expected type: map` |
   | `Value of "x" must be an object` | `Field "x" not of expected type: object` |
-  | `value length is more then expected in tuple` | `value length is more than expected in tuple` |
-  | `Field "field2" is not expected` (inside `nested`) | `Field "nested.field2" is not expected` |
+  | `value length is more then expected in tuple` | `exceeds the maximum length` (1.x: `value length is more than expected in tuple`) |
+  | `Field "field2" is not expected` (inside `nested`) | `Field "nested" has unexpected keys: field2` (1.x: `Field "nested.field2" is not expected`) |
   | `Field "Person.companies.name" ...` (a `many` record) | `Field "Person.companies[1].name" ...` |
   | `Field "o" In object "o": type of key must be a string` | `Field "o" keys must be of type string` |
   | `Field "o" validation failed TypeError: ...` for `null` | `Field "o" not of expected type: object` |
-  | `Recursive dependency: A.B` (a model warning) | `Warning: "A" depends on "B" recursively` |
+  | `Recursive dependency: A.B` (a model warning) | `Warning [recursive-reference]: "A" depends on "B" recursively` |
 
   Every element of a tuple and every record of a `many` reference is reported, not only the
   first; a circular value is reported as `is a circular reference` instead of overflowing the
@@ -109,8 +113,10 @@ metaschema used are copied into the package.
 
 - **Tuples in the short form are required.** `point: ['number', 'number']` was never required
   upstream; it is now, like every other field, and `'point?': [...]` makes it optional.
-- **`result.issues`.** Besides `errors`, a result carries `{ code, path, message }` per problem,
-  and `check(value, path, { maxErrors })` limits how many are collected.
+- **`result.issues`.** Besides `errors`, a result carries `{ code, path, message, params }` per
+  problem, with `path` as an array of keys, and `check(value, { maxErrors })` limits how many are
+  collected. The root path of 1.x and upstream (`check(value, path)`) is `check(value, { root })`.
+  See [Validation](/guide/validation) for the result and its options.
 - **`new Schema(name, instance)`.** A `Schema` instance is still returned as is, but the
   namespaces are attached to it and a different `name` is a definition error.
 - **`Model#preprocess` and `Model#reorderEntity`** are constructor internals and no longer

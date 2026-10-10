@@ -110,6 +110,7 @@ test('Schema: check with namespaces', () => {
 test('Schema: validation function', () => {
   const definition = {
     field: '?string',
+    throw: '?string',
     validate: (value, path) => {
       if (value.field) return true;
       if (value.throw) throw new Error(value.throw);
@@ -125,19 +126,25 @@ test('Schema: validation function', () => {
     true,
   );
 
-  assert.deepStrictEqual(
-    schema.check({
-      field2: 'abc',
-    }).errors,
-    ['Field "" .field is required', 'Field "field2" is not expected'],
-  );
+  assert.deepStrictEqual(schema.check({}).errors, ['Field "" .field is required']);
 
   assert.deepStrictEqual(
     schema.check({
       throw: '42',
     }).errors,
-    ['Field "" validation failed Error: 42', 'Field "throw" is not expected'],
+    ['Field "" validation failed Error: 42'],
   );
+
+  // The schema-level validate runs only on a value whose fields all passed.
+  assert.deepStrictEqual(
+    schema.check({
+      field2: 'abc',
+    }).errors,
+    ['Field "" has unexpected keys: field2'],
+  );
+  assert.deepStrictEqual(schema.check({ field: 1 }).errors, [
+    'Field "field" not of expected type: string',
+  ]);
 });
 
 test('Schema: validation function simple return', () => {
@@ -157,6 +164,7 @@ test('Schema: nested validation function', () => {
     nested: {
       schema: {
         field: { type: 'string', required: false },
+        throw: '?string',
         validate: (value, path) => {
           if (value.field) return true;
           if (value.throw) throw new Error(value.throw);
@@ -179,7 +187,7 @@ test('Schema: nested validation function', () => {
     schema.check({
       field2: 'abc',
     }).errors,
-    ['Field "field" is required', 'Field "field2" is not expected'],
+    ['Field "field" is required', 'Field "" has unexpected keys: field2'],
   );
 
   assert.strictEqual(
@@ -195,11 +203,9 @@ test('Schema: nested validation function', () => {
   assert.deepStrictEqual(
     schema.check({
       field: 'abc',
-      nested: {
-        field2: 'abc',
-      },
+      nested: {},
     }).errors,
-    ['Field "nested.field2" is not expected', 'Field "nested" nested.field is required'],
+    ['Field "nested" nested.field is required'],
   );
 
   assert.deepStrictEqual(
@@ -209,7 +215,18 @@ test('Schema: nested validation function', () => {
         throw: '42',
       },
     }).errors,
-    ['Field "nested.throw" is not expected', 'Field "nested" validation failed Error: 42'],
+    ['Field "nested" validation failed Error: 42'],
+  );
+
+  // A nested validate runs only when the nested value's fields all passed.
+  assert.deepStrictEqual(
+    schema.check({
+      field: 'abc',
+      nested: {
+        field2: 'abc',
+      },
+    }).errors,
+    ['Field "nested" has unexpected keys: field2'],
   );
 });
 
@@ -284,9 +301,9 @@ test('Schema: custom validate on field', () => {
   };
 
   const schema1 = Schema.from(defs1);
+  // A type failure cancels the rules and the validate function of the field.
   assert.deepStrictEqual(schema1.check({ email: 12345 }).errors, [
     'Field "email" not of expected type: string',
-    'Field "email" validation failed TypeError: src.indexOf is not a function',
   ]);
   assert.deepStrictEqual(schema1.check({ email: 'ab' }).errors, ['Field "email" Not an Email']);
   assert.strictEqual(schema1.check({ email: 'asd@asd.com' }).valid, true);
@@ -361,8 +378,8 @@ test('Schema: a validate function may build and return a ValidationResult', () =
   const schema = Schema.from({
     range: {
       type: 'string',
-      validate: (value, path) => {
-        const result = new ValidationResult(path);
+      validate: (value) => {
+        const result = new ValidationResult();
         if (!value.includes('-')) result.add('needs a dash');
         if (value.length > 9) result.add('is too long');
         return result;
@@ -374,7 +391,10 @@ test('Schema: a validate function may build and return a ValidationResult', () =
     'Field "range" needs a dash',
     'Field "range" is too long',
   ]);
-  const result = new ValidationResult('p').add(false).add(['a', 'Field "q" b']).add(null).add(true);
+  const result = new ValidationResult({ root: 'p' });
+  assert.strictEqual(result.valid, true);
+  assert.deepStrictEqual(result.errors, []);
+  result.add(false).add(['a', 'Field "q" b']).add(null).add(true);
   assert.deepStrictEqual(result.errors, [
     'Field "p" validation error',
     'Field "p" a',
@@ -382,11 +402,11 @@ test('Schema: a validate function may build and return a ValidationResult', () =
   ]);
   assert.strictEqual(result.valid, false);
   assert.strictEqual(ValidationResult.isInstance(result), true);
-  assert.deepStrictEqual(ValidationResult.format(true), null);
+  assert.strictEqual(ValidationResult.isInstance({ issues: [] }), false);
 });
 
 test('Schema: a value that refers back to itself is reported, not recursed into', () => {
-  const model = new Model({}, [['Category', { Entity: {}, name: 'string', parent: '?Category' }]]);
+  const model = new Model({}, [['Category', { Struct: {}, name: 'string', parent: '?Category' }]]);
   const category = model.entities.get('Category');
   const loop = { name: 'root' };
   loop.parent = loop;
@@ -401,20 +421,30 @@ test('Schema: a value that refers back to itself is reported, not recursed into'
   const shared = { name: 'leaf' };
   assert.strictEqual(category.check({ name: 'x', parent: shared }).valid, true);
 
+  // A schema without references cannot recurse: a cyclic value is walked as
+  // far as the schema goes and reported for what it is.
   const nested = Schema.from({ inner: { x: 'string' } });
   const self = { x: 'ok' };
   self.inner = self;
   assert.deepStrictEqual(nested.check(self).errors, [
-    'Field "inner" is a circular reference',
-    'Field "x" is not expected',
+    'Field "inner" has unexpected keys: inner',
+    'Field "" has unexpected keys: x',
   ]);
 
   const list = Schema.from({ items: { array: { n: 'number' } } });
   const holder = { n: 1 };
   holder.items = [holder];
   assert.deepStrictEqual(list.check(holder).errors, [
-    'Field "items[0]" is a circular reference',
-    'Field "n" is not expected',
+    'Field "items[0]" has unexpected keys: items',
+    'Field "" has unexpected keys: n',
+  ]);
+  const deep = new Model({}, [
+    ['Tree', { Struct: {}, items: { array: { node: '?Tree' } } }],
+  ]).entities.get('Tree');
+  const branch = { items: [] };
+  branch.items.push({ node: branch });
+  assert.deepStrictEqual(deep.check(branch).errors, [
+    'Field "Tree.items[0].node" is a circular reference',
   ]);
   const twice = { n: 2 };
   assert.strictEqual(list.check({ items: [twice, twice] }).valid, true);
@@ -435,14 +465,15 @@ test('Schema: input key names are truncated in messages', () => {
   const key = 'k'.repeat(1024 * 1024);
   const struct = Schema.from({ a: 'string' }).check({ a: 'x', [key]: 1 });
   assert.strictEqual(struct.errors.length, 1);
-  assert.strictEqual(struct.errors[0], `Field "${'k'.repeat(100)}..." is not expected`);
+  assert.strictEqual(struct.errors[0], `Field "" has unexpected keys: ${'k'.repeat(100)}...`);
+  assert.strictEqual(struct.issues[0].params.keys[0], key);
   const byKey = Schema.from({ o: { object: { string: 'number' } } }).check({ o: { [key]: 'x' } });
   assert.strictEqual(
     byKey.errors[0],
     `Field "o.${'k'.repeat(100)}..." not of expected type: number`,
   );
   const short = Schema.from({ a: 'string' }).check({ a: 'x', [`${'k'.repeat(100)}`]: 1 });
-  assert.strictEqual(short.errors[0], `Field "${'k'.repeat(100)}" is not expected`);
+  assert.strictEqual(short.errors[0], `Field "" has unexpected keys: ${'k'.repeat(100)}`);
 });
 
 test('Schema: every schema serializes, whatever its definition', () => {
@@ -493,4 +524,24 @@ test('Schema: util.inspect prints the definition, not the graph', () => {
   assert.ok(text.includes("type: 'string'"), text);
   assert.ok(util.inspect(Schema.from({ a: 'string' })).startsWith('Schema {'));
   assert.strictEqual(util.inspect(user.fields.name), "{ required: true, type: 'string' }");
+});
+
+test('Schema: validate(value, path) runs only the schema-level function', () => {
+  const schema = Schema.from({
+    field: '?string',
+    validate: (value, path) => {
+      if (value.throw) throw new Error(value.throw);
+      return value.field ? null : `${path} needs a field`;
+    },
+  });
+  assert.strictEqual(schema.validate({ field: 'x' }).valid, true);
+  assert.deepStrictEqual(schema.validate({}, 'body').errors, ['Field "" body needs a field']);
+  assert.deepStrictEqual(schema.validate({ extra: 1 }).issues, [
+    { code: 'custom', path: [], message: ' needs a field', params: {} },
+  ]);
+  const thrown = schema.validate({ throw: 'boom' });
+  assert.deepStrictEqual(thrown.errors, ['Field "" validation failed Error: boom']);
+  assert.strictEqual(thrown.issues[0].code, 'exception');
+  assert.ok(thrown.issues[0].params.error instanceof Error);
+  assert.strictEqual(Schema.from({ field: 'string' }).validate({}), null);
 });

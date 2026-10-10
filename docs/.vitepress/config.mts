@@ -119,6 +119,7 @@ export default defineConfig({
           items: [
             { text: 'Schema Syntax', link: '/guide/schema-syntax' },
             { text: 'Types', link: '/guide/types' },
+            { text: 'Unions, nullable and null', link: '/guide/unions' },
             { text: 'References', link: '/guide/references' },
             { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
             { text: 'Custom Types', link: '/guide/custom-types' },
@@ -130,12 +131,17 @@ export default defineConfig({
             { text: 'Validation', link: '/guide/validation' },
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'TypeScript', link: '/guide/typescript' },
+            { text: 'Standard Schema', link: '/guide/standard-schema' },
             { text: 'Browser', link: '/guide/browser' },
           ],
         },
         {
           text: 'Going Further',
-          items: [{ text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' }],
+          items: [
+            { text: 'Performance', link: '/guide/performance' },
+            { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
+            { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
+          ],
         },
       ],
       '/api/': [

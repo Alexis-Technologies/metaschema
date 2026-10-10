@@ -15,12 +15,17 @@ import {
 } from '../../index.js';
 import type {
   Cardinality,
+  CheckContext,
   DefinitionErrorCode,
   FieldType,
   Fields,
+  FlatIssues,
   IssueCode,
+  IssueOf,
+  IssueTree,
   Kind,
   KindMetadata,
+  Locale,
   Relation,
   Scope,
   TypeEntry,
@@ -41,26 +46,77 @@ expectAssignable<Kind>('customKind');
 expectAssignable<Kind>('entity');
 expectError(getKindMetadata(42));
 
+// The definition is a type parameter (see infer.test-d.ts); every Schema<D>
+// is a Schema.
 const schema = Schema.from({ name: 'string', age: '?number' });
-expectType<Schema>(schema);
-expectType<Schema>(Schema.from('string'));
-expectType<Schema>(Schema.from(['string', 'number']));
-expectType<Schema>(new Schema('User', { name: 'string' }));
+expectType<Schema<{ readonly name: 'string'; readonly age: '?number' }>>(schema);
+expectAssignable<Schema>(schema);
+expectType<Schema<'string'>>(Schema.from('string'));
+expectType<Schema<readonly ['string', 'number']>>(Schema.from(['string', 'number']));
+expectType<Schema<{ readonly name: 'string' }>>(new Schema('User', { name: 'string' }));
 expectType<Schema | null>(Schema.extractSchema({}));
 
 expectType<ValidationResult>(schema.check({ name: 'Marcus' }));
 expectType<boolean>(schema.check({}).valid);
 expectType<string[]>(schema.check({}).errors);
 expectType<ValidationIssue[]>(schema.check({}).issues);
-expectType<ValidationResult>(schema.check({}, 'User', { maxErrors: 3 }));
-expectError(schema.check({}, 'User', { maxErrors: '3' }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', maxErrors: 3 }));
+expectError(schema.check({}, { root: 'User', maxErrors: '3' }));
+expectType<ValidationResult>(schema.check({}, { unknown: 'ignore' }));
+expectType<ValidationResult>(schema.check({}, { references: 'embed' }));
+expectError(schema.check({}, { references: 'inline' }));
+expectType<ValidationResult>(schema.check({}, { root: '' }));
+expectError(schema.check({}, { unknown: 'strip' }));
+expectError(schema.check({}, 'User'));
+expectError(schema.check({}, 'User', { maxErrors: 3 }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: { required: () => 'x' } }));
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: (issue) => issue.code }));
+expectError(schema.check({}, { root: 'User', messages: 'uk' }));
 expectAssignable<IssueCode>('required');
 expectAssignable<ValidationIssue['code']>('my-own-code');
+expectType<PropertyKey[]>(schema.check({}).issues[0].path);
+expectType<string>(schema.check({}).issues[0].message);
+const issue = schema.check({}).issues[0];
+// A validator may use a code of its own, so a known code narrows the params
+// only through IssueOf.
+if (issue.code === 'format') expectType<Record<string, unknown>>(issue.params);
+const typed = issue as IssueOf<'type'>;
+expectType<string>(typed.params.expected);
+expectType<string>(typed.params.received);
+expectType<PropertyKey | undefined>(typed.params.key);
+expectType<number>((issue as IssueOf<'length'>).params.actual);
+expectType<number | bigint>((issue as IssueOf<'range'>).params.actual);
+expectType<string>((issue as IssueOf<'pattern'>).params.pattern);
+expectType<unknown[]>((issue as IssueOf<'union'>).params.expected);
+expectType<number | bigint | undefined>((issue as IssueOf<'range'>).params.min);
+expectType<string[]>((issue as IssueOf<'unexpected'>).params.keys);
+expectType<unknown[]>((issue as IssueOf<'enum'>).params.values);
+expectType<string>((issue as IssueOf<'reference'>).params.entity);
+expectType<Record<string, unknown>>((issue as IssueOf<'custom'>).params);
+expectError<IssueOf<'nope'>>(issue);
+expectType<string[]>(schema.check({}).errors);
+expectType<string>(schema.check({}).summary);
+expectType<FlatIssues>(schema.check({}).flatten());
+expectType<IssueTree>(schema.check({}).tree());
+expectType<Record<string, string[]>>(schema.check({}).flatten().fieldErrors);
+const locale: Locale = {
+  field: (path) => `Поле "${path}"`,
+  required: () => 'required',
+  type: ({ expected }) => expected,
+  length: ({ min, max, actual }) => `${min} ${max} ${actual}`,
+};
+expectType<ValidationResult>(schema.check({}, { root: 'User', messages: locale }));
+expectError<Locale>({ required: () => 1 });
+const field = schema.fields.name as FieldType;
+expectType<void>(field.check('x', {} as CheckContext));
 expectType<ValidationResult | null>(schema.validate({}, 'User'));
+expectType<ValidationResult | null>(schema.validate({}));
 expectType<Schema | null>(schema.findReference('Company'));
 expectType<string>(schema.toInterface());
+expectType<string[]>(schema.warnings);
 expectType<Kind>(schema.kind);
 expectType<Scope>(schema.scope);
+expectType<'reject' | 'ignore'>(schema.unknown);
 expectType<Set<Relation>>(schema.relations);
 expectType<Fields>(schema.fields);
 expectType<FieldType | ((value: any) => unknown)>(schema.fields.name);
@@ -97,12 +153,17 @@ expectError(schema.detouch(model));
 
 expectType<Promise<void>>(saveTypes('./model.d.ts', model));
 
-const result = new ValidationResult('User');
+const result = new ValidationResult({ root: 'User' });
+expectType<ValidationResult>(new ValidationResult());
+expectError(new ValidationResult('User'));
 expectType<ValidationResult>(result.add('message').add(false).add(['a', 'b']).add(null));
 expectType<ValidationResult>(result.add({ code: 'format', message: 'needs an @' }, 'type'));
-expectType<ValidationIssue[]>(ValidationResult.issuesOf('message', 'User', 'custom'));
+expectType<ValidationResult>(result.add({ message: 'at', path: ['a', 0], params: { n: 1 } }));
+expectType<ValidationResult>(result.add({ message: 'at', path: 'a' }));
+expectType<ValidationIssue[]>(ValidationResult.issuesOf('message', ['User'], 'custom'));
+expectError(ValidationResult.issuesOf('message', 'User'));
 expectType<boolean>(result.valid);
-expectType<string[] | null>(ValidationResult.format('message', 'User'));
+expectError((result.valid = true));
 expectType<boolean>(ValidationResult.isInstance(result));
 
 const error = new SchemaDefinitionError('ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
@@ -112,3 +173,4 @@ expectType<string>(error.schema);
 expectType<string>(error.field);
 expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
 expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
+expectType<SchemaDefinitionError>(new SchemaDefinitionError('ERR_INVALID_RULE', 'x'));

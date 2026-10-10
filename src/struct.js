@@ -1,10 +1,72 @@
-const { ValidationResult } = require('./metadata.js');
-const { BRAND, hasBrand, issue, shorten, formatters } = require('./util.js');
+const { BRAND, hasBrand, formatters } = require('./util.js');
+const { issues } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
-// The field names of a struct, computed once at construction. A global symbol
-// like BRAND, so a struct built by another copy of the package exposes them too.
-const KEYS = Symbol.for('alexify.metaschema.keys');
+// What a struct computes once at construction, kept on the dictionary under a
+// global symbol like BRAND, so a struct built by another copy of the package
+// exposes it too: { plan, known, check }, the plan being one frozen entry per
+// validated field, `known` the dictionary of its keys, and `check` the
+// compiled check over them.
+const STRUCT = Symbol.for('alexify.metaschema.struct');
+
+// A field is read with a keyed load, and `Object.hasOwn` is consulted only
+// when the value is undefined, to tell a missing key from one set to
+// undefined. A field named after a member of Object.prototype (`toString`,
+// `constructor`, ...) would read the inherited function from a plain object,
+// so such a field (`own`) always asks `Object.hasOwn` first.
+const scanUnknown = (value, known, context) => {
+  let unexpected = null;
+  for (const name in value) {
+    if (name in known || !Object.hasOwn(value, name)) continue;
+    if (unexpected === null) unexpected = [];
+    unexpected.push(name);
+  }
+  if (unexpected !== null) issues.unexpected(context, unexpected);
+};
+
+// The check of a struct, as a closure over its plan: an index loop with no
+// lookups in the raw definition, no brand checks and no path strings. Every
+// plan entry has the same shape and every field check is a function chosen
+// when the field was built, called with the key of the field so that a leaf
+// never touches the path. Unknown keys are looked for only when the value has
+// more keys than the plan found, so a value with exactly the expected keys is
+// never scanned twice.
+const compileStruct = (plan, known) => (value, context, key) => {
+  if (value === null || typeof value !== 'object') {
+    issues.type(context, 'object', value, key);
+    return;
+  }
+  const nested = key !== undefined;
+  if (nested) context.path.push(key);
+  let found = 0;
+  for (let index = 0; index < plan.length; index += 1) {
+    if (context.count >= context.limit) break;
+    const entry = plan[index];
+    const name = entry.key;
+    const item = value[name];
+    if (item === undefined) {
+      // Absent, or own and set to undefined: the same for an optional field,
+      // a required one asks which (the latter is a type error).
+      if (!entry.required) continue;
+      if (!Object.hasOwn(value, name)) {
+        issues.required(context, name);
+        continue;
+      }
+    } else if (entry.own && !Object.hasOwn(value, name)) {
+      if (entry.required) issues.required(context, name);
+      continue;
+    }
+    found += 1;
+    entry.check(item, context, name);
+  }
+  if (context.unknown === 'reject' && context.count < context.limit) {
+    let total = 0;
+    // oxlint-disable-next-line no-unused-vars
+    for (const name in value) total += 1;
+    if (total !== found) scanUnknown(value, known, context);
+  }
+  if (nested) context.path.pop();
+};
 
 // A struct is a null-prototype dictionary of field name -> Type (or the
 // function of a calculated field), not a class instance with methods: a field
@@ -13,6 +75,8 @@ const KEYS = Symbol.for('alexify.metaschema.keys');
 // resolving to something on Object.prototype.
 const createStruct = (defs, prep) => {
   const fields = Object.create(null);
+  const plan = [];
+  const known = Object.create(null);
   for (const key of Object.keys(defs)) {
     const entry = defs[key];
     const { field, required } = formatters.key(key, entry?.required);
@@ -20,44 +84,37 @@ const createStruct = (defs, prep) => {
       const { Type, defs: typeDefs } = prep.parse(entry);
       if (!Type) {
         fields[key] = entry;
+        known[key] = true;
         continue;
       }
+      // The key ('tags?') and the definition ('?string', required: false)
+      // both decide whether the field is required, and the field's check is
+      // compiled with the answer, so it is settled before the field is built.
+      typeDefs.required = (typeDefs.required ?? true) && required;
       const child = new Type(typeDefs, prep);
-      child.required &&= required;
       fields[field] = child;
+      known[field] = true;
+      plan.push({
+        key: field,
+        type: child,
+        required: child.required,
+        own: field in Object.prototype,
+        check: child.check,
+      });
     } catch (error) {
       if (error instanceof SchemaDefinitionError) error.locate(prep.root.name, field);
       throw error;
     }
   }
+  Object.freeze(plan);
+  const compiled = Object.freeze({ plan, known, check: compileStruct(plan, known) });
   Object.defineProperty(fields, BRAND, { value: 'Struct' });
-  Object.defineProperty(fields, KEYS, { value: Object.keys(fields) });
+  Object.defineProperty(fields, STRUCT, { value: compiled });
   return fields;
 };
 
-const checkStruct = (fields, source, path = '') => {
-  const result = new ValidationResult(path);
-  const isObject = source !== null && typeof source === 'object';
-  if (!isObject) return result.add(issue('type', path, 'not of expected type: object'));
-  const keys = fields[KEYS] || Object.keys(fields);
-  for (const name of keys) {
-    if (result.full) break;
-    const type = fields[name];
-    if (!hasBrand(type, 'Type')) continue;
-    const nestedPath = path ? `${path}.${name}` : name;
-    if (!Object.hasOwn(source, name)) {
-      if (type.required) result.add(issue('required', nestedPath, 'is required'));
-      continue;
-    }
-    result.add(type.check(source[name], nestedPath));
-  }
-  for (const name of Object.keys(source)) {
-    if (result.full) break;
-    if (name in fields) continue;
-    const nestedPath = path ? `${path}.${shorten(name)}` : shorten(name);
-    result.add(issue('unexpected', nestedPath, 'is not expected'));
-  }
-  return result;
-};
+const isStruct = (fields) => hasBrand(fields, 'Struct');
 
-module.exports = { createStruct, checkStruct };
+const checkOf = (fields) => fields[STRUCT].check;
+
+module.exports = { STRUCT, createStruct, isStruct, checkOf };

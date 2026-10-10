@@ -9,19 +9,28 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, under 8 KB min+gzip
+- Zero runtime dependencies, 12.6 KB min+gzip; about 10 million checks a second of a flat struct
 - Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
-  `ValidationResult`, and the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
-  `ALLOW`
-- `Schema.from(definition).check(value)` returns a `ValidationResult` (`{ valid, errors }`); a
-  `validate` function may build and return one
+  `ValidationResult`, the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
+  `ALLOW`, the types `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, and the locales
+  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`
+- `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
+  `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
+  with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
+  `references`, `messages`; a `validate` function may build and return a result
+- Every schema is a Standard Schema v1 (`schema['~standard']`); `InferSchema<typeof schema>` is
+  the TypeScript type of a value it accepts
 - A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
   `field`, when the schema is built, never during `check`
 - Safe to bundle and minify: identity checks use a global symbol brand, not class names
-- Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }`,
-  `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`, `{ map: { string: T } }`,
-  `{ enum: [...] }`, tuples `['number', 'number']`, `'json'`, references by capitalized name
-  (`'Company'`, `{ many: 'Address' }`)
+- Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }` (`type`
+  first), `{ type, nullable: true }`, `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`,
+  `{ map: { string: T } }`, `{ enum: [...] }`, `{ union: [...], discriminator? }`, tuples
+  `['number', 'number']`, `'json'`, references by capitalized name (`'Company'`,
+  `{ many: 'Address' }`: the id of a stored kind, the record of a memory kind)
+- Types: `string`, `number`, `integer`, `bigint`, `boolean`, `date`, `null`, `any`/`unknown`,
+  `enum`, `array`, `set`, `object`, `map`, `tuple`, `union`, `json`; rules `length`/`pattern`
+  for strings, `length` for collections, `min`/`max` for numbers
 - Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
   kind
@@ -33,5 +42,6 @@ Docs:
 - Getting started: https://metaschema.vercel.app/guide/getting-started
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
+- Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
 - API: https://metaschema.vercel.app/api/exports

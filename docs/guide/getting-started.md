@@ -41,7 +41,7 @@ const data = {
 };
 
 console.log(schema.check(data));
-// ValidationResult { errors: [], issues: [], valid: true }
+// ValidationResult { valid: true, errors: [], issues: [] }
 ```
 
 When the value does not match, `check` reports every problem it finds:
@@ -56,7 +56,12 @@ console.log(result.errors);
 //   'Field "levelOne" is required',
 //   'Field "collection" is required'
 // ]
+result.issues[1];
+// { code: 'type', path: ['age'], message: 'not of expected type: number', params: { expected: 'number', received: 'string' } }
 ```
+
+`errors` is the list to print; `issues` is the same problems as data, for a form or an API
+response.
 
 ## ESM and TypeScript
 
@@ -66,10 +71,13 @@ The package is CommonJS, and its named exports are visible to ESM:
 import { Schema, Model } from '@alexify/metaschema';
 ```
 
-Type declarations ship with the package (`index.d.ts`), so TypeScript needs no extra setup.
+Type declarations ship with the package (`index.d.ts`), so TypeScript needs no extra setup, and
+`InferSchema<typeof schema>` is the type of a value a schema accepts; see
+[TypeScript](/guide/typescript#inferring-types-from-a-schema).
 
 ## Next steps
 
 - [Schema Syntax](/guide/schema-syntax): every way to write a field.
 - [Validation](/guide/validation): what `check` returns and how to add your own rules.
 - [Domain Models](/guide/model): entities, references and generated TypeScript.
+- [Migrating from 1.x](/guide/migrating-from-1): what changed in 2.0, if you come from 1.x.

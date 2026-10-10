@@ -37,20 +37,22 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 
 | Member | Description |
 | --- | --- |
-| `Schema.from(definition, namespaces?)` | an anonymous schema |
-| `new Schema(name, definition, namespaces?)` | a named schema; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
+| `Schema.from(definition, namespaces?)` | an anonymous schema, a `Schema<D>` whose `D` is the definition's type |
+| `new Schema(name, definition, namespaces?)` | a named schema, a `Schema<D>` as well; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
-| `schema.check(value, path?, options?)` | validates a value; returns `ValidationResult`; `options.maxErrors` stops collecting at that many messages |
-| `schema.validate(value, path)` | runs only the schema-level `validate`; `null` without one |
+| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
+| `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
+| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }` |
 | `schema.toInterface()` | the schema as a TypeScript interface |
-| `schema.checkConsistency()` | warnings about references that cannot be resolved |
+| `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
+| `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
 | `schema.attach(...models)` / `schema.detach(...models)` | add or remove namespaces |
 | `schema.types` | the type table in effect |
 | `schema.toJSON()` / `schema.toString()` | serialized fields |
 
-Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `fields`, `indexes`,
-`options`, `custom`, `references`, `relations`, `namespaces`.
+Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unknown`, `fields`,
+`indexes`, `options`, `custom`, `references`, `relations`, `namespaces`.
 
 ## `Model`
 
@@ -61,7 +63,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `field
 | `model.types` | the type table |
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
-| `model.warnings` | consistency warnings |
+| `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `model.dts` | TypeScript interfaces for every entity |
 
 ## `ValidationResult`
@@ -70,13 +72,23 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 | Member | Description |
 | --- | --- |
-| `new ValidationResult(path?)` | an empty, valid result for `path` |
-| `result.valid` | `true` while there are no errors |
-| `result.errors` | the messages, each prefixed with `Field "<path>" ` unless it already starts with `Field` |
-| `result.issues` | `{ code, path, message }` per problem; see [Validation](/guide/validation#the-result) for the codes |
-| `result.add(error, code?)` | adds `false`, a string, a `{ code, message }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
-| `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce |
-| `ValidationResult.format(error, path?)` | the messages `add` would produce, or `null` |
+| `new ValidationResult(options?)` | an empty, valid result; `options.root` labels its error lines, `options.messages` is its locale |
+| `result.valid` | `true` while there are no issues |
+| `result.issues` | `{ code, path, message, params }` per problem, `path` being the keys from the root of the value; see [Validation](/guide/validation#the-result) for the codes |
+| `result.errors` | one line per issue, `Field "<root><path>" <message>`, rendered on first use; a message that already starts with `Field` is kept as it is |
+| `result.summary` | the error lines joined with newlines |
+| `result.flatten()` | `{ formErrors, fieldErrors }`: messages by dotted path |
+| `result.tree()` | `{ errors, properties?, items? }`: messages as a tree that follows the value |
+| `result.add(error, code?)` | adds `false`, a string, a `{ code, message, path?, params? }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
+| `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce, under the `path` keys |
+| `ValidationResult.isInstance(value)` | whether `value` is a result, from any copy of the package |
+
+## Locales
+
+`@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
+table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
+`range`, `pattern`, `union`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
 
@@ -95,21 +107,39 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function |
 | `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
 | `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
-| `ERR_INVALID_TUPLE` | a tuple element that is not a scalar type |
+| `ERR_INVALID_TUPLE` | a tuple whose definition is not an array, or an element that is a function |
+| `ERR_INVALID_UNION` | a `union` without branches, a branch that is a function, or a `discriminator` that is not a field name, that a branch lacks or does not hold as an `enum`, or whose value two branches share |
 | `ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
-| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }` |
+| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
+| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string), a `min`/`max` that is not a number or a bigint, a `max` below `min`, or a `pattern` that is not a string or `RegExp` or does not compile |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option with a value it does not accept |
+| `ERR_INVALID_OPTIONS` | a `Model` option, or the `unknown` metadata of a schema, with a value it does not accept |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
 
-`index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
+`index.d.ts` exports the static inference of value types from definitions; see
+[TypeScript](/guide/typescript#inferring-types-from-a-schema):
+
+| Type | Meaning |
+| --- | --- |
+| `Infer<D, E?>` | the type of a value `check` accepts for the definition type `D`; `E` is an optional entity map (an object of definitions by name) that resolves references to memory kinds and projections |
+| `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
+| `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
+| `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
+| `Schema<D>` | the class, generic over its definition; `Schema` on its own is any schema |
+| `StandardProps<D>` | the type of `schema['~standard']` of a `Schema<D>`: `version`, `vendor`, `validate` and the type-level `types` (`input` and `output`, both `Infer<D>`); see [Standard Schema](/guide/standard-schema#typescript) |
+| `StandardResult<T>` | what `validate` returns: `{ value: T }` or `{ issues: ReadonlyArray<ValidationIssue> }` |
+| `StandardOptions` | the options of `validate`: `libraryOptions`, the `CheckOptions` of the call |
+
+It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `Validator`, `ValidationReturn`,
-`ValidationIssue`, `IssueInput`, `IssueCode` and `DefinitionErrorCode`.
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`,
+`Validator`, `ValidationReturn`, `ValidationIssue` (a union by code), `IssueOf<Code>`,
+`IssueParams`, `IssueInput`, `IssueCode`, `Locale`, `Messages`, `FlatIssues`, `IssueTree` and
+`DefinitionErrorCode`.

@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@standard-schema/spec':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@vercel/analytics':
         specifier: ^2.0.1
         version: 2.0.1(vue@3.5.43(typescript@7.0.2))
@@ -907,6 +910,9 @@ packages:
 
   '@sinclair/typebox@0.27.12':
     resolution: {integrity: sha512-hhyNJ+nbR6ZR7pToHvllEFun9TL0sbL+tk/ON75lo+Xas054uez98qRbsuNt7MBCyZKK4+8Yli/OAGZhmfBZ/g==}
+
+  '@standard-schema/spec@1.1.0':
+    resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
   '@tsd/typescript@5.9.3':
     resolution: {integrity: sha512-JSSdNiS0wgd8GHhBwnMAI18Y8XPhLVN+dNelPfZCXFhy9Lb3NbnFyp9JKxxr54jSUkEJPk3cidvCoHducSaRMQ==}
@@ -2660,6 +2666,8 @@ snapshots:
   '@shikijs/vscode-textmate@10.0.2': {}
 
   '@sinclair/typebox@0.27.12': {}
+
+  '@standard-schema/spec@1.1.0': {}
 
   '@tsd/typescript@5.9.3': {}
 

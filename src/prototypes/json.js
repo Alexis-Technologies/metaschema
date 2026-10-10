@@ -1,14 +1,18 @@
-const { issue } = require('../util.js');
+const { issues } = require('../issues.js');
 
 const json = {
   kind: 'struct',
+  options: [],
 
   construct() {},
 
-  checkType(value, path) {
-    const isObject = value !== null && typeof value === 'object';
-    if (!isObject) return issue('type', path, 'not of expected type: object');
-    return null;
+  compile() {
+    const { required } = this;
+    return (value, context, key) => {
+      if (value !== null && typeof value === 'object') return;
+      if (!required && value == null) return;
+      issues.type(context, 'object', value, key);
+    };
   },
 };
 

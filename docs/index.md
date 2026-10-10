@@ -30,7 +30,7 @@ features:
     linkText: Schema syntax
   - icon: ✅
     title: Errors, not exceptions
-    details: "check() walks the whole value and returns every problem with its path. Data errors are collected; only a broken definition throws."
+    details: "check() walks the whole value and returns every problem as data: a code, the path as keys, params and a localized message. Data errors are collected; only a broken definition throws."
     link: /guide/validation
     linkText: Validation
   - icon: 🧩
@@ -40,12 +40,12 @@ features:
     linkText: Domain models
   - icon: 🔷
     title: TypeScript out of the box
-    details: "A model renders its entities as TypeScript interfaces, and the package ships hand-written typings for its own API."
+    details: "Infer the type of a value a schema accepts from its definition, render a model's entities as interfaces, and rely on hand-written typings for the API."
     link: /guide/typescript
     linkText: TypeScript
   - icon: 📦
     title: Zero dependencies
-    details: "No runtime dependencies at all, about 6 KB min+gzip. The whole package is CommonJS that ships as written, with no build step."
+    details: "No runtime dependencies at all, 12.6 KB min+gzip. The whole package is CommonJS that ships as written, with no build step."
     link: /guide/why
     linkText: Why metaschema?
   - icon: 🌐
