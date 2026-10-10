@@ -1,10 +1,11 @@
 /**
  * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
- * when either core entry exceeds that min+gzip budget, and with
+ * when either core entry exceeds that min+gzip budget, with
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
- * that on top of the core (CI uses both as gates). The budgets for 3.0 are
- * 13 KB per core entry and 5 KB for the generators (CLAUDE.md "Budgets"); the
- * `./compile` entry will be measured separately with a budget of its own.
+ * that on top of the core, and with `--max-gzip-compile <KB>` when the
+ * `./compile` subpath does (CI uses the three as gates). The budgets for 3.0
+ * are 13 KB per core entry, 5 KB for the generators and 4 KB for the compile
+ * subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -12,8 +13,8 @@
  *   - min:      fully minified (whitespace + identifier mangling + syntax)
  *   - min+gzip: the number that matters for download and cold-start budgets
  *
- * The generators subpath requires the core (its register() reaches Schema and
- * Model), so on its own it would bundle the core again; it is measured as the
+ * The subpaths require the core (register() reaches Schema and Model), so on
+ * their own they would bundle the core again; each is measured as the
  * difference between a bundle of the core entry plus the subpath and the core
  * entry alone, which is what a consumer that imports both pays for it.
  *
@@ -34,17 +35,26 @@ const ENTRIES = [
   { label: 'Browser entry (browser.js)', entry: 'browser.js', platform: 'browser' },
 ];
 
-const GENERATORS = {
-  label: 'Generators (./generators) on top of the Node entry',
-  entry: 'index.js',
-  platform: 'node',
-};
+const SUBPATHS = [
+  {
+    label: 'Generators (./generators) on top of the Node entry',
+    entry: 'index.js',
+    platform: 'node',
+    subpath: './src/generators/index.js',
+    flag: '--max-gzip-generators',
+  },
+  {
+    label: 'Compile (./compile) on top of the Node entry',
+    entry: 'index.js',
+    platform: 'node',
+    subpath: './src/compile/index.js',
+    flag: '--max-gzip-compile',
+  },
+];
 
-const GENERATORS_ENTRY = './src/generators/index.js';
-
-// `entry` alone, or `entry` plus the generators subpath in one bundle.
-const bundle = async (entry, platform, minify, withGenerators = false) => {
-  const contents = `require('./${entry}');${withGenerators ? ` require('${GENERATORS_ENTRY}');` : ''}`;
+// `entry` alone, or `entry` plus a subpath in one bundle.
+const bundle = async (entry, platform, minify, subpath = null) => {
+  const contents = `require('./${entry}');${subpath === null ? '' : ` require('${subpath}');`}`;
   const result = await esbuild.build({
     stdin: { contents, resolveDir: ROOT },
     bundle: true,
@@ -69,9 +79,9 @@ const budget = (flag) => {
   return limit * 1024;
 };
 
-const measure = async ({ label, entry, platform }, withGenerators) => {
-  const raw = await bundle(entry, platform, false, withGenerators);
-  const min = await bundle(entry, platform, true, withGenerators);
+const measure = async ({ label, entry, platform }, subpath) => {
+  const raw = await bundle(entry, platform, false, subpath);
+  const min = await bundle(entry, platform, true, subpath);
   const gzip = gzipSync(min, { level: 9 });
   return { label, raw: raw.length, min: min.length, gzip: gzip.length };
 };
@@ -83,27 +93,30 @@ const exceeded = (row, max) => {
 
 const main = async () => {
   const maxGzip = budget('--max-gzip');
-  const maxGenerators = budget('--max-gzip-generators');
   const rows = [];
   for (const entry of ENTRIES) rows.push(await measure(entry));
   const core = rows[0];
-  const both = await measure(GENERATORS, true);
-  const generators = {
-    label: GENERATORS.label,
-    raw: both.raw - core.raw,
-    min: both.min - core.min,
-    gzip: both.gzip - core.gzip,
-  };
+  const extras = [];
+  for (const entry of SUBPATHS) {
+    const both = await measure(entry, entry.subpath);
+    extras.push({
+      label: entry.label,
+      max: budget(entry.flag),
+      raw: both.raw - core.raw,
+      min: both.min - core.min,
+      gzip: both.gzip - core.gzip,
+    });
+  }
   console.log('| Entry | raw | min | min+gzip |');
   console.log('| ----- | ---:| ---:| --------:|');
-  for (const row of [...rows, generators]) {
+  for (const row of [...rows, ...extras]) {
     console.log(`| ${row.label} | ${kb(row.raw)} | ${kb(row.min)} | ${kb(row.gzip)} |`);
   }
   if (maxGzip !== null) {
     for (const row of rows) if (row.gzip > maxGzip) exceeded(row, maxGzip);
   }
-  if (maxGenerators !== null && generators.gzip > maxGenerators) {
-    exceeded(generators, maxGenerators);
+  for (const row of extras) {
+    if (row.max !== null && row.gzip > row.max) exceeded(row, row.max);
   }
 };
 
