@@ -46,11 +46,14 @@ expectAssignable<Kind>('customKind');
 expectAssignable<Kind>('entity');
 expectError(getKindMetadata(42));
 
+// The definition is a type parameter (see infer.test-d.ts); every Schema<D>
+// is a Schema.
 const schema = Schema.from({ name: 'string', age: '?number' });
-expectType<Schema>(schema);
-expectType<Schema>(Schema.from('string'));
-expectType<Schema>(Schema.from(['string', 'number']));
-expectType<Schema>(new Schema('User', { name: 'string' }));
+expectType<Schema<{ readonly name: 'string'; readonly age: '?number' }>>(schema);
+expectAssignable<Schema>(schema);
+expectType<Schema<'string'>>(Schema.from('string'));
+expectType<Schema<readonly ['string', 'number']>>(Schema.from(['string', 'number']));
+expectType<Schema<{ readonly name: 'string' }>>(new Schema('User', { name: 'string' }));
 expectType<Schema | null>(Schema.extractSchema({}));
 
 expectType<ValidationResult>(schema.check({ name: 'Marcus' }));
