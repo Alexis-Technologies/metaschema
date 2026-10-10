@@ -42,8 +42,9 @@ user.check({ name: { first: 'Marcus' }, email: 'm@r', roles: ['owner'] }).errors
   throws.
 - **Domain models.** Entities, registries, dictionaries and projections, with references,
   relations and indexes, ordered by dependency and checked for missing references.
-- **TypeScript.** A model renders its entities as interfaces. The package ships hand-written
-  typings for its own API.
+- **TypeScript.** `InferSchema<typeof schema>` is the type of a value the schema accepts,
+  computed from the definition with nothing generated, and a model renders its entities as
+  interfaces. The package ships hand-written typings for its own API.
 - **Fast.** Every check is compiled into a closure when the schema is built: about 11 million
   validations a second of a flat struct on Node 24 (`pnpm bench`).
 - **Zero dependencies, under 10 KB min+gzip.** CommonJS with ESM named imports, no build step,
@@ -146,6 +147,41 @@ generated types alike. See
 [Kinds and Metadata](https://metaschema.vercel.app/guide/kinds-and-metadata),
 [Custom Types](https://metaschema.vercel.app/guide/custom-types) and
 [Domain Models](https://metaschema.vercel.app/guide/model).
+
+## TypeScript
+
+A schema keeps its definition as a type parameter, and `InferSchema` turns it into the type of
+a value `check` accepts; `Infer<typeof definition>` does the same for a definition declared
+`as const`:
+
+```ts
+import { Schema, type InferSchema } from '@alexify/metaschema';
+
+const user = Schema.from({
+  name: 'string',
+  age: '?number',
+  role: { enum: ['admin', 'user'] },
+  tags: { array: 'string' },
+  address: { city: 'string', 'street?': 'string' },
+  point: ['number', 'number'],
+});
+
+type User = InferSchema<typeof user>;
+// {
+//   name: string;
+//   age?: number | null | undefined;
+//   role: 'admin' | 'user';
+//   tags: string[];
+//   address: { city: string; street?: string | null | undefined };
+//   point: [number, number];
+// }
+```
+
+Every form of the language is covered: optional and nullable fields, collections, enums,
+tuples, unions, nested structs, references (an id, or the record through an entity map with
+`Infer<D, E>` and `InferEntity<E, 'Name'>`) and custom types declared through module
+augmentation of `CustomTypes`. A model renders its entities as interfaces with `model.dts`. See
+[TypeScript](https://metaschema.vercel.app/guide/typescript).
 
 ## Exports
 

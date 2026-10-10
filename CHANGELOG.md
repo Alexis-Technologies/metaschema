@@ -45,6 +45,9 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
   not found`, `Warning [recursive-reference]: …`. `schema.warnings` and `model.warnings` are
   computed on first use.
 - **Bundle budget.** The entries are at 12.5 KB min+gzip; CI gates at 13 KB (was 10 KB).
+- **The typings need TypeScript 5.0 or later.** `Schema` is generic over its definition
+  (`Schema<D>`, a const type parameter); `Schema` written on its own is still any schema, and
+  `Model.entities` is still a `Map<string, Schema>`.
 
 - **`check(value, path, options)` → `check(value, options)`.** The root path is
   `options.root`; a string in its place throws a `TypeError` that says so.
@@ -79,6 +82,20 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
 
 ### Added
 
+- **Static inference.** `Infer<D>` is the TypeScript type of a value `check` accepts for the
+  definition type `D`, over every form of the language: scalars (`integer` → `number`, `date`
+  → `Date`, `json` → `unknown`), `'?T'`, `'key?'` and `required: false` as optional properties
+  that accept `null`, `nullable: true` as `T | null`, the long form, `array`/`set`/`object`/`map`,
+  `enum` as a union of literals, tuples (named elements included), nested structs, `schema`
+  and `Schema` instances, `union`, and references as ids (`string`, `string[]`). A kind key,
+  index definitions, calculated fields and the schema-level options are not fields. `Schema` is
+  `Schema<D>` with a const type parameter, so `Schema.from({ ... })` keeps the literal types of
+  an inline definition and `InferSchema<typeof schema>` reads them; a definition declared apart
+  needs `as const`. `Infer<D, E>` takes an entity map and resolves a reference to a memory kind
+  (or `embed: true`) as the record and a projection as its parent's fields; `InferEntity<E,
+  'Name'>` adds the id field of a stored kind. Custom types are declared for inference through
+  module augmentation of `CustomTypes`; an unknown name infers as `unknown`. The typings need
+  TypeScript 5.0 or later.
 - **New built-in types.** `integer` (`Number.isInteger`), `date` (a `Date` with a valid time),
   `null`, `any` and `unknown` (one type under two names, differing in the TypeScript they render),
   and `union`: `{ union: ['string', 'number'] }` keeps the first branch that reports nothing;

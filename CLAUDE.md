@@ -48,7 +48,11 @@ pre-merge gate. There is no build step.
   `import { Schema } from '@alexify/metaschema'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
   `src/locales/*.d.ts` that type the locale subpath exports through it. A public API change touches
-  `src/index.js`, `index.d.ts` and a test together. `tests/unit/export-parity.test.js` compares
+  `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
+  `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
+  `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
+  by `tests/types/infer.test-d.ts`, which also compiles the examples of
+  `docs/guide/typescript.md` and README. `tests/unit/export-parity.test.js` compares
   runtime exports with the declared value exports for both entries, imports every name from ESM
   and resolves the locale subpaths. `tests/types/*.test-d.ts` (tsd) pin signatures. `check:dts`
   needs `--target es2022` because there is no tsconfig.
@@ -369,6 +373,9 @@ change. **This file wins** if they ever disagree.
   `check` options; `tests/unit/context.test.js` pins the context shape and the absence of global
   state. The locale tables are compared key by key, so a new issue code needs a renderer in every
   locale.
+- Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
+  `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
+  the fixtures cannot be imported for inference) and the interfaces `model.dts` renders for it.
 - Workstream B suites: `syntax.test.js` (the first key), `numbers.test.js` (min/max, integer,
   rules per type, unicode length), `pattern.test.js`, `nullable.test.js`, `values.test.js` (date,
   null, any), `union.test.js`, `references.test.js` (storage view, graph view, dts) and
@@ -453,6 +460,18 @@ change. **This file wins** if they ever disagree.
   `fields[STRUCT].check` is the compiled check (`checkOf(fields)` in `struct.js`); `Schema`
   compiles `this[RUN]` from it, or from `fields.check` when `fields` is a `Type` for a non-struct
   schema (`Schema.from('string')`).
+- **`Infer` reads keys, not key order.** TypeScript has no key order, so `Infer` reads a kind
+  key as a struct, else a `type` string as the long form, else a collection key (`array`, `set`,
+  `object`, `map`, `enum`, `tuple`, `union`, `schema`, `one`, `many`) as that shorthand, else a
+  struct. `{ name: 'string', type: 'string' }` validates as a struct and infers as `string`; the
+  documented fix is a kind. Do not try to recover the first key at the type level.
+- **`Infer` keeps a stored reference under its own key and includes `null` in optional
+  fields.** `check` reads `value.employer` (an id), so `Infer` types `employer: string` where the
+  dts renders `employerId: string`; an optional field is `T | null | undefined` because `check`
+  accepts `null`, where the dts renders `T | undefined`. Both differences are documented in the
+  TypeScript guide; the dts is upstream's convention and is not changed by `Infer`.
+- **`Infer<D>` has no id field for a stored kind.** The id is named after the entity, which a
+  definition does not carry; `InferEntity<E, Name>` adds it from the map key.
 - **`Model#preprocess` skips names starting with `.`**: a leftover of the old loader's
   `.database`/`.types` files. It is harmless.
 - **Optional nested structs have two mechanisms.** Inside a struct, `createStruct` settles the flag

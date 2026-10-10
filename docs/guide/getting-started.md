@@ -66,7 +66,9 @@ The package is CommonJS, and its named exports are visible to ESM:
 import { Schema, Model } from '@alexify/metaschema';
 ```
 
-Type declarations ship with the package (`index.d.ts`), so TypeScript needs no extra setup.
+Type declarations ship with the package (`index.d.ts`), so TypeScript needs no extra setup, and
+`InferSchema<typeof schema>` is the type of a value a schema accepts; see
+[TypeScript](/guide/typescript#inferring-types-from-a-schema).
 
 ## Next steps
 

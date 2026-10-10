@@ -40,7 +40,7 @@ features:
     linkText: Domain models
   - icon: 🔷
     title: TypeScript out of the box
-    details: "A model renders its entities as TypeScript interfaces, and the package ships hand-written typings for its own API."
+    details: "Infer the type of a value a schema accepts from its definition, render a model's entities as interfaces, and rely on hand-written typings for the API."
     link: /guide/typescript
     linkText: TypeScript
   - icon: 📦

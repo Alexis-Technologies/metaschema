@@ -37,8 +37,8 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 
 | Member | Description |
 | --- | --- |
-| `Schema.from(definition, namespaces?)` | an anonymous schema |
-| `new Schema(name, definition, namespaces?)` | a named schema; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
+| `Schema.from(definition, namespaces?)` | an anonymous schema, a `Schema<D>` whose `D` is the definition's type |
+| `new Schema(name, definition, namespaces?)` | a named schema, a `Schema<D>` as well; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
@@ -121,7 +121,18 @@ it; see [Validation](/guide/validation#the-result).
 
 ## Types
 
-`index.d.ts` also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
+`index.d.ts` exports the static inference of value types from definitions; see
+[TypeScript](/guide/typescript#inferring-types-from-a-schema):
+
+| Type | Meaning |
+| --- | --- |
+| `Infer<D, E?>` | the type of a value `check` accepts for the definition type `D`; `E` is an optional entity map (an object of definitions by name) that resolves references to memory kinds and projections |
+| `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
+| `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
+| `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
+| `Schema<D>` | the class, generic over its definition; `Schema` on its own is any schema |
+
+It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
 `KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`,

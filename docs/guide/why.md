@@ -8,7 +8,8 @@ purposes:
 - **Domain modelling.** Entities, registries, dictionaries, projections, references between them,
   indexes and storage metadata, assembled into a `Model` that orders entities by dependency and
   reports missing references.
-- **Code generation.** A model renders its entities as TypeScript interfaces.
+- **TypeScript.** `InferSchema<typeof schema>` is the type of a value a schema accepts, computed
+  from the definition, and a model renders its entities as interfaces.
 
 ## What sets it apart
 
