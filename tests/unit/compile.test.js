@@ -602,6 +602,76 @@ test('Compile: a schema of one type, Schema instances as fields and the schema-l
   assert.strictEqual(standard['~standard'].validate({ a: 1 }).issues.length, 1);
 });
 
+test('Compile: parse, parseAsync, checkAsync and serialize run over the compiled check', async () => {
+  const model = new Model({}, [
+    ['Tag', { Struct: {}, label: { type: 'string', parse: (text) => text.toUpperCase() } }],
+    [
+      'Doc',
+      {
+        Struct: {},
+        title: { type: 'string', validate: async (value) => value !== 'bad' || 'is bad' },
+        when: {
+          type: 'string',
+          parse: (text) => new Date(text),
+          serialize: (date) => date.toISOString(),
+        },
+        'level?': { type: 'integer', default: 1 },
+        tags: { many: 'Tag' },
+        rows: { array: { n: { type: 'number', parse: async (n) => n * 2 } } },
+        either: {
+          union: ['string', { Struct: {}, n: 'number', 'm?': { type: 'number', default: 3 } }],
+        },
+      },
+    ],
+  ]);
+  const doc = model.entities.get('Doc');
+  const values = [
+    {
+      title: 'x',
+      when: '2020-01-01T00:00:00.000Z',
+      tags: [{ label: 'a' }],
+      rows: [{ n: 1 }],
+      either: { n: 1 },
+    },
+    { title: 'bad', when: 'now', tags: [], rows: [{ n: 'x' }], either: 's', extra: 1 },
+    { title: 1, tags: [{ label: 2 }], rows: [{}] },
+    null,
+  ];
+  const options = [undefined, { unknown: 'strip' }, { unknown: 'ignore', maxErrors: 1 }];
+  const run = async () => {
+    const out = [];
+    for (const value of values) {
+      for (const choice of options) {
+        const result = await doc.parseAsync(value, choice);
+        out.push(result);
+        const checked = choice === undefined ? undefined : { ...choice, unknown: 'ignore' };
+        out.push(await doc.checkAsync(value, checked));
+        // The schema has an async validator, so serialize cannot check here.
+        if (result.valid) out.push(doc.serialize(result.value));
+      }
+    }
+    return JSON.parse(JSON.stringify(out));
+  };
+  const before = await run();
+  assert.deepStrictEqual(compile(model, JIT), { accelerated: canEval() });
+  assert.deepStrictEqual(await run(), before);
+  // The sync parse on the compiled check, against the closures.
+  const sync = Schema.from({
+    a: { type: 'string', parse: (text) => text.length },
+    'b?': { type: 'number', default: 2 },
+  });
+  const expected = sync.parse({ a: 'xyz', extra: 1 }, { unknown: 'strip' });
+  compile(sync, JIT);
+  assert.deepStrictEqual(sync.parse({ a: 'xyz', extra: 1 }, { unknown: 'strip' }), expected);
+  assert.deepStrictEqual(
+    sync.parse({ a: 1 }).issues,
+    Schema.from({ a: 'string' }).parse({ a: 1 }).issues,
+  );
+  assert.throws(() => doc.check({ title: 'x', when: 'w', tags: [], rows: [], either: 's' }), {
+    code: 'ERR_ASYNC_VALIDATOR',
+  });
+});
+
 test('Compile: the fixture model', () => {
   const { database, types, ...entities } = require('../fixtures/schemas/index.js');
   const model = new Model(

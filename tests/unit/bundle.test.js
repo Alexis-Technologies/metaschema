@@ -124,6 +124,52 @@ const checkBundle = async ({ core, generators, compile }, browser) => {
     'Field "Person.employer.name" not of expected type: string',
   ]);
 
+  // parse, parseAsync, checkAsync and serialize through the bundle, over the
+  // compiled check where there is one.
+  const event = Schema.from({
+    name: 'string',
+    'level?': { type: 'integer', default: 1 },
+    when: {
+      type: 'string',
+      parse: (text) => new Date(text).getTime(),
+      serialize: (time) => new Date(time).toISOString(),
+    },
+    'note?': { type: 'string', validate: async (text) => text !== 'bad' || 'is bad' },
+  });
+  assert.strictEqual(compile.compile(event).accelerated, accelerated);
+  const parsed = event.parse(
+    { name: 'x', when: '1970-01-01T00:00:01.000Z', extra: 1 },
+    { unknown: 'strip' },
+  );
+  assert.strictEqual(parsed.valid, true);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(parsed.value)), {
+    name: 'x',
+    when: 1000,
+    level: 1,
+  });
+  assert.strictEqual(parsed.issues.length, 0);
+  assert.strictEqual(event.parse({ name: 1 }).valid, false);
+  const settled = await event.parseAsync({
+    name: 'x',
+    when: '1970-01-01T00:00:01.000Z',
+    note: 'bad',
+  });
+  assert.strictEqual(settled.valid, false);
+  assert.deepStrictEqual(errorsOf({ errors: settled.issues.map((issue) => issue.message) }), [
+    'is bad',
+  ]);
+  const checked = await event.checkAsync({ name: 'x', when: 'w', note: 'ok' });
+  assert.strictEqual(checked.valid, true);
+  assert.throws(() => event.check({ name: 'x', when: 'w', note: 'ok' }), {
+    code: 'ERR_ASYNC_VALIDATOR',
+  });
+  assert.strictEqual(
+    event.serialize({ name: 'x', when: 1000, level: 1 }).value.when,
+    '1970-01-01T00:00:01.000Z',
+  );
+  // A promise of the bundle's realm.
+  assert.strictEqual(typeof event['~standard'].validate({ name: 'x', when: 'w' }).then, 'function');
+
   // The Standard Schema accessor survives the bundler: a computed key on the
   // class and a private field behind it.
   const standard = flat['~standard'];
