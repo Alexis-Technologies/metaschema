@@ -36,6 +36,8 @@ const reference = ({ entity }) => `сутність "${entity}" не знайд�
 
 const circular = () => 'є циклічним посиланням';
 
+const depth = ({ max }) => `вкладене глибше ніж ${max} посилань`;
+
 const exception = ({ error }) => `перевірка завершилась помилкою ${error}`;
 
 const custom = () => 'помилка перевірки';
@@ -52,6 +54,7 @@ module.exports = {
   union,
   reference,
   circular,
+  depth,
   exception,
   custom,
 };

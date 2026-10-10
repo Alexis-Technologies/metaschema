@@ -446,15 +446,20 @@ const walkUnion = (info, node, value, context, key, phase) => {
 };
 
 // A reference resolved at parse time, as the check resolves it: an id stays
-// an id, a record goes through its entity.
+// an id, a record goes through its entity, and a record deeper than the
+// check allows is left as it is for the check to report.
 const walkReference = (info, node, value, context, key, phase) => {
   const { one, many, root, embed } = node;
   const target = root.findReference(one || many);
   if (target === null || !embeds(target, embed, context.references)) return value;
+  if (context.depth >= context.maxDepth) return value;
   const sub = infoOf(target);
-  if (one) return apply(sub, target, value, context, key, phase);
-  if (!Array.isArray(value)) return value;
-  return walkElements(target, sub, value, context, key, phase);
+  context.depth += 1;
+  let out = value;
+  if (one) out = apply(sub, target, value, context, key, phase);
+  else if (Array.isArray(value)) out = walkElements(target, sub, value, context, key, phase);
+  context.depth -= 1;
+  return out;
 };
 
 const WALKERS = [

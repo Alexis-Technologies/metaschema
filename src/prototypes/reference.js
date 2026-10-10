@@ -7,10 +7,16 @@ const invalidEmbed = () =>
 
 // A reference is the one place a schema can recurse (Category.parent is a
 // Category), so it is where a value met again while it is still being
-// checked is a cycle, reported instead of recursed into.
+// checked is a cycle, reported instead of recursed into, and where a graph
+// nested deeper than the check allows is reported instead of overflowing the
+// stack.
 const runReferenced = (schema, value, context, key) => {
   if (value === null || typeof value !== 'object') {
     schema[RUN](value, context, key);
+    return;
+  }
+  if (context.depth >= context.maxDepth) {
+    issues.depth(context, context.maxDepth, key);
     return;
   }
   let { seen } = context;
@@ -26,7 +32,9 @@ const runReferenced = (schema, value, context, key) => {
     return;
   }
   seen.add(value);
+  context.depth += 1;
   schema[RUN](value, context, key);
+  context.depth -= 1;
   seen.delete(value);
 };
 

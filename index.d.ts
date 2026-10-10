@@ -40,6 +40,7 @@ export type IssueCode =
   | 'union'
   | 'reference'
   | 'circular'
+  | 'depth'
   | 'exception'
   | 'custom';
 
@@ -60,6 +61,7 @@ export interface IssueParams {
   union: { expected: unknown[]; discriminator: string | undefined };
   reference: { entity: string };
   circular: {};
+  depth: { max: number };
   exception: { error: unknown };
   // A validator's own issue carries the params it gave, if any.
   custom: Record<string, unknown>;
@@ -118,6 +120,9 @@ export interface CheckOptions {
   root?: string;
   // Stop collecting after this many issues (at least 1).
   maxErrors?: number;
+  // How deep a value may nest through embedded references (an integer of at
+  // least 1, 128 by default): a record deeper than that is a `depth` issue.
+  maxDepth?: number;
   // What to do with keys the schema does not have: report them as one
   // `unexpected` issue per struct, or ignore them. The default is the
   // schema's own `unknown` metadata, 'reject' unless it says otherwise.

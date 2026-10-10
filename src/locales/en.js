@@ -37,6 +37,8 @@ const reference = ({ entity }) => `Entity "${entity}" is not found`;
 
 const circular = () => 'is a circular reference';
 
+const depth = ({ max }) => `is nested deeper than ${max} references`;
+
 const exception = ({ error }) => `validation failed ${error}`;
 
 const custom = () => 'validation error';
@@ -53,6 +55,7 @@ module.exports = {
   union,
   reference,
   circular,
+  depth,
   exception,
   custom,
 };

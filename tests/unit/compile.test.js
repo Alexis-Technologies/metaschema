@@ -37,6 +37,8 @@ const OPTIONS = [
   { references: 'embed' },
   { references: 'id' },
   { references: 'embed', maxErrors: 2 },
+  { maxDepth: 1 },
+  { references: 'embed', maxDepth: 1 },
   { messages: uk },
   { root: 'body' },
 ];

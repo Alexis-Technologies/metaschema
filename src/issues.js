@@ -58,6 +58,7 @@ const issues = {
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
   circular: (context, key) => record(context, 'circular', EMPTY, key),
+  depth: (context, max, key) => record(context, 'depth', { max }, key),
   exception: (context, error, key) => record(context, 'exception', { error }, key),
 };
 

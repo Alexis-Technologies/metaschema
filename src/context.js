@@ -19,6 +19,17 @@ const maxErrorsOf = (maxErrors) => {
   return Math.min(maxErrors, UNLIMITED);
 };
 
+// How deep a value may nest through embedded references before the check
+// gives up on it: a graph that deep is a `depth` issue, not a stack overflow.
+const MAX_DEPTH = 128;
+
+const maxDepthOf = (maxDepth) => {
+  if (!Number.isInteger(maxDepth) || maxDepth < 1) {
+    throw invalid('maxDepth', 'an integer of at least 1', maxDepth);
+  }
+  return maxDepth;
+};
+
 const messagesOf = (messages) => {
   const isTable = messages !== null && typeof messages === 'object';
   if (!isTable && typeof messages !== 'function') {
@@ -66,6 +77,7 @@ const optionsOf = (options) => {
 const configure = (context, options, parsing) => {
   optionsOf(options);
   if (options.maxErrors !== undefined) context.limit = maxErrorsOf(options.maxErrors);
+  if (options.maxDepth !== undefined) context.maxDepth = maxDepthOf(options.maxDepth);
   if (options.messages !== undefined) context.messages = messagesOf(options.messages);
   if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown, parsing);
   if (options.references !== undefined) context.references = referencesOf(options.references);
@@ -81,6 +93,9 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     issues: NONE,
     count: 0,
     limit: UNLIMITED,
+    // How many embedded records the check is inside, and how many it may be.
+    depth: 0,
+    maxDepth: MAX_DEPTH,
     path: [],
     // The objects on the current path, created at the first object met so a
     // check over scalars never allocates it.
@@ -108,4 +123,4 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
   return context;
 };
 
-module.exports = { createContext, UNLIMITED };
+module.exports = { createContext, UNLIMITED, MAX_DEPTH };

@@ -13,6 +13,8 @@ test('Context: a check runs in a context of its own, not in module globals', () 
     'issues',
     'count',
     'limit',
+    'depth',
+    'maxDepth',
     'path',
     'seen',
     'source',

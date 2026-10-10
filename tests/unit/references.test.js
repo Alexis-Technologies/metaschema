@@ -3,6 +3,7 @@ const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
+const uk = require('../../src/locales/uk.js');
 
 const build = (kinds) =>
   new Model({}, [
@@ -242,4 +243,43 @@ test('References: the generated TypeScript follows the same rule', () => {
     new Schema('Person', { employer: 'Company', tags: { many: 'Tag' } }).toInterface(),
     'interface Person {\n  employerId: string;\n  tagsId: string[];\n}',
   );
+});
+
+test('References: a graph nested deeper than maxDepth is an issue, not a stack overflow', () => {
+  const model = new Model({}, [['Node', { Struct: {}, name: 'string', 'next?': 'Node' }]]);
+  const node = model.entities.get('Node');
+  const chain = { name: '0' };
+  let tail = chain;
+  for (let index = 1; index < 3000; index += 1) {
+    tail.next = { name: String(index) };
+    tail = tail.next;
+  }
+  // 128 embedded records by default; the issue sits at the first one too many.
+  const result = node.check(chain);
+  assert.strictEqual(result.valid, false);
+  assert.strictEqual(result.issues.length, 1);
+  assert.strictEqual(result.issues[0].code, 'depth');
+  assert.deepStrictEqual(result.issues[0].params, { max: 128 });
+  assert.strictEqual(result.issues[0].path.length, 129);
+  assert.strictEqual(result.errors[0].endsWith('is nested deeper than 128 references'), true);
+  assert.strictEqual(node.parse(chain).valid, false);
+  assert.strictEqual(node.serialize(chain, { check: true }).valid, false);
+  assert.strictEqual(node.check(chain, { messages: uk }).errors[0].endsWith('128 посилань'), true);
+  // The option of a call: the hops through references a value may take.
+  const three = { name: 'a', next: { name: 'b', next: { name: 'c' } } };
+  assert.strictEqual(node.check(three, { maxDepth: 2 }).valid, true);
+  assert.deepStrictEqual(
+    node.check(
+      { ...three, next: { ...three.next, next: { ...three.next.next, next: { name: 'd' } } } },
+      { maxDepth: 2 },
+    ).errors,
+    ['Field "Node.next.next.next" is nested deeper than 2 references'],
+  );
+  assert.deepStrictEqual(node.parse(three, { maxDepth: 2 }).value, three);
+  for (const maxDepth of [0, -1, 1.5, '2', null]) {
+    assert.throws(() => node.check(chain, { maxDepth }), {
+      name: 'TypeError',
+      message: `maxDepth must be an integer of at least 1, got ${JSON.stringify(maxDepth)}`,
+    });
+  }
 });
