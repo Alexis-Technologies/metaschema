@@ -1,4 +1,13 @@
 const { issues } = require('../issues.js');
+const { SchemaDefinitionError } = require('../errors.js');
+
+// The keys of a keyed collection are strings or numbers; anything else can
+// never match a key, and the JIT quotes the key type into its source.
+const invalidKey = (type) => {
+  const hint = `{ ${type}: { string: ... } } or { type: '${type}', key: 'string', value: ... }`;
+  const reason = `Type "${type}" needs a key type of "string" or "number": ${hint}`;
+  return new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+};
 
 // Collections iterate their source directly: an object with for...in over
 // its own keys, a Map and a Set through their iterators, an array by index.
@@ -12,9 +21,18 @@ const object = {
   construct(def, prep) {
     const { type } = this;
     const { [type]: short, key, value } = def;
-    const pair = short ? Object.entries(short)[0] : [key, value];
-    const keyType = pair[0];
-    const valueDef = pair[1];
+    let keyType = key;
+    let valueDef = value;
+    // The shorthand holds one pair: `{ object: { string: 'number' } }`.
+    if (short !== null && typeof short === 'object') {
+      for (const name in short) {
+        if (!Object.hasOwn(short, name)) continue;
+        keyType = name;
+        valueDef = short[name];
+        break;
+      }
+    }
+    if (keyType !== 'string' && keyType !== 'number') throw invalidKey(type);
     this.key = keyType;
     const { Type, defs } = prep.parse(valueDef);
     this.value = new Type(defs, prep);
