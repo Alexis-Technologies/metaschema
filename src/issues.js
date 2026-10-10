@@ -164,6 +164,15 @@ const describe = (messages, root, issue) => {
 const isThenable = (value) =>
   value !== null && typeof value === 'object' && typeof value.then === 'function';
 
+// A promise nothing waits for any more (a synchronous call that throws for
+// it, a settle stopped by the error limit, the trial of a union branch) is
+// still observed, so that its rejection is never an unhandled one.
+const swallow = () => {};
+
+const abandon = (thenable) => {
+  Promise.resolve(thenable).then(undefined, swallow);
+};
+
 // The two places where user code runs, and the only ones with a try/catch:
 // an exception from a validator or a custom checkType is reported as an
 // issue, not thrown. Both get the dotted path of the field. In an async
@@ -188,6 +197,7 @@ const guarded = (context, code, fallback, call) => {
   }
   if (isThenable(output)) {
     if (pending === null) {
+      abandon(output);
       throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
     }
     pending.push({ call: null, promise: output, path: path.slice(), code, fallback, count });
@@ -219,7 +229,12 @@ const failedUnder = (context, entry) => {
 const settle = async (context) => {
   const pending = context.async;
   for (let index = 0; index < pending.length; index += 1) {
-    if (context.count >= context.limit) break;
+    if (context.count >= context.limit) {
+      for (; index < pending.length; index += 1) {
+        if (pending[index].promise !== null) abandon(pending[index].promise);
+      }
+      break;
+    }
     const entry = pending[index];
     if (entry.call !== null && failedUnder(context, entry)) continue;
     context.path = entry.path;
@@ -256,6 +271,7 @@ module.exports = {
   finalize,
   describe,
   isThenable,
+  abandon,
   runValidate,
   runCheckType,
   settle,

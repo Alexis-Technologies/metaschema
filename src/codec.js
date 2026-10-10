@@ -8,7 +8,7 @@
 // container is copied only when one of its parts changed: the value given is
 // never written to.
 const { hasBrand } = require('./util.js');
-const { NONE, issues, isThenable, toDotPath } = require('./issues.js');
+const { NONE, issues, isThenable, abandon, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
@@ -253,6 +253,7 @@ const decode = (info, node, value, context, key) => {
   if (!isThenable(out)) return out;
   const where = pathOf(context, key);
   if (context.async === null) {
+    abandon(out);
     throw asyncReturn('decoder', toDotPath(where, context.root), 'parseAsync');
   }
   // A real Promise of a box from here on, whatever the decoder returned; a
@@ -370,6 +371,14 @@ const accepts = (branch, value, scratch, async) => {
   scratch.count = 0;
   scratch.async = async ? [] : null;
   branch.check(value, scratch);
+  // The validators the trial set aside are not run: the check of the value
+  // picks the branch and runs them for real.
+  if (async) {
+    const list = scratch.async;
+    for (let index = 0; index < list.length; index += 1) {
+      if (list[index].promise !== null) abandon(list[index].promise);
+    }
+  }
   return scratch.count === 0;
 };
 

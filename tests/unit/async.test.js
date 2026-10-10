@@ -543,3 +543,60 @@ test('Async: parseAsync adopts the promises of its decoders, not a thenable in t
   assert.strictEqual(out.value.inner.t, thenable);
   assert.strictEqual(called, 0);
 });
+
+test('Async: a promise the check cannot wait for never rejects unhandled', async () => {
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    // The synchronous calls throw for a promise and must not drop it.
+    const checked = Schema.from({
+      a: { type: 'string', validate: () => Promise.reject(new Error('a')) },
+    });
+    assert.throws(() => checked.check({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    const decoded = Schema.from({
+      a: { type: 'string', parse: () => Promise.reject(new Error('d')) },
+    });
+    assert.throws(() => decoded.parse({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    // The error limit stops settle before the promise it holds.
+    const limited = Schema.from({
+      a: {
+        type: 'string',
+        validate: async () => {
+          await tick();
+          throw new Error('late');
+        },
+      },
+      b: 'number',
+    });
+    const result = await limited.checkAsync({ a: 'x', b: 'y' }, { maxErrors: 1 });
+    assert.deepStrictEqual(result.errors, ['Field "b" not of expected type: number']);
+    // The trial of a plain union in parseAsync sets validators aside and drops them.
+    const tried = Schema.from({
+      u: {
+        union: [
+          {
+            Struct: {},
+            n: {
+              type: 'number',
+              validate: async () => {
+                await tick();
+                throw new Error('trial');
+              },
+            },
+            'd?': { type: 'number', default: 1 },
+          },
+          'string',
+        ],
+      },
+    });
+    const parsed = await tried.parseAsync({ u: { n: 1 } });
+    assert.deepStrictEqual(parsed.valid, false);
+    await tick();
+    await tick();
+    await tick();
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
+});
