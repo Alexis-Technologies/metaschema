@@ -522,3 +522,24 @@ test('Async: a failed branch of a plain union leaves no deferred validator behin
     [],
   );
 });
+
+test('Async: parseAsync adopts the promises of its decoders, not a thenable in the data', async () => {
+  let called = 0;
+  const value = {
+    then: (resolve) => {
+      called += 1;
+      resolve('hijacked');
+    },
+  };
+  const named = Schema.from({ then: 'any', x: { type: 'string', parse: async (s) => s } });
+  const result = await named.parseAsync({ ...value, x: 'x' });
+  assert.strictEqual(result.valid, true);
+  assert.strictEqual(result.value.then, value.then);
+  assert.strictEqual(result.value.x, 'x');
+  assert.strictEqual(called, 0);
+  const nested = Schema.from({ inner: { t: 'any' }, x: { type: 'string', parse: async (s) => s } });
+  const thenable = { then: () => (called += 1) };
+  const out = await nested.parseAsync({ inner: { t: thenable }, x: 'x' }, { unknown: 'strip' });
+  assert.strictEqual(out.value.inner.t, thenable);
+  assert.strictEqual(called, 0);
+});

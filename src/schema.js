@@ -248,7 +248,11 @@ class Schema extends SchemaMetadata {
     this[RUN](value, context);
     if (context.async.length > 0) await settle(context);
     let output;
-    if (context.count === 0) output = await this.#pass(FINISH, value, context);
+    if (context.count === 0) {
+      // Only a promise of the pass is awaited: a thenable in the value is data.
+      output = this.#pass(FINISH, value, context);
+      if (output instanceof Promise) output = (await output).value;
+    }
     return parsed(context, output);
   }
 

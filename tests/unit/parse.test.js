@@ -624,3 +624,30 @@ test('Parse: maxErrors bounds the check behind parse', () => {
   ]);
   assert.strictEqual(result.value, undefined);
 });
+
+test('Parse: a thenable in the data is data, never awaited or adopted', () => {
+  let called = 0;
+  const thenable = {
+    then(resolve) {
+      called += 1;
+      resolve('hijacked');
+    },
+  };
+  // Under strip every field of a struct is written into the output: a value
+  // with a `then` of its own must come back as it is.
+  const any = Schema.from({ x: 'any' });
+  const stripped = any.parse({ x: thenable }, { unknown: 'strip' });
+  assert.strictEqual(stripped.valid, true);
+  assert.strictEqual(stripped.value.x, thenable);
+  assert.strictEqual(called, 0);
+  // A decoder receives the thenable itself, and its parts are never awaited.
+  const decoded = Schema.from({ x: { type: 'any', parse: (value) => ({ got: value }) } });
+  const result = decoded.parse({ x: thenable });
+  assert.strictEqual(result.valid, true);
+  assert.strictEqual(result.value.x.got, thenable);
+  assert.strictEqual(called, 0);
+  // A field called `then` makes the value itself a thenable.
+  const named = Schema.from({ then: 'any' });
+  const value = { then: (resolve) => resolve('hijacked') };
+  assert.strictEqual(named.parse(value, { unknown: 'strip' }).value.then, value.then);
+});

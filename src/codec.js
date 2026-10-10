@@ -182,32 +182,38 @@ const enter = (context, key, value, clone, put) => {
   return { context, key, value, clone, put, out: null, pending: null };
 };
 
+// A part that is still decoding: only a decoder makes a promise (a thenable
+// it returns is adopted as one, below), and only in an async parse; a value
+// of the data with a `then` of its own is data, never awaited.
+const isPending = (context, value) => context.async !== null && value instanceof Promise;
+
 const take = (state, key, result, phase) => {
   if (state.out === null) state.out = state.clone(state.value);
   state.put(state.out, key, result);
-  if (phase === DECODERS && isThenable(result)) {
+  if (phase === DECODERS && isPending(state.context, result)) {
     if (state.pending === null) state.pending = [];
     state.pending.push(key, result);
   }
 };
 
+// What a promise of the passes resolves to: a box around the value, never
+// the value itself, because a promise adopts a value with a `then` of its
+// own and the value of a program may well have one.
+const boxed = (value) => ({ value });
+
 const leave = (state, wrap) => {
   const { context, key, out, pending, put } = state;
   if (key !== undefined) context.path.pop();
   if (out === null) return state.value;
-  let built = out;
-  if (pending !== null) {
-    const promises = [];
-    for (let index = 1; index < pending.length; index += 2) promises.push(pending[index]);
-    built = Promise.all(promises).then((values) => {
-      for (let index = 0; index < values.length; index += 1) {
-        put(out, pending[index * 2], values[index]);
-      }
-      return out;
-    });
-  }
-  if (wrap === undefined) return built;
-  return isThenable(built) ? built.then(wrap) : wrap(built);
+  if (pending === null) return wrap === undefined ? out : wrap(out);
+  const promises = [];
+  for (let index = 1; index < pending.length; index += 2) promises.push(pending[index]);
+  return Promise.all(promises).then((boxes) => {
+    for (let index = 0; index < boxes.length; index += 1) {
+      put(out, pending[index * 2], boxes[index].value);
+    }
+    return boxed(wrap === undefined ? out : wrap(out));
+  });
 };
 
 const pathOf = (context, key) =>
@@ -230,9 +236,12 @@ const at = (context, path, fn) => {
 const decode = (info, node, value, context, key) => {
   const fn = info.decode;
   if (fn === undefined || context.count > 0) return value;
-  if (isThenable(value)) {
+  if (isPending(context, value)) {
     const where = pathOf(context, key);
-    return value.then((settled) => at(context, where, () => decode(info, node, settled, context)));
+    return value.then((box) => {
+      const out = at(context, where, () => decode(info, node, box.value, context));
+      return out instanceof Promise ? out : boxed(out);
+    });
   }
   let out;
   try {
@@ -246,7 +255,12 @@ const decode = (info, node, value, context, key) => {
   if (context.async === null) {
     throw asyncReturn('decoder', toDotPath(where, context.root), 'parseAsync');
   }
-  return out.then(undefined, (error) => at(context, where, () => issues.exception(context, error)));
+  // A real Promise of a box from here on, whatever the decoder returned; a
+  // decoder that failed resolves to nothing and records its issue.
+  return Promise.resolve(out).then(boxed, (error) => {
+    at(context, where, () => issues.exception(context, error));
+    return boxed(undefined);
+  });
 };
 
 const walkLeaf = (info, node, value) => value;
