@@ -73,8 +73,8 @@ before 2.0; the closure column is what every `check` does, the JIT column the sa
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
-| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 275 K ops/s | — |
-| `Schema.from`, nested struct, collections, tuple | 94 K | 93 K | — |
+| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 263 K ops/s | — |
+| `Schema.from`, nested struct, collections, tuple | 94 K | 88 K | — |
 | `check`, flat struct, valid | 2.1 M | 10.4 M | 30.0 M |
 | `check`, flat struct, invalid (4 issues) | 0.87 M | 3.4 M | 5.6 M |
 | `check`, nested struct, valid | 0.33 M | 2.5 M | 17.4 M |

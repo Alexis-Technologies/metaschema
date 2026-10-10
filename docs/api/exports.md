@@ -40,7 +40,7 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `Schema.from(definition, namespaces?)` | an anonymous schema, a `Schema<D>` whose `D` is the definition's type |
 | `new Schema(name, definition, namespaces?)` | a named schema, a `Schema<D>` as well; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
-| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `TypeError` with the code `ERR_ASYNC_VALIDATOR` |
+| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors` (a whole number), `maxDepth` (embedded records, 128 by default), `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `TypeError` with the code `ERR_ASYNC_VALIDATOR` |
 | `schema.checkAsync(value, options?)` | the same check as a promise, with the validators and custom `checkType`s that return a promise settled after the walk, in field order; see [Async](/guide/parse#async) |
 | `schema.parse(value, options?)` | validates a value and returns `{ valid, value, issues }`: the `default` of every missing key filled in, the check, `unknown: 'strip'`, the `parse` function of every field (the parts of a value before the value) and the schema's own `parse`; `value` is `undefined` when invalid and the value given when there was nothing to apply. `options`: those of `check`, with `unknown` also `'strip'`; see [Parse and serialize](/guide/parse) |
 | `schema.parseAsync(value, options?)` | the same as a promise; validators and decoders may return promises |
@@ -74,8 +74,8 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/generators`
 
-The generators of JSON Schema and TypeScript, in a subpath so that the core entry (15.1 KB
-min+gzip) does not carry them (4.0 KB more); see
+The generators of JSON Schema and TypeScript, in a subpath so that the core entry (16.1 KB
+min+gzip) does not carry them (4.5 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -89,18 +89,19 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (3.5 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (3.9 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
 | --- | --- |
-| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated }`, `false` where code generation from strings is not allowed (the closures stay); `options.jit`: `'auto'` (the default: fall back silently), `true` (throw `ERR_NO_EVAL` instead), `false` (never generate code) |
-| `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated, error }`: `accelerated` is `false` where code generation from strings is not allowed (the closures stay, no `error`) and where a check could not be generated (`error` is the `ERR_JIT_BUILD` error with the generator's error as `cause`); `options.jit`: `'auto'` (the default: fall back), `true` (throw `ERR_NO_EVAL` or `ERR_JIT_BUILD` instead; a model all or nothing), `false` (never generate code; restores the closures of a compiled schema) |
+| `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched; `options.onFallback(schema, error)` is told of every schema whose check could not be generated |
 | `canEval()` | whether this environment allows code generation from strings, probed once |
 
 A target that is neither a `Schema` nor a `Model` is a `TypeError`; an option with a value it
 does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
-(`{ jit?: 'auto' | boolean }`) and `Compiled` (`{ accelerated: boolean }`).
+(`{ jit?: 'auto' | boolean; onFallback?: (schema, error) => void }`) and `Compiled`
+(`{ accelerated: boolean; error?: SchemaDefinitionError }`).
 
 ## Runtime errors
 
@@ -130,7 +131,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
 table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
-`range`, `pattern`, `union`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+`range`, `pattern`, `union`, `reference`, `circular`, `depth`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
 to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
@@ -162,6 +163,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
 | `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) or the `jit` option of `compile`/`register` with a value it does not accept |
 | `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
+| `ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
 | `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 

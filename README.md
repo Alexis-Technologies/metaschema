@@ -79,8 +79,8 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   million through the JIT backend of `@alexify/metaschema/compile`, which generates the same
   check where `new Function` is allowed and keeps the closures where it is not (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 15.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 4.0 KB and the JIT backend 3.5 KB
+- **Zero dependencies, 16.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 4.5 KB and the JIT backend 3.9 KB
   where they are imported.
 
 ## Installation

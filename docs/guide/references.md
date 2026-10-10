@@ -107,12 +107,28 @@ A reference to an entity that is not in the model fails validation with
 `Entity "<Name>" is not found`, and the model reports it as a warning when it is built (see
 [Domain Models](/guide/model#warnings)).
 
+### Depth
+
+A graph may be deeper than the stack: a linked list of a few thousand records embedded through
+`next` would overflow it. `check`, `parse` and `serialize({ check: true })` count the embedded
+records they are inside and record a `depth` issue at the first one past `maxDepth` (128 by
+default), with `{ max }` as params:
+
+```js
+node.check(deepChain).errors; // [ 'Field "Node.next.next…" is nested deeper than 128 references' ]
+node.check(deepChain, { maxDepth: 4096 }); // a program that validates deeper graphs says so
+```
+
+The passes of `parse` leave such a record as it is, and the check reports it. An id never
+counts: the storage view has no depth.
+
 ## Relations and references
 
 Each schema records what it points at:
 
 - `schema.references` is a `Set` of every type and entity name the schema uses.
-- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field, read from
+- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field (a list: two
+  fields referencing the same entity are two entries), read from
   the referencing side: a `many` field is `'one-to-many'` (one record holds many of the target),
   any other reference is `'many-to-one'` (many records point at one target).
 

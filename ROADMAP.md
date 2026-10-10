@@ -277,7 +277,7 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 
 *Status (2026-10-10, later, branch `feature/v2.1`):* D2 measured 3.0 KB (the export with four targets and the strict profile, plus the D3 annotations) and the entries reached 15.7 KB (gate 16 KB, 0eb1a37). Alex then decided that the core validates and the generators live apart: JSON Schema and the whole TypeScript rendering (`model.dts`, `toInterface`, `saveTypes`) moved to the `@alexify/metaschema/generators` subpath with explicit `register()`, which took the core back to 12.0 KB; that is a breaking change, so the release is **3.0.0**, not 2.1.0 (the later rows of §6 shift to 3.1 and 3.2). The budgets are **13 KB per core entry and 5 KB for the generators on top** (`pnpm size --max-gzip 13 --max-gzip-generators 5`). Standard Schema stays in the core (88 bytes, and `'~standard' in schema` is how consumers detect it). The ajv differential test exists (`tests/unit/jsonschema-ajv.test.js`, 307ea8c) for draft 2020-12 and draft-07, and found one bug in `check` (a struct accepted an array, 94bb1e3). The `./compile` budget still waits for E.
 
-*Status (2026-10-10, Workstream E):* the `./compile` budget is **4 KB on top of the core** (`pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4`), measured 3.5 KB; the core is 12.1 KB after the hook.
+*Status (2026-10-10, Workstream E):* the `./compile` budget is **4 KB on top of the core** (`pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4`), measured 3.5 KB (3.9 KB after the 3.0 review: `error`, `onFallback`, the strict source); the core is 12.1 KB after the hook (16.1 KB with F and the review, gate 17 KB).
 
 ---
 
@@ -287,11 +287,11 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | --- | --- | --- | --- |
 | **2.0.0** | A new core + honest semantics | A1–A6 (context, plan, specialization, issues with `params`, array paths, lazy messages, `uk`), B1–B9 (first key, `min/max/integer`, `union`/`date`/`null`/`any`, `nullable`, the unknown policy, references by kind, `Set`, lint, `pattern`), C (`Infer`, `Schema<D>`), D1 (Standard Schema), H (migration guide) | yes |
 | **3.0.0** (planned as 2.1.0) | Speed, outputs and data | E (JIT `./compile` with a fallback), D2 (JSON Schema: 2020-12/07/openapi-3.0/mongodb + the strict profile + `~standard.jsonSchema`), D3 (annotations in dts), the `./generators` subpath, bench comparison with zod/valibot/ajv/typebox, F (`parse`/`serialize`, defaults, strip, codecs, `checkAsync`/`parseAsync`, `InferOutput`) | yes: the generators (`model.dts`, `toInterface`, `saveTypes`) left the core entry, and `~standard.validate` is `parse` |
-| **3.1.0** (planned as 2.2.0) | The model as data | G1 (the `model.toJSON()` snapshot), G2 (`Model.diff` + compatibility, `aliases`/`deprecated`), `model.toJSONSchema()` | no |
+| **3.1.0** (planned as 2.2.0) | The model as data | G1 (the `model.toJSON()` snapshot), G2 (`Model.diff` + compatibility, `aliases`/`deprecated`); candidates from the 3.0 review: warnings as `{ code, message }` objects, parallel settling of independent async validators, one state object per parse pass | no |
 | **3.2.0** (planned as 2.3.0) | Ecosystem | G3 (`sample`), G4 (`fromJSONSchema`, `merge`), adapters in the sibling repositories: wrpc `signature` ↔ metaschema, migronaut `converge` from a `Model`, protoarray layout from field order, kerberos on one schema | no |
 | later | — | record-wise/streaming validation of large arrays; `Schema.infer(samples)`; more locales | — |
 
-### Status (2026-10-10, branch `feature/v2`)
+### Status (2026-10-11, branch `feature/v2.1`)
 
 | Workstream | State | Where |
 | --- | --- | --- |
@@ -303,6 +303,7 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | D2 (§5.4) JSON Schema export, `~standard.jsonSchema` | done, 3.0 | 30c0426 + 90ae650 (branch `feature/v2.1`, 2026-10-10), the ajv differential test 307ea8c, the `fix(check)` 94bb1e3 it found; then moved to the `./generators` subpath (see §5.8 status) |
 | D3 (§5.4) dts annotations | done, 3.0 | c1f6caf: JSDoc from `description`/`deprecated`, `toTypeScript({ named: true })`; in the `./generators` subpath with the rest of the TypeScript rendering |
 | E (§5.5) JIT | done, 3.0 | bb57ff6 + eac7087 + b53ec21 + 5e1ff4d + 5fd3af4 (branch `feature/v2.1`, 2026-10-10): the `@alexify/metaschema/compile` subpath with the closure fallback, one suite on both backends, the 4 KB budget, the library comparison (`pnpm bench --compare-libs`); flat valid 30.9 M (target 25 M), invalid 5.6 M (target 8 M not met, see §5.5 status) |
+| Review of 3.0 (2026-10-11) | done | 18 commits on `feature/v2.1` after the F docs commit: the P0 fixes (async union, thenable data, abandoned promises, the union trial, `jit: false`, collection keys, nested codec keys, the generators), the hot-path allocations (lazy cycle set, no closure per validator, one scratch per parse, `Object.entries`/`Object.keys` gone), loops instead of `forEach`/`map`/spreads with `no-restricted-properties` enforcing it, `maxDepth` (default 128), `compile().error`/`onFallback`, the 17 KB core gate; see the CHANGELOG |
 | F (§5.6) parse, codecs, async | done, 3.0 | 5bfeb3b (the 16 KB budget) + d585413 (parse) + fc7a601 (serialize) + 58e7e99 (checkAsync/parseAsync) + d8f7e1c (`~standard.validate` parses) + 54bd701 (`InferOutput`) + 5e57514 + 9b276b0 and the docs commit after them (branch `feature/v2.1`, 2026-10-10): `parse`/`parseAsync`/`checkAsync`/`serialize` in the core over the compiled check (see §5.6 status) |
 
 What 2.0 delivers against the plan: all of A1–A6 except the library comparison; all of B1–B9 except "unused references" in B8 (no well-defined meaning, dropped); C without `Model<E>`; D1 with `types.input = Infer<D>`; H in full. The bundle budget is 13 KB (§5.8) and the measured `check` numbers are below the A6 targets (§5.1 status, §7).

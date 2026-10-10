@@ -32,17 +32,34 @@ fix in `check`.
   property on the input side, because `parse` fills it; `InferOutput<D>` has it present. The
   generated TypeScript interfaces are unchanged (every field present), so a value typed from the
   dts is still assignable to `Infer`, and the output type to the dts.
-- **`CheckContext` has an `async` slot** (`null` in a synchronous check), and `issues.exception`
-  takes the key of the field, for code that builds on the internals.
-
+- **`CheckContext` has `async`, `source`, `scratch`, `depth` and `maxDepth` slots** (`async`
+  is `null` in a synchronous check), and `issues.exception` takes the key of the field, for
+  code that builds on the internals.
+- **A graph nested deeper than 128 embedded records is invalid.** `check`, `parse` and
+  `serialize({ check: true })` record a `depth` issue at the first record past `maxDepth`
+  (128 by default, an option of the call) instead of overflowing the stack; a program that
+  validates deeper graphs passes a larger `maxDepth`.
+- **A struct rejects an array** (see Fixed), and **the synchronous `check` and `parse` throw
+  `ERR_ASYNC_VALIDATOR`** for a validator, a custom `checkType` or a decoder that returns a
+  promise: use `checkAsync` and `parseAsync`.
+- **Definitions that could never work are errors now:** an `object` or `map` without a key type
+  of `'string'` or `'number'` (`ERR_INVALID_DEFINITION`), a `default` on the discriminator field
+  of a union (`ERR_INVALID_UNION`). `maxErrors` must be a whole number (or `Infinity`).
+- **The `validate`, `parse` and `serialize` of a nested struct are not keys of the value.** A
+  value carrying `inner: { parse: ... }` was accepted under `unknown: 'reject'` and kept under
+  `strip`; the key is `unexpected`, as it is at the root.
+- **`compile()` reports what stopped the JIT:** `{ accelerated: false, error }` where a check
+  could not be generated (the `ERR_JIT_BUILD` error, the generator's error as its `cause`), and
+  `compile(target, { jit: false })` puts the closures back.
 - **The generators moved to `@alexify/metaschema/generators`.** `model.dts`,
   `schema.toInterface()` and `saveTypes` are no longer in the core entry: the subpath exports
   `toTypeScript(target, options)` (a `Schema` or a `Model`), `saveTypes(outputFile, target,
   options)` and `toJSONSchema(target, options)`, and its `register()` installs the methods on
   the classes (`model.dts`, `model.toTypeScript`, `schema.toInterface`, `schema.toJSONSchema`,
   `model.toJSONSchema`) once per process. Replace `model.dts` with `toTypeScript(model)` or call
-  `register()` at startup; import `saveTypes` from the subpath. The core entry (12.1 KB min+gzip)
-  no longer carries the generators (3.9 KB) nor any Node runtime; the browser entry is the same.
+  `register()` at startup; import `saveTypes` from the subpath. The core entry no longer carries
+  the generators (4.5 KB min+gzip in the subpath) nor any Node runtime; the browser entry is the
+  same.
 
 ### Added
 
@@ -98,9 +115,10 @@ fix in `check`.
   the issue constructors reach it through a scope. Structs, every scalar with its rules, enums,
   collections, tuples, unions, `nullable` and optional fields and the limits of a check are
   inlined; a reference, a custom type's `checkType` and a `validate` function are the same
-  calls as before. Measured on Node 24: 30.9 M checks a second of a flat struct (10.7 M on the
-  closures), 16.9 M of a nested one (2.6 M), 5.6 M for a flat value with four problems (3.5 M),
-  24–33 M on the moltar scenarios (4–7 M). The subpath is 3.5 KB min+gzip on top of the core and
+  calls as before. Measured on Node 24 (`bench/baseline.json`): 30.0 M checks a second of a flat
+  struct (10.4 M on the closures), 17.4 M of a nested one (2.5 M), 5.6 M for a flat value with
+  four problems (3.4 M), 24–33 M on the moltar scenarios (4–7 M). The subpath is 3.9 KB min+gzip
+  on top of the core and
   has typings of its own (`CompileOptions`, `Compiled`); the core gains one internal slot,
   `Schema[Symbol.for('alexify.metaschema.hook')]`, that `register()` fills.
 - **JSON Schema export.** `toJSONSchema(schema, options)` of the generators subpath renders the
@@ -145,6 +163,20 @@ fix in `check`.
   entity and the field (`type UserRole`, `interface UserName`) and rendered before the
   interface that uses them; `saveTypes(file, target, options)` passes the options on.
   `InterfaceOptions` is the type of the options.
+- **`maxDepth`.** An option of `check`, `checkAsync`, `parse`, `parseAsync` and `serialize`
+  (an integer of at least 1, 128 by default): how deep a value may nest through embedded
+  references. A record past that depth is a `depth` issue (`{ max }` as params, `is nested
+  deeper than 128 references`, rendered by both locales) instead of a `RangeError` from the
+  stack; the passes of parse leave the record as it is for the check to report. The type
+  `IssueCode` has `'depth'`.
+- **`compile()` returns `{ accelerated, error }` and `register()` takes `onFallback`.** In the
+  default mode a check that could not be generated keeps its closures and the reason comes
+  back as `error` (a `SchemaDefinitionError` with the new code `ERR_JIT_BUILD`, the
+  generator's error as its `cause`), or reaches `register({ onFallback(schema, error) })` for
+  every such schema; with `jit: true` that error is thrown and nothing of a model is installed.
+  `compile(target, { jit: false })` restores the closures a schema was built with. The
+  generated source is strict and ends with a `sourceURL` named after the schema, so a stack
+  trace through a compiled check names it.
 - **Typings** for the generators: `JSONSchema` (`Record<string, unknown>`), `JSONSchemaOptions`,
   `ModelJSONSchemaOptions`, `JSONSchemaTarget`, `InterfaceOptions` in the core,
   `src/generators/index.d.ts` for the subpath, and `ERR_UNREPRESENTABLE` in
@@ -152,13 +184,27 @@ fix in `check`.
 
 ### Changed
 
-- **The core entry is 15.1 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
-  3.9 KB; the array check of a struct and the hook of the compile subpath joined it; then
-  `parse`, `serialize` and the async calls added 3.1 KB, in the core rather than a subpath
-  because `~standard.validate` is `parse` and every schema is a Standard Schema), the
-  generators subpath adds 4.0 KB and the compile subpath 3.5 KB. CI gates at 16 KB per core
-  entry, 5 KB for the generators and 4 KB for the compile subpath (`pnpm size --max-gzip 16
-  --max-gzip-generators 5 --max-gzip-compile 4`).
+- **The core entry is 16.1 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
+  3.9 KB; the array check of a struct and the hook of the compile subpath joined it; `parse`,
+  `serialize` and the async calls added 3.1 KB, in the core rather than a subpath because
+  `~standard.validate` is `parse` and every schema is a Standard Schema; the fixes of the
+  review below, `maxDepth` and the lazy cycle set added about 1 KB and the loops, the shared
+  tables and the trims gave 0.3 KB back), the generators subpath adds 4.5 KB and the compile
+  subpath 3.9 KB. CI gates at 17 KB per core entry, 5 KB for the generators and 4 KB for the
+  compile subpath (`pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4`).
+- **Fewer allocations on the hot path.** The root value joins the cycle set only when a record
+  is actually embedded (a check of an entity with references in the storage view allocated a
+  `Set` each time); a validator or a custom `checkType` is called without a closure made per
+  call, and the params of a failing `checkType` are built only when it fails; the pass over an
+  `object` field iterates its own keys instead of allocating `Object.entries`; the trial that
+  picks the branch of a plain union in `parse` uses one scratch context per parse instead of
+  one per union value; the length of a value is measured by what the value is (an object with a
+  `size` key is an object) and an object's keys are counted without listing them; the
+  discriminator table of a union is built once and shared by the check, the passes and the JIT.
+- **Loops instead of `forEach`, `map` and spreads** wherever a pass could be saved or a closure
+  or a list per call avoided, and null-prototype dictionaries wherever a definition key or a
+  code a validator makes up is looked up (the schema's `indexes` and `options`, the metadata of
+  a type, the rule formatters, the parsers, the locale tables).
 
 ### Fixed
 
@@ -166,9 +212,80 @@ fix in `check`.
   optional (`typeof [] === 'object'`, no keys to look at); an array is now `not of expected
   type: object`, as it is for a struct with required fields. Found by the differential test
   against ajv.
+- **A failed branch of a plain union left its deferred validators behind** in `checkAsync` and
+  `parseAsync`, so a value that matched a later branch was reported invalid by the validators
+  of a branch it did not match. Both backends drop them with the issues of the branch. A plain
+  union picks the first branch whose synchronous checks pass; an async validator of that branch
+  settles after the walk and may still fail the value, but no further branch is tried: use a
+  `discriminator` where branches carry async validators.
+- **A thenable in the data was taken for a promise.** Under `unknown: 'strip'`, and at a field
+  with a decoder, any value with a `then` function was awaited: a synchronous `parse` returned a
+  `Promise` as the valid value, and `parseAsync` ran the `then` of the data, which could replace
+  the value. Only a `Promise` instance made by a decoder in an async parse is pending now, and
+  the promises of the passes resolve to a box around the value, so a field called `then` is
+  never adopted.
+- **Unhandled rejections.** The synchronous `check` and `parse` threw `ERR_ASYNC_VALIDATOR` and
+  dropped the promise; `settle` stopped at `maxErrors` before the promises it held; the trial of
+  a union branch in `parseAsync` set validators aside it never ran. Every such promise is
+  observed before it is left behind.
+- **Async decoders respect `maxErrors`**, and the trial of a plain union branch in `parse` runs
+  under the path and root of the parse (a validator met in it saw `"n"` instead of
+  `"Doc.u.n"`), tolerates an async validator (`serialize` threw `ERR_ASYNC_VALIDATOR` for one
+  inside a union with a serializer) and uses one context per parse.
+- **`compile(target, { jit: false })` returned `{ accelerated: false }` and left the generated
+  check installed;** it restores the closures. With `jit: true` a model is compiled all or
+  nothing. An `object` or `map` without a valid key type made the JIT fail with a raw
+  `TypeError` at construction under `register({ jit: true })`; the definition is rejected when
+  the field is built.
+- **The `validate`, `parse` and `serialize` of a nested struct were keys a value could carry**
+  (see Upgrading). A calculated field declared as `'x?'` is stored under `x`.
+- **`toJSONSchema`** lost a field called `__proto__`, wrote the segments of the `definitions`
+  pointer onto the document the same way, left the name of an entity unescaped inside a `$ref`
+  (RFC 6901: `A/b~c` is `#/$defs/A~1b~0c`), looked renderers up on a plain object (a custom type
+  called `constructor` resolved to `Object`), pushed the null branch into the `anyOf` of a custom
+  type's metadata on every export, and copied `deprecated: 'a note'` through (a boolean in every
+  dialect). The `definitions` pointer merges into an object already on its path.
+- **`toTypeScript`** wrote keys that are no identifiers bare (`a-b: string;`), let `*/` in a
+  `description` close the JSDoc, dropped the note of a `deprecated` string (it is
+  `@deprecated <note>` now), gave two nested types one name (`aB` and `AB` both `TAB`; the
+  second is `TAB2`, and a nested type never takes the name of an entity of the model),
+  stringified `NaN` and BigInt enum values through JSON (`number` and `10n` now), rendered an
+  entity or an embedded reference whose name is no identifier (`ERR_UNREPRESENTABLE` now), and
+  declared the alias of a one-type schema twice under `named`. `saveTypes` rejects instead of
+  throwing, as its typing says.
+- **An object with a `size` or `length` key was measured as a collection** by the `length`
+  rule; a value is measured by what it is.
+- **A validator's own code could break the rendering:** a code such as `'constructor'` or
+  `'__proto__'` is rendered with the validator's message; what a validator throws or returns is
+  rendered whatever it is (a symbol, an object without a prototype).
+- **An index or a top-level option called like a method broke construction** (`indexes` and
+  `options` were instances with an `extract` method); they are dictionaries. The metadata of a
+  type is a dictionary too, so `__proto__` is a key of it.
+- **`schema['~standard']` kept the first answer of `hasAsync`** after `attach` or `detach`; the
+  props are rebuilt. **`schema.validate(value, path)`** ran the schema-level function without
+  the schema as `this` and turned a promise into `"[object Promise]"`; it throws
+  `ERR_ASYNC_VALIDATOR` for a promise. **`maxErrors: 1.5`** gave two issues and a bigint broke
+  the option's error message.
+
+### Removed
+
+- `model.dts`, `schema.toInterface()` and `saveTypes` from the core entry: they are in
+  `@alexify/metaschema/generators` (see Upgrading).
 
 ### Tooling
 
+- `forEach` and `reduce` are lint errors everywhere oxlint runs (`no-restricted-properties`),
+  `no-var` and `object-shorthand` errors rather than warnings; lint and format cover `index.js`
+  and `browser.js`; `check:dts` compiles the typings of the generators and compile subpaths;
+  `ci-success` fails on a skipped job; `pnpm bench --compare --fail-under=<percent>` exits
+  non-zero on a scenario slower than the baseline by more than that.
+- New tests: the async union, thenable data, the unhandled rejections (through an
+  `unhandledRejection` listener), the union trial's path, `maxDepth` over a 3000-level chain on
+  both backends, `jit: false` and the atomic model compile, the compile `error`/`onFallback`,
+  the strict source, the key type of collections, the nested codec keys, the generator
+  hardening cases (`__proto__` fields, odd `definitions` pointers, escaped `$ref`s, shared
+  metadata, quoted keys, JSDoc, name collisions), `lengthOf` on objects with `size` keys,
+  dictionaries called like methods, codes a validator makes up, and `maxErrors` as a whole number.
 - `pnpm bench` has `parse — flat struct, valid`, `parse — nested struct, valid` and `parse —
   flat struct, defaults and a decoder` on both backends, measured as `check` is (through a
   megamorphic call site); `bench/baseline.json` is re-saved, and the performance guide quotes

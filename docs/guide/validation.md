@@ -91,7 +91,8 @@ result.tree().properties.tags.items[1];
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `root` | the schema name | the label the error lines start with; `''` for none. Issue paths never include it |
-| `maxErrors` | unlimited | stop collecting after that many issues (at least 1), and stop walking fields, elements and records as soon as the limit is reached |
+| `maxErrors` | unlimited | stop collecting after that many issues (a whole number of at least 1), and stop walking fields, elements and records as soon as the limit is reached |
+| `maxDepth` | 128 | how deep a value may nest through embedded references; a record past that depth is a `depth` issue (`is nested deeper than 128 references`) instead of a stack overflow; see [References](/guide/references#validation) |
 | `unknown` | the schema's [`unknown` metadata](/guide/kinds-and-metadata#metadata-fields), `'reject'` unless set | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
 | `references` | `'kind'` | how a reference is checked: by the [kind of its target](/guide/references#storage-view-and-graph-view) and the field's `embed`, every reference as the record (`'embed'`), or every reference as an id (`'id'`) |
 | `messages` | English | the [locale](#messages-and-locales) of the messages, or a function that renders every message |

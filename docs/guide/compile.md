@@ -27,8 +27,8 @@ user.check({ name: 7 }).errors; // [ 'Field "name" not of expected type: string'
 
 | Export | Meaning |
 | --- | --- |
-| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with the generated one, and returns `{ accelerated }`: `true` when the check runs generated code now, `false` in the fallback, where the closures stay as they were |
-| `register(options?)` | compiles every schema built from then on, so an application that wants everything fast calls it once at startup; a later call replaces the options, `register({ jit: false })` stops it; a schema built before the call is not touched (pass it to `compile`) |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with the generated one, and returns `{ accelerated, error }`: `accelerated` is `true` when the check runs generated code now and `false` in the fallback, where the closures stay as they were; `error` is what stopped the first check that could not be generated (a `SchemaDefinitionError` with the code `ERR_JIT_BUILD`, the generator's error as its `cause`), absent where the environment allows no code generation at all. `compile(target, { jit: false })` puts the closures a schema was built with back |
+| `register(options?)` | compiles every schema built from then on, so an application that wants everything fast calls it once at startup; a later call replaces the options, `register({ jit: false })` stops it; a schema built before the call is not touched (pass it to `compile`). `register({ onFallback(schema, error) })` is told of every schema whose check could not be generated |
 | `canEval()` | whether this environment allows code generation from strings, probed once with `new Function('')` |
 
 Nothing happens on import: a program that never calls `compile` or `register` never runs
@@ -48,14 +48,25 @@ the schemas it keeps.
 
 | `jit` | Where code generation is allowed | Where it is not |
 | --- | --- | --- |
-| `'auto'` (the default) | the generated check | the closures stay, silently, and `accelerated` is `false` |
-| `true` | the generated check | throws `SchemaDefinitionError` with the code `ERR_NO_EVAL`; `register` throws at the call, before any schema is built |
-| `false` | the closures; `new Function` is never called | the same |
+| `'auto'` (the default) | the generated check; a check that cannot be generated keeps its closures, with the reason as `error` and in `onFallback` | the closures stay, silently, and `accelerated` is `false` without an `error` |
+| `true` | the generated check; a check that cannot be generated throws `ERR_JIT_BUILD`, and nothing of a model is installed | throws `SchemaDefinitionError` with the code `ERR_NO_EVAL`; `register` throws at the call, before any schema is built |
+| `false` | the closures; `new Function` is never called, and a compiled schema gets its closures back | the same |
 
 `true` is for the places that want to know: a test suite that must run on the JIT (the
 repository's `pnpm run test:jit`), a benchmark. `false` is the explicit switch, for a
 configuration flag or an audit that forbids generated code where the platform would allow it.
-In the default mode a check that cannot be built, for whatever reason, is the closure backend.
+In the default mode a check that cannot be built, for whatever reason, is the closure backend;
+`error` says why, so a bug of the generator never looks like an environment without eval:
+
+```js
+const { accelerated, error } = compile(user);
+if (!accelerated && error) console.warn(`${user.name}: ${error.message}`, error.cause);
+register({ onFallback: (schema, error) => log.warn(`JIT skipped ${schema.name}`, error) });
+```
+
+To tell which backend a schema runs on, read the name of its check:
+`schema[Symbol.for('alexify.metaschema.run')].name` is `'jit'` for a compiled schema and `''`
+for the closures, and `.toString()` on that function is the generated source.
 
 ## Where there is no eval
 
@@ -96,6 +107,10 @@ A valid value never touches the path of the context: the keys a container would 
 when the code is generated and are pushed only around a statement that records an issue or calls
 out, which is where the generated check gains most over the closures on nested values.
 
+The source is strict (`"use strict"` is its first line) and ends with
+`//# sourceURL=alexify-metaschema-jit/<schema name>`, so a stack trace through a compiled check
+names the schema instead of `<anonymous>`.
+
 ## Boundaries
 
 - A compiled schema is the same object with another check: `toJSONSchema`, `toTypeScript`,
@@ -107,6 +122,9 @@ out, which is where the generated check gains most over the closures on nested v
   call, and an entity reached through a reference runs its own check, compiled or not: compile
   the model, or `register()` before building it, to have every entity accelerated.
 - `compile(schema)` twice regenerates the check; the second call changes nothing visible.
+  `compile(schema, { jit: false })` restores the closures the schema was built with.
+- `register()` is one slot on the `Schema` class: the last call wins, and two libraries that both
+  register do not compose. Register once, at startup.
 - A custom type keeps its speed: its `checkType` is a call on both backends.
 - The invalid path gains less than the valid one (1.6 times against 3 on a flat struct), because
   the issue objects and the rendered messages are the same work on both backends.

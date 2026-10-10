@@ -9,8 +9,8 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 15.1 KB min+gzip for the core entry (the generators subpath adds
-  4.0 KB, the compile subpath 3.5 KB); about 10 million checks a second of a flat struct on the
+- Zero runtime dependencies, 16.1 KB min+gzip for the core entry (the generators subpath adds
+  4.5 KB, the compile subpath 3.9 KB); about 10 million checks a second of a flat struct on the
   closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
@@ -18,8 +18,8 @@ Key facts:
   `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
   `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
   options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods), and
-  the JIT backend `@alexify/metaschema/compile`: `compile(target, { jit })`, `register({ jit })`,
-  `canEval()`
+  the JIT backend `@alexify/metaschema/compile`: `compile(target, { jit })` →
+  `{ accelerated, error }`, `register({ jit, onFallback })`, `canEval()`
 - `compile(schema)` or `compile(model)` replaces the check with a function generated from the
   schema and built with `new Function` (the same issues, about three times faster on a flat
   struct, six on a nested one) and returns `{ accelerated }`; `register()` does it for every
@@ -29,12 +29,13 @@ Key facts:
   identifiers, numbers and JSON strings (the rest goes through a scope)
 - `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
-  with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
-  `references`, `messages`; a `validate` function may build and return a result
+  with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `maxDepth`
+  (embedded records, 128 by default: deeper is a `depth` issue, not a stack overflow),
+  `unknown`, `references`, `messages`; a `validate` function may build and return a result
 - `schema.parse(value, options)` runs the same check and returns `{ valid, value, issues }`: the
   value of the program with every `default` of a missing key filled in (a function is a
   factory), unknown keys stripped with `unknown: 'strip'`, the `parse` function of every field
-  decoding its validated value (parts before the whole: a `'datetime'` string into a `Date`) and
+  decoding its validated value (parts before the whole: a date string into a `Date`) and
   the schema's own `parse` last; `value` is `undefined` when invalid and the value given when
   nothing applied (the input is never written to). `schema.serialize(value, { check })` is the
   way back through the `serialize` functions, top down. `checkAsync` and `parseAsync` await

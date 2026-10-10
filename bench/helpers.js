@@ -119,8 +119,9 @@ const NESTED_INVALID = {
 // flat schema and with its nested part, so the numbers line up with that
 // suite's four modes: parseSafe (unknown keys ignored, the value returned),
 // parseStrict (unknown keys rejected, the value returned), assertLoose and
-// assertStrict (the verdict only). metaschema has no parse step yet, so the
-// parse modes return the value when it is valid. The first field is called
+// assertStrict (the verdict only). The parse modes return the value when it
+// is valid, which is what `parse` gives for a schema with nothing to apply;
+// the `parse — …` scenarios measure `parse` itself. The first field is called
 // `number`, a type name, so the kind marker says the definition is a struct
 // (without it the schema is a number field with five unknown options, and
 // every check fails at once).

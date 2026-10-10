@@ -235,6 +235,18 @@ signup.check({ login: 'marcus', password: 'secret' });
 
 `serialize` is synchronous; its `check` option runs the synchronous `check`.
 
+### Async validators in a plain union
+
+A plain `union` picks the first branch whose synchronous checks pass. A validator of a branch
+that returns a promise is set aside: the branch is taken if nothing else in it failed, the
+validator settles after the walk and may still make the value invalid, and no further branch is
+tried for it. A branch that fails drops the validators it set aside with its issues. Where
+branches carry async validators, a `discriminator` says which branch a value is without a trial.
+
+The validators that return promises settle one after the other, in field order, so the latency
+of a check is the sum of theirs, not the maximum: the rule that a validator runs only when
+nothing under it failed needs that order.
+
 ## Standard Schema
 
 [`schema['~standard'].validate`](/guide/standard-schema) is `parse` with the policies of the
@@ -266,6 +278,21 @@ and `serialize` takes an `InferOutput<D>` and gives an `Infer<D>`.
 
 - Defaults apply to the fields of structs; a tuple element, an array element or a root value
   has no missing key to fill.
+- A value with a `then` function is data. `parse` awaits nothing; `parseAsync` awaits only the
+  promises its decoders make, never a thenable of the value, so a field called `then` comes back
+  as it is. The one case that is awaited is a `Promise` instance in the data under a field with
+  an async decoder, in `parseAsync`.
+- A non-function `default` is the same object in every output (`default: []` is one array shared
+  by every parse); a function is a factory and gives each parse its own. A `default` factory or
+  a field's `serialize` that throws is a programming error and throws out of the call; only a
+  decoder's exception is an issue.
+- A plain `union` whose subtree carries a default, a decoder or a serializer is entered through a
+  second check of the union value, with the options, the root and the path of the call: a
+  validator of such a branch runs in that trial and again in the check. A `discriminator` picks
+  the branch in one lookup and avoids it.
+- The `validate`, `parse` and `serialize` functions of a nested struct are the struct's own, as
+  they are options at the root: a value carrying `inner: { parse: 1 }` has an unexpected key.
+- A valid result's `issues` is a frozen empty array, the same one for every valid result.
 - A default on a field of a branch of a plain `union` applies when that branch accepts the value
   with its defaults in place; the branches are tried in order, as the check tries them. A
   `discriminator` picks the branch without trying.
