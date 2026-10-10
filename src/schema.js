@@ -11,7 +11,7 @@ const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
 const { warning, lintSchema } = require('./lint.js');
-const { toJSONSchema } = require('./jsonschema.js');
+const { toJSONSchema, standardConverter } = require('./jsonschema.js');
 
 const TS_SCALARS = {
   string: 'string',
@@ -181,16 +181,18 @@ class Schema extends SchemaMetadata {
   // through. A verdict only: a valid value comes back as it is, and the
   // issues of an invalid one are the result's own (a message and a path of
   // keys each). The vendor-specific `libraryOptions` of a call are the
-  // options of `check`. An accessor of the prototype stays out of toJSON,
-  // inspect and Object.keys, and `validate` closes over the schema because a
-  // consumer calls it unbound.
+  // options of `check`. `jsonSchema` is the converter of Standard JSON
+  // Schema (`input` and `output` by target). An accessor of the prototype
+  // stays out of toJSON, inspect and Object.keys, and `validate` closes over
+  // the schema because a consumer calls it unbound.
   get '~standard'() {
     if (this.#standard === null) {
       const validate = (value, options) => {
         const result = this.check(value, options == null ? undefined : options.libraryOptions);
         return result.valid ? { value } : { issues: result.issues };
       };
-      this.#standard = { version: 1, vendor: 'alexify.metaschema', validate };
+      const jsonSchema = standardConverter(this);
+      this.#standard = { version: 1, vendor: 'alexify.metaschema', validate, jsonSchema };
     }
     return this.#standard;
   }

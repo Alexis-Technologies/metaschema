@@ -716,6 +716,20 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
   Infer<E[Name], E> & IdOf<Name, E[Name]>
 >;
 
+// Standard JSON Schema (https://standardschema.dev/json-schema): the converter
+// `schema['~standard'].jsonSchema`, whose `input` and `output` take the
+// target and the other options of `toJSONSchema` as `libraryOptions`. The
+// mongodb target is not a JSON Schema and is refused here.
+export interface StandardJSONSchemaOptions {
+  readonly target: 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | ({} & string);
+  readonly libraryOptions?: Omit<JSONSchemaOptions, 'target' | 'io'> | undefined;
+}
+
+export interface StandardConverter {
+  readonly input: (options: StandardJSONSchemaOptions) => JSONSchema;
+  readonly output: (options: StandardJSONSchemaOptions) => JSONSchema;
+}
+
 // Standard Schema v1 (https://standardschema.dev): the interface every schema
 // exposes as `schema['~standard']`, so tRPC, TanStack Form, Hono and the other
 // consumers of the specification accept it without an adapter. The shape is
@@ -739,6 +753,8 @@ export interface StandardProps<D = string | object> {
   readonly version: 1;
   readonly vendor: 'alexify.metaschema';
   readonly validate: (value: unknown, options?: StandardOptions) => StandardResult<Infer<D>>;
+  // Standard JSON Schema: `input(options)` and `output(options)` by target.
+  readonly jsonSchema: StandardConverter;
   // Nothing is transformed, so the input type is the output type. Type-level
   // only: no property of the object holds it.
   readonly types?: { readonly input: Infer<D>; readonly output: Infer<D> } | undefined;

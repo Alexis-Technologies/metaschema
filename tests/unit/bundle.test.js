@@ -98,6 +98,8 @@ const checkBundle = ({ Schema, Model }) => {
   const json = flat.toJSONSchema({ target: 'draft-07' });
   assert.strictEqual(json.$schema, 'http://json-schema.org/draft-07/schema#');
   assert.deepStrictEqual(Array.from(json.required), ['name', 'age']);
+  assert.strictEqual(standard.jsonSchema.input({ target: 'draft-2020-12' }).type, 'object');
+  assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
   const mongo = model.toJSONSchema({ target: 'mongodb' });
   assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
   assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');

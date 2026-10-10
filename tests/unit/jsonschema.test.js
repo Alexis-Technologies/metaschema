@@ -1189,3 +1189,51 @@ test('JSON Schema: the fixture model', () => {
   assert.deepStrictEqual(mongo.Identifier.properties.creation, { bsonType: 'date' });
   assert.strictEqual(model.warnings.length, 0);
 });
+
+test('JSON Schema: the Standard JSON Schema converter', () => {
+  const schema = Schema.from({ name: 'string', at: 'date' });
+  const { jsonSchema } = schema['~standard'];
+  assert.deepStrictEqual(Object.keys(jsonSchema), ['input', 'output']);
+  assert.deepStrictEqual(
+    jsonSchema.input({ target: 'draft-2020-12' }),
+    schema.toJSONSchema({ target: 'draft-2020-12', io: 'input' }),
+  );
+  assert.deepStrictEqual(jsonSchema.input({ target: 'draft-07' }).$schema, DRAFT_07);
+  assert.strictEqual(jsonSchema.input({ target: 'openapi-3.0' }).$schema, undefined);
+  assert.throws(() => jsonSchema.output({ target: 'draft-2020-12' }), {
+    code: 'ERR_UNREPRESENTABLE',
+  });
+  assert.deepStrictEqual(
+    jsonSchema.output({ target: 'draft-2020-12', libraryOptions: { unrepresentable: 'any' } })
+      .properties.at,
+    {},
+  );
+  // The library options are those of toJSONSchema; the target wins over them.
+  const strict = jsonSchema.input({
+    target: 'draft-07',
+    libraryOptions: { profile: 'strict', target: 'mongodb', io: 'output' },
+  });
+  assert.deepStrictEqual(strict.required, ['name', 'at']);
+  assert.strictEqual(strict.$schema, DRAFT_07);
+  // Unbound, as consumers call it.
+  const { input } = jsonSchema;
+  assert.strictEqual(input({ target: 'draft-2020-12' }).type, 'object');
+  // Anything but the three JSON targets is refused, as the specification asks.
+  for (const options of [
+    { target: 'mongodb' },
+    { target: 'draft-04' },
+    {},
+    undefined,
+    null,
+    'draft-07',
+  ]) {
+    assert.throws(() => jsonSchema.input(options), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_OPTIONS',
+      message: /^JSON Schema target .* is not supported$/,
+    });
+  }
+  assert.throws(() => jsonSchema.input({ target: 'mongodb' }), {
+    message: 'JSON Schema target "mongodb" is not supported',
+  });
+});
