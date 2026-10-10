@@ -5,8 +5,10 @@ Everything is exported from the package root, in Node.js and in the browser.
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
+  getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
+
+const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
 ```
 
 ## Constants
@@ -28,10 +30,7 @@ Returns `{ defs, metadata }` for a kind: the default `scope`, `store` and `allow
 `meta`, and the fields the kind adds (the id field of stored kinds). Used internally when a
 definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadata).
 
-### `saveTypes(outputFile, model, options?)`
-
-Writes `model.toTypeScript(options)` to `outputFile`. Returns `Promise<void>`. Rejects in the
-browser. See [TypeScript](/guide/typescript#writing-the-file).
+`saveTypes` moved to the [generators subpath](#alexify-metaschema-generators) in 2.1.
 
 ## `Schema`
 
@@ -42,9 +41,9 @@ browser. See [TypeScript](/guide/typescript#writing-the-file).
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
-| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate, jsonSchema }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }`; `jsonSchema.input(options)` and `jsonSchema.output(options)` are `toJSONSchema` for `options.target` (`draft-2020-12`, `draft-07` or `openapi-3.0`) with `options.libraryOptions` |
-| `schema.toJSONSchema(options?)` | the schema as a [JSON Schema](/guide/json-schema) document; `options`: `target` (`'draft-2020-12'`, `'draft-07'`, `'openapi-3.0'`, `'mongodb'`), `profile` (`'strict'`), `io` (`'input'`, `'output'`), `unrepresentable` (`'throw'`, `'any'`), `references` (`'kind'`, `'embed'`, `'id'`), `definitions` (a pointer) |
-| `schema.toInterface(options?)` | the schema as a TypeScript interface, the `description` of a field as JSDoc; `options.named` gives enums and nested structs types of their own; see [TypeScript](/guide/typescript#jsdoc-and-named-types) |
+| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }`. After `register()` of the generators subpath the props carry `jsonSchema` too: `input(options)` and `output(options)` are `toJSONSchema` for `options.target` (`draft-2020-12`, `draft-07` or `openapi-3.0`) with `options.libraryOptions` |
+| `schema.toJSONSchema(options?)` | after `register()` of the generators subpath: `toJSONSchema(schema, options)`, the schema as a [JSON Schema](/guide/json-schema) document |
+| `schema.toInterface(options?)` | after `register()`: `toTypeScript(schema, options)`, the schema as a TypeScript interface |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
@@ -65,9 +64,23 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
 | `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
-| `model.dts` | TypeScript interfaces for every entity, `model.toTypeScript()` |
-| `model.toTypeScript(options?)` | the interfaces of every entity in dependency order; `options` are those of `schema.toInterface` |
-| `model.toJSONSchema(options?)` | every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of the entity `options.root`; the other options are those of `schema.toJSONSchema` |
+| `model.dts`, `model.toTypeScript(options?)` | after `register()` of the generators subpath: `toTypeScript(model, options)`, the interfaces of every entity in dependency order |
+| `model.toJSONSchema(options?)` | after `register()`: `toJSONSchema(model, options)`, every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of the entity `options.root` |
+
+## `@alexify/metaschema/generators`
+
+The generators of JSON Schema and TypeScript, in a subpath so that the core entry (12.0 KB
+min+gzip) does not carry them (3.9 KB more); see
+[The generators subpath](/guide/json-schema#the-generators-subpath).
+
+| Export | Description |
+| --- | --- |
+| `toJSONSchema(target, options?)` | the [JSON Schema](/guide/json-schema) document of a `Schema`, or of a `Model` (every entity as a definition, or `options.root`); `options`: `target` (`'draft-2020-12'`, `'draft-07'`, `'openapi-3.0'`, `'mongodb'`), `profile` (`'strict'`), `io` (`'input'`, `'output'`), `unrepresentable` (`'throw'`, `'any'`), `references` (`'kind'`, `'embed'`, `'id'`), `definitions` (a pointer), `root` (a model) |
+| `toTypeScript(target, options?)` | the TypeScript interface of a `Schema`, or the interfaces of every entity of a `Model` in dependency order; the `description` of a field as JSDoc, `deprecated: true` as `@deprecated`; `options.named` gives enums and nested structs types of their own; see [TypeScript](/guide/typescript#generating-interfaces-from-a-model) |
+| `saveTypes(outputFile, target, options?)` | writes `toTypeScript(target, options)` to `outputFile`; returns `Promise<void>`; rejects in the browser |
+| `register()` | installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`, `model.toTypeScript`, `model.dts` and `schema['~standard'].jsonSchema` on the classes, once per process |
+
+A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `ValidationResult`
 
@@ -142,7 +155,7 @@ it; see [Validation](/guide/validation#the-result).
 | `StandardConverter` | the type of `schema['~standard'].jsonSchema`: `input` and `output`, from `StandardJSONSchemaOptions` (`target` and `libraryOptions`) to `JSONSchema` |
 | `JSONSchema` | what `toJSONSchema` returns: `Record<string, unknown>` |
 | `JSONSchemaOptions`, `ModelJSONSchemaOptions`, `JSONSchemaTarget` | the options of `schema.toJSONSchema`, those of `model.toJSONSchema` (plus `root`), and the four targets |
-| `InterfaceOptions` | the options of `toInterface`, `toTypeScript` and `saveTypes`: `named` |
+| `InterfaceOptions` | the options of `toTypeScript`, `toInterface` and `saveTypes`: `named` |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,

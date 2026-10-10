@@ -73,8 +73,8 @@ person.check({ name: 'Ann', employer: { name: 'Acme', addresses: [] }, home: { c
   === category`) against stored kinds is a plain type error, not a `circular` issue; `circular` is
   reported where a record is embedded and met again.
 - A reference to an entity the model does not have is a `reference` issue in every mode.
-- `schema.toInterface()` outside a model cannot resolve the target and renders the id form; inside a
-  model the memory-kind target renders by its interface name, which `model.dts` emits.
+- `toTypeScript(schema)` outside a model cannot resolve the target and renders the id form; inside
+  a model the memory-kind target renders by its interface name, which `toTypeScript(model)` emits.
 - `Infer` applies the same rule through an [entity map](/guide/typescript#references-and-entity-maps):
   a stored reference is a string, a memory reference is the record. The
   [JSON Schema export](/guide/json-schema#references) follows it too: a stored reference is

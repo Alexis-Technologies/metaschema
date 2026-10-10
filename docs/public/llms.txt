@@ -9,19 +9,23 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 15.7 KB min+gzip; about 10 million checks a second of a flat struct
-- Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
-  `ValidationResult`, the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
-  `ALLOW`, the types `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, and the locales
-  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`
+- Zero runtime dependencies, 12.0 KB min+gzip for the core entry (the generators subpath adds
+  3.9 KB); about 10 million checks a second of a flat struct
+- Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
+  the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
+  `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
+  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
+  `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
+  options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods)
 - `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
   with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
   `references`, `messages`; a `validate` function may build and return a result
-- Every schema is a Standard Schema v1 (`schema['~standard']`, with the Standard JSON Schema
-  converter `jsonSchema`); `InferSchema<typeof schema>` is the TypeScript type of a value it accepts
-- `schema.toJSONSchema({ target, profile, io, unrepresentable, references, definitions })` and
-  `model.toJSONSchema({ root, ... })` render JSON Schema draft 2020-12 (default), draft-07, an
+- Every schema is a Standard Schema v1 (`schema['~standard']`; the Standard JSON Schema
+  converter `jsonSchema` joins it after `register()` of the generators); `InferSchema<typeof
+  schema>` is the TypeScript type of a value it accepts
+- `toJSONSchema(schema, { target, profile, io, unrepresentable, references, definitions })` and
+  `toJSONSchema(model, { root, ... })` render JSON Schema draft 2020-12 (default), draft-07, an
   OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`; `profile: 'strict'` is the dialect of LLM
   structured outputs (root object, every property required, optional as `[T, 'null']`,
   `additionalProperties: false`, no value constraints); a stored reference is an id, a memory
@@ -40,9 +44,9 @@ Key facts:
 - Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
   kind
-- `new Model(types, entities, database)` resolves references, orders entities and renders
-  `model.dts`; `model.toTypeScript({ named: true })` names enums and nested structs, a field's
-  `description` is its JSDoc and `deprecated: true` adds `@deprecated`
+- `new Model(types, entities, database)` resolves references and orders entities;
+  `toTypeScript(model)` renders the interfaces (`{ named: true }` names enums and nested structs,
+  a field's `description` is its JSDoc and `deprecated: true` adds `@deprecated`)
 - Does not load schemas from files or evaluate source strings; pass schema objects directly
 
 Docs:

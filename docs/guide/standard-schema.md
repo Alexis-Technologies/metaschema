@@ -101,9 +101,14 @@ validate({}, { libraryOptions: { maxErrors: 1, messages: uk } });
 [Standard JSON Schema](https://standardschema.dev): `input(options)` and `output(options)` render
 the schema as a JSON Schema document for the `target` the consumer names (`'draft-2020-12'`,
 `'draft-07'` or `'openapi-3.0'`; anything else throws, as the specification asks), with the
-other [options of `toJSONSchema`](/guide/json-schema#options) as `libraryOptions`:
+other [options of `toJSONSchema`](/guide/json-schema#options) as `libraryOptions`. The
+converter comes with the [generators subpath](/guide/json-schema#the-generators-subpath), which
+keeps the JSON Schema code out of the core entry: `register()` it once at startup, and every
+schema has it, the ones built before too:
 
 ```js
+require('@alexify/metaschema/generators').register();
+
 user['~standard'].jsonSchema.input({ target: 'draft-07' });
 // {
 //   $schema: 'http://json-schema.org/draft-07/schema#',
@@ -117,7 +122,9 @@ user['~standard'].jsonSchema.input({ target: 'draft-07' });
 `input` describes the JSON a value is parsed from and `output` the value `check` accepts; the
 two differ only for a `date`, `set` or `map`, which have no JSON form on the way out (see
 [Input and output](/guide/json-schema#input-and-output)). The `mongodb` target is not a JSON
-Schema and is reached through [`toJSONSchema`](/guide/json-schema) only.
+Schema and is reached through [`toJSONSchema`](/guide/json-schema) only. Without the
+registration `~standard` has `version`, `vendor` and `validate` only; the typings declare
+`jsonSchema` on every schema, as it is once the generators are registered.
 
 ## TypeScript
 

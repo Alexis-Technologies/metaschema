@@ -59,12 +59,14 @@ result.issues;
   take it as they take a zod or valibot schema.
 - **JSON Schema.** `toJSONSchema` renders a schema or a whole model as JSON Schema draft 2020-12
   or draft-07, an OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`, with a strict profile for
-  LLM structured outputs; `~standard.jsonSchema` is the Standard JSON Schema converter.
+  LLM structured outputs; `~standard.jsonSchema` is the Standard JSON Schema converter. The
+  generators live in the `@alexify/metaschema/generators` subpath, so a program that only
+  validates does not carry them.
 - **Fast.** Every check is compiled into a closure when the schema is built and runs in a context
   of its own: about 10 million validations a second of a flat struct on Node 24 (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 15.7 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers.
+- **Zero dependencies, 12.0 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 3.9 KB where they are imported.
 
 ## Installation
 
@@ -134,7 +136,9 @@ model.order; // Set { 'Address', 'Company', 'User' }
 model.warnings; // [] (lint and consistency warnings, `Warning [code]: text`, end up here)
 model.entities.get('User').check({ login: 'ab', company: 'c1', active: true }).errors;
 // [ 'Field "User.login" value is too short' ]
-console.log(model.dts);
+
+const { toTypeScript } = require('@alexify/metaschema/generators');
+console.log(toTypeScript(model));
 ```
 
 ```ts
@@ -159,8 +163,10 @@ interface User {
 }
 ```
 
-`saveTypes(outputFile, model, options?)` writes `model.dts` to a file (`model.toTypeScript({ named:
-true })` names enums and nested structs, and a field's `description` is its JSDoc). The first key of a definition sets
+`saveTypes(outputFile, model, options?)` of the same subpath writes the interfaces to a file
+(`{ named: true }` names enums and nested structs, and a field's `description` is its JSDoc); its
+`register()` adds `model.dts`, `model.toTypeScript` and `schema.toInterface` as methods. The first
+key of a definition sets
 its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
 `View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
 `scope: 'application'` and `store: 'persistent'`, and they get an id field; a reference to a
@@ -202,7 +208,7 @@ type User = InferSchema<typeof user>;
 Every form of the language is covered: optional and nullable fields, collections, enums,
 tuples, unions, nested structs, references (an id, or the record through an entity map with
 `Infer<D, E>` and `InferEntity<E, 'Name'>`) and custom types declared through module
-augmentation of `CustomTypes`. A model renders its entities as interfaces with `model.dts`. See
+augmentation of `CustomTypes`. A model renders its entities as interfaces with `toTypeScript`. See
 [TypeScript](https://metaschema.vercel.app/guide/typescript).
 
 A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-schema/spec`:
@@ -212,11 +218,14 @@ A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-sch
 
 ## JSON Schema
 
-`schema.toJSONSchema(options)` renders the rules of `check` as a JSON Schema document, and
-`model.toJSONSchema(options)` every entity of a model as a definition:
+`toJSONSchema(schema, options)` of `@alexify/metaschema/generators` renders the rules of `check`
+as a JSON Schema document, and `toJSONSchema(model, options)` every entity of a model as a
+definition:
 
 ```js
-user.toJSONSchema({ target: 'draft-07' });
+const { toJSONSchema } = require('@alexify/metaschema/generators');
+
+toJSONSchema(user, { target: 'draft-07' });
 // {
 //   $schema: 'http://json-schema.org/draft-07/schema#',
 //   type: 'object',
@@ -230,15 +239,17 @@ user.toJSONSchema({ target: 'draft-07' });
 //   additionalProperties: false
 // }
 
-answer.toJSONSchema({ profile: 'strict' }); // the dialect of OpenAI and Anthropic structured outputs
-model.toJSONSchema({ target: 'mongodb' }); // one $jsonSchema validator per entity
+toJSONSchema(answer, { profile: 'strict' }); // the dialect of OpenAI and Anthropic structured outputs
+toJSONSchema(model, { target: 'mongodb' }); // one $jsonSchema validator per entity
 ```
 
 The targets are `draft-2020-12` (the default), `draft-07`, `openapi-3.0` and `mongodb`; an
 optional field accepts `null`, a reference to a stored kind is its id and a reference to a memory
 kind a `$ref`, `validate` functions are not exported, and a type with no form in the target
 (`bigint`, a `Date` on the way out) throws unless the call says `unrepresentable: 'any'`. The
-export is checked against ajv for every form of the language. See
+export is checked against ajv for every form of the language. `register()` of the subpath turns
+the functions into methods (`schema.toJSONSchema`, `model.toJSONSchema`) and adds the Standard
+JSON Schema converter to `schema['~standard']`. See
 [JSON Schema](https://metaschema.vercel.app/guide/json-schema).
 
 ## Exports
@@ -246,8 +257,10 @@ export is checked against ajv for every form of the language. See
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
+  getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
+
+const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })
@@ -258,8 +271,8 @@ import { Schema, Model } from '@alexify/metaschema';
 import type { Infer, InferSchema, InferEntity, CustomTypes, ValidationIssue } from '@alexify/metaschema';
 ```
 
-In the browser every export works the same, except `saveTypes`, which rejects because there is no
-file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
+In the browser every export works the same, except `saveTypes` of the generators, which rejects
+because there is no file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
 and every exported type.
 
 ## Migrating

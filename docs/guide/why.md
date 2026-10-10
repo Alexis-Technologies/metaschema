@@ -23,8 +23,8 @@ purposes:
   tRPC, TanStack Form, Hono and the other consumers of the interface take it without an adapter.
 - **Fast.** Every check is compiled into a closure when the schema is built: about 10 million
   validations a second of a flat struct on Node 24; see [Performance](/guide/performance).
-- **Zero dependencies.** Nothing is installed besides the package itself, and the whole library is
-  15.7 KB min+gzip.
+- **Zero dependencies.** Nothing is installed besides the package itself, and the core entry is
+  12.0 KB min+gzip; the JSON Schema and TypeScript generators are a subpath of 3.9 KB more.
 - **One package for Node.js and browsers.** The browser entry is resolved automatically by
   bundlers.
 - **No build step.** The package is CommonJS that ships exactly as written, with hand-written

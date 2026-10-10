@@ -135,7 +135,7 @@ const model = new Model({}, new Map(Object.entries(entities)));
 The entities of a model are plain `Schema` instances (`model.entities.get('Person')` is a
 `Schema | undefined` and infers nothing); the entity map is the typed source.
 
-### `Infer` and `model.dts`
+### `Infer` and the generated interfaces
 
 Both follow the same rules, with two differences. The dts names a stored reference after its
 column (`employerId: string`), where `check` reads the field (`employer`) and `Infer` types it as
@@ -148,11 +148,15 @@ and output types are `Infer<D>`; see [Standard Schema](/guide/standard-schema#ty
 
 ## Generating interfaces from a model
 
-`model.dts` renders every entity as a TypeScript interface, in dependency order:
+`toTypeScript(model)` of the `@alexify/metaschema/generators` subpath renders every entity as a
+TypeScript interface, in dependency order (the subpath keeps the generators out of the core
+entry; see [The generators subpath](/guide/json-schema#the-generators-subpath)):
 
 ```js
+const { toTypeScript } = require('@alexify/metaschema/generators');
+
 const model = new Model(types, entities);
-console.log(model.dts);
+console.log(toTypeScript(model));
 ```
 
 For the model in [Domain Models](/guide/model) this prints:
@@ -206,19 +210,20 @@ Rules of the conversion:
 
 Optional fields get `?`, and stored kinds include their own id field (`userId?: string`). Whether a
 reference is an id or the interface follows the [storage view and graph view](/guide/references#storage-view-and-graph-view)
-rule of `check`; a reference `toInterface()` cannot resolve (outside a model) renders as an id.
+rule of `check`; a reference `toTypeScript` cannot resolve (outside a model) renders as an id.
 
-`schema.toInterface()` renders a single schema the same way; a schema whose definition is a single
-type renders as a type alias (`type Pair = [number, string];`).
+`toTypeScript(schema)` renders a single schema the same way; a schema whose definition is a single
+type renders as a type alias (`type Pair = [number, string];`). After `register()` of the subpath
+the same renderings are `model.toTypeScript(options)`, `model.dts` and
+`schema.toInterface(options)`.
 
 ### JSDoc and named types
 
 The `description` of a field is the JSDoc of its member, and `deprecated: true` adds the
 `@deprecated` tag, so an editor shows both where the type is used. By default an enum renders as
-a union of literals and a nested struct as an inline object type; `model.toTypeScript({ named:
+a union of literals and a nested struct as an inline object type; `toTypeScript(model, { named:
 true })` gives each a type of its own, named after the entity and the field and rendered before
-the interface that uses it (`model.dts` is `model.toTypeScript()` without options, and
-`schema.toInterface(options)` takes the same option):
+the interface that uses it (`toTypeScript(schema, options)` takes the same option):
 
 ```js
 const entities = new Map([
@@ -235,7 +240,7 @@ const entities = new Map([
   }],
 ]);
 
-console.log(new Model(types, entities).toTypeScript({ named: true }));
+console.log(toTypeScript(new Model(types, entities), { named: true }));
 ```
 
 ```ts
@@ -282,11 +287,11 @@ field of a nested struct appears only with named types.
 
 ### Writing the file
 
-`saveTypes(outputFile, model, options?)` writes `model.toTypeScript(options)` to a file and
-returns a promise:
+`saveTypes(outputFile, target, options?)` of the generators subpath writes
+`toTypeScript(target, options)` to a file and returns a promise:
 
 ```js
-const { saveTypes } = require('@alexify/metaschema');
+const { saveTypes } = require('@alexify/metaschema/generators');
 
 await saveTypes('./types/model.d.ts', model);
 await saveTypes('./types/model.d.ts', model, { named: true });

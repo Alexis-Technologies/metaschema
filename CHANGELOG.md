@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrading from 2.0
+
+- **The generators moved to `@alexify/metaschema/generators`.** `model.dts`,
+  `schema.toInterface()` and `saveTypes` are no longer in the core entry: the subpath exports
+  `toTypeScript(target, options)` (a `Schema` or a `Model`), `saveTypes(outputFile, target,
+  options)` and `toJSONSchema(target, options)`, and its `register()` installs the methods on
+  the classes (`model.dts`, `model.toTypeScript`, `schema.toInterface`, `schema.toJSONSchema`,
+  `model.toJSONSchema`) once per process. Replace `model.dts` with `toTypeScript(model)` or call
+  `register()` at startup; import `saveTypes` from the subpath. The core entry (12.0 KB min+gzip)
+  no longer carries the generators (3.9 KB) nor any Node runtime; the browser entry is the same.
+
 ### Added
 
-- **JSON Schema export.** `schema.toJSONSchema(options)` renders the rules of `check` as a
-  JSON Schema document and `model.toJSONSchema(options)` every entity of a model as a
-  definition (`$defs`, `definitions` or `components.schemas` by target), or the document of
-  `options.root`. Targets: `draft-2020-12` (the default), `draft-07`, `openapi-3.0` (a schema
-  object: `nullable`, no type lists, `oneOf` with `discriminator` for a discriminated union)
-  and `mongodb` (a `$jsonSchema` validator: `bsonType`, references inlined, no `$ref`,
+- **JSON Schema export.** `toJSONSchema(schema, options)` of the generators subpath renders the
+  rules of `check` as a JSON Schema document and `toJSONSchema(model, options)` every entity of
+  a model as a definition (`$defs`, `definitions` or `components.schemas` by target), or the
+  document of `options.root`. Targets: `draft-2020-12` (the default), `draft-07`, `openapi-3.0`
+  (a schema object: `nullable`, no type lists, `oneOf` with `discriminator` for a discriminated
+  union) and `mongodb` (a `$jsonSchema` validator: `bsonType`, references inlined, no `$ref`,
   `format` or `default`, `_id` allowed at the root). A struct is a closed object with its
   required keys (open when the root says `unknown: 'ignore'`), an optional or nullable field
   accepts `null`, `length`/`pattern`/`min`/`max` are the matching keywords, a required
@@ -32,35 +43,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schema and the field, or renders as `{}` with `unrepresentable: 'any'`. `validate`
   functions, custom `checkType`s, calculated fields, indexes and kind metadata are not
   exported.
-- **The strict profile.** `toJSONSchema({ profile: 'strict' })` renders the dialect of LLM
-  structured outputs (OpenAI, Anthropic): an object at the root, every property listed as
+- **The strict profile.** `toJSONSchema(schema, { profile: 'strict' })` renders the dialect of
+  LLM structured outputs (OpenAI, Anthropic): an object at the root, every property listed as
   required (an optional one as `['T', 'null']`, an optional `$ref` as an `anyOf` with null),
   `additionalProperties: false` on every object, and the structure only: `minLength`,
   `maxLength`, `pattern`, `minimum`, `maximum`, `minItems`, `maxItems`, `uniqueItems` and
   `minProperties` are left out, and a value without a type (`any`, `json`, an `object` or
   `map` of free keys) has no form. For the `draft-2020-12` and `draft-07` targets.
-- **Standard JSON Schema.** `schema['~standard'].jsonSchema` is the converter of the
-  specification: `input(options)` and `output(options)` are `toJSONSchema` for the `target` the
-  consumer names (`draft-2020-12`, `draft-07` or `openapi-3.0`; anything else throws, as the
-  specification asks) with `libraryOptions` as the other options. A `Schema<D>` is a
-  `StandardJSONSchemaV1<Infer<D>, Infer<D>>`; the typings add `StandardConverter` and
-  `StandardJSONSchemaOptions`.
+- **Standard JSON Schema.** After `register()` of the generators, `schema['~standard'].jsonSchema`
+  is the converter of the specification: `input(options)` and `output(options)` are
+  `toJSONSchema` for the `target` the consumer names (`draft-2020-12`, `draft-07` or
+  `openapi-3.0`; anything else throws, as the specification asks) with `libraryOptions` as the
+  other options. A `Schema<D>` is a `StandardJSONSchemaV1<Infer<D>, Infer<D>>`; the typings
+  add `StandardConverter` and `StandardJSONSchemaOptions`.
 - **JSDoc and named types in the generated TypeScript.** The `description` of a field is the
-  JSDoc of its member and `deprecated: true` adds `@deprecated`. `model.toTypeScript({ named:
-  true })` and `schema.toInterface({ named: true })` give every enum a `type` and every nested
-  struct an `interface`, named after the entity and the field (`type UserRole`, `interface
-  UserName`) and rendered before the interface that uses them; `model.dts` is
-  `model.toTypeScript()`, and `saveTypes(file, model, options)` passes the options on.
+  JSDoc of its member and `deprecated: true` adds `@deprecated`. `toTypeScript(target, { named:
+  true })` gives every enum a `type` and every nested struct an `interface`, named after the
+  entity and the field (`type UserRole`, `interface UserName`) and rendered before the
+  interface that uses them; `saveTypes(file, target, options)` passes the options on.
   `InterfaceOptions` is the type of the options.
-- **Typings** for the export: `JSONSchema` (`Record<string, unknown>`), `JSONSchemaOptions`,
-  `ModelJSONSchemaOptions`, `JSONSchemaTarget`, and `ERR_UNREPRESENTABLE` in
-  `DefinitionErrorCode`.
+- **Typings** for the generators: `JSONSchema` (`Record<string, unknown>`), `JSONSchemaOptions`,
+  `ModelJSONSchemaOptions`, `JSONSchemaTarget`, `InterfaceOptions` in the core,
+  `src/generators/index.d.ts` for the subpath, and `ERR_UNREPRESENTABLE` in
+  `DefinitionErrorCode`. The methods `register()` installs are declared on `Schema` and `Model`.
 
 ### Changed
 
-- **The bundle is 15.7 KB min+gzip** (2.0 was 12.6 KB): the JSON Schema export lives in the
-  core, since `~standard.jsonSchema` has to be on the schema object, and costs 3 KB with the
-  dts annotations. CI gates at 16 KB (`pnpm size --max-gzip 16`).
+- **The core entry is 12.0 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
+  the array check of a struct joined it) and the generators subpath adds 3.9 KB. CI gates at
+  13 KB per core entry and 5 KB for the generators (`pnpm size --max-gzip 13
+  --max-gzip-generators 5`).
 
 ### Fixed
 
@@ -77,9 +89,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must agree on every verdict, for draft 2020-12 and draft-07. The known differences (UTF-16
   units against code points, instances on the output side, number keys) are documented in the
   file and in the guide.
-- New test suites: `jsonschema` (every form by target, the strict profile, the mongodb target,
-  the fixture model, the Standard converter), `jsonschema-ajv`, `dts` (JSDoc and named types),
-  `tests/types/jsonschema.test-d.ts`; the bundle and saveTypes tests cover the new API.
+- New test suites: `generators` (the subpath: the functions, `register()`, the core without it),
+  `jsonschema` (every form by target, the strict profile, the mongodb target, the fixture model,
+  the Standard converter), `jsonschema-ajv`, `dts` (JSDoc and named types),
+  `tests/types/jsonschema.test-d.ts`; the bundle test builds the core entry with the subpath,
+  the export-parity test covers the subpath, `pnpm size` reports the generators on top of the
+  core.
 
 ## [2.0.0] - 2026-10-10
 

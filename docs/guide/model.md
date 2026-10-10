@@ -42,8 +42,8 @@ const model = new Model(types, entities, database);
 | `model.database` | the `database` argument, or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
 | `model.warnings` | lint and consistency warnings, `Warning [code]: text` |
-| `model.dts` | TypeScript interfaces for every entity; `model.toTypeScript(options)` takes the [options](/guide/typescript#jsdoc-and-named-types) |
-| `model.toJSONSchema(options)` | every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of one entity |
+| `model.dts`, `model.toTypeScript(options)` | TypeScript interfaces for every entity, after `register()` of the [generators subpath](/guide/json-schema#the-generators-subpath); `toTypeScript(model, options)` without it |
+| `model.toJSONSchema(options)` | every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of one entity; `toJSONSchema(model, options)` of the subpath without `register()` |
 
 ```js
 model.order; // Set { 'Address', 'Company', 'User' }

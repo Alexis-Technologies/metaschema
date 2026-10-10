@@ -7,8 +7,9 @@ Guidance for Claude Code when working in this repository.
 **metaschema** (npm package `@alexify/metaschema`) is a metadata schema and interface definition
 language for JavaScript. Data structures and domain models are declared as plain objects; the
 package validates values against them (`Schema#check`), assembles them into domain models
-(`Model`), and renders TypeScript interfaces (`model.dts`). It has zero runtime dependencies and
-runs in Node.js ≥ 18 and browsers.
+(`Model`), and renders TypeScript interfaces and JSON Schema through the
+`@alexify/metaschema/generators` subpath (`toTypeScript`, `toJSONSchema`). It has zero runtime
+dependencies and runs in Node.js ≥ 18 and browsers.
 
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
@@ -31,14 +32,14 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>]        # esbuild bundle sizes for index.js and browser.js; CI gates at 16 KB min+gzip
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>]   # esbuild bundle sizes; CI gates at 13 KB per core entry and 5 KB for ./generators on top
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual only; --save writes bench/baseline.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
-before a merge adds what CI also runs: `pnpm size --max-gzip 16` and `pnpm docs:build`. There is
-no build step.
+before a merge adds what CI also runs: `pnpm size --max-gzip 13 --max-gzip-generators 5` and
+`pnpm docs:build`. There is no build step.
 
 ## No build step: CommonJS + hand-written types
 
@@ -60,8 +61,11 @@ no build step.
   and resolves the locale subpaths. `tests/types/*.test-d.ts` (tsd) pin signatures. `check:dts`
   needs `--target es2022` because there is no tsconfig.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
-  `default`; `./locales/en` and `./locales/uk`) and a `files` allowlist: `index.js`, `index.d.ts`,
-  `browser.js`, `src`, README, CHANGELOG, LICENSE and SECURITY.
+  `default`; `./locales/en`, `./locales/uk` and `./generators`, each with its own `types`) and a
+  `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
+  and SECURITY. `src/generators/index.d.ts` types the subpath and imports the option types from
+  the root `index.d.ts`, which also declares the methods `register()` installs on `Schema` and
+  `Model` (with a comment saying so): a type-level claim, like `types` of the Standard props.
 
 ## Zero dependencies
 
@@ -78,7 +82,15 @@ Upstream's loader is **deliberately gone**: `createSchema(name, src)`, `loadSche
 `readDirectory` and `loadModel`, together with the `metavm` sandbox they ran schema sources in.
 metaschema does not read schema files, evaluate source strings or create `node:vm` contexts. Do not
 reintroduce any of that. Callers pass schema objects to `Schema` and `Model`, loading them with
-their own `require`. `saveTypes` (writing `model.dts`) stays.
+their own `require`. `saveTypes` (writing the generated dts) stays, in the generators subpath.
+
+**The core entry validates; what a schema is rendered into lives in `./generators`.** JSON
+Schema and TypeScript generation were in the core until 2.1 and were moved out (Alex's decision,
+2026-10-10: a program that only validates should not carry them). The subpath exports functions
+(`toJSONSchema`, `toTypeScript`, `saveTypes`) and an explicit `register()` that installs the
+methods and the `~standard.jsonSchema` converter; nothing is registered by importing. A new
+emitter goes there too, never into `src/index.js`. Standard Schema (`~standard.validate`)
+stays in the core because consumers detect a schema with `'~standard' in schema`.
 
 ## Repository layout
 
@@ -88,24 +100,26 @@ src/
   index.js          public barrel (explicit named exports)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
-  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], dts rendering, ~standard
+  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], ~standard
   struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
   context.js        createContext: the state of one check ({ issues, count, limit, path, seen, unknown, root, messages })
   issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
   rules.js          rules per type: FORMAT (length, min, max, pattern), compileRules, code points
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field)
-  jsonschema.js     toJSONSchema/modelToJSONSchema (targets, strict profile, mongodb) and the ~standard converter
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
   types.js          TYPES registry, createType (static rules/options per type), typeFactory
-  model.js          Model: entities, ordering, warnings (lazy), dts/toTypeScript, toJSONSchema
+  model.js          Model: entities, ordering, warnings (lazy); branded 'Model'
   util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
   errors.js         SchemaDefinitionError (code, schema, field) for broken definitions
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       type prototypes: abstract, scalars (string, number, integer, bigint, boolean, date,
                     null, any/unknown, enum), collections, reference, schema, tuple, union, json
-  runtime/          node.js (saveTypes via node:fs) and browser.js (same interface, rejects)
+  runtime/          node.js (writeFile via node:fs) and browser.js (same interface, rejects)
+  generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, register),
+                    index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard converter),
+                    typescript.js (toInterface, modelToTypeScript: JSDoc, named types)
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
@@ -128,13 +142,15 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
   (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`)
   and `lint` (`util`) stand alone.
-- `jsonschema.js` requires `util`, `struct`, `errors` and `prototypes/reference.js` (`embeds`),
-  never `schema.js` or `model.js`: it takes their instances and reads `fields`, `unknown`,
-  `name`, `findReference` and the kind metadata.
 - `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct`, `lint`, `jsonschema` and `prototypes/reference.js` (for `embeds`, the one rule shared
-  by `check`, the dts and the JSON Schema export); `model.js` requires `schema`, `types`, `lint`,
-  `jsonschema`; `src/index.js` adds `runtime/node.js`.
+  `struct` and `lint`; `model.js` requires `schema`, `types`, `lint`, `util`; `src/index.js`
+  requires nothing else (no runtime).
+- `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
+  `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
+  generators), never `schema.js` or `model.js`: they take the instances and read `fields`,
+  `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
+  `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
+  generators; nothing in the core requires `generators/`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -291,19 +307,22 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 2.1 bundle budget is 16 KB min+gzip per entry** (`pnpm size --max-gzip 16` in CI; 16 KB =
-16384 bytes). The entries are at 16051 bytes (`index.js`) and 16063 bytes (`browser.js`), 15.7 KB,
-about 330 bytes of headroom. The figure is quoted in README, `docs/index.md`, `docs/guide/why.md`,
-`docs/guide/browser.md` and `docs/public/llms.txt`; change them together from `pnpm size`.
-History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took the entries to 9.9 KB (gate
-10 KB); Workstream B to 12.5 KB (union, date/null/any/integer, pattern and min/max, the references
-rule and the lint cost about 2.6 KB together; gate 13 KB); `~standard` added 174 bytes (2.0 shipped
-at 12.6 KB with a 13 KB gate); Workstream D2/D3 added 3122 bytes (the JSON Schema export with its
-four targets and the strict profile about 2.8 KB, the dts annotations and named types about 0.35
-KB; gate 16 KB). ROADMAP.md §5.8 planned 10 KB for 2.0 and 12 KB for 2.1; both were spent before
-D2, and the export stays in the core because `~standard.jsonSchema` has to be on the schema object
-(the alternative, a `./json-schema` subpath that registers a converter, is in the D2 hand-over
-note). The JIT (`./compile`) gets a budget of its own when it lands (ROADMAP §5.8 status).
+**The 2.1 bundle budgets are 13 KB min+gzip per core entry and 5 KB for the generators on top
+of it** (`pnpm size --max-gzip 13 --max-gzip-generators 5` in CI). The core entries are at 12321
+bytes (`index.js`) and 12325 bytes (`browser.js`), 12.0 KB, about 990 bytes of headroom; the
+`./generators` subpath adds 4041 bytes (3.9 KB) to a bundle of the core, measured as the
+difference between a bundle of `index.js` plus `src/generators/index.js` and `index.js` alone
+(the subpath requires the core for `register()`, so on its own it would bundle the core again).
+The figures are quoted in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`,
+`docs/guide/json-schema.md`, `docs/api/exports.md` and `docs/public/llms.txt`; change them
+together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
+the entries to 9.9 KB (gate 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer,
+pattern and min/max, the references rule and the lint cost about 2.6 KB together; gate 13 KB);
+`~standard` added 174 bytes (2.0 shipped at 12.6 KB with a 13 KB gate); Workstream D2/D3 first
+added 3122 bytes to the core (16051 bytes, gate 16 KB), then the generators (JSON Schema and
+the whole TypeScript rendering, about 3.9 KB) moved to the subpath, which took the core to 12.0
+KB (Alex's decision: the core validates, see "Out of scope by design"). ROADMAP.md §5.8 planned
+10 KB for 2.0 and 12 KB for 2.1. The JIT (`./compile`) gets a budget of its own when it lands.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -338,11 +357,14 @@ backend of Workstream E picks up.
 
 `src/runtime/node.js` is the **only** file allowed to require a Node builtin
 (`tests/unit/platform.test.js` enforces this). `src/runtime/browser.js` exports the identical
-interface. Today that is just `saveTypes`, which rejects in the browser. The swap happens through
-the `package.json` `browser` field (`./index.js → ./browser.js`,
-`./src/runtime/node.js → ./src/runtime/browser.js`) plus the `browser` condition in `exports`.
-`pnpm size` bundles `browser.js` with `platform: 'browser'`, so a leaked builtin fails CI. Renaming
-a runtime file means updating the `browser` map keys.
+interface. Today that is just `writeFile`, behind `saveTypes` of the generators subpath, which
+rejects in the browser; the core entry requires no runtime at all. The swap happens through the
+`package.json` `browser` field (`./index.js → ./browser.js`,
+`./src/runtime/node.js → ./src/runtime/browser.js`) plus the `browser` condition in `exports`;
+the `browser` map applies to the subpath too, since bundlers resolve it for every file of the
+package. `pnpm size` bundles `browser.js` with `platform: 'browser'`, and the bundle test builds
+the core with the subpath for both platforms, so a leaked builtin fails CI. Renaming a runtime
+file means updating the `browser` map keys.
 
 ## Conventions (oxlint/oxfmt + review)
 
@@ -399,11 +421,18 @@ change. **This file wins** if they ever disagree.
   from it.
 - The type registry is process-global, but `node --test` runs each test file in its own process,
   so files do not leak custom types into each other. Within one file, tests do share it.
-- `tests/unit/bundle.test.js` builds `browser.js` and `index.js` with esbuild in memory (minified
-  and not) and validates through the result, so a class-name-based identity check cannot come
-  back unnoticed. It runs in `pnpm test` on every matrix leg; esbuild supports Node 18. It also
-  calls `toJSONSchema`, `~standard.jsonSchema` and `toTypeScript({ named: true })` through the
-  bundles.
+- `tests/unit/bundle.test.js` builds `browser.js` and `index.js` together with
+  `src/generators/index.js` (one stdin entry, minified and not) and validates through the
+  result, so a class-name-based identity check cannot come back unnoticed. It runs in `pnpm test`
+  on every matrix leg; esbuild supports Node 18. It also calls the generator functions, then
+  `register()` and the methods, through the bundles, and `saveTypes` (rejects in the browser
+  build, writes into a temp directory in the node build).
+- `tests/unit/generators.test.js` covers the subpath: the functions on a Schema and a Model, the
+  `TypeError` for anything else, the core without `register()` (no methods, `~standard` with
+  three keys, no `saveTypes` export) and `register()` (idempotent, non-enumerable members, the
+  converter joining props built before the call). The other suites that use the methods
+  (`model`, `schema`, `references`, `dts`, `jsonschema`, ... ) call `register()` at the top;
+  `standard.test.js` does not, so it pins the core alone.
 - `tests/unit/jsonschema.test.js` pins every form of the language by target (a `fieldOf(def,
   options)` helper renders `{ x: def }` and reads `properties.x`), the strict profile, the
   mongodb target, the error locations, the fixture model and the Standard converter. The type
@@ -433,9 +462,10 @@ change. **This file wins** if they ever disagree.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
   the fixtures cannot be imported for inference) and the interfaces `model.dts` renders for it.
-- Workstream D2/D3 suites: `jsonschema.test.js`, `jsonschema-ajv.test.js`, `dts.test.js` (see
-  above) and `tests/types/jsonschema.test-d.ts`, which pins the assignability to
-  `StandardJSONSchemaV1` of `@standard-schema/spec` and the option types.
+- Workstream D2/D3 suites: `generators.test.js`, `jsonschema.test.js`, `jsonschema-ajv.test.js`,
+  `dts.test.js` (see above) and `tests/types/jsonschema.test-d.ts`, which pins the assignability
+  to `StandardJSONSchemaV1` of `@standard-schema/spec`, the option types and the subpath's
+  functions (`tsd` resolves `src/generators/index.d.ts` next to the entry).
 - Workstream B suites: `syntax.test.js` (the first key), `numbers.test.js` (min/max, integer,
   rules per type, unicode length), `pattern.test.js`, `nullable.test.js`, `values.test.js` (date,
   null, any), `union.test.js`, `references.test.js` (storage view, graph view, dts) and
@@ -526,6 +556,12 @@ change. **This file wins** if they ever disagree.
 - **An array is not a struct.** `compileStruct` rejects an array with `not of expected type:
   object` (2.1); before, a struct with only optional fields accepted `[]` because `typeof [] ===
   'object'` and the walk found nothing to complain about.
+- **`schema.toJSONSchema`, `model.dts` and `schema['~standard'].jsonSchema` do not exist until
+  `register()` of the generators subpath ran.** The core typings declare them anyway (a
+  type-level claim, commented), the functions of the subpath do the same job without the
+  registration, and `register()` is idempotent and process-wide, like the type registry. The
+  `~standard` props of a schema built before the registration gain `jsonSchema` on the next
+  access (the override adds it to the cached object).
 - **A missing optional field never calls `Object.hasOwn`.** `value[key]` is read first; `hasOwn`
   decides only between a missing required key (`required`) and one set to `undefined` (a `type`
   issue), and is asked first only for a field named after a member of `Object.prototype` (plan

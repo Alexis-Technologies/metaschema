@@ -1,13 +1,15 @@
 # JSON Schema
 
-`schema.toJSONSchema(options)` renders a schema as a [JSON Schema](https://json-schema.org)
-document, and `model.toJSONSchema(options)` renders every entity of a model. The document says
-what `check` says: a struct is an object with its required keys and no others, an optional field
-accepts `null`, a rule is the matching keyword, and a reference is an id or the record by the
-kind of its target. Four dialects are supported, plus a profile for LLM structured outputs.
+`toJSONSchema(schema, options)` of the `@alexify/metaschema/generators` subpath renders a schema
+as a [JSON Schema](https://json-schema.org) document, and `toJSONSchema(model, options)` every
+entity of a model. The document says what `check` says: a struct is an object with its required
+keys and no others, an optional field accepts `null`, a rule is the matching keyword, and a
+reference is an id or the record by the kind of its target. Four dialects are supported, plus a
+profile for LLM structured outputs.
 
 ```js
 const { Schema } = require('@alexify/metaschema');
+const { toJSONSchema } = require('@alexify/metaschema/generators');
 
 const user = new Schema('User', {
   login: { type: 'string', length: { min: 3, max: 32 }, description: 'The login name' },
@@ -17,7 +19,7 @@ const user = new Schema('User', {
   address: { city: 'string', 'zip?': { type: 'string', pattern: '^\\d{5}$', length: 5 } },
 });
 
-user.toJSONSchema();
+toJSONSchema(user);
 // {
 //   $schema: 'https://json-schema.org/draft/2020-12/schema',
 //   type: 'object',
@@ -46,6 +48,32 @@ validator, a tool definition or [ajv](https://ajv.js.org). The repository checks
 for values generated from the schemas, `check` and ajv over `toJSONSchema` agree on every
 verdict (`tests/unit/jsonschema-ajv.test.js`).
 
+## The generators subpath
+
+The generators live outside the core entry so that a program that only validates does not
+carry them: `@alexify/metaschema` is 12.0 KB min+gzip, `@alexify/metaschema/generators` adds
+3.9 KB on top. The subpath exports four functions:
+
+| Export | Meaning |
+| --- | --- |
+| `toJSONSchema(target, options?)` | the JSON Schema document of a `Schema`, or of a `Model` |
+| `toTypeScript(target, options?)` | the TypeScript interface of a `Schema`, or the interfaces of every entity of a `Model`; see [TypeScript](/guide/typescript#generating-interfaces-from-a-model) |
+| `saveTypes(outputFile, target, options?)` | writes `toTypeScript(target, options)` to a file |
+| `register()` | installs the methods: `schema.toJSONSchema(options)`, `schema.toInterface(options)`, `model.toJSONSchema(options)`, `model.toTypeScript(options)`, `model.dts`, and the [`jsonSchema` converter](/guide/standard-schema#json-schema) on `schema['~standard']` |
+
+`register()` runs once per process (later calls do nothing) and installs the members on the
+`Schema` and `Model` classes like class members, invisible to `Object.keys`, `JSON.stringify`
+and `for...in`. Call it at startup when the methods read better than the functions, or when a
+Standard JSON Schema consumer needs `schema['~standard'].jsonSchema`:
+
+```js
+require('@alexify/metaschema/generators').register();
+
+user.toJSONSchema({ target: 'draft-07' }); // the same document as toJSONSchema(user, { target: 'draft-07' })
+```
+
+The rest of this page uses the functions; every example reads the same with the methods.
+
 ## Options
 
 | Option | Values | Meaning |
@@ -57,8 +85,8 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 | `references` | `'kind'` (default), `'embed'`, `'id'` | how a reference renders, as in [`check`](/guide/references#storage-view-and-graph-view) |
 | `definitions` | a pointer such as `'#/$defs/'` | where a `$ref` points and where the definitions are placed; the default depends on the target |
 
-`model.toJSONSchema` takes the same options plus `root`, the entity at the root of the document
-(see [Models](#models)).
+`toJSONSchema(model, options)` takes the same options plus `root`, the entity at the root of the
+document (see [Models](#models)).
 
 ## Targets
 
@@ -121,11 +149,11 @@ document and has one side only: a `date` is a BSON date, a `map` a document, a `
 form.
 
 ```js
-Schema.from({ amount: 'bigint' }).toJSONSchema();
+toJSONSchema(Schema.from({ amount: 'bigint' }));
 // throws SchemaDefinitionError [ERR_UNREPRESENTABLE]:
 //   Type "bigint" cannot be represented in JSON Schema target "draft-2020-12" in "amount"
 
-Schema.from({ amount: 'bigint' }).toJSONSchema({ unrepresentable: 'any' });
+toJSONSchema(Schema.from({ amount: 'bigint' }), { unrepresentable: 'any' });
 // { $schema: '...', type: 'object', properties: { amount: {} }, required: ['amount'], additionalProperties: false }
 ```
 
@@ -150,7 +178,7 @@ const model = new Model(types, new Map([
   ['Person', { Entity: {}, name: 'string', employer: 'Company', tags: { many: 'Tag' }, created: 'datetime' }],
 ]));
 
-model.entities.get('Person').toJSONSchema();
+toJSONSchema(model.entities.get('Person'));
 // {
 //   $schema: 'https://json-schema.org/draft/2020-12/schema',
 //   type: 'object',
@@ -176,7 +204,7 @@ model.entities.get('Person').toJSONSchema();
 //   }
 // }
 
-model.entities.get('Person').toJSONSchema({ references: 'embed' }).properties.employer;
+toJSONSchema(model.entities.get('Person'), { references: 'embed' }).properties.employer;
 // { $ref: '#/$defs/Company' }
 ```
 
@@ -187,23 +215,23 @@ A reference the schema cannot resolve (outside a model) is an id, unless the fie
 
 ## Models
 
-`model.toJSONSchema()` is one document with every entity as a definition, in dependency order,
+`toJSONSchema(model)` is one document with every entity as a definition, in dependency order,
 and no root type; with `{ root: 'Person' }` it is the document of that entity with the
-definitions it needs, the same as `model.entities.get('Person').toJSONSchema()`:
+definitions it needs, the same as `toJSONSchema(model.entities.get('Person'))`:
 
 ```js
-model.toJSONSchema();
+toJSONSchema(model);
 // { $schema: '...', $defs: { Tag: {...}, Company: {...}, Person: {...} } }
 
-model.toJSONSchema({ target: 'openapi-3.0' });
+toJSONSchema(model, { target: 'openapi-3.0' });
 // { components: { schemas: { Tag: {...}, Company: {...}, Person: {...} } } }
 
-model.toJSONSchema({ target: 'mongodb' });
+toJSONSchema(model, { target: 'mongodb' });
 // { Tag: {...}, Company: {...}, Person: {...} }  (one $jsonSchema per entity)
 ```
 
 Each entity is closed or open by its own `unknown` policy. An entity renders the same through
-`model.toJSONSchema({ root })` and through its own `toJSONSchema`.
+`toJSONSchema(model, { root })` and on its own.
 
 ## The strict profile
 
@@ -221,7 +249,7 @@ const answer = new Schema('Answer', {
   sentiment: { enum: ['positive', 'neutral', 'negative'] },
 });
 
-answer.toJSONSchema({ profile: 'strict' });
+toJSONSchema(answer, { profile: 'strict' });
 // {
 //   $schema: 'https://json-schema.org/draft/2020-12/schema',
 //   type: 'object',
@@ -245,7 +273,7 @@ model's answer with `check` afterwards, which applies them all:
 const tool = {
   name: 'record_answer',
   description: 'Records the answer to the question',
-  input_schema: answer.toJSONSchema({ profile: 'strict' }),
+  input_schema: toJSONSchema(answer, { profile: 'strict' }),
   strict: true,
 };
 // ... after the call:
@@ -268,7 +296,7 @@ and throws. The root of a closed document lets `_id` in, since every stored docu
 declare `_id` as a field to constrain it.
 
 ```js
-user.toJSONSchema({ target: 'mongodb' });
+toJSONSchema(user, { target: 'mongodb' });
 // {
 //   bsonType: 'object',
 //   properties: {
@@ -283,7 +311,7 @@ user.toJSONSchema({ target: 'mongodb' });
 //   additionalProperties: false
 // }
 
-for (const [name, $jsonSchema] of Object.entries(model.toJSONSchema({ target: 'mongodb' }))) {
+for (const [name, $jsonSchema] of Object.entries(toJSONSchema(model, { target: 'mongodb' }))) {
   await db.createCollection(name, { validator: { $jsonSchema } });
 }
 ```
@@ -319,6 +347,7 @@ Everything the document does say is checked against ajv in the repository, for t
 ## TypeScript
 
 `toJSONSchema` returns `JSONSchema`, an alias of `Record<string, unknown>`; the options are
-`JSONSchemaOptions` and `ModelJSONSchemaOptions`, the targets `JSONSchemaTarget`. Every schema
-is also a Standard JSON Schema through `schema['~standard'].jsonSchema`; see
-[Standard Schema](/guide/standard-schema#json-schema).
+`JSONSchemaOptions` and `ModelJSONSchemaOptions`, the targets `JSONSchemaTarget`, all exported
+by the core typings. The methods `register()` installs are declared on `Schema` and `Model`.
+Every schema is also a Standard JSON Schema through `schema['~standard'].jsonSchema` once the
+generators are registered; see [Standard Schema](/guide/standard-schema#json-schema).
