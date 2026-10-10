@@ -80,6 +80,19 @@ const checkBundle = ({ Schema, Model }) => {
   assert.deepStrictEqual(errorsOf(person.check({ employer: { name: 1 } })), [
     'Field "Person.employer.name" not of expected type: string',
   ]);
+
+  // The Standard Schema accessor survives the bundler: a computed key on the
+  // class and a private field behind it.
+  const standard = flat['~standard'];
+  assert.strictEqual(standard.version, 1);
+  assert.strictEqual(standard.vendor, 'alexify.metaschema');
+  assert.strictEqual('~standard' in person, true);
+  const value = { name: 'Marcus', age: 1 };
+  assert.strictEqual(standard.validate(value).value, value);
+  const failed = standard.validate({ name: 1, age: 1 });
+  const issues = Array.from(failed.issues, (issue) => [issue.message, Array.from(issue.path)]);
+  assert.deepStrictEqual(issues, [['not of expected type: string', ['name']]]);
+  assert.strictEqual(JSON.stringify(flat).includes('~standard'), false);
 };
 
 for (const minify of [false, true]) {

@@ -1,7 +1,7 @@
 {
   "name": "@alexify/metaschema",
   "version": "1.0.0",
-  "description": "Zero-dependency metadata schema and interface definition language (IDL) for Node.js and browsers \u2014 data validation, domain models and TypeScript generation",
+  "description": "Zero-dependency metadata schema and interface definition language (IDL) for Node.js and browsers — data validation, domain models and TypeScript generation",
   "license": "MIT",
   "author": "Alex Dolid <dolid.sasha@gmail.com>",
   "repository": {
@@ -90,6 +90,7 @@
     "metarhia"
   ],
   "devDependencies": {
+    "@standard-schema/spec": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "c8": "^12.0.0",

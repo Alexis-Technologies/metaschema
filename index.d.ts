@@ -669,12 +669,42 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
   Infer<E[Name], E> & IdOf<Name, E[Name]>
 >;
 
+// Standard Schema v1 (https://standardschema.dev): the interface every schema
+// exposes as `schema['~standard']`, so tRPC, TanStack Form, Hono and the other
+// consumers of the specification accept it without an adapter. The shape is
+// written out here because this file cannot import `@standard-schema/spec` (a
+// devDependency); tests/types/standard.test-d.ts pins that a `Schema<D>` is a
+// `StandardSchemaV1<Infer<D>, Infer<D>>` of that package.
+
+// The vendor-specific options of a `validate` call are the options of `check`.
+export interface StandardOptions {
+  readonly libraryOptions?: CheckOptions | undefined;
+}
+
+// A verdict, not a transformation: a valid value comes back as it was given,
+// and the issues of an invalid one are the result's own (`message` and
+// `path`, as the specification reads them, plus `code` and `params`).
+export type StandardResult<T> =
+  | { readonly value: T; readonly issues?: undefined }
+  | { readonly issues: ReadonlyArray<ValidationIssue> };
+
+export interface StandardProps<D = string | object> {
+  readonly version: 1;
+  readonly vendor: 'alexify.metaschema';
+  readonly validate: (value: unknown, options?: StandardOptions) => StandardResult<Infer<D>>;
+  // Nothing is transformed, so the input type is the output type. Type-level
+  // only: no property of the object holds it.
+  readonly types?: { readonly input: Infer<D>; readonly output: Infer<D> } | undefined;
+}
+
 // `D` is the definition the schema was built from, kept as a type only (no
 // instance property holds it): `Schema.from({ name: 'string' })` is a
 // `Schema<{ readonly name: 'string' }>`, and `InferSchema` reads `D` from it.
 // The const type parameter keeps the literal types of an inline definition.
 export class Schema<const D extends string | object = string | object> {
   readonly '~definition'?: D;
+  // Standard Schema v1, built on first use; see `StandardProps`.
+  readonly '~standard': StandardProps<D>;
 
   static from<const D extends string | object>(raw: D, namespaces?: Array<Model>): Schema<D>;
   static extractSchema(def: object): Schema | null;

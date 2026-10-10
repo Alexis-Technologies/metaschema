@@ -124,6 +124,9 @@ class Schema extends SchemaMetadata {
   // path never pays for it.
   #warnings = null;
 
+  // The Standard Schema props, built on first use.
+  #standard = null;
+
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
   }
@@ -170,6 +173,25 @@ class Schema extends SchemaMetadata {
   get warnings() {
     if (this.#warnings === null) this.#warnings = lintSchema(this);
     return this.#warnings;
+  }
+
+  // Standard Schema v1 (https://standardschema.dev): the interface tRPC,
+  // TanStack Form, Hono and the other consumers of the specification validate
+  // through. A verdict only: a valid value comes back as it is, and the
+  // issues of an invalid one are the result's own (a message and a path of
+  // keys each). The vendor-specific `libraryOptions` of a call are the
+  // options of `check`. An accessor of the prototype stays out of toJSON,
+  // inspect and Object.keys, and `validate` closes over the schema because a
+  // consumer calls it unbound.
+  get '~standard'() {
+    if (this.#standard === null) {
+      const validate = (value, options) => {
+        const result = this.check(value, options == null ? undefined : options.libraryOptions);
+        return result.valid ? { value } : { issues: result.issues };
+      };
+      this.#standard = { version: 1, vendor: 'alexify.metaschema', validate };
+    }
+    return this.#standard;
   }
 
   get types() {
