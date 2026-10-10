@@ -7,78 +7,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The validation core is rewritten for 2.0: every check is compiled into a closure when the schema
-is built, issues are data with array paths and params, messages are rendered through a locale at
-the end of a check, and `check` takes an options object. The schema language gets honest
-semantics: the first key of a definition decides what it is, numbers are bounded by `min`/`max`,
-a reference follows the kind of its target, and `integer`, `date`, `null`, `any`, `union`,
-`nullable` and `pattern` join the language.
+2.0 rewrites the validation core and settles the semantics of the schema language. Every check
+is compiled into a closure when the schema is built and runs in a context of its own; issues
+are data (a code, the path as an array of keys, the params the message is made from), messages
+are rendered through a locale at the end of a check, and `check` takes an options object. The
+first key of a definition decides what it is, numbers are bounded by `min` and `max`, a
+reference follows the kind of its target, and `integer`, `date`, `null`, `any`, `union`,
+`nullable` and `pattern` join the language. TypeScript infers the type of a value from the
+definition (`Infer`), and every schema is a Standard Schema. Everything that changes the shape
+of a result or the meaning of a definition is listed under Upgrading; the rest is additive.
 
 ### Upgrading from 1.x
 
+The same guide with before-and-after examples is
+[Migrating from 1.x](https://metaschema.vercel.app/guide/migrating-from-1).
+
+**Validation**
+
+- **`check(value, path, options)` → `check(value, options)`.** The root label of the error
+  lines is `options.root`: `schema.check(value, 'body', { maxErrors: 1 })` becomes
+  `schema.check(value, { root: 'body', maxErrors: 1 })`, and a string in place of the options
+  throws a `TypeError` that says so. The options are `root`, `maxErrors`, `unknown`,
+  `references` and `messages`.
+- **`issue.path` is an array of keys** (`['tags', 1, 'name']`, what Standard Schema expects),
+  not a string, and it never includes the root. `issue.message` describes the problem without
+  its location (`is required`) and `issue.params` carries what it was made from
+  (`{ expected: 'number', received: 'string' }`); the line with the location is
+  `result.errors[i]` (`Field "User.name" is required`), rendered on first use. A key that is
+  not an identifier is bracketed (`o["a.b"]`, was `o.a.b`) and a tuple element is addressed by
+  index (`point[1]`, was `point(item1)` or `point(y1)` for a named element). A `validate`
+  function may return `{ code, message, path, params }` of its own; its `path` (a key or an
+  array of keys) is relative to the field (`{ message, path: 'x' }` on `a` reports `a.x`; 1.x
+  ignored it).
+- **Unknown keys are one issue per struct**: `{ code: 'unexpected', params: { keys } }` at the
+  path of the struct, rendered as `Field "" has unexpected keys: b, c` (was one
+  `Field "b" is not expected` per key), and `maxErrors` counts them as one.
+  `check(value, { unknown: 'ignore' })` accepts them, and `{ Form: { unknown: 'ignore' }, ... }`
+  makes that the default of the schema.
+- **A type failure cancels the rules and `validate` of the field.** A field is checked in the
+  order type, rules, `validate`, each step only when the one before it passed; 1.x reported
+  `not of expected type: string`, the `length` message and the validator's message together.
+  The schema-level `validate` runs after the fields and only when every field passed (it used
+  to run first, and always).
+- **`new ValidationResult(path)` → `new ValidationResult(options?)`** (`{ root, messages }`). A
+  result a `validate` function returns is relative to its field, so build it with no arguments
+  and `add` messages. `ValidationResult.format` is gone;
+  `ValidationResult.issuesOf(error, path?, code?)` takes the path as keys.
+- **Cycle detection lives at references.** A value that refers back to itself is reported as
+  `circular` where a reference (`'Category'`, `{ many }`) meets it again, as before; a schema
+  without references cannot recurse, so such a value is walked as far as the schema goes and
+  reported for what it is (unexpected keys, wrong types, or nothing) instead of as `circular`.
+- **The tuple length message** is `exceeds the maximum length` with `params: { max, actual }`
+  (was `value length is more than expected in tuple`). The wording of every other message is
+  unchanged.
+- **Warnings carry a code**: `Warning [missing-reference]: "Customer" referenced by "Order" is
+  not found` (was `Warning: "Customer" ...`), `Warning [recursive-reference]: ...`, and the new
+  lint adds `unknown-option`, `unbounded-pattern` and `missing-index-field` to `model.warnings`,
+  which is computed on first use.
+- **`field.check(value, context, key)`** is the compiled check of a field and records into the
+  context of a check; call `schema.check`. `compile` joins the reserved keys of a field
+  definition (`ERR_RESERVED_KEY`).
+
+**The schema language**
+
 - **The first key of an object decides what it is.** The long form is read only when `type` is
-  the first key; any other first key that is not a kind or a type name is a nested struct.
-  `{ name: 'string', type: 'string' }` is a struct with two fields (it used to become a string
-  silently); `{ required: false, type: 'string' }` throws `ERR_INVALID_DEFINITION`. A struct whose
-  first field is called `type` or named like a type (`date`, `null`, `any`, `integer`, `union`
-  are type names now) needs a kind (`{ Struct: {}, ... }`) or the `schema` shorthand.
+  the first key; a capitalized first key is a kind, a type name is that type's shorthand, and
+  any other first key is a nested struct. `{ name: 'string', type: 'string' }` is a struct with
+  two fields (1.x read it as a string); `{ required: false, type: 'string' }` throws
+  `ERR_INVALID_DEFINITION`. A struct whose first field is called `type`, or named like a type
+  (`date`, `null`, `any`, `unknown`, `integer` and `union` are type names now), needs a kind
+  (`{ Struct: {}, ... }`) or the `schema` shorthand; `schema.warnings` reports the options such
+  a struct would otherwise leave on the type.
 - **`length` on a number is an error.** `number`, `bigint` and the new `integer` are bounded by
-  `min` and `max` (`{ type: 'number', length: [18, 120] }` → `{ type: 'integer', min: 18, max:
-  120 }`); a `length` there throws `ERR_INVALID_RULE` with that hint, and a failed bound is a
-  `range` issue (`is less than 18`), not `length`. Every type lists the rules it accepts, so a rule
-  on a type that does not take it (`min` on a string, `length` on a boolean) throws too; a custom
-  type opts in with `rules: [...]` and an alias takes the rules of its base.
+  `min` and `max`: `{ type: 'number', length: [18, 120] }` becomes
+  `{ type: 'integer', min: 18, max: 120 }`. A `length` there throws `ERR_INVALID_RULE` with
+  that hint, and a failed bound is a `range` issue (`is greater than 120`), not `length`
+  (`exceeds the maximum length`). Every type lists the rules it accepts, so `min` on a string
+  or `length` on a boolean throws too; a custom type opts in with `rules: [...]`, and an alias
+  takes the rules of its base. A `length` whose `min` is above its `max` throws
+  `ERR_INVALID_LENGTH` (1.x accepted it).
 - **A reference follows the kind of its target.** A reference to a stored kind (`Entity`,
-  `Registry`, …) validates as an id (`employer: 'c1'`, `addresses: ['a1']`) and a reference to a
-  memory kind (`Struct`, `Form`, …) as the record; 1.x always expected the record. Validate a
-  whole graph with `check(value, { references: 'embed' })`, rows with `{ references: 'id' }`, or
-  fix one field with `embed: true`/`false`. An id never recurses, so a cyclic value through stored
-  kinds is a type error, not `circular`. The generated TypeScript follows the same rule: a
-  memory-kind reference renders as its interface (`label: Tag`) instead of `labelId: string`.
-- **`set` renders as `Set<T>`** in the generated TypeScript (it was `T[]` while `check` accepted
-  only a `Set`), and **the `relations` labels are swapped** to the conventional direction: a
-  `many` field is `'one-to-many'`, a single reference `'many-to-one'`.
-- **A tuple element may be any definition.** `[{ x: 'number' }]` is still a named number (one key
-  holding a type name); `[{ x: 'number', y: 'number' }]` is a struct element. `ERR_INVALID_TUPLE`
-  is for a definition that is not an array or an element that is a function.
-- **Warnings carry a code**: `Warning [missing-reference]: "Address" referenced by "Company" is
-  not found`, `Warning [recursive-reference]: …`. `schema.warnings` and `model.warnings` are
-  computed on first use.
-- **Bundle budget.** The entries are at 12.6 KB min+gzip; CI gates at 13 KB (was 10 KB).
+  `Registry`, ...) validates as an id (`employer: 'c1'`, `addresses: ['a1']`) and a reference
+  to a memory kind (`Struct`, `Form`, ...) as the record; 1.x always expected the record and
+  rejected an id as `not of expected type: object`. Validate a whole graph with
+  `check(value, { references: 'embed' })`, rows with `{ references: 'id' }`, or fix one field
+  with `embed: true`/`false`. An id never recurses, so a cyclic value through stored kinds is a
+  type error, not `circular`. The generated TypeScript follows the same rule, so a memory-kind
+  reference renders as its interface (`label: Tag`) instead of `labelId: string`.
+- **`set` renders as `Set<T>`** in the generated TypeScript (it was `T[]` while `check`
+  accepted only a `Set`; `map` was already `Map<K, V>`).
+- **The `relations` labels are swapped** to the conventional direction, read from the
+  referencing side: a `many` field is `'one-to-many'` and a single reference `'many-to-one'`.
+- **A tuple element may be any definition**, not only a scalar. `[{ x: 'number' }]` is still a
+  named number (one key holding a type name); `[{ x: 'number', y: 'number' }]` is a struct
+  element (1.x read it as the named number `x` and reported `t(x0)`). `ERR_INVALID_TUPLE` is
+  for a definition that is not an array or an element that is a function.
+- **A `Schema` instance as a field keeps its schema-level `validate`** in every form (bare,
+  `{ schema }`, the long form); 1.x dropped it, so a value that passed may now fail.
+
+**Tooling**
+
 - **The typings need TypeScript 5.0 or later.** `Schema` is generic over its definition
   (`Schema<D>`, a const type parameter); `Schema` written on its own is still any schema, and
   `Model.entities` is still a `Map<string, Schema>`.
-
-- **`check(value, path, options)` → `check(value, options)`.** The root path is
-  `options.root`; a string in its place throws a `TypeError` that says so.
-  `schema.check(value, 'body', { maxErrors: 1 })` becomes
-  `schema.check(value, { root: 'body', maxErrors: 1 })`.
-- **`issue.path` is an array of keys** (`['tags', 1, 'name']`, as Standard Schema expects), not
-  a string, and it never includes the root. `issue.message` describes the problem without its
-  location (`is required`); the line with the location is `result.errors[i]`
-  (`Field "User.name" is required`). Issues carry `params`, and tuple elements are addressed by
-  index (`point[1]`, was `point(y1)`).
-- **Unknown keys are one issue per struct**, `{ code: 'unexpected', params: { keys } }` at the
-  path of the struct: `Field "" has unexpected keys: a, b` (was one `Field "a" is not expected`
-  per key). `check(value, { unknown: 'ignore' })` accepts them.
-- **A type failure cancels the rules and `validate` of the field**, and `validate` (of a field or
-  of a schema) runs only on a value that passed everything before it: a schema-level `validate`
-  therefore runs after the fields and not when a field failed. Rules run before `validate`.
-- **`new ValidationResult(path)` → `new ValidationResult(options?)`** (`root`, `messages`). A
-  result a `validate` function returns is relative to its field, so build it with no arguments
-  and `add` messages, or `{ message, path }` objects with a relative `path` (a key or keys). A
-  returned issue's `path` is relative to the field (it used to replace the path).
-  `ValidationResult.format` is gone; `ValidationResult.issuesOf(error, path?, code?)` takes the
-  path as keys.
-- **Cycle detection is at references.** A value that refers back to itself is reported as
-  `circular` where a reference (`'Category'`, `{ many }`) meets it again; a schema without
-  references cannot recurse, so such a value is walked as far as the schema goes and reported for
-  what it is (unexpected keys, wrong types) instead of as `circular`.
-- **`field.check(value, context)`** is the compiled check and records into the context of a
-  check; call `schema.check` instead. A field definition key named `compile` is reserved;
-  `entries` no longer is.
-- **The tuple length message** is `exceeds the maximum length` (was
-  `value length is more than expected in tuple`), with `params: { max, actual }`.
+- **The bundle is 12.6 KB min+gzip** (1.0 was under 8 KB), and CI gates at 13 KB.
 
 ### Added
 
@@ -92,10 +124,9 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
   `Schema<D>` with a const type parameter, so `Schema.from({ ... })` keeps the literal types of
   an inline definition and `InferSchema<typeof schema>` reads them; a definition declared apart
   needs `as const`. `Infer<D, E>` takes an entity map and resolves a reference to a memory kind
-  (or `embed: true`) as the record and a projection as its parent's fields; `InferEntity<E,
-  'Name'>` adds the id field of a stored kind. Custom types are declared for inference through
-  module augmentation of `CustomTypes`; an unknown name infers as `unknown`. The typings need
-  TypeScript 5.0 or later.
+  (or `embed: true`) as the record and a projection as its parent's fields;
+  `InferEntity<E, 'Name'>` adds the id field of a stored kind. Custom types are declared for
+  inference through module augmentation of `CustomTypes`; an unknown name infers as `unknown`.
 - **Standard Schema v1.** Every `Schema` exposes `schema['~standard']`
   (`{ version: 1, vendor: 'alexify.metaschema', validate }`), the interface tRPC, TanStack Form,
   Hono and the other consumers of [standardschema.dev](https://standardschema.dev) accept
@@ -107,70 +138,98 @@ a reference follows the kind of its target, and `integer`, `date`, `null`, `any`
   `StandardOptions`), and a `Schema<D>` is a `StandardSchemaV1<Infer<D>, Infer<D>>` of
   `@standard-schema/spec`, which the package does not depend on.
 - **New built-in types.** `integer` (`Number.isInteger`), `date` (a `Date` with a valid time),
-  `null`, `any` and `unknown` (one type under two names, differing in the TypeScript they render),
-  and `union`: `{ union: ['string', 'number'] }` keeps the first branch that reports nothing;
-  `{ union: [...], discriminator: 'kind' }` picks the branch from an enum field in one lookup,
-  built when the schema is built, and reports an unknown value as one `union` issue at the
-  discriminator's path. A definition that cannot discriminate throws `ERR_INVALID_UNION`.
+  `null`, `any` and `unknown` (one type under two names, differing in the TypeScript they
+  render), and `union`: `{ union: ['string', 'number'] }` keeps the first branch that reports
+  nothing; `{ union: [...], discriminator: 'kind' }` picks the branch from an enum field in one
+  lookup, built when the schema is built, and reports an unknown value as one `union` issue at
+  the discriminator's path. A definition that cannot discriminate throws `ERR_INVALID_UNION`.
 - **`nullable: true`**: a required key whose value may be `null`, apart from optional (`'?type'`,
-  `undefined` or `null`). It applies to any type and renders as `T | null`.
-- **`min` and `max`** for `number`, `integer` and `bigint`, as numbers or bigints compared exactly
-  (never through `Number`), with the `range` issue `{ min, max, actual }`.
+  `undefined` or `null`). It applies to any type, skips the rules and `validate` for `null`,
+  and renders as `T | null`.
+- **`min` and `max`** for `number`, `integer` and `bigint`, as numbers or bigints compared
+  exactly (never through `Number`), with the `range` issue `{ min, max, actual }`.
 - **`pattern`** for strings, a string or a `RegExp` compiled once with the `u` flag (and without
   `g`/`y`), with the `pattern` issue `{ pattern }`; the validation guide has a section on ReDoS.
 - **`unicode: true`** measures a string's `length` in code points instead of UTF-16 units.
 - **The unknown-keys policy as metadata**: `{ Form: { unknown: 'ignore' }, ... }` is the default
   of that schema's `check`; the option of a call still wins.
-- **`check` option `references`** (`'kind'`, `'embed'`, `'id'`) and the field option `embed`.
-- **Definition lint.** `schema.warnings` reports an option the field's type does not read
-  (`unknown-option`; `default`, `unique`, `index`, `primary`, `title`, `description`, `examples`
-  and `deprecated` are known annotations), a `pattern` without `length.max`
-  (`unbounded-pattern`) and an index over a missing field (`missing-index-field`);
-  `model.warnings` adds `missing-reference`, `missing-type` and `recursive-reference`.
-- **Definition error codes** `ERR_INVALID_RULE` and `ERR_INVALID_UNION`; `ERR_INVALID_LENGTH`
-  also for a `min` above `max`.
-- **Types**: `FieldType.nullable` and `embed`, `Schema.unknown` and `warnings`,
-  `CheckOptions.references`, `CheckContext.references`, `IssueParams.range`, `pattern` and
-  `union`.
-- **Issues with params.** `result.issues` is `{ code, path, message, params }`: `type { expected,
-  received }` (plus `key` for a wrong key type in an `object` or `map`), `unexpected { keys }`,
-  `enum { values }`, `length { min, max, actual }`, `reference { entity }`, `exception { error }`.
-  A `validate` function may return `{ code, message, path, params }` of its own.
+- **`check` options** `root`, `maxErrors`, `unknown` (`'reject'` | `'ignore'`), `references`
+  (`'kind'`, `'embed'`, `'id'`) and `messages`, validated when the check starts, and the field
+  option `embed` on a reference.
+- **Issues with params.** `result.issues` is `{ code, path, message, params }`:
+  `type { expected, received }` (plus `key` for a wrong key type in an `object` or `map`),
+  `unexpected { keys }`, `enum { values }`, `length { min, max, actual }`,
+  `range { min, max, actual }`, `pattern { pattern }`, `union { expected, discriminator }`,
+  `reference { entity }`, `exception { error }`.
 - **Locales.** Messages are rendered once, at the end of a check, from the code and params of
   each issue through `options.messages`: a locale table (partial tables fall back to English) or
   a function. English is built in, Ukrainian is exported as `@alexify/metaschema/locales/uk`
   (and English as `@alexify/metaschema/locales/en`).
-- **`check` options** `root`, `maxErrors`, `unknown` (`'reject'` | `'ignore'`) and `messages`,
-  validated when the check starts.
 - **`result.summary`, `result.flatten()` and `result.tree()`** for CLIs and forms, and
   `result.errors` as a lazy view rendered on first use.
-- **Types**: `IssueParams`, `IssueOf<Code>`, `Locale`, `Messages`, `ResultOptions`, `FlatIssues`,
-  `IssueTree` and `CheckContext`; `ValidationIssue` is a union by code.
+- **Definition lint.** `schema.warnings` reports an option the field's type does not read
+  (`unknown-option`; `default`, `unique`, `index`, `primary`, `title`, `description`, `examples`
+  and `deprecated` are known annotations), a `pattern` without `length.max`
+  (`unbounded-pattern`) and an index over a missing field (`missing-index-field`);
+  `model.warnings` adds `missing-reference`, `missing-type` and `recursive-reference`. Both are
+  computed on first use.
+- **Definition error codes** `ERR_INVALID_RULE` and `ERR_INVALID_UNION`.
+- **Types**: `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, `StandardProps`,
+  `StandardResult`, `StandardOptions`, `IssueParams`, `IssueOf<Code>`, `Locale`, `Messages`,
+  `ResultOptions`, `FlatIssues`, `IssueTree` and `CheckContext`; `ValidationIssue` is a union by
+  code; `FieldType.nullable` and `embed`, `Schema.unknown` and `warnings`,
+  `CheckOptions.references` and `KindMetadata.unknown`.
 - **Benchmarks**: the four modes of the typescript-runtime-type-benchmarks suite (`parseSafe`,
-  `parseStrict`, `assertLoose`, `assertStrict`) over its object, flat and nested.
+  `parseStrict`, `assertLoose`, `assertStrict`) over its object, flat and nested, next to the
+  `check`, `Schema.from` and `Model` scenarios.
 
 ### Changed
 
 - **Validation is compiled.** `createStruct` builds a frozen plan and a dictionary of known keys
-  and compiles the struct check as an index loop over the plan; every field's `check` is a closure
-  chosen when the field is built (one `typeof` for a scalar without rules, a `Set` for an `enum`
-  with more than eight values, `Map` and `Set` iterated directly, `object` through `for...in`).
-  A check runs in a context of its own (`{ issues, count, limit, path, seen, unknown, root,
-  messages }`) instead of module globals, so two checks can no longer interfere. On the flat
-  benchmark `check` goes from 2.1 M to about 11 M ops/s for a valid value and from 0.87 M to about
-  3.6 M for an invalid one, nested from 0.33 M to about 2.8 M; construction stays where it was.
-- **A field set to `undefined`** is missing when the field is optional and a type error when it
-  is required (`Object.hasOwn` is consulted only then).
+  and compiles the struct check as an index loop over the plan; every field's `check` is a
+  closure chosen when the field is built (one `typeof` for a scalar without rules, a `Set` for
+  an `enum` with more than eight values, `Map` and `Set` iterated directly, `object` through
+  `for...in`, a lookup plus cycle tracking for a reference), and `Object.hasOwn` is consulted
+  only for a required field set to `undefined` or a field named after a member of
+  `Object.prototype`. A check runs in a context of its own
+  (`{ issues, count, limit, path, seen, unknown, references, root, messages }`) instead of
+  module globals, so two checks can no longer interfere and a validator may run another check.
+  On the benchmark of the repository (Node 24, the same machine) `check` goes from 2.1 M to
+  10.7 M ops/s for a valid flat value and from 0.87 M to 3.5 M for an invalid one, nested from
+  0.33 M to 2.7 M; construction stays where it was. See
+  [Performance](https://metaschema.vercel.app/guide/performance).
 - **Generated TypeScript** follows the language: `integer` → `number`, `date` → `Date`, `null`,
   `any`, `unknown`, a `union` as `A | B`, a nullable field as `T | null`, a `set` as `Set<T>`, a
   reference by the kind of its target (see Upgrading).
-- **A `Schema` instance as a field** keeps its schema-level `validate` in every form (bare,
-  `{ schema }`, the long form); it used to be dropped.
-- **Construction** reads the first key of a definition once, lints on first use of `warnings`,
-  and keeps `createContext` small enough to inline into `check`.
-- **Bundle budget.** CI gates at 13 KB min+gzip (the entries are at 12.5 KB), and `pnpm bench`
-  reads the clock once per hundred calls and calls `check` through a megamorphic site, so it is
-  measured as a callee instead of being inlined into the measuring loop.
+- **Construction** reads the first key of a definition once, re-parses a projection's fields
+  from their definitions so the copies belong to the projection, and lints on first use of
+  `warnings`.
+
+### Removed
+
+- **The positional root path of `check`** and **`ValidationResult.format`** (see Upgrading).
+- **`length` on `number` and `bigint`**, replaced by `min` and `max` (see Upgrading).
+- **Module-level validation state.** Nothing in the package is global to a check any more; the
+  type registry is still process-wide, as before.
+
+### Fixed
+
+- **A `Schema` instance used as a field lost its schema-level `validate`** (see Upgrading).
+- **A `length` whose `min` is above its `max`**, which could never pass, is rejected when the
+  schema is built instead of failing every value.
+- **A `bigint` bound is compared exactly.** `length` on a `bigint` went through `Number` and
+  lost precision past 2^53; `min` and `max` compare a bigint bound as a bigint.
+
+### Tooling
+
+- `pnpm size --max-gzip 13` is the CI gate (the entries are 12.6 KB min+gzip).
+- `pnpm bench` reads the clock once per hundred calls and calls `check` through a megamorphic
+  site, so it is measured as a callee instead of being inlined into the measuring loop;
+  `bench/baseline.json` is the snapshot of this branch.
+- `@standard-schema/spec` is a devDependency, used only by `tests/types/standard.test-d.ts`.
+- New test suites: `context`, `issues`, `result`, `check-options`, `syntax`, `numbers`,
+  `pattern`, `nullable`, `values`, `union`, `references`, `lint`, `standard`, and
+  `tests/types/infer.test-d.ts`, which also compiles the examples of the TypeScript guide.
 
 ## [1.0.0] - 2026-10-09
 
