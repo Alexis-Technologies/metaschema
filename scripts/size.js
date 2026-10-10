@@ -4,7 +4,7 @@
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
  * that on top of the core, and with `--max-gzip-compile <KB>` when the
  * `./compile` subpath does (CI uses the three as gates). The budgets for 3.0
- * are 16 KB per core entry, 5 KB for the generators and 4 KB for the compile
+ * are 17 KB per core entry, 5 KB for the generators and 4 KB for the compile
  * subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler

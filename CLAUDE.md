@@ -36,14 +36,14 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 16 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 17 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 16 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
+`pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
 There is no build step.
 
 ## No build step: CommonJS + hand-written types
@@ -388,9 +388,13 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 3.0 bundle budgets are 16 KB min+gzip per core entry, 5 KB for the generators and 4 KB
-for the compile subpath on top of it** (`pnpm size --max-gzip 16 --max-gzip-generators 5
---max-gzip-compile 4` in CI). The core entries are at 15504 bytes (`index.js`) and 15507 bytes
+**The 3.0 bundle budgets are 17 KB min+gzip per core entry, 5 KB for the generators and 4 KB
+for the compile subpath on top of it** (`pnpm size --max-gzip 17 --max-gzip-generators 5
+--max-gzip-compile 4` in CI). The core gate moved from 16 KB to 17 KB during the review of
+3.0 (2026-10-11): the fixes of the async union, of thenable data, of the abandoned promises
+and of the union trial, the lazy cycle set, the one scratch per parse and `maxDepth` cost
+about 900 bytes together, the loops and the shared tables gave about 300 back, and the entries
+sit at 16.0 KB after them. The core entries are at 15504 bytes (`index.js`) and 15507 bytes
 (`browser.js`), 15.1 KB, about 1 KB of headroom; the `./generators` subpath adds 4060
 bytes (4.0 KB) and the `./compile` subpath 3558 bytes (3.5 KB) to a bundle of the core, each
 measured as the difference between a bundle of `index.js` plus the subpath's `index.js` and
