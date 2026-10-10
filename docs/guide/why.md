@@ -22,9 +22,12 @@ purposes:
 - **Standard Schema.** Every schema implements [Standard Schema v1](/guide/standard-schema), so
   tRPC, TanStack Form, Hono and the other consumers of the interface take it without an adapter.
 - **Fast.** Every check is compiled into a closure when the schema is built: about 10 million
-  validations a second of a flat struct on Node 24; see [Performance](/guide/performance).
+  validations a second of a flat struct on Node 24, and about 30 million through the
+  [JIT backend](/guide/compile), which generates the same check where `new Function` is allowed
+  and keeps the closures where it is not; see [Performance](/guide/performance).
 - **Zero dependencies.** Nothing is installed besides the package itself, and the core entry is
-  12.0 KB min+gzip; the JSON Schema and TypeScript generators are a subpath of 3.9 KB more.
+  12.1 KB min+gzip; the JSON Schema and TypeScript generators are a subpath of 3.9 KB more, the
+  JIT backend one of 3.5 KB.
 - **One package for Node.js and browsers.** The browser entry is resolved automatically by
   bundlers.
 - **No build step.** The package is CommonJS that ships exactly as written, with hand-written

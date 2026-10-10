@@ -34,10 +34,12 @@ pnpm run test:types              # tsd
 pnpm run check:dts               # tsc over index.d.ts
 ```
 
-These are the same gates `prepublishOnly` runs. CI adds two more; run them too:
+These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
 
 ```bash
-pnpm size --max-gzip 13          # the bundle budget (CLAUDE.md "Budgets")
+pnpm run test:jit                # the suite with every schema compiled by ./compile
+pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
+pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4   # the bundle budgets (CLAUDE.md "Budgets")
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -140,7 +142,7 @@ Scan for staleness:
 1. **README.md usage examples**: do they match the current API? Run them if in doubt; the documented outputs must be true
 2. **Badges**: do the URLs point to `@alexify/<name>` and the `Alexis-Technologies` repository?
 3. **docs/**: guide and API pages for anything the release changed; the nav version label is read from `package.json` automatically. `pnpm run docs:build` must pass (dead links fail it)
-4. **docs/public/llms.txt**: key facts (exports, Node.js version, size). The min+gzip figure also appears in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md` and CLAUDE.md "Budgets"; take it from `pnpm size` and update them together
+4. **docs/public/llms.txt**: key facts (exports, Node.js version, size). The min+gzip figures (the core, the generators and the compile subpath) also appear in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`, `docs/guide/json-schema.md`, `docs/guide/compile.md`, `docs/api/exports.md` and CLAUDE.md "Budgets"; take them from `pnpm size` and update them together
 5. **docs/guide/performance.md**: the numbers come from `bench/baseline.json`; if the baseline was re-saved, update the table
 6. **SECURITY.md**: the supported-versions table on a major release
 
@@ -181,7 +183,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 13 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

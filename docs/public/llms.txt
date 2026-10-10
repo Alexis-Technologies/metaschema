@@ -9,14 +9,24 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 12.0 KB min+gzip for the core entry (the generators subpath adds
-  3.9 KB); about 10 million checks a second of a flat struct
+- Zero runtime dependencies, 12.1 KB min+gzip for the core entry (the generators subpath adds
+  3.9 KB, the compile subpath 3.5 KB); about 10 million checks a second of a flat struct on the
+  closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
   `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
   `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
   `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
-  options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods)
+  options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods), and
+  the JIT backend `@alexify/metaschema/compile`: `compile(target, { jit })`, `register({ jit })`,
+  `canEval()`
+- `compile(schema)` or `compile(model)` replaces the check with a function generated from the
+  schema and built with `new Function` (the same issues, about three times faster on a flat
+  struct, six on a nested one) and returns `{ accelerated }`; `register()` does it for every
+  schema built afterwards; where code generation from strings is not allowed (CSP, Cloudflare
+  Workers, `--disallow-code-generation-from-strings`) the closures stay (`jit: 'auto'`), or
+  `jit: true` throws `ERR_NO_EVAL`; the generated source holds no value of the schema, only
+  identifiers, numbers and JSON strings (the rest goes through a scope)
 - `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
   with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
@@ -56,4 +66,6 @@ Docs:
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema
+- The JIT backend: https://metaschema.vercel.app/guide/compile
+- Performance: https://metaschema.vercel.app/guide/performance
 - API: https://metaschema.vercel.app/api/exports

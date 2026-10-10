@@ -51,7 +51,7 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 12.0 KB min+gzip, `@alexify/metaschema/generators` adds
+carry them: `@alexify/metaschema` is 12.1 KB min+gzip, `@alexify/metaschema/generators` adds
 3.9 KB on top. The subpath exports four functions:
 
 | Export | Meaning |

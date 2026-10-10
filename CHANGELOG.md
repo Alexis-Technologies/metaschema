@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The next release is **3.0.0**: the generators of JSON Schema and TypeScript leave the core entry
 for the `@alexify/metaschema/generators` subpath, which takes `model.dts`, `schema.toInterface()`
-and `saveTypes` with them (a breaking change, so not 2.1.0). The rest is additive: the JSON
-Schema export with its four targets and the strict profile, Standard JSON Schema, JSDoc and
-named types in the generated TypeScript, and a fix in `check`.
+and `saveTypes` with them (a breaking change, so not 2.1.0). The rest is additive: the JIT
+backend of the new `@alexify/metaschema/compile` subpath, the JSON Schema export with its four
+targets and the strict profile, Standard JSON Schema, JSDoc and named types in the generated
+TypeScript, and a fix in `check`.
 
 ### Upgrading from 2.0
 
@@ -21,11 +22,32 @@ named types in the generated TypeScript, and a fix in `check`.
   options)` and `toJSONSchema(target, options)`, and its `register()` installs the methods on
   the classes (`model.dts`, `model.toTypeScript`, `schema.toInterface`, `schema.toJSONSchema`,
   `model.toJSONSchema`) once per process. Replace `model.dts` with `toTypeScript(model)` or call
-  `register()` at startup; import `saveTypes` from the subpath. The core entry (12.0 KB min+gzip)
+  `register()` at startup; import `saveTypes` from the subpath. The core entry (12.1 KB min+gzip)
   no longer carries the generators (3.9 KB) nor any Node runtime; the browser entry is the same.
 
 ### Added
 
+- **The JIT backend.** `compile(target, options)` of the new `@alexify/metaschema/compile`
+  subpath replaces the check of a schema, or of every entity of a model, with one straight-line
+  function generated from the plan the closures walk and built with `new Function`; it records
+  exactly the issues the closures record (codes, paths, params, order and messages) and returns
+  `{ accelerated }`. `register(options)` compiles every schema built from then on (a later call
+  replaces the options, `{ jit: false }` stops it; a schema built before is not touched), and
+  `canEval()` says whether the environment allows code generation from strings. The `jit`
+  option is `'auto'` (the default: where `new Function` is not allowed, under a Content
+  Security Policy, in Cloudflare Workers or under `node --disallow-code-generation-from-strings`,
+  the closures stay silently), `true` (throw `SchemaDefinitionError` with the new code
+  `ERR_NO_EVAL` instead; `register` throws at the call) or `false` (never generate code).
+  Nothing happens on import. The generated source holds identifiers, numbers, booleans and JSON
+  strings only; regular expressions, enum sets, validate functions, custom types, references and
+  the issue constructors reach it through a scope. Structs, every scalar with its rules, enums,
+  collections, tuples, unions, `nullable` and optional fields and the limits of a check are
+  inlined; a reference, a custom type's `checkType` and a `validate` function are the same
+  calls as before. Measured on Node 24: 30.9 M checks a second of a flat struct (10.7 M on the
+  closures), 16.9 M of a nested one (2.6 M), 5.6 M for a flat value with four problems (3.5 M),
+  24–33 M on the moltar scenarios (4–7 M). The subpath is 3.5 KB min+gzip on top of the core and
+  has typings of its own (`CompileOptions`, `Compiled`); the core gains one internal slot,
+  `Schema[Symbol.for('alexify.metaschema.hook')]`, that `register()` fills.
 - **JSON Schema export.** `toJSONSchema(schema, options)` of the generators subpath renders the
   rules of `check` as a JSON Schema document and `toJSONSchema(model, options)` every entity of
   a model as a definition (`$defs`, `definitions` or `components.schemas` by target), or the
@@ -75,10 +97,11 @@ named types in the generated TypeScript, and a fix in `check`.
 
 ### Changed
 
-- **The core entry is 12.0 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
-  the array check of a struct joined it) and the generators subpath adds 3.9 KB. CI gates at
-  13 KB per core entry and 5 KB for the generators (`pnpm size --max-gzip 13
-  --max-gzip-generators 5`).
+- **The core entry is 12.1 KB min+gzip** (2.0 was 12.6 KB: the TypeScript generator left it,
+  the array check of a struct and the hook of the compile subpath joined it), the generators
+  subpath adds 3.9 KB and the compile subpath 3.5 KB. CI gates at 13 KB per core entry, 5 KB for
+  the generators and 4 KB for the compile subpath (`pnpm size --max-gzip 13
+  --max-gzip-generators 5 --max-gzip-compile 4`).
 
 ### Fixed
 
@@ -89,6 +112,22 @@ named types in the generated TypeScript, and a fix in `check`.
 
 ### Tooling
 
+- `pnpm run test:jit` runs the whole suite with every schema compiled by the JIT
+  (`tests/helpers/jit.js` registers it before the suites) and `pnpm run test:nojit` the same
+  under `--disallow-code-generation-from-strings`, through the fallback; CI runs both on Node
+  22. `tests/unit/compile.test.js` holds the two backends to the same issues over every form of
+  the language, the fixture model, every check option and keys and values that look like code,
+  and covers the modes, the errors, `register()` and the no-eval environment in a child process;
+  `tests/types/compile.test-d.ts` pins the typings. The bundle test, the export-parity test and
+  the size script (`pnpm size --max-gzip-compile`) cover the subpath; the ajv differential test
+  is skipped where ajv cannot generate code.
+- **The moltar scenarios of `pnpm bench` measure a struct now.** The first key of their schema,
+  `number`, made it a `number` field under the first-key rule of 2.0, so every check failed at
+  the root, and the 14 M ops/s the 2.0 notes quoted for those rows measured that; marked as a
+  struct, the closures do 7.1–7.4 M (flat) and 4.2–4.4 M (nested). Every `check` scenario runs
+  on both backends (`check (jit) — …`), and `pnpm bench --compare-libs` runs the moltar
+  scenarios through zod 4, valibot, ajv and @sinclair/typebox (devDependencies, `bench/libs.js`);
+  the tables are in the performance guide, and `bench/baseline.json` is re-saved.
 - `ajv` and `ajv-formats` are devDependencies, used by `tests/unit/jsonschema-ajv.test.js`: for
   values a deterministic generator produces from the schemas (every form of the language, the
   fixture model, references by kind, embedded and as ids), `check` and ajv over `toJSONSchema`

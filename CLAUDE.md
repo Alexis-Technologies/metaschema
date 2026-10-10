@@ -7,8 +7,10 @@ Guidance for Claude Code when working in this repository.
 **metaschema** (npm package `@alexify/metaschema`) is a metadata schema and interface definition
 language for JavaScript. Data structures and domain models are declared as plain objects; the
 package validates values against them (`Schema#check`), assembles them into domain models
-(`Model`), and renders TypeScript interfaces and JSON Schema through the
-`@alexify/metaschema/generators` subpath (`toTypeScript`, `toJSONSchema`). It has zero runtime
+(`Model`), renders TypeScript interfaces and JSON Schema through the
+`@alexify/metaschema/generators` subpath (`toTypeScript`, `toJSONSchema`), and compiles checks
+into generated code through the `@alexify/metaschema/compile` subpath (`compile`, `register`,
+with a fallback to the closures where `new Function` is not allowed). It has zero runtime
 dependencies and runs in Node.js ≥ 18 and browsers.
 
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
@@ -25,6 +27,8 @@ Package manager is **pnpm** (pinned in `packageManager`).
 
 ```bash
 pnpm test                          # node --test tests/unit/*.test.js
+pnpm run test:jit                  # the same suite with every schema compiled by ./compile (tests/helpers/jit.js)
+pnpm run test:nojit                # the same under --disallow-code-generation-from-strings: the fallback
 node --test tests/unit/schema.test.js   # a single file
 node --test --test-name-pattern="Tuple" tests/unit/*.test.js   # filter by name
 pnpm run test:coverage             # c8 over src/, gated at 98 lines/statements, 90 branches, 100 functions
@@ -32,14 +36,15 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint src tests scripts bench
 pnpm run format                    # oxfmt src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>]   # esbuild bundle sizes; CI gates at 13 KB per core entry and 5 KB for ./generators on top
-pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness, manual only; --save writes bench/baseline.json
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 13 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
+pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
-before a merge adds what CI also runs: `pnpm size --max-gzip 13 --max-gzip-generators 5` and
-`pnpm docs:build`. There is no build step.
+before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
+`pnpm size --max-gzip 13 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
+There is no build step.
 
 ## No build step: CommonJS + hand-written types
 
@@ -51,7 +56,9 @@ before a merge adds what CI also runs: `pnpm size --max-gzip 13 --max-gzip-gener
   never by spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/metaschema'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
-  `src/locales/*.d.ts` that type the locale subpath exports through it. A public API change touches
+  `src/locales/*.d.ts` that type the locale subpath exports through it and the two subpath
+  typings `src/generators/index.d.ts` and `src/compile/index.d.ts`, which import the shared
+  types from it. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
   `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
   `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
@@ -61,7 +68,8 @@ before a merge adds what CI also runs: `pnpm size --max-gzip 13 --max-gzip-gener
   and resolves the locale subpaths. `tests/types/*.test-d.ts` (tsd) pin signatures. `check:dts`
   needs `--target es2022` because there is no tsconfig.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
-  `default`; `./locales/en`, `./locales/uk` and `./generators`, each with its own `types`) and a
+  `default`; `./locales/en`, `./locales/uk`, `./generators` and `./compile`, each with its own
+  `types`) and a
   `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
   and SECURITY. `src/generators/index.d.ts` types the subpath and imports the option types from
   the root `index.d.ts`, which also declares the methods `register()` installs on `Schema` and
@@ -92,6 +100,11 @@ methods and the `~standard.jsonSchema` converter; nothing is registered by impor
 emitter goes there too, never into `src/index.js`. Standard Schema (`~standard.validate`)
 stays in the core because consumers detect a schema with `'~standard' in schema`.
 
+**The JIT lives in `./compile`, and the core never calls `new Function`.** `compile(target,
+{ jit })` and `register(options)` of the subpath replace `schema[RUN]` with a generated
+function; the only thing the core knows about it is the `Schema[HOOK]` slot (`util.js`), read
+once per construction, that `register()` fills. A new backend goes there too.
+
 ## Repository layout
 
 ```
@@ -120,12 +133,16 @@ src/
   generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, register),
                     index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard converter),
                     typescript.js (toInterface, modelToTypeScript: JSDoc, named types)
+  compile/          the ./compile subpath: index.js (compile, register, canEval), index.d.ts,
+                    code.js (the source builder: quote, prop, literal, the scope), emit.js (an emitter per prototype)
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
+  helpers/jit.js    --require'd by test:jit and test:nojit: register({ jit }) of ./compile before the suites
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
 scripts/size.js     bundle-size report and budget gate (CI smoke)
-bench/              zero-dependency ops/sec harness; baseline.json is a snapshot for --compare
+bench/              zero-dependency ops/sec harness (closures and JIT); libs.js compares with zod, valibot,
+                    ajv and typebox (--compare-libs); baseline.json is a snapshot for --compare
 docs/               VitePress site (metaschema.vercel.app), not published
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
 ```
@@ -151,6 +168,10 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
   `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
   generators; nothing in the core requires `generators/`.
+- `compile/code.js` is a leaf; `compile/emit.js` requires `issues`, `rules` (`codePoints`,
+  `lengthOf`), `struct` (`STRUCT`, `isStruct`), the prototypes (for the identity of their
+  `compile` methods) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
+  `schema.js`, `errors` and the two. Nothing in the core requires `compile/`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -280,6 +301,25 @@ issue. `context.count >= context.limit` is how every loop over fields, elements 
 stops early. `ValidationResult` (`result.js`) keeps `add()`/`issuesOf()` for results built by
 validators, plus `summary`, `flatten()` and `tree()`.
 
+**The JIT backend** (`src/compile/`) renders the same plan into one function per schema,
+`(v, c, k)`, installed as `schema[RUN]`; `Schema#check` is unchanged. `emit.js` dispatches on
+the identity of a field's `compile` method (so an alias of a built-in compiles like its base,
+and a prototype with a `compile` of its own is not guessed at): a built-in type is inlined,
+anything else (a reference, a custom `checkType`) is the field's own closure called from the
+scope. Three rules keep the issues byte-identical. The issue constructors of `issues.js`,
+`runValidate` and the closures are reached through the scope, never reimplemented. The keys a
+container would push on `context.path` are known at generation time and pushed only around a
+statement that records or calls out, so a valid value never touches the path; the root's key
+`k` is pushed at entry when the schema is reached through a reference. And the error limit is
+checked right after every such statement, with a `break` to the nearest union branch or to the
+root label, which is where the closures' per-field `count >= limit` tests come out the same (a
+plain union truncates what a failed branch recorded and tries the next, so a branch has a label
+of its own). Generated code holds identifiers, numbers, booleans and JSON strings only
+(`code.js`: `quote` escapes U+2028/2029, `prop` picks `.key` or `["key"]`, `literal` leaves
+NaN, -0, Infinity and objects to the scope). `canEval()` probes `new Function('')` once;
+`jit: 'auto'` falls back silently, `true` throws `ERR_NO_EVAL` (from `register` at the call),
+`false` never generates code.
+
 **Standard Schema.** `Schema.prototype['~standard']` is a class accessor in `schema.js` (so
 non-enumerable: `toJSON`, `inspect` and `Object.keys` never see it) that builds
 `{ version: 1, vendor: 'alexify.metaschema', validate }` once per instance (`#standard`).
@@ -307,23 +347,25 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 
 ## Budgets
 
-**The 3.0 bundle budgets are 13 KB min+gzip per core entry and 5 KB for the generators on top
-of it** (`pnpm size --max-gzip 13 --max-gzip-generators 5` in CI). The core entries are at 12321
-bytes (`index.js`) and 12325 bytes (`browser.js`), 12.0 KB, about 990 bytes of headroom; the
-`./generators` subpath adds 4041 bytes (3.9 KB) to a bundle of the core, measured as the
-difference between a bundle of `index.js` plus `src/generators/index.js` and `index.js` alone
-(the subpath requires the core for `register()`, so on its own it would bundle the core again).
-The figures are quoted in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`,
-`docs/guide/json-schema.md`, `docs/api/exports.md` and `docs/public/llms.txt`; change them
-together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
+**The 3.0 bundle budgets are 13 KB min+gzip per core entry, 5 KB for the generators and 4 KB
+for the compile subpath on top of it** (`pnpm size --max-gzip 13 --max-gzip-generators 5
+--max-gzip-compile 4` in CI). The core entries are at 12358 bytes (`index.js`) and 12361 bytes
+(`browser.js`), 12.1 KB, about 950 bytes of headroom; the `./generators` subpath adds 4042
+bytes (3.9 KB) and the `./compile` subpath 3539 bytes (3.5 KB) to a bundle of the core, each
+measured as the difference between a bundle of `index.js` plus the subpath's `index.js` and
+`index.js` alone (a subpath requires the core for `register()`, so on its own it would bundle
+the core again). The figures are quoted in README, `docs/index.md`, `docs/guide/why.md`,
+`docs/guide/browser.md`, `docs/guide/json-schema.md`, `docs/guide/compile.md`,
+`docs/api/exports.md` and `docs/public/llms.txt`; change them together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
 the entries to 9.9 KB (gate 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer,
 pattern and min/max, the references rule and the lint cost about 2.6 KB together; gate 13 KB);
 `~standard` added 174 bytes (2.0 shipped at 12.6 KB with a 13 KB gate); Workstream D2/D3 first
 added 3122 bytes to the core (16051 bytes, gate 16 KB), then the generators (JSON Schema and
 the whole TypeScript rendering, about 3.9 KB) moved to the subpath, which took the core to 12.0
 KB (Alex's decision: the core validates, see "Out of scope by design"; the move is a breaking
-change, so the release is 3.0.0, planned as 2.1.0). ROADMAP.md §5.8 planned 10 KB for 2.0 and
-12 KB for the release after it. The JIT (`./compile`) gets a budget of its own when it lands.
+change, so the release is 3.0.0, planned as 2.1.0); Workstream E added 37 bytes to the core
+(the `Schema[HOOK]` slot and the `lengthOf` export) and the `./compile` subpath at 3.5 KB
+with a 4 KB gate. ROADMAP.md §5.8 planned 10 KB for 2.0 and 12 KB for the release after it.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
 `callCheck` in `bench/helpers.js`: the schema under measurement sits in a holder that `bench()`
@@ -343,16 +385,23 @@ it is allocated. Verify a harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
 
-`bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream B): flat valid
-≈ 10.7 M ops/s, flat invalid ≈ 3.5 M, nested ≈ 2.7 M / 1.5 M, the eight moltar modes ≈ 14.1–14.7 M
-(no strict/loose asymmetry), `Schema.from` ≈ 280 K / 93 K, `new Model` ≈ 17 K (about 8% under A:
-every field now checks its rules against its type and a projection re-parses its parent's
-fields), `model.dts` ≈ 102 K. The Workstream A merge (3032ce9) measured with this harness in a
-separate process is within 3% on every `check` and moltar scenario. The roadmap's 2.0 targets were
-12 M / 6 M: the valid
-path is within reach of the closure backend, the invalid path is bounded by the cost of plain
-issue objects (a params object, a path array and a rendered message each) and is where the JIT
-backend of Workstream E picks up.
+`bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream E): on the
+closures flat valid ≈ 10.7 M ops/s, flat invalid ≈ 3.5 M, nested ≈ 2.6 M / 1.5 M, the moltar
+modes ≈ 7.1–7.4 M flat and 4.2–4.4 M nested; on the JIT (`check (jit) — …`, a second schema
+compiled by `./compile`) flat ≈ 30.9 M / 5.6 M, nested ≈ 16.9 M / 2.0 M, moltar ≈ 30.2–33.3 M
+flat and 24.0–30.2 M nested (the strict modes count the keys of the value, the loose ones skip
+it); `Schema.from` ≈ 275 K / 93 K, `new Model` ≈ 16 K (about 8% under A: every field checks
+its rules against its type and a projection re-parses its parent's fields), `model.dts` ≈ 83 K
+(102 K in a run of the same code earlier that day: the allocation-heavy scenarios move by a
+fifth on this machine). **The moltar schema carries `Struct: {}` since E**: its first key is
+`number`, so until then it was a number field with five unknown options, every check failed
+at the root, and the 14.1–14.7 M of the 2.0 baseline (and the "no strict/loose asymmetry")
+measured that. The roadmap's 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
+25 M on flat valid is met at 30.9 M, the 8 M on flat invalid is not (5.6 M): the invalid path is
+bounded by the issue objects (a params object, a path array and a rendered message each, about
+40 ns an issue), which both backends build with the same constructors. `pnpm bench
+--compare-libs` (`bench/libs.js`) runs the moltar scenarios through zod 4, valibot, ajv and
+typebox beside both backends; the tables are in `docs/guide/performance.md`.
 
 ## Platform split
 
@@ -440,6 +489,22 @@ change. **This file wins** if they ever disagree.
   registry is process-wide, so a custom type registered in one test must not share a name with
   a field that starts a struct in another (a `text` type turned `{ text: {...} }` into a
   shorthand once).
+- `pnpm run test:jit` runs the same suite with `--require ./tests/helpers/jit.js`, which calls
+  `register({ jit: true })` of `./compile` (`'auto'` where eval is not allowed), so every
+  schema the suites build is compiled at construction; `pnpm run test:nojit` runs it under
+  `--disallow-code-generation-from-strings`, where the helper registers the fallback. The helper
+  sets `process.env.METASCHEMA_BACKEND` to `jit` or `closure` for a test that must pin one
+  backend; none needs it today. `tests/unit/compile.test.js` calls `register({ jit: false })`
+  first and compiles explicitly, so it compares the closures with the generated code in every
+  run; it holds the two backends to the same issues, errors and verdicts over every form of the
+  language, the fixture model, references by kind, custom types, every check option
+  (`maxErrors` 1 to 5, `unknown`, `references`, `messages`, `root`) and a schema of keys and
+  values that look like code, and covers the code builder, the modes, the errors, `register()`
+  and, in a child process, the no-eval environment. `jsonschema-ajv.test.js` is skipped without
+  eval (ajv generates code too); `bundle.test.js` bundles the subpath with the core for both
+  platforms (the browser bundle runs in a vm context, which the flag does not bind, so it is
+  held to its own `canEval()`); `export-parity.test.js`, `scripts.test.js` and
+  `tests/types/compile.test-d.ts` cover the subpath export, the size row and the typings.
 - `tests/unit/jsonschema-ajv.test.js` is the differential test: a deterministic generator
   (mulberry32, seed 42) produces 400 values per schema from the built fields (mostly valid, with
   mutations), and `check` and ajv (`ajv/dist/2020` and `ajv` for draft-07, strict mode with
@@ -488,6 +553,18 @@ change. **This file wins** if they ever disagree.
 
 ## Things that look like bugs but aren't
 
+- **A compiled schema's `check` is a function named `jit`, installed as `schema[RUN]`.**
+  `compile()` of the `./compile` subpath replaces the own `[RUN]` property and returns
+  `{ accelerated }`, not the schema; the plan entries, `field.check` and `fields[STRUCT].check`
+  stay the closures, and a schema that references this one reaches the generated code through
+  `schema[RUN]` at check time. `register()` compiles every schema built *after* it through the
+  `Schema[HOOK]` slot, not the ones built before, and `Schema.from` in a hot path pays the code
+  generation per construction once it is registered. Without eval, `'auto'` keeps the closures
+  silently (`canEval()` says so) and `jit: true` throws `ERR_NO_EVAL`. The tests tell the
+  backends apart by that function name.
+- **The moltar bench schema carries `Struct: {}`.** Its first key is `number`, a type name;
+  without the marker it is a number field with five unknown options and every check fails at
+  the root, which is what the 14 M ops/s quoted for 2.0 measured.
 - **A validator may run another check, even of the same value.** Every check gets its own
   context (`createContext`), and nothing in the package is global to a check; only the type
   registry is process-wide. `tests/unit/context.test.js` pins it.
@@ -643,12 +720,14 @@ published to npm, and lint/format do not cover it.
 - When behavior changes, update README and the matching docs page together. Example outputs in the
   docs were checked against the code, so keep them true.
 - The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
-  `guide/performance.md` (the core, the baseline numbers, the 3.0 JIT), `guide/migrating-from-1.md`
+  `guide/performance.md` (the core, the baseline numbers, the JIT, the library comparison), `guide/migrating-from-1.md`
   (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
-  produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 page is
-  `guide/json-schema.md` (options, targets, the mapping table, the strict profile with a tool
-  definition, the mongodb target, the boundaries). The sidebar is in `.vitepress/config.mts`; a
-  new page goes there and into `docs/public/llms.txt` if it is a key fact.
+  produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 pages are
+`guide/json-schema.md` (options, targets, the mapping table, the strict profile with a tool
+definition, the mongodb target, the boundaries) and `guide/compile.md` (compile, register,
+canEval, the jit option, where there is no eval, what the generated code contains, the
+boundaries). The sidebar is in `.vitepress/config.mts`; a new page goes there and into
+`docs/public/llms.txt` if it is a key fact.
 
 ## Release process
 

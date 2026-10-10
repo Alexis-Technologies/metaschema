@@ -23,7 +23,17 @@ global symbol brand (`Symbol.for`), not by class names, so a bundler that rename
 minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
 builds both entry points with esbuild, minified and not, and validates through the result.
 
-The core entry is 12.0 KB min+gzip in either environment, and CI keeps it under 13 KB; the
+The core entry is 12.1 KB min+gzip in either environment, and CI keeps it under 13 KB; the
 `@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 3.9 KB where it is
-imported, under a budget of 5 KB.
-`pnpm size` in the repository prints the exact numbers.
+imported, under a budget of 5 KB, and the `@alexify/metaschema/compile` subpath (the JIT
+backend) 3.5 KB, under 4 KB. `pnpm size` in the repository prints the exact numbers.
+
+## Content Security Policy
+
+The [JIT backend](/guide/compile) builds a check with `new Function`, which a Content Security
+Policy without `'unsafe-eval'` forbids. The subpath probes it once (`canEval()`) and keeps the
+closure backend where it is forbidden: `compile` returns `{ accelerated: false }`, `register()`
+installs nothing, and `check` behaves exactly as before, at the speed of the closures. Nothing in
+the core entry evaluates code, so a policy without `'unsafe-eval'` is the right default; add the
+subpath where the policy allows it and let the probe decide, or pass `{ jit: false }` where
+generated code is not wanted at all.

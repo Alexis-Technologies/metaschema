@@ -63,10 +63,13 @@ result.issues;
   generators live in the `@alexify/metaschema/generators` subpath, so a program that only
   validates does not carry them.
 - **Fast.** Every check is compiled into a closure when the schema is built and runs in a context
-  of its own: about 10 million validations a second of a flat struct on Node 24 (`pnpm bench`,
+  of its own: about 10 million validations a second of a flat struct on Node 24, and about 30
+  million through the JIT backend of `@alexify/metaschema/compile`, which generates the same
+  check where `new Function` is allowed and keeps the closures where it is not (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 12.0 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 3.9 KB where they are imported.
+- **Zero dependencies, 12.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 3.9 KB and the JIT backend 3.5 KB
+  where they are imported.
 
 ## Installation
 
@@ -252,6 +255,29 @@ the functions into methods (`schema.toJSONSchema`, `model.toJSONSchema`) and add
 JSON Schema converter to `schema['~standard']`. See
 [JSON Schema](https://metaschema.vercel.app/guide/json-schema).
 
+## Compiled checks
+
+`compile(schema)` of `@alexify/metaschema/compile` replaces the check of a schema, or of every
+entity of a model, with one function generated from the same plan the closures walk and built
+with `new Function`; `register()` does it for every schema built from then on. The issues are
+the ones the closures record, only sooner: about three times faster on a flat struct, six on a
+nested one. Where code generation from strings is not allowed (a Content Security Policy,
+Cloudflare Workers, `node --disallow-code-generation-from-strings`) nothing changes: the
+closures stay, silently unless `{ jit: true }` asks for an error.
+
+```js
+const { compile, register, canEval } = require('@alexify/metaschema/compile');
+
+compile(user); // { accelerated: true }: user.check runs generated code now
+compile(model); // every entity; { accelerated: false } where there is no eval
+register(); // every schema built from here on is compiled as it is built
+canEval(); // whether this environment builds functions from source
+```
+
+The generated source holds identifiers, numbers and JSON strings only; regular expressions, enum
+sets, validate functions and nested schemas reach it through a scope, never through the source
+text. See [The JIT backend](https://metaschema.vercel.app/guide/compile).
+
 ## Exports
 
 ```js
@@ -261,6 +287,7 @@ const {
 } = require('@alexify/metaschema');
 
 const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
+const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })
@@ -272,7 +299,8 @@ import type { Infer, InferSchema, InferEntity, CustomTypes, ValidationIssue } fr
 ```
 
 In the browser every export works the same, except `saveTypes` of the generators, which rejects
-because there is no file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
+because there is no file system, and `compile`, which keeps the closures where a Content
+Security Policy forbids `new Function`. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
 and every exported type.
 
 ## Migrating

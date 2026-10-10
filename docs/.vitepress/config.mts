@@ -133,6 +133,7 @@ export default defineConfig({
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },
             { text: 'JSON Schema', link: '/guide/json-schema' },
+            { text: 'The JIT backend', link: '/guide/compile' },
             { text: 'Browser', link: '/guide/browser' },
           ],
         },

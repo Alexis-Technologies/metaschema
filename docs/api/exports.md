@@ -9,6 +9,7 @@ const {
 } = require('@alexify/metaschema');
 
 const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
+const jit = require('@alexify/metaschema/compile'); // compile, register, canEval
 ```
 
 ## Constants
@@ -69,7 +70,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/generators`
 
-The generators of JSON Schema and TypeScript, in a subpath so that the core entry (12.0 KB
+The generators of JSON Schema and TypeScript, in a subpath so that the core entry (12.1 KB
 min+gzip) does not carry them (3.9 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
@@ -81,6 +82,21 @@ min+gzip) does not carry them (3.9 KB more); see
 | `register()` | installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`, `model.toTypeScript`, `model.dts` and `schema['~standard'].jsonSchema` on the classes, once per process |
 
 A target that is neither a `Schema` nor a `Model` is a `TypeError`.
+
+## `@alexify/metaschema/compile`
+
+The JIT backend, in a subpath of its own (3.5 KB min+gzip on top of the core); see
+[The JIT backend](/guide/compile).
+
+| Export | Description |
+| --- | --- |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated }`, `false` where code generation from strings is not allowed (the closures stay); `options.jit`: `'auto'` (the default: fall back silently), `true` (throw `ERR_NO_EVAL` instead), `false` (never generate code) |
+| `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched |
+| `canEval()` | whether this environment allows code generation from strings, probed once |
+
+A target that is neither a `Schema` nor a `Model` is a `TypeError`; an option with a value it
+does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
+(`{ jit?: 'auto' | boolean }`) and `Compiled` (`{ accelerated: boolean }`).
 
 ## `ValidationResult`
 
@@ -133,7 +149,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, or an option of `toJSONSchema` with a value it does not accept (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) |
+| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) or the `jit` option of `compile`/`register` with a value it does not accept |
+| `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
 | `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
