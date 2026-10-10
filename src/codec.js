@@ -85,9 +85,7 @@ const infoOf = (node) => {
   else if (shape === FIELDS) {
     const compiled = node[STRUCT];
     plan = compiled.plan;
-    const typed = new Set();
-    for (const entry of plan) typed.add(entry.key);
-    extra = Object.keys(compiled.known).filter((key) => !typed.has(key));
+    extra = compiled.calculated;
     children = plan.map((entry) => entry.type);
     bits |= STRUCTS;
   } else if (shape === NESTED) children = [node.schema];

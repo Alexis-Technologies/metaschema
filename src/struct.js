@@ -4,10 +4,16 @@ const { SchemaDefinitionError } = require('./errors.js');
 
 // What a struct computes once at construction, kept on the dictionary under a
 // global symbol like BRAND, so a struct built by another copy of the package
-// exposes it too: { plan, known, check }, the plan being one frozen entry per
-// validated field, `known` the dictionary of its keys, and `check` the
-// compiled check over them.
+// exposes it too: { plan, known, calculated, check }, the plan being one
+// frozen entry per validated field, `known` the dictionary of the keys a
+// value may carry, `calculated` the keys of the calculated fields among them,
+// and `check` the compiled check over the plan.
 const STRUCT = Symbol.for('alexify.metaschema.struct');
+
+// The functions of a nested definition that are the struct's own validate,
+// decoder and serializer (as they are options at the root): they stay in the
+// fields, where a calculated field lives, but a value has no key by that name.
+const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 
 // A field is read with a keyed load, and `Object.hasOwn` is consulted only
 // when the value is undefined, to tell a missing key from one set to
@@ -77,14 +83,18 @@ const createStruct = (defs, prep) => {
   const fields = Object.create(null);
   const plan = [];
   const known = Object.create(null);
+  const calculated = [];
   for (const key of Object.keys(defs)) {
     const entry = defs[key];
     const { field, required } = formatters.key(key, entry?.required);
     try {
       const { Type, defs: typeDefs } = prep.parse(entry);
       if (!Type) {
-        fields[key] = entry;
-        known[key] = true;
+        fields[field] = entry;
+        if (!CODEC_KEYS.has(field)) {
+          known[field] = true;
+          calculated.push(field);
+        }
         continue;
       }
       // The key ('tags?') and the definition ('?string', required: false)
@@ -107,7 +117,8 @@ const createStruct = (defs, prep) => {
     }
   }
   Object.freeze(plan);
-  const compiled = Object.freeze({ plan, known, check: compileStruct(plan, known) });
+  Object.freeze(calculated);
+  const compiled = Object.freeze({ plan, known, calculated, check: compileStruct(plan, known) });
   Object.defineProperty(fields, BRAND, { value: 'Struct' });
   Object.defineProperty(fields, STRUCT, { value: compiled });
   return fields;
