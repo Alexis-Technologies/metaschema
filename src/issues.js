@@ -278,6 +278,7 @@ module.exports = {
   NONE,
   issues,
   typeOf,
+  pathOf,
   toDotPath,
   absorb,
   finalize,

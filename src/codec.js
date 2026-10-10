@@ -8,7 +8,7 @@
 // container is copied only when one of its parts changed: the value given is
 // never written to.
 const { hasBrand } = require('./util.js');
-const { NONE, issues, isThenable, abandon, toDotPath } = require('./issues.js');
+const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
@@ -70,63 +70,75 @@ const infoOf = (node) => {
   if (info !== undefined) return info;
   const shape = shapeOf(node);
   // A struct's own functions belong to the node that holds it.
-  const own = shape === SCHEMA ? node.options : shape === FIELDS ? {} : node;
+  const own = shape === SCHEMA ? node.options : shape === FIELDS ? EMPTY : node;
   const decode = own.parse || undefined;
   const encode = own.serialize || undefined;
   let bits = decode === undefined ? 0 : DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
-  if ([own.validate, decode, own.checkType].some(isAsyncFunction)) bits |= ASYNC;
-  let children = [];
+  if (isAsyncFunction(own.validate) || isAsyncFunction(decode) || isAsyncFunction(own.checkType)) {
+    bits |= ASYNC;
+  }
+  const children = [];
+  const infos = [];
+  const refs = [];
   let plan = null;
   let extra = null;
   let table = null;
-  const refs = [];
-  if (shape === SCHEMA) children = [node.fields];
+  let parts = null;
+  if (shape === SCHEMA) children.push(node.fields);
   else if (shape === FIELDS) {
     const compiled = node[STRUCT];
     plan = compiled.plan;
     extra = compiled.calculated;
-    children = plan.map((entry) => entry.type);
     bits |= STRUCTS;
-  } else if (shape === NESTED) children = [node.schema];
-  else if (shape === LIST || shape === KEYED) children = [node.value];
-  else if (shape === TUPLE) children = node.value;
-  else if (shape === UNION) {
-    children = node.union;
-    const { discriminator } = node;
-    if (discriminator !== undefined) {
-      table = new Map();
-      children.forEach((branch, index) => {
-        for (const value of branch.schema[discriminator].enum) table.set(value, index);
-      });
+  } else if (shape === NESTED) children.push(node.schema);
+  else if (shape === LIST || shape === KEYED) children.push(node.value);
+  else if (shape === TUPLE) {
+    for (let index = 0; index < node.value.length; index += 1) children.push(node.value[index]);
+  } else if (shape === UNION) {
+    const { union: branches, discriminator } = node;
+    if (discriminator !== undefined) table = new Map();
+    for (let index = 0; index < branches.length; index += 1) {
+      const branch = branches[index];
+      children.push(branch);
+      if (table === null) continue;
+      const values = branch.schema[discriminator].enum;
+      for (let at = 0; at < values.length; at += 1) table.set(values[at], index);
     }
   } else if (shape === REFERENCE) {
     bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
   }
-  const infos = children.map(infoOf);
-  for (const sub of infos) {
-    bits |= sub.bits;
-    refs.push(...sub.refs);
-  }
-  const parts = { [DEFAULTS]: [], [DECODERS]: [], [ENCODERS]: [], [STRUCTS]: [] };
-  if (plan !== null) {
-    plan.forEach((entry, index) => {
-      const sub = infos[index];
-      if (entry.type.default !== undefined) bits |= DEFAULTS;
-      for (const phase of [DEFAULTS, DECODERS, ENCODERS]) {
-        if ((sub.bits & phase) !== 0 || (phase === DEFAULTS && entry.type.default !== undefined)) {
-          parts[phase].push(index);
-        }
-      }
+  if (plan === null) {
+    for (let index = 0; index < children.length; index += 1) {
+      const sub = infoOf(children[index]);
+      infos.push(sub);
+      bits |= sub.bits;
+      for (let at = 0; at < sub.refs.length; at += 1) refs.push(sub.refs[at]);
+    }
+  } else {
+    // One pass over the plan: the child and its info, and the fields each
+    // phase has to visit (every field under strip).
+    parts = { [DEFAULTS]: [], [DECODERS]: [], [ENCODERS]: [], [STRUCTS]: [] };
+    for (let index = 0; index < plan.length; index += 1) {
+      const { type } = plan[index];
+      const sub = infoOf(type);
+      children.push(type);
+      infos.push(sub);
+      bits |= sub.bits;
+      for (let at = 0; at < sub.refs.length; at += 1) refs.push(sub.refs[at]);
+      const defaulted = type.default !== undefined;
+      if (defaulted) bits |= DEFAULTS;
+      if (defaulted || (sub.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
+      if ((sub.bits & DECODERS) !== 0) parts[DECODERS].push(index);
+      if ((sub.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
       parts[STRUCTS].push(index);
-    });
+    }
   }
   info = { shape, bits, decode, encode, children, infos, plan, parts, extra, table, refs };
   INFO.set(node, info);
   return info;
 };
-
 // Whether a schema has an async function among its validators, decoders and
 // custom checkTypes, the entities it references included: `~standard` then
 // validates through parseAsync.
@@ -213,9 +225,6 @@ const leave = (state, wrap) => {
     return boxed(wrap === undefined ? out : wrap(out));
   });
 };
-
-const pathOf = (context, key) =>
-  key === undefined ? context.path.slice() : [...context.path, key];
 
 // Runs `fn` with the path of the context set to where a value was met: a
 // promise settles after the walk has unwound.
@@ -318,24 +327,23 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
     if (strip ? result !== undefined : result !== item) take(state, name, result, phase);
   }
   if (strip) {
-    for (const name of extra) {
+    for (let index = 0; index < extra.length; index += 1) {
+      const name = extra[index];
       if (Object.hasOwn(value, name)) putKey(state.out, name, value[name]);
     }
   }
   return leave(state);
 };
 
-// The elements of an array, a Set or a tuple, by position; a Set comes back
-// as a Set.
-const walkItems = (children, infos, fixed, value, context, key, phase) => {
+// The elements of an array or a Set, each through the one child; a Set comes
+// back as a Set.
+const walkElements = (child, sub, value, context, key, phase) => {
   const set = !Array.isArray(value);
-  if (set && (fixed || value.constructor?.name !== 'Set')) return value;
+  if (set && value.constructor?.name !== 'Set') return value;
   const state = enter(context, key, value, Array.from, putIndex);
   let index = 0;
   for (const item of value) {
-    const slot = fixed ? index : 0;
-    if (slot >= children.length) break;
-    const result = apply(infos[slot], children[slot], item, context, index, phase);
+    const result = apply(sub, child, item, context, index, phase);
     if (result !== item) take(state, index, result, phase);
     index += 1;
   }
@@ -343,7 +351,21 @@ const walkItems = (children, infos, fixed, value, context, key, phase) => {
 };
 
 const walkList = (info, node, value, context, key, phase) =>
-  walkItems(info.children, info.infos, info.shape === TUPLE, value, context, key, phase);
+  walkElements(info.children[0], info.infos[0], value, context, key, phase);
+
+// The elements of a tuple, each through the child at its position.
+const walkTuple = (info, node, value, context, key, phase) => {
+  if (!Array.isArray(value)) return value;
+  const { children, infos } = info;
+  const length = Math.min(value.length, children.length);
+  const state = enter(context, key, value, Array.from, putIndex);
+  for (let index = 0; index < length; index += 1) {
+    const item = value[index];
+    const result = apply(infos[index], children[index], item, context, index, phase);
+    if (result !== item) take(state, index, result, phase);
+  }
+  return leave(state);
+};
 
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, value, context, key, phase) => {
@@ -352,11 +374,21 @@ const walkKeyed = (info, node, value, context, key, phase) => {
   const child = info.children[0];
   const sub = info.infos[0];
   const state = enter(context, key, value, map ? toMap : copy, map ? putEntry : putKey);
-  for (const pair of map ? value : Object.entries(value)) {
-    const name = pair[0];
-    const item = pair[1];
-    const result = apply(sub, child, item, context, name, phase);
-    if (result !== item) take(state, name, result, phase);
+  if (map) {
+    for (const pair of value) {
+      const name = pair[0];
+      const item = pair[1];
+      const result = apply(sub, child, item, context, name, phase);
+      if (result !== item) take(state, name, result, phase);
+    }
+  } else {
+    // The own keys of the object, in order, as the check iterates them.
+    for (const name in value) {
+      if (!Object.hasOwn(value, name)) continue;
+      const item = value[name];
+      const result = apply(sub, child, item, context, name, phase);
+      if (result !== item) take(state, name, result, phase);
+    }
   }
   return leave(state);
 };
@@ -426,7 +458,7 @@ const walkReference = (info, node, value, context, key, phase) => {
   const sub = infoOf(target);
   if (one) return apply(sub, target, value, context, key, phase);
   if (!Array.isArray(value)) return value;
-  return walkItems([target], [sub], false, value, context, key, phase);
+  return walkElements(target, sub, value, context, key, phase);
 };
 
 const WALKERS = [
@@ -436,7 +468,7 @@ const WALKERS = [
   walkInner,
   walkList,
   walkKeyed,
-  walkList,
+  walkTuple,
   walkUnion,
   walkReference,
 ];
