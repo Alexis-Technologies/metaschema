@@ -8,9 +8,10 @@
 // container is copied only when one of its parts changed: the value given is
 // never written to.
 const { hasBrand } = require('./util.js');
-const { NONE, issues } = require('./issues.js');
+const { NONE, issues, isThenable, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct } = require('./struct.js');
+const { asyncReturn } = require('./errors.js');
 const collections = require('./prototypes/collections.js');
 const { schema: struct } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
@@ -154,37 +155,80 @@ const toMap = (value) => new Map(value);
 const toSet = (list) => new Set(list);
 
 // The output of a container under construction: the container is copied at
-// the first part that changed (`clone`) and a part is written with `put`. A
+// the first part that changed (`clone`), a part is written with `put`, and
+// the parts that decoded asynchronously are written in once they settle (a
+// decoder that failed resolved to nothing and recorded its issue). A
 // container pushes its key on the path for its parts.
 const enter = (context, key, value, clone, put) => {
   if (key !== undefined) context.path.push(key);
-  return { context, key, value, clone, put, out: null };
+  return { context, key, value, clone, put, out: null, pending: null };
 };
 
-const take = (state, key, result) => {
+const take = (state, key, result, phase) => {
   if (state.out === null) state.out = state.clone(state.value);
   state.put(state.out, key, result);
+  if (phase === DECODERS && isThenable(result)) {
+    if (state.pending === null) state.pending = [];
+    state.pending.push(key, result);
+  }
 };
 
 const leave = (state, wrap) => {
-  const { context, key, out } = state;
+  const { context, key, out, pending, put } = state;
   if (key !== undefined) context.path.pop();
   if (out === null) return state.value;
-  return wrap === undefined ? out : wrap(out);
+  let built = out;
+  if (pending !== null) {
+    const promises = [];
+    for (let index = 1; index < pending.length; index += 2) promises.push(pending[index]);
+    built = Promise.all(promises).then((values) => {
+      for (let index = 0; index < values.length; index += 1) {
+        put(out, pending[index * 2], values[index]);
+      }
+      return out;
+    });
+  }
+  if (wrap === undefined) return built;
+  return isThenable(built) ? built.then(wrap) : wrap(built);
+};
+
+const pathOf = (context, key) =>
+  key === undefined ? context.path.slice() : [...context.path, key];
+
+// Runs `fn` with the path of the context set to where a value was met: a
+// promise settles after the walk has unwound.
+const at = (context, path, fn) => {
+  const saved = context.path;
+  context.path = path;
+  const out = fn();
+  context.path = saved;
+  return out;
 };
 
 // The decoder of a node over a value whose parts decoded: its exception is an
-// issue at the field, and the result is gone. Once a decoder failed, none
-// runs: the result is invalid already.
+// issue at the field, and the result is gone; a promise is awaited where
+// parseAsync allows it and an error in a synchronous parse. Once a decoder
+// failed, none runs: the result is invalid already.
 const decode = (info, node, value, context, key) => {
   const fn = info.decode;
   if (fn === undefined || context.count > 0) return value;
+  if (isThenable(value)) {
+    const where = pathOf(context, key);
+    return value.then((settled) => at(context, where, () => decode(info, node, settled, context)));
+  }
+  let out;
   try {
-    return fn.call(node, value);
+    out = fn.call(node, value);
   } catch (error) {
     issues.exception(context, error, key);
     return undefined;
   }
+  if (!isThenable(out)) return out;
+  const where = pathOf(context, key);
+  if (context.async === null) {
+    throw asyncReturn('decoder', toDotPath(where, context.root), 'parseAsync');
+  }
+  return out.then(undefined, (error) => at(context, where, () => issues.exception(context, error)));
 };
 
 const walkLeaf = (info, node, value) => value;
@@ -237,10 +281,10 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
       const fallback = entry.type.default;
       if (fallback === undefined) continue;
       item = typeof fallback === 'function' ? fallback() : fallback;
-      take(state, name, item);
+      take(state, name, item, phase);
     }
     const result = apply(infos[index], entry.type, item, context, name, phase);
-    if (strip ? result !== undefined : result !== item) take(state, name, result);
+    if (strip ? result !== undefined : result !== item) take(state, name, result, phase);
   }
   if (strip) {
     for (const name of extra) {
@@ -261,7 +305,7 @@ const walkItems = (children, infos, fixed, value, context, key, phase) => {
     const slot = fixed ? index : 0;
     if (slot >= children.length) break;
     const result = apply(infos[slot], children[slot], item, context, index, phase);
-    if (result !== item) take(state, index, result);
+    if (result !== item) take(state, index, result, phase);
     index += 1;
   }
   return leave(state, set ? toSet : undefined);
@@ -281,16 +325,18 @@ const walkKeyed = (info, node, value, context, key, phase) => {
     const name = pair[0];
     const item = pair[1];
     const result = apply(sub, child, item, context, name, phase);
-    if (result !== item) take(state, name, result);
+    if (result !== item) take(state, name, result, phase);
   }
   return leave(state);
 };
 
 // A context for trying the branches of a plain union: the policies of the
-// parse and one issue at most, so the branch is the one the check picks.
-const accepts = (branch, value, scratch) => {
+// parse, one issue at most, and the promises of an async parse set aside as
+// the check sets them aside, so the branch is the one the check picks.
+const accepts = (branch, value, scratch, async) => {
   scratch.issues = NONE;
   scratch.count = 0;
+  scratch.async = async ? [] : null;
   branch.check(value, scratch);
   return scratch.count === 0;
 };
@@ -310,11 +356,12 @@ const walkUnion = (info, node, value, context, key, phase) => {
   const scratch = createContext(undefined, '', context.unknown);
   scratch.references = context.references;
   scratch.limit = 1;
+  const async = context.async !== null;
   for (let index = 0; index < children.length; index += 1) {
     const branch = children[index];
     const sub = infos[index];
     const prepared = phase === DEFAULTS ? apply(sub, branch, value, context, key, phase) : value;
-    if (!accepts(branch, prepared, scratch)) continue;
+    if (!accepts(branch, prepared, scratch, async)) continue;
     return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase);
   }
   return value;

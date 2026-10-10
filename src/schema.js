@@ -6,7 +6,7 @@ const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata } = require('./metadata.js');
 const { ValidationResult } = require('./result.js');
-const { finalize, runValidate } = require('./issues.js');
+const { finalize, runValidate, settle } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
@@ -183,11 +183,22 @@ class Schema extends SchemaMetadata {
   // never throws because of the value. `options`: root (the label of the
   // error lines, the schema name by default), maxErrors, unknown ('reject'
   // or 'ignore' keys the schema does not have), references, messages (a
-  // locale).
+  // locale). A validator that returns a promise is an error here.
   check(source, options) {
     const context = createContext(options, this.name, this.unknown);
     if (this.#tracked) track(context, source);
     this[RUN](source, context);
+    return resultOf(context);
+  }
+
+  // The same check, with the validators that return a promise settled after
+  // the walk, in field order.
+  async checkAsync(source, options) {
+    const context = createContext(options, this.name, this.unknown);
+    context.async = [];
+    if (this.#tracked) track(context, source);
+    this[RUN](source, context);
+    if (context.async.length > 0) await settle(context);
     return resultOf(context);
   }
 
@@ -218,6 +229,17 @@ class Schema extends SchemaMetadata {
     const value = this.#prepare(source, context);
     this[RUN](value, context);
     const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
+    return parsed(context, output);
+  }
+
+  async parseAsync(source, options) {
+    const context = createContext(options, this.name, this.unknown, true);
+    context.async = [];
+    const value = this.#prepare(source, context);
+    this[RUN](value, context);
+    if (context.async.length > 0) await settle(context);
+    let output;
+    if (context.count === 0) output = await this.#pass(FINISH, value, context);
     return parsed(context, output);
   }
 

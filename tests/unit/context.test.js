@@ -19,10 +19,12 @@ test('Context: a check runs in a context of its own, not in module globals', () 
     'references',
     'root',
     'messages',
+    'async',
   ]);
   assert.strictEqual(context.limit, 3);
   assert.strictEqual(context.root, 'User');
   assert.strictEqual(context.seen, null);
+  assert.strictEqual(context.async, null);
   assert.strictEqual(createContext().limit, UNLIMITED);
   assert.strictEqual(UNLIMITED, 2 ** 30 - 1);
   assert.strictEqual(createContext({ maxErrors: Infinity }).limit, UNLIMITED);

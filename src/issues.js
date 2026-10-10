@@ -5,6 +5,7 @@
 // Every issue has the same keys in the same order, so loops over them see one
 // shape.
 const { hasBrand, shorten } = require('./util.js');
+const { asyncReturn } = require('./errors.js');
 const en = require('./locales/en.js');
 
 // Shared by the issues that carry no params, so none of them is ever undefined.
@@ -160,18 +161,81 @@ const describe = (messages, root, issue) => {
   return `${field(toDotPath(issue.path, root))} ${message}`;
 };
 
+const isThenable = (value) =>
+  value !== null && typeof value === 'object' && typeof value.then === 'function';
+
 // The two places where user code runs, and the only ones with a try/catch:
 // an exception from a validator or a custom checkType is reported as an
-// issue, not thrown. Both get the dotted path of the field.
+// issue, not thrown. Both get the dotted path of the field. In an async
+// check (`context.async` is a list) a promise is kept with the path it was
+// met at, and every validator after it is kept too, as a call, so that the
+// rule "a validator runs only when nothing before it failed" holds over the
+// promises as well; `settle` runs the list after the walk, in field order.
+// In a synchronous check a promise is an error of the call.
 const guarded = (context, code, fallback, call) => {
+  const pending = context.async;
+  const { path, count } = context;
+  if (pending !== null && pending.length > 0) {
+    pending.push({ call, promise: null, path: path.slice(), code, fallback, count });
+    return;
+  }
   let output;
   try {
-    output = call(toDotPath(context.path, context.root));
+    output = call(toDotPath(path, context.root));
   } catch (error) {
     issues.exception(context, error);
     return;
   }
+  if (isThenable(output)) {
+    if (pending === null) {
+      throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
+    }
+    pending.push({ call: null, promise: output, path: path.slice(), code, fallback, count });
+    return;
+  }
   absorb(context, output, code, fallback);
+};
+
+// Whether an issue recorded since the validator was deferred lies under its
+// path: the fields of the value it validates were checked before it.
+const failedUnder = (context, entry) => {
+  const { issues: list } = context;
+  const { path } = entry;
+  for (let index = entry.count; index < list.length; index += 1) {
+    const recorded = list[index].path;
+    if (recorded.length < path.length) continue;
+    let under = true;
+    for (let depth = 0; depth < path.length && under; depth += 1) {
+      under = recorded[depth] === path[depth];
+    }
+    if (under) return true;
+  }
+  return false;
+};
+
+// Runs the validators an async check kept, one after the other in the order
+// they were met, each recording under the path it was met at; the error
+// limit stops the list as it stops the walk.
+const settle = async (context) => {
+  const pending = context.async;
+  for (let index = 0; index < pending.length; index += 1) {
+    if (context.count >= context.limit) break;
+    const entry = pending[index];
+    if (entry.call !== null && failedUnder(context, entry)) continue;
+    context.path = entry.path;
+    let output;
+    try {
+      output =
+        entry.call === null
+          ? await entry.promise
+          : await entry.call(toDotPath(entry.path, context.root));
+    } catch (error) {
+      issues.exception(context, error);
+      continue;
+    }
+    absorb(context, output, entry.code, entry.fallback);
+  }
+  context.path = [];
 };
 
 const runValidate = (owner, validate, value, context) =>
@@ -191,6 +255,8 @@ module.exports = {
   absorb,
   finalize,
   describe,
+  isThenable,
   runValidate,
   runCheckType,
+  settle,
 };

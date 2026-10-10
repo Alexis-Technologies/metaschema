@@ -93,6 +93,10 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     references: 'kind',
     root: name,
     messages: en,
+    // The validators that returned a promise, in field order, settled after
+    // the walk by checkAsync and parseAsync; null in a synchronous check,
+    // where such a promise is an error.
+    async: null,
   };
   if (options !== undefined) configure(context, options, parsing);
   return context;
