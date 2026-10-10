@@ -119,6 +119,7 @@ export default defineConfig({
           items: [
             { text: 'Schema Syntax', link: '/guide/schema-syntax' },
             { text: 'Types', link: '/guide/types' },
+            { text: 'Unions, nullable and null', link: '/guide/unions' },
             { text: 'References', link: '/guide/references' },
             { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
             { text: 'Custom Types', link: '/guide/custom-types' },
@@ -136,7 +137,11 @@ export default defineConfig({
         },
         {
           text: 'Going Further',
-          items: [{ text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' }],
+          items: [
+            { text: 'Performance', link: '/guide/performance' },
+            { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
+            { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
+          ],
         },
       ],
       '/api/': [

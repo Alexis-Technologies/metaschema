@@ -5,6 +5,10 @@ The schema language and the validation rules are the same. What changed is the p
 them, plus the fixes listed below: more precise messages and paths, definition errors that say
 where they are, and definitions that used to pass silently and now throw.
 
+2.0 goes further: the shape of a result, the signature of `check` and a few rules of the language
+change on top of this page, and the outputs below are the 2.0 ones. Read this page, then
+[Migrating from 1.x](/guide/migrating-from-1).
+
 ## Install
 
 ```bash
@@ -82,8 +86,8 @@ metaschema used are copied into the package.
   | `Filed "x" is not a object` | `Field "x" not of expected type: object` |
   | `Filed "x" is not a map` | `Field "x" not of expected type: map` |
   | `Value of "x" must be an object` | `Field "x" not of expected type: object` |
-  | `value length is more then expected in tuple` | `value length is more than expected in tuple` |
-  | `Field "field2" is not expected` (inside `nested`) | `Field "nested.field2" is not expected` |
+  | `value length is more then expected in tuple` | `exceeds the maximum length` (1.x: `value length is more than expected in tuple`) |
+  | `Field "field2" is not expected` (inside `nested`) | `Field "nested" has unexpected keys: field2` (1.x: `Field "nested.field2" is not expected`) |
   | `Field "Person.companies.name" ...` (a `many` record) | `Field "Person.companies[1].name" ...` |
   | `Field "o" In object "o": type of key must be a string` | `Field "o" keys must be of type string` |
   | `Field "o" validation failed TypeError: ...` for `null` | `Field "o" not of expected type: object` |

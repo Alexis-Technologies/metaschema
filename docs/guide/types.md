@@ -88,42 +88,17 @@ the long form.
 
 ## Unions
 
-`{ union: [...] }` accepts a value that matches one of its branches, each a definition of its own.
-Without a discriminator the branches are tried in order, the first one that reports nothing wins,
-and what a failed branch reported is dropped; a value that matches none is one `union` issue with
-the branch names:
+`{ union: [...] }` accepts a value that matches one of its branches, each a definition of its own:
+without a discriminator the first branch that reports nothing wins, with
+`discriminator: '<field>'` the branch is picked from an `enum` field in one lookup.
 
 ```js
 const schema = Schema.from({ id: { union: ['string', 'number'] } });
-schema.check({ id: true }).issues;
-// [ { code: 'union', path: ['id'], message: 'does not match any of: string, number', params: { expected: ['string', 'number'], discriminator: undefined } } ]
+schema.check({ id: true }).errors; // [ 'Field "id" does not match any of: string, number' ]
 ```
 
-With `discriminator: '<field>'` every branch must be a nested struct whose field of that name is
-an `enum`. The branch is picked from the value of that field in one lookup, built when the schema
-is built, so the other branches are never tried, and a value with an unknown or missing
-discriminator is one `union` issue at the discriminator's path:
-
-```js
-const canvas = new Schema('Canvas', {
-  shape: {
-    union: [
-      { kind: { enum: ['circle'] }, r: 'number' },
-      { kind: { enum: ['square', 'rect'] }, side: 'number' },
-    ],
-    discriminator: 'kind',
-  },
-});
-canvas.check({ shape: { kind: 'circle', side: 1 } }).errors;
-// [ 'Field "Canvas.shape.r" is required', 'Field "Canvas.shape" has unexpected keys: side' ]
-canvas.check({ shape: { kind: 'line' } }).errors;
-// [ 'Field "Canvas.shape.kind" is not one of: circle, square, rect' ]
-```
-
-A branch may be a `Schema` instance. A reference (`'Shape'`) resolves when a value is checked, so
-it can be a branch of a plain union but not of a discriminated one. An empty branch list, a
-branch without the discriminator field or with a non-enum one, and a discriminator value shared
-by two branches throw `ERR_INVALID_UNION`. In TypeScript a union renders as `A | B`.
+See [Unions, nullable and null](/guide/unions) for discriminated unions, optional and nullable
+unions, the `union` issue and the definition errors.
 
 ## `json`
 
@@ -158,7 +133,8 @@ schema.check({ parent: undefined }).errors; // [ 'Field "parent" not of expected
 
 A nullable field skips its rules and `validate` for `null`. It renders as `T | null` in TypeScript,
 and `nullable` applies to any type, including a nested struct (`{ schema: {...}, nullable: true }`)
-and a collection element (`{ array: { type: 'string', nullable: true } }`).
+and a collection element (`{ array: { type: 'string', nullable: true } }`). The comparison with
+optional fields, the `null` type and `any` is in [Unions, nullable and null](/guide/unions#optional-nullable-and-null).
 
 Every type lists the rules it accepts, and a rule on a type that does not accept it is a
 `SchemaDefinitionError` (`ERR_INVALID_RULE`) when the schema is built: `{ type: 'number', length:

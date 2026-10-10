@@ -38,11 +38,12 @@ Some things work as intended and are not vulnerabilities:
   files, evaluate source strings or run a sandbox. Turning untrusted input into a schema definition
   is the application's decision and responsibility.
 - **Input shape is checked strictly.** Every key that is not in the schema is reported as
-  `is not expected`, including `constructor`, `__proto__` and `toString`. Fields live in a
+  unexpected (`has unexpected keys: ...`), including `constructor`, `__proto__` and `toString`,
+  unless the schema or the call says `unknown: 'ignore'`. Fields live in a
   null-prototype dictionary, so nothing on `Object.prototype` is ever read as a field, and
   metaschema never writes to the value it checks.
-- **Validation errors are data.** `check` collects problems as strings instead of throwing on bad
-  input. The messages contain field paths (which can include key names taken from the input,
+- **Validation errors are data.** `check` collects problems as issues (a code, a path and params,
+  with a rendered message) instead of throwing on bad input. The messages contain field paths (which can include key names taken from the input,
   truncated to 100 characters) and, for `enum`, the allowed values; they never contain the
   rejected values themselves. A message
   from a custom `validate` function, or from an exception it throws, is passed through as written.

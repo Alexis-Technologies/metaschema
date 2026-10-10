@@ -64,7 +64,7 @@ const person = model.entities.get('Person');
 person.check({ name: 'Ann', employer: 'c1', home: 'a1' }).valid; // true: Company and Address are stored
 person.check({ name: 'Ann', employer: { name: 'Acme' }, home: 'a1' }).errors;
 // [ 'Field "Person.employer" not of expected type: string' ]
-person.check({ name: 'Ann', employer: { name: 'Acme' }, home: { city: 'Rome', street: 'Via Appia' } }, { references: 'embed' }).valid; // true
+person.check({ name: 'Ann', employer: { name: 'Acme', addresses: [] }, home: { city: 'Rome', street: 'Via Appia' } }, { references: 'embed' }).valid; // true
 ```
 
 ### Consequences
@@ -75,8 +75,9 @@ person.check({ name: 'Ann', employer: { name: 'Acme' }, home: { city: 'Rome', st
 - A reference to an entity the model does not have is a `reference` issue in every mode.
 - `schema.toInterface()` outside a model cannot resolve the target and renders the id form; inside a
   model the memory-kind target renders by its interface name, which `model.dts` emits.
-- Later emitters (`Infer`, JSON Schema) use the same rule: a stored reference is a string, a memory
-  reference is the referenced type.
+- `Infer` applies the same rule through an [entity map](/guide/typescript#references-and-entity-maps):
+  a stored reference is a string, a memory reference is the record. The JSON Schema export planned
+  for 2.1 will follow it too.
 
 ## Validation
 
