@@ -62,7 +62,10 @@ test('Model: from struct', () => {
   assert.strictEqual(name.unique, true);
 
   const warn = model.warnings[0];
-  assert.strictEqual(warn, 'Warning: "Address" referenced by "Company" is not found');
+  assert.strictEqual(
+    warn,
+    'Warning [missing-reference]: "Address" referenced by "Company" is not found',
+  );
 });
 
 test('Model: many relation Schema for validation', () => {
@@ -83,14 +86,14 @@ test('Model: many relation Schema for validation', () => {
 
   const company = model.entities.get('Company');
 
-  const obj = {
-    name: 'Galeere',
-    addresses: [{ city: 'Berlin' }, { city: 'Kiev' }],
-  };
-
+  // Address is stored, so a company holds the ids of its addresses.
+  const obj = { name: 'Galeere', addresses: ['a1', 'a2'] };
   const obj1 = { name: 'Leere' };
+  const embedded = { name: 'Galeere', addresses: [{ city: 'Berlin' }, { city: 'Kiev' }] };
   assert.strictEqual(company.check(obj).valid, true);
   assert.strictEqual(company.check(obj1).valid, false);
+  assert.strictEqual(company.check(embedded).valid, false);
+  assert.strictEqual(company.check(embedded, { references: 'embed' }).valid, true);
 });
 
 test('Model: custom types with nested schema and relation', () => {
@@ -109,17 +112,27 @@ test('Model: custom types with nested schema and relation', () => {
   const identifier = model.entities.get('Identifier');
   assert.strictEqual(identifier.check({ creation: Date.now().toLocaleString() }).valid, true);
   const tester = model.entities.get('Tester');
+  const embed = { references: 'embed' };
+  assert.strictEqual(
+    tester.check(
+      {
+        access: {
+          last: Date.now().toLocaleString(),
+          count: 2,
+          identifiers: [
+            { creation: Date.now().toLocaleString() },
+            { creation: Date.now().toLocaleString() },
+          ],
+          id: { creation: Date.now().toLocaleString() },
+        },
+      },
+      embed,
+    ).valid,
+    true,
+  );
   assert.strictEqual(
     tester.check({
-      access: {
-        last: Date.now().toLocaleString(),
-        count: 2,
-        identifiers: [
-          { creation: Date.now().toLocaleString() },
-          { creation: Date.now().toLocaleString() },
-        ],
-        id: { creation: Date.now().toLocaleString() },
-      },
+      access: { last: Date.now().toLocaleString(), count: 2, identifiers: ['i1', 'i2'], id: 'i3' },
     }).valid,
     true,
   );
@@ -215,7 +228,9 @@ test('Model: a two-entity cycle is a warning, not a crash', () => {
   ]);
   const model = new Model({}, entities);
   assert.deepStrictEqual([...model.order], ['B', 'A']);
-  assert.deepStrictEqual(model.warnings, ['Warning: "B" depends on "A" recursively']);
+  assert.deepStrictEqual(model.warnings, [
+    'Warning [recursive-reference]: "B" depends on "A" recursively',
+  ]);
 });
 
 test('Model: a cycle that does not pass through the first entity is a warning', () => {
@@ -237,7 +252,7 @@ test('Model: a cycle that does not pass through the first entity is a warning', 
     // the B <-> C cycle is reported depends on where the walk entered it.
     assert.ok(order.indexOf('A') > order.indexOf('B'), names.join());
     assert.strictEqual(model.warnings.length, 1, names.join());
-    const cycle = /^Warning: "(C|B)" depends on "(B|C)" recursively$/;
+    const cycle = /^Warning \[recursive-reference\]: "(C|B)" depends on "(B|C)" recursively$/;
     assert.match(model.warnings[0], cycle, names.join());
   }
 });
@@ -305,7 +320,7 @@ test('Model: one and many need an entity name', () => {
 
 test('Model: a many reference needs an array', () => {
   const entities = new Map([
-    ['Company', { Entity: {}, name: 'string' }],
+    ['Company', { Struct: {}, name: 'string' }],
     ['Person', { Entity: {}, companies: { many: 'Company' } }],
   ]);
   const person = new Model({}, entities).entities.get('Person');
@@ -359,7 +374,7 @@ test('Model: dts renders collections, enums, tuples, bigint and nested structs',
 
 interface Doc {
   tags: string[];
-  ids: bigint[];
+  ids: Set<bigint>;
   scores: Record<string, number>;
   byId: Map<number, boolean>;
   status: "open" | "done";
@@ -396,19 +411,34 @@ test('Model: a reference checks its target with the value it gets', () => {
     ],
   ]);
   const person = new Model({}, entities).entities.get('Person');
+  // Company is stored: a person holds its id unless the check embeds.
   assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }).errors, [
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  assert.deepStrictEqual(person.check({ employer: { name: 'Acme' }, ghosts: [] }).errors, [
+    'Field "Person.employer" not of expected type: string',
+    'Field "Person.ghosts" Entity "Nothing" is not found',
+  ]);
+  const embed = { references: 'embed' };
+  assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }, embed).errors, [
     'Field "Person.employer" not of expected type: object',
     'Field "Person.ghosts" Entity "Nothing" is not found',
   ]);
-  assert.deepStrictEqual(person.check({ employer: null, former: null, ghosts: null }).errors, [
-    'Field "Person.employer" not of expected type: object',
-    'Field "Person.ghosts" Entity "Nothing" is not found',
-  ]);
-  const ok = person.check({ employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] });
+  assert.deepStrictEqual(
+    person.check({ employer: null, former: null, ghosts: null }, embed).errors,
+    [
+      'Field "Person.employer" not of expected type: object',
+      'Field "Person.ghosts" Entity "Nothing" is not found',
+    ],
+  );
+  const ok = person.check(
+    { employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] },
+    embed,
+  );
   assert.deepStrictEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
   const limited = person.check(
     { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
-    { maxErrors: 2 },
+    { references: 'embed', maxErrors: 2 },
   );
   assert.deepStrictEqual(limited.errors, [
     'Field "Person.employer.name" not of expected type: string',

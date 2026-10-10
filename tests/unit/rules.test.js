@@ -141,7 +141,7 @@ test('Rules: an optional field with rules accepts a missing or null value', () =
   const sized = Schema.from({
     ids: { set: 'number', length: { min: 1 } },
     byId: { map: { string: 'number' }, length: [1, 1] },
-    big: { type: 'bigint', length: { max: 10 } },
+    big: { type: 'bigint', max: 10 },
   });
   assert.strictEqual(
     sized.check({ ids: new Set([1]), byId: new Map([['a', 1]]), big: 10n }).valid,
@@ -159,7 +159,7 @@ test('Rules: an optional field with rules accepts a missing or null value', () =
     [
       'Field "ids" value is too short',
       'Field "byId" exceeds the maximum length',
-      'Field "big" exceeds the maximum length',
+      'Field "big" is greater than 10',
     ],
   );
 });

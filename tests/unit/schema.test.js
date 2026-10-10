@@ -406,7 +406,7 @@ test('Schema: a validate function may build and return a ValidationResult', () =
 });
 
 test('Schema: a value that refers back to itself is reported, not recursed into', () => {
-  const model = new Model({}, [['Category', { Entity: {}, name: 'string', parent: '?Category' }]]);
+  const model = new Model({}, [['Category', { Struct: {}, name: 'string', parent: '?Category' }]]);
   const category = model.entities.get('Category');
   const loop = { name: 'root' };
   loop.parent = loop;
@@ -439,7 +439,7 @@ test('Schema: a value that refers back to itself is reported, not recursed into'
     'Field "" has unexpected keys: n',
   ]);
   const deep = new Model({}, [
-    ['Tree', { Entity: {}, items: { array: { node: '?Tree' } } }],
+    ['Tree', { Struct: {}, items: { array: { node: '?Tree' } } }],
   ]).entities.get('Tree');
   const branch = { items: [] };
   branch.items.push({ node: branch });

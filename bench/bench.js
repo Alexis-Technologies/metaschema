@@ -16,6 +16,7 @@ const path = require('node:path');
 const { Schema, Model } = require('../index.js');
 const {
   bench,
+  callCheck,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
   FLAT_VALID,
@@ -62,12 +63,13 @@ const compare = (results) => {
 
 const LOOSE = { unknown: 'ignore' };
 
-// The four modes of the moltar suite over one schema and its values.
+// The four modes of the moltar suite over one schema and its values; check
+// is called through the harness so that it is measured as a callee.
 const modes = (label, schema, value, loose) => [
-  [`parseSafe — ${label}`, () => (schema.check(value, LOOSE).valid ? value : null)],
-  [`parseStrict — ${label}`, () => (schema.check(value).valid ? value : null)],
-  [`assertLoose — ${label}`, () => schema.check(loose, LOOSE).valid],
-  [`assertStrict — ${label}`, () => schema.check(value).valid],
+  [`parseSafe — ${label}`, () => (callCheck(value, LOOSE).valid ? value : null), schema],
+  [`parseStrict — ${label}`, () => (callCheck(value).valid ? value : null), schema],
+  [`assertLoose — ${label}`, () => callCheck(loose, LOOSE).valid, schema],
+  [`assertStrict — ${label}`, () => callCheck(value).valid, schema],
 ];
 
 const main = () => {
@@ -82,10 +84,10 @@ const main = () => {
   const scenarios = [
     ['Schema.from — flat struct (4 fields)', () => Schema.from(FLAT_SCHEMA)],
     ['Schema.from — nested struct, collections, tuple', () => Schema.from(NESTED_SCHEMA)],
-    ['check — flat struct, valid', () => flat.check(FLAT_VALID)],
-    ['check — flat struct, invalid', () => flat.check(FLAT_INVALID)],
-    ['check — nested struct, valid', () => nested.check(NESTED_VALID)],
-    ['check — nested struct, invalid', () => nested.check(NESTED_INVALID)],
+    ['check — flat struct, valid', () => callCheck(FLAT_VALID), flat],
+    ['check — flat struct, invalid', () => callCheck(FLAT_INVALID), flat],
+    ['check — nested struct, valid', () => callCheck(NESTED_VALID), nested],
+    ['check — nested struct, invalid', () => callCheck(NESTED_INVALID), nested],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',
@@ -98,8 +100,8 @@ const main = () => {
   ];
 
   const results = [];
-  for (const [name, fn] of scenarios) {
-    if (name.includes(filter)) results.push(bench(name, fn, { quiet: json }));
+  for (const [name, fn, schema] of scenarios) {
+    if (name.includes(filter)) results.push(bench(name, fn, { quiet: json, schema }));
   }
   if (json) console.log(JSON.stringify(results, null, 2));
   if (flags.has('--save')) {

@@ -16,6 +16,7 @@ test('Context: a check runs in a context of its own, not in module globals', () 
     'path',
     'seen',
     'unknown',
+    'references',
     'root',
     'messages',
   ]);
@@ -57,7 +58,7 @@ test('Context: a check started by a validator does not affect the outer one', ()
 });
 
 test('Context: the objects on the path are tracked per check', () => {
-  const model = new Model({}, [['Node', { Entity: {}, name: 'string', next: '?Node' }]]);
+  const model = new Model({}, [['Node', { Struct: {}, name: 'string', next: '?Node' }]]);
   const node = model.entities.get('Node');
   const shared = { name: 'leaf' };
   const first = { name: 'a', next: shared };

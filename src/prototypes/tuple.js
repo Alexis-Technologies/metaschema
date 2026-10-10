@@ -1,27 +1,42 @@
+const { isFirstUpper } = require('../metautil.js');
+const { formatters } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { issues } = require('../issues.js');
 
-const notScalar = (element) => {
-  const shown = typeof element === 'string' ? `"${element}"` : JSON.stringify(element);
-  const reason = `Tuple element ${shown} is not a scalar type`;
-  return new SchemaDefinitionError('ERR_INVALID_TUPLE', reason);
+const invalidTuple = (reason) => new SchemaDefinitionError('ERR_INVALID_TUPLE', `Tuple ${reason}`);
+
+// A named element is `{ name: 'type' }`: one key that is not `type`, a type
+// name or a kind, holding a type name. Anything else is a definition of its
+// own (a nested struct, a collection, a tuple).
+const nameOf = (element, types) => {
+  if (element === null || typeof element !== 'object' || Array.isArray(element)) return null;
+  const keys = Object.keys(element);
+  if (keys.length !== 1 || typeof element[keys[0]] !== 'string') return null;
+  const { field } = formatters.key(keys[0]);
+  if (field === 'type' || types[field] || isFirstUpper(field)) return null;
+  return keys[0];
 };
 
 const tuple = {
   kind: 'struct',
+  options: ['value', 'tuple'],
 
   construct(def, prep) {
     const elements = def.value || def.tuple;
-    this.value = elements.map((element) => {
-      const named = typeof element !== 'string';
-      const pair = named ? Object.entries(element)[0] : [null, element];
-      const name = pair[0];
-      const scalar = pair[1];
-      const { Type, defs } = prep.parse(scalar);
-      if (!Type || Type.kind !== 'scalar') throw notScalar(scalar);
-      const type = new Type(defs, prep);
-      if (name) type.name = name;
-      return type;
+    if (!Array.isArray(elements)) throw invalidTuple('needs a list of element definitions');
+    this.value = elements.map((element, index) => {
+      const key = nameOf(element, prep.types);
+      const source = key === null ? element : element[key];
+      const { Type, defs } = prep.parse(source);
+      if (!Type) throw invalidTuple(`element ${index} cannot be a function`);
+      if (key !== null) {
+        const { field, required } = formatters.key(key);
+        defs.required = (defs.required ?? true) && required;
+        const type = new Type(defs, prep);
+        type.name = field;
+        return type;
+      }
+      return new Type(defs, prep);
     });
   },
 

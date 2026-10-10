@@ -51,6 +51,10 @@ const issues = {
   unexpected: (context, keys, key) => record(context, 'unexpected', { keys }, key),
   enum: (context, values, key) => record(context, 'enum', { values }, key),
   length: (context, min, max, actual, key) => record(context, 'length', { min, max, actual }, key),
+  range: (context, min, max, actual, key) => record(context, 'range', { min, max, actual }, key),
+  pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
+  union: (context, expected, discriminator, key) =>
+    record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
   circular: (context, key) => record(context, 'circular', EMPTY, key),
   exception: (context, error) => record(context, 'exception', { error }),

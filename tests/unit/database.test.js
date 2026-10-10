@@ -34,8 +34,8 @@ test('Database: schema Registry', () => {
     options: { validate: null, format: null, parse: null, serialize: null },
     references: new Set(['string', 'Country', 'schema', 'Person']),
     relations: new Set([
-      { to: 'Country', type: 'one-to-many' },
-      { to: 'Person', type: 'many-to-one' },
+      { to: 'Country', type: 'many-to-one' },
+      { to: 'Person', type: 'one-to-many' },
     ]),
     fields: {
       name: { unique: true, required: true, type: 'string' },
@@ -62,8 +62,10 @@ test('Database: schema Registry', () => {
   assert.deepStrictEqual(entity.relations, expected.relations);
 
   const warn = entity.checkConsistency();
-  const countryWarning = 'Warning: "Country" referenced by "Address" is not found';
-  const personWarning = 'Warning: "Person" referenced by "Address" is not found';
+  const countryWarning =
+    'Warning [missing-reference]: "Country" referenced by "Address" is not found';
+  const personWarning =
+    'Warning [missing-reference]: "Person" referenced by "Address" is not found';
   const expectedWarnings = [countryWarning, personWarning];
   assert.deepStrictEqual(warn, expectedWarnings);
 });

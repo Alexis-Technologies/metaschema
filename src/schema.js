@@ -9,25 +9,69 @@ const { ValidationResult } = require('./result.js');
 const { finalize, runValidate } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
+const { embeds } = require('./prototypes/reference.js');
+const { warning, lintSchema } = require('./lint.js');
 
-const TS_SCALARS = { string: 'string', number: 'number', boolean: 'boolean', bigint: 'bigint' };
+const TS_SCALARS = {
+  string: 'string',
+  number: 'number',
+  boolean: 'boolean',
+  bigint: 'bigint',
+  date: 'Date',
+  null: 'null',
+  any: 'any',
+  unknown: 'unknown',
+};
 
 const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
 
-// The TypeScript type of a field. A reference is stored as an id, so it
-// renders as a string (an array of them for `many`); a custom scalar with its
-// own check has no known shape and renders as a string too.
+// Whether a reference field renders as its id (`companyId: string`) or as
+// the referenced type (`company: Company`): the same rule as `check`, with
+// a target that cannot be resolved taken as stored.
+const asId = (def) => {
+  const target = def.root.findReference(def.type);
+  if (target === null) return def.embed !== true;
+  return !embeds(target, def.embed, 'kind');
+};
+
+const tsStruct = (fields) => `{ ${tsFields(fields).join('; ')} }`;
+
+// The referenced type: its interface by name, inline when it has none, the
+// name of the reference when it cannot be resolved.
+const tsReference = (def) => {
+  const target = def.root.findReference(def.type);
+  if (target === null || target.name) return def.type;
+  const { fields } = target;
+  return hasBrand(fields, 'Struct') ? tsStruct(fields) : tsType(fields);
+};
+
+// The TypeScript type of a field. A reference to a stored kind is held as
+// an id, so it renders as a string (an array of them for `many`), a
+// reference to a memory kind as the type itself; a custom scalar with its
+// own check has no known shape and renders as a string.
 const tsType = (def) => {
-  if (isFirstUpper(def.type)) return def.many ? 'string[]' : 'string';
+  const type = tsBase(def);
+  return def.nullable === true ? `${type} | null` : type;
+};
+
+const tsBase = (def) => {
+  if (isFirstUpper(def.type)) {
+    const element = asId(def) ? 'string' : tsReference(def);
+    return def.many ? listOf(element) : element;
+  }
   if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
+  if (def.union) return def.union.map(tsType).join(' | ');
   if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
-  if (def.schema) return `{ ${tsFields(def.schema).join('; ')} }`;
+  if (def.schema) return tsStruct(def.schema);
   if (Array.isArray(def.value)) return `[${def.value.map(tsType).join(', ')}]`;
   if (def.key !== undefined && def.value) {
     const entries = `${def.key}, ${tsType(def.value)}`;
     return def.isInstance({}) ? `Record<${entries}>` : `Map<${entries}>`;
   }
-  if (def.value) return listOf(tsType(def.value));
+  if (def.value) {
+    const element = tsType(def.value);
+    return def.isInstance([]) ? listOf(element) : `Set<${element}>`;
+  }
   if (def.kind === 'struct') return 'unknown';
   return 'string';
 };
@@ -61,7 +105,7 @@ const tsFields = (fields) => {
     const def = pair[1];
     if (!hasBrand(def, 'Type')) continue;
     const optional = def.required ? '' : '?';
-    const name = isFirstUpper(def.type) ? `${key}Id` : key;
+    const name = isFirstUpper(def.type) && asId(def) ? `${key}Id` : key;
     lines.push(`${name}${optional}: ${tsType(def)}`);
   }
   return lines;
@@ -75,6 +119,10 @@ class Schema extends SchemaMetadata {
   // Whether the root value joins the cycle detection: only a struct with
   // references can reach it again.
   #tracked = false;
+
+  // The lint of the definition, run on first use: a schema built in a hot
+  // path never pays for it.
+  #warnings = null;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -118,6 +166,12 @@ class Schema extends SchemaMetadata {
     this[RUN] = compileSchema(this);
   }
 
+  // What is not wrong enough to throw: `Warning [code]: text` strings.
+  get warnings() {
+    if (this.#warnings === null) this.#warnings = lintSchema(this);
+    return this.#warnings;
+  }
+
   get types() {
     if (this.namespaces.size === 0) return TYPES;
     if (this.#types === null) {
@@ -127,6 +181,8 @@ class Schema extends SchemaMetadata {
     return this.#types;
   }
 
+  // The warnings that need the namespaces: references and types that do
+  // not resolve.
   checkConsistency() {
     const warn = [];
     const { name, references } = this;
@@ -134,10 +190,10 @@ class Schema extends SchemaMetadata {
       if (isFirstUpper(ref)) {
         const entity = this.findReference(ref);
         if (!entity) {
-          warn.push(`Warning: "${ref}" referenced by "${name}" is not found`);
+          warn.push(warning('missing-reference', `"${ref}" referenced by "${name}" is not found`));
         }
       } else if (!this.types[ref]) {
-        warn.push(`Warning: type "${ref}" is not found in "${name}"`);
+        warn.push(warning('missing-type', `type "${ref}" is not found in "${name}"`));
       }
     }
     return warn;
@@ -156,7 +212,7 @@ class Schema extends SchemaMetadata {
   // error lines, the schema name by default), maxErrors, unknown ('reject'
   // or 'ignore' keys the schema does not have), messages (a locale).
   check(source, options) {
-    const context = createContext(options, this.name);
+    const context = createContext(options, this.name, this.unknown);
     if (this.#tracked && source !== null && typeof source === 'object') {
       context.seen = new Set();
       context.seen.add(source);

@@ -2,6 +2,7 @@ const { issues } = require('../issues.js');
 
 const json = {
   kind: 'struct',
+  options: [],
 
   construct() {},
 

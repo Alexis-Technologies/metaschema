@@ -1,70 +1,70 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-09T18:05:52.545Z",
+  "date": "2026-10-10T13:26:37.443Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 271427
+      "opsPerSec": 280494
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 86049
+      "opsPerSec": 93380
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 10847083
+      "opsPerSec": 10744569
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 3609646
+      "opsPerSec": 3519549
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 2769331
+      "opsPerSec": 2717667
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 1555013
+      "opsPerSec": 1497129
     },
     {
       "name": "parseSafe — moltar flat (6 fields)",
-      "opsPerSec": 16287637
+      "opsPerSec": 14250097
     },
     {
       "name": "parseStrict — moltar flat (6 fields)",
-      "opsPerSec": 16660964
+      "opsPerSec": 14495972
     },
     {
       "name": "assertLoose — moltar flat (6 fields)",
-      "opsPerSec": 16569523
+      "opsPerSec": 14174776
     },
     {
       "name": "assertStrict — moltar flat (6 fields)",
-      "opsPerSec": 17368059
+      "opsPerSec": 14714191
     },
     {
       "name": "parseSafe — moltar nested (6 + 3 fields)",
-      "opsPerSec": 17174457
+      "opsPerSec": 14095219
     },
     {
       "name": "parseStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 17677390
+      "opsPerSec": 14613067
     },
     {
       "name": "assertLoose — moltar nested (6 + 3 fields)",
-      "opsPerSec": 17059069
+      "opsPerSec": 14175312
     },
     {
       "name": "assertStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 17318663
+      "opsPerSec": 14652155
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 18694
+      "opsPerSec": 17151
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 112410
+      "opsPerSec": 102174
     }
   ]
 }

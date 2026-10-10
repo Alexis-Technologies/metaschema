@@ -61,8 +61,9 @@ test('Errors: a definition that cannot be parsed', () => {
 test('Errors: every definition error carries its code', () => {
   const cases = [
     [() => Schema.from({ data: 'schema' }), 'ERR_MISSING_SCHEMA'],
-    [() => Schema.from({ point: ['json'] }), 'ERR_INVALID_TUPLE'],
-    [() => Schema.from({ point: [{ p: { array: 'number' } }] }), 'ERR_INVALID_TUPLE'],
+    [() => Schema.from({ point: { type: 'tuple', value: 'number' } }), 'ERR_INVALID_TUPLE'],
+    [() => Schema.from({ point: [() => 1] }), 'ERR_INVALID_TUPLE'],
+    [() => Schema.from({ shape: { union: [] } }), 'ERR_INVALID_UNION'],
     [() => new Model({}, [['P', { Projection: {} }]]), 'ERR_PROJECTION'],
     [
       () => new Model({}, [['P', { Projection: { schema: 'Nope', fields: ['a'] } }]]),
@@ -75,8 +76,11 @@ test('Errors: every definition error carries its code', () => {
   for (const [build, code] of cases) {
     assert.throws(build, { name: 'SchemaDefinitionError', code }, code);
   }
-  assert.throws(() => Schema.from({ point: ['json'] }), {
-    message: 'Tuple element "json" is not a scalar type in "point"',
+  assert.throws(() => Schema.from({ point: { tuple: 'number' } }), {
+    message: 'Tuple needs a list of element definitions in "point"',
+  });
+  assert.throws(() => Schema.from({ point: ['number', () => 1] }), {
+    message: 'Tuple element 1 cannot be a function in "point"',
   });
   assert.throws(
     () => new Model({}, [['Signin', { Projection: { schema: 'Nope', fields: ['a'] } }]]),

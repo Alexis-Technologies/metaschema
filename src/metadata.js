@@ -1,7 +1,21 @@
 const { getKindMetadata } = require('./kinds.js');
 const { ValidationResult } = require('./result.js');
+const { SchemaDefinitionError } = require('./errors.js');
 const OPTIONS = ['validate', 'parse', 'serialize', 'format'];
 const METADATA_COLLECTIONS = ['indexes', 'options'];
+const UNKNOWN = ['reject', 'ignore'];
+
+// The unknown-keys policy of a schema is the default of its `check`, so a
+// value with keys the schema does not have is rejected or ignored without
+// an option on every call; the option of a call still wins.
+const unknownOf = (unknown) => {
+  if (unknown === undefined) return 'reject';
+  if (!UNKNOWN.includes(unknown)) {
+    const reason = `Schema metadata "unknown" must be "reject" or "ignore", got ${JSON.stringify(unknown)}`;
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+  }
+  return unknown;
+};
 
 class Options {
   constructor() {
@@ -39,6 +53,7 @@ class SchemaMetadata {
     this.store = 'memory';
     this.allow = 'write';
     this.parent = '';
+    this.unknown = 'reject';
     this.indexes = new Indexes();
     this.options = new Options();
     this.custom = {};
@@ -47,12 +62,13 @@ class SchemaMetadata {
   }
 
   #setMany(values) {
-    const { kind, scope, store, allow, parent, ...custom } = values;
+    const { kind, scope, store, allow, parent, unknown, ...custom } = values;
     this.kind = kind || this.kind;
     this.scope = scope || this.scope;
     this.store = store || this.store;
     this.allow = allow || this.allow;
     this.parent = parent || this.parent;
+    this.unknown = unknownOf(unknown);
     this.custom = custom;
   }
 

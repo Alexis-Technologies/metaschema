@@ -126,6 +126,9 @@ test('Locales: every code has a renderer in every locale', () => {
     'unexpected',
     'enum',
     'length',
+    'range',
+    'pattern',
+    'union',
     'reference',
     'circular',
     'exception',
@@ -162,7 +165,7 @@ test('Locales: messages are rendered through the locale of the check', () => {
         status: { enum: ['a', 'b'] },
         owner: 'Owner',
         ghost: 'Nothing',
-        parent: '?Doc',
+        parent: { type: 'Doc', required: false, embed: true },
         note: { type: 'string', validate: () => 'власне повідомлення' },
         bad: {
           type: 'string',

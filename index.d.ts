@@ -35,6 +35,9 @@ export type IssueCode =
   | 'unexpected'
   | 'enum'
   | 'length'
+  | 'range'
+  | 'pattern'
+  | 'union'
   | 'reference'
   | 'circular'
   | 'exception'
@@ -48,6 +51,13 @@ export interface IssueParams {
   unexpected: { keys: string[] };
   enum: { values: unknown[] };
   length: { min: number | undefined; max: number | undefined; actual: number };
+  // A `min`/`max` rule failed; the bounds are what the definition gave.
+  range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
+  // The source of the pattern the string did not match.
+  pattern: { pattern: string };
+  // No branch of a union matched: the branch names, or the discriminator
+  // values when the union has a discriminator (the path then ends with it).
+  union: { expected: unknown[]; discriminator: string | undefined };
   reference: { entity: string };
   circular: {};
   exception: { error: unknown };
@@ -109,8 +119,13 @@ export interface CheckOptions {
   // Stop collecting after this many issues (at least 1).
   maxErrors?: number;
   // What to do with keys the schema does not have: report them as one
-  // `unexpected` issue per struct (the default) or ignore them.
+  // `unexpected` issue per struct, or ignore them. The default is the
+  // schema's own `unknown` metadata, 'reject' unless it says otherwise.
   unknown?: 'reject' | 'ignore';
+  // How a reference is checked: as its target's kind says ('kind', the
+  // default: a stored kind as an id, a memory kind as the record), every
+  // reference as the record ('embed') or every reference as an id ('id').
+  references?: 'kind' | 'embed' | 'id';
   // The locale of the messages, or a function that renders every message.
   messages?: Messages;
 }
@@ -157,6 +172,7 @@ export interface CheckContext {
   path: PropertyKey[];
   seen: Set<object> | null;
   unknown: 'reject' | 'ignore';
+  references: 'kind' | 'embed' | 'id';
   root: string;
   messages: Messages;
 }
@@ -170,6 +186,11 @@ export type CalculatedField = (value: any) => unknown;
 export interface FieldType {
   readonly type: string;
   required: boolean;
+  // The value may be null; the key is still required unless `required` is false.
+  nullable?: boolean;
+  // On a reference: check and render it as the record (true) or its id
+  // (false) whatever the kind of its target.
+  embed?: boolean;
   validate?: Validator;
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;
@@ -194,6 +215,7 @@ export interface TypeEntry {
   js?: string;
   metadata?: Record<string, unknown>;
   kind?: 'scalar' | 'struct';
+  // The rules the type accepts in a field definition (`length`, `min`, `max`).
   rules?: string[];
   construct?(def: object, preprocessor: object): void;
   checkType?(value: any, path: string): ValidationReturn;
@@ -212,6 +234,8 @@ export interface KindMetadata {
   store: Store;
   allow: Allow;
   parent?: string;
+  // The default of `check` for keys the schema does not have.
+  unknown?: 'reject' | 'ignore';
   [key: string]: unknown;
 }
 
@@ -227,10 +251,12 @@ export type DefinitionErrorCode =
   | 'ERR_UNKNOWN_TYPE'
   | 'ERR_MISSING_SCHEMA'
   | 'ERR_INVALID_TUPLE'
+  | 'ERR_INVALID_UNION'
   | 'ERR_PROJECTION'
   | 'ERR_INVALID_CUSTOM_TYPE'
   | 'ERR_INVALID_ENUM'
   | 'ERR_INVALID_LENGTH'
+  | 'ERR_INVALID_RULE'
   | 'ERR_INVALID_REFERENCE'
   | 'ERR_RESERVED_KEY'
   | 'ERR_TYPE_REGISTERED'
@@ -268,6 +294,9 @@ export class Schema {
   store: Store;
   allow: Allow;
   parent: string;
+  // What `check` does with keys the schema does not have unless the call says
+  // otherwise: `{ Struct: { unknown: 'ignore' } }` sets it.
+  unknown: 'reject' | 'ignore';
   indexes: Record<string, object>;
   options: SchemaOptions;
   custom: Record<string, unknown>;
@@ -278,6 +307,10 @@ export class Schema {
   namespaces: Set<Model>;
   references: Set<string>;
   relations: Set<Relation>;
+  // Lint warnings of the definition, `Warning [code]: text`: unknown field
+  // options, a pattern without length.max, an index over a missing field.
+  // Computed on first use.
+  readonly warnings: Array<string>;
 
   constructor(name: string, raw: string | object, namespaces?: Array<Model>);
   get types(): TypeTable;
@@ -297,7 +330,10 @@ export class Model {
   entities: Map<string, Schema>;
   database: Record<string, unknown> | null;
   order: Set<string>;
-  warnings: Array<string>;
+  // The warnings of every entity, plus references that do not resolve
+  // (missing-reference) and recursive dependencies (recursive-reference).
+  // Computed on first use.
+  readonly warnings: Array<string>;
 
   constructor(
     types: Record<string, TypeEntry>,

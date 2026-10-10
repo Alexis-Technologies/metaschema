@@ -22,6 +22,16 @@ const enumeration = ({ values }) => `значення не входить до �
 const length = ({ min, actual }) =>
   min !== undefined && actual < min ? 'значення закоротке' : 'перевищує максимальну довжину';
 
+const range = ({ min, max, actual }) =>
+  min !== undefined && actual < min ? `менше за ${min}` : `більше за ${max}`;
+
+const pattern = ({ pattern: source }) => `не відповідає шаблону ${source}`;
+
+const union = ({ expected, discriminator }) =>
+  discriminator === undefined
+    ? `не відповідає жодному з: ${expected.join(', ')}`
+    : `не є одним із: ${expected.join(', ')}`;
+
 const reference = ({ entity }) => `сутність "${entity}" не знайдено`;
 
 const circular = () => 'є циклічним посиланням';
@@ -37,6 +47,9 @@ module.exports = {
   unexpected,
   enum: enumeration,
   length,
+  range,
+  pattern,
+  union,
   reference,
   circular,
   exception,

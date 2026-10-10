@@ -6,6 +6,7 @@ const { issues } = require('../issues.js');
 // it after them; an element is checked with its key or index.
 const object = {
   rules: ['length'],
+  options: ['key', 'value', 'length'],
   kind: 'struct',
 
   construct(def, prep) {
@@ -116,6 +117,7 @@ const compileList = (type, isList) => {
 const array = {
   kind: 'struct',
   rules: ['length'],
+  options: ['value', 'length'],
 
   construct(def, prep) {
     const { type } = this;

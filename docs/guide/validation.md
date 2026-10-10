@@ -53,6 +53,9 @@ The codes the library produces, and their `params`:
 | `unexpected` | keys the schema does not have; one issue per struct | `{ keys }` |
 | `enum` | the value is not one of the `enum` values | `{ values }` |
 | `length` | a `length` rule failed, or a tuple has too many elements | `{ min, max, actual }` |
+| `range` | a `min` or `max` rule failed | `{ min, max, actual }` |
+| `pattern` | a `pattern` rule failed | `{ pattern }`, the source of the expression |
+| `union` | no branch of a `union` matched; with a discriminator, the path ends with it | `{ expected, discriminator }`: the branch names, or the discriminator values |
 | `reference` | the referenced entity is not in any attached model | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
 | `exception` | a `validate` or `checkType` function threw | `{ error }` |
@@ -89,13 +92,15 @@ result.tree().properties.tags.items[1];
 | --- | --- | --- |
 | `root` | the schema name | the label the error lines start with; `''` for none. Issue paths never include it |
 | `maxErrors` | unlimited | stop collecting after that many issues (at least 1), and stop walking fields, elements and records as soon as the limit is reached |
-| `unknown` | `'reject'` | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
+| `unknown` | the schema's [`unknown` metadata](/guide/kinds-and-metadata#metadata-fields), `'reject'` unless set | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
+| `references` | `'kind'` | how a reference is checked: by the [kind of its target](/guide/references#storage-view-and-graph-view) and the field's `embed`, every reference as the record (`'embed'`), or every reference as an id (`'id'`) |
 | `messages` | English | the [locale](#messages-and-locales) of the messages, or a function that renders every message |
 
 ```js
 user.check({}, { root: 'body' }).errors; // [ 'Field "body.name" is required' ]
 user.check({}, { maxErrors: 1 }).errors; // [ 'Field "User.name" is required' ]
 user.check({ name: 'Marcus', extra: true }, { unknown: 'ignore' }).valid; // true
+person.check(payload, { references: 'embed' }); // the whole graph, stored records included
 ```
 
 `check` collects every problem it finds instead of stopping at the first one, and it never throws
@@ -158,7 +163,7 @@ const schema = Schema.from({
 });
 ```
 
-A field is checked in order: its type, then its rules (`length`), then `validate`. A type failure
+A field is checked in order: its type, then its rules (`length`, `pattern`, `min`, `max`), then `validate`. A type failure
 is reported once and cancels the rest, and `validate` runs only on a value that passed everything
 before it, so it can rely on the type and the rules. `path` is the dotted path of the field,
 including the root. The function can return:
@@ -218,6 +223,24 @@ signup.check({ password: 'secretsecret', confirm: 'other' }).errors;
 
 `schema.validate(value, path?)` runs only that function and returns `null` when the schema has
 none.
+
+## Patterns and ReDoS
+
+A `pattern` runs a regular expression over input you do not control. An expression with nested or
+overlapping repetition (`^(a+)+$`, `^(\w+\s?)*$`) backtracks exponentially on a crafted string,
+and one such field is enough to stall the process: a regular expression denial of service. Two
+habits keep a schema safe:
+
+- **Bound the input.** Give every `pattern` field a `length.max`. Backtracking is a function of
+  input length, and a bound of a few hundred characters keeps even a bad expression fast. A
+  schema with a `pattern` and no `length.max` is reported in [`schema.warnings`](/guide/model#warnings).
+- **Write linear patterns.** Avoid a quantifier over a group that itself contains a quantifier,
+  and alternatives that can match the same text (`(a|a)*`). Anchor with `^` and `$`, and prefer
+  character classes (`[a-z0-9-]+`) over `.*`.
+
+metaschema compiles the pattern once and runs `RegExp#test` on the value, nothing more; it does
+not analyse the expression. A pattern that needs lookbehind or a long alternation is often better
+written as a `validate` function with explicit checks.
 
 ## Calculated fields
 
