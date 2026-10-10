@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
 
 const build = (kinds) =>
   new Model({}, [
@@ -14,6 +15,8 @@ const build = (kinds) =>
       },
     ],
   ]);
+
+register();
 
 test('References: a stored kind is held as an id, a memory kind as the record', () => {
   const stored = ['Entity', 'Registry', 'Dictionary', 'Journal', 'Details', 'Relation', 'View'];

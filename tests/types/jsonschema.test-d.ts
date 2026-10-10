@@ -1,6 +1,7 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { Model, Schema, saveTypes } from '../../index.js';
+import { Model, Schema } from '../../index.js';
+import { register, saveTypes, toJSONSchema, toTypeScript } from '../../src/generators/index.js';
 import type {
   DefinitionErrorCode,
   InferSchema,
@@ -15,6 +16,16 @@ import type {
 
 const user = Schema.from({ name: 'string', age: '?number' });
 type User = InferSchema<typeof user>;
+
+// The functions of the subpath take a Schema or a Model.
+expectType<void>(register());
+expectType<JSONSchema>(toJSONSchema(user));
+expectType<JSONSchema>(toJSONSchema(user, { target: 'openapi-3.0', profile: 'strict' }));
+expectError(toJSONSchema(user, { root: 'User' }));
+expectError(toJSONSchema({ name: 'string' }));
+expectType<string>(toTypeScript(user));
+expectType<string>(toTypeScript(user, { named: true }));
+expectError(toTypeScript(user, { named: 1 }));
 
 // toJSONSchema and its options.
 expectType<JSONSchema>(user.toJSONSchema());
@@ -40,6 +51,12 @@ expectError(user.toJSONSchema({ definitions: 1 }));
 expectError(user.toJSONSchema('strict'));
 
 declare const model: Model;
+expectType<JSONSchema>(toJSONSchema(model));
+expectType<JSONSchema>(toJSONSchema(model, { root: 'User', target: 'mongodb' }));
+expectType<string>(toTypeScript(model, { named: true }));
+expectType<Promise<void>>(saveTypes('./model.d.ts', model));
+expectType<Promise<void>>(saveTypes('./model.d.ts', user, { named: true }));
+expectError(saveTypes('./model.d.ts', { name: 'string' }));
 expectType<JSONSchema>(model.toJSONSchema());
 expectType<JSONSchema>(model.toJSONSchema({ root: 'User', target: 'mongodb' }));
 expectAssignable<ModelJSONSchemaOptions>({ root: 'User', profile: 'strict' });

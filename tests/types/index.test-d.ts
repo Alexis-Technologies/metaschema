@@ -6,7 +6,6 @@ import {
   KIND_MEMORY,
   KIND_STORED,
   Model,
-  saveTypes,
   Schema,
   SchemaDefinitionError,
   SCOPE,
@@ -150,8 +149,6 @@ expectType<string>(model.dts);
 schema.attach(model);
 schema.detach(model);
 expectError(schema.detouch(model));
-
-expectType<Promise<void>>(saveTypes('./model.d.ts', model));
 
 const result = new ValidationResult({ root: 'User' });
 expectType<ValidationResult>(new ValidationResult());

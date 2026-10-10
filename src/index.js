@@ -1,5 +1,4 @@
 const { constants, getKindMetadata } = require('./kinds.js');
-const { saveTypes } = require('./runtime/node.js');
 const { Schema } = require('./schema.js');
 const { Model } = require('./model.js');
 const { SchemaDefinitionError } = require('./errors.js');
@@ -15,7 +14,6 @@ module.exports = {
   STORE,
   ALLOW,
   getKindMetadata,
-  saveTypes,
   Schema,
   Model,
   SchemaDefinitionError,

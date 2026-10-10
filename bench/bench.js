@@ -14,6 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { Schema, Model } = require('../index.js');
+const { toTypeScript } = require('../src/generators/index.js');
 const {
   bench,
   callCheck,
@@ -96,7 +97,9 @@ const main = () => {
       MOLTAR_NESTED_LOOSE,
     ),
     ['new Model — fixture model (6 entities)', () => new Model(types, entities, database)],
-    ['model.dts — fixture model (6 entities)', () => model.dts],
+    // The scenario keeps its name from the baseline; the rendering is the
+    // generators subpath's now.
+    ['model.dts — fixture model (6 entities)', () => toTypeScript(model)],
   ];
 
   const results = [];

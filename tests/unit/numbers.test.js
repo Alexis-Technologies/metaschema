@@ -2,7 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
 const { codePoints } = require('../../src/rules.js');
+
+register();
 
 test('Numbers: integer accepts whole numbers only', () => {
   const schema = Schema.from({ n: 'integer', 'm?': 'integer' });

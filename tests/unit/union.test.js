@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Union: the first branch without issues matches', () => {
   const schema = Schema.from({

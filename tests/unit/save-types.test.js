@@ -4,9 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { Model, saveTypes } = require('../../index.js');
+const { Model } = require('../../index.js');
+const { saveTypes, toTypeScript } = require('../../src/generators/index.js');
 
-test('saveTypes: writes model.dts to a file', async () => {
+test('saveTypes: writes the TypeScript of a model or a schema to a file', async () => {
   const entities = new Map([
     [
       'Company',
@@ -18,11 +19,15 @@ test('saveTypes: writes model.dts to a file', async () => {
   try {
     const outputFile = path.join(dir, 'model.d.ts');
     await saveTypes(outputFile, model);
-    assert.strictEqual(await fs.promises.readFile(outputFile, 'utf8'), model.dts);
+    assert.strictEqual(await fs.promises.readFile(outputFile, 'utf8'), toTypeScript(model));
     await saveTypes(outputFile, model, { named: true });
     const named = await fs.promises.readFile(outputFile, 'utf8');
-    assert.strictEqual(named, model.toTypeScript({ named: true }));
+    assert.strictEqual(named, toTypeScript(model, { named: true }));
     assert.strictEqual(named.startsWith('type CompanyKind = '), true);
+    await saveTypes(outputFile, model.entities.get('Company'));
+    const one = await fs.promises.readFile(outputFile, 'utf8');
+    assert.strictEqual(one, toTypeScript(model.entities.get('Company')));
+    assert.strictEqual(one.startsWith('interface Company {'), true);
   } finally {
     await fs.promises.rm(dir, { recursive: true, force: true });
   }

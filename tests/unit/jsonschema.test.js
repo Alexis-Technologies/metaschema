@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model, SchemaDefinitionError } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
 const { database, types: customTypes, ...entities } = require('../fixtures/schemas/index.js');
 
 const DRAFT_2020 = 'https://json-schema.org/draft/2020-12/schema';
@@ -25,6 +26,8 @@ const forEveryTarget = (def, options, expected) => {
     assert.deepStrictEqual(json, expected[target], target);
   }
 };
+
+register();
 
 test('JSON Schema: the envelope of a struct by target', () => {
   const schema = new Schema('User', { name: 'string', 'age?': 'number' });

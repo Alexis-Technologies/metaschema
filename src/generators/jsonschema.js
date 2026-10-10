@@ -1,14 +1,14 @@
-// The JSON Schema export of a schema or a model: the rules of `check`, written
-// out as a document of a target dialect. A struct is an object with its
+// The JSON Schema generator of the `./generators` subpath: the rules of
+// `check`, written out as a document of a target dialect. A struct is an object with its
 // required keys and no others, an optional field accepts null, a rule is the
 // matching keyword, and a reference is an id or the record by the kind of its
 // target. What has no JSON form (a bigint, a Date or a Set on the way out, a
 // custom type without metadata) throws, or renders as `{}` when the call says
 // `unrepresentable: 'any'`.
-const { hasBrand } = require('./util.js');
-const { isStruct } = require('./struct.js');
-const { SchemaDefinitionError } = require('./errors.js');
-const { embeds } = require('./prototypes/reference.js');
+const { hasBrand } = require('../util.js');
+const { isStruct } = require('../struct.js');
+const { SchemaDefinitionError } = require('../errors.js');
+const { embeds } = require('../prototypes/reference.js');
 
 // What differs between the dialects: the keyword of a type, where the
 // definitions live, whether `const`, tuples, `propertyNames` and siblings of

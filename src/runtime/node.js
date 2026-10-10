@@ -1,6 +1,7 @@
 const fsp = require('node:fs').promises;
 
-const saveTypes = (outputFile, model, options) =>
-  fsp.writeFile(outputFile, model.toTypeScript(options));
+// The one file-system call of the package, behind `saveTypes` of the
+// `./generators` subpath.
+const writeFile = (outputFile, text) => fsp.writeFile(outputFile, text);
 
-module.exports = { saveTypes };
+module.exports = { writeFile };

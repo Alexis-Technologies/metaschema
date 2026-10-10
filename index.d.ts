@@ -284,13 +284,15 @@ export function getKindMetadata(
   meta?: Record<string, unknown>,
   root?: Schema,
 ): { defs: Record<string, unknown>; metadata: KindMetadata };
-export function saveTypes(
-  outputFile: string,
-  model: Model,
-  options?: InterfaceOptions,
-): Promise<void>;
+// ---------------------------------------------------------------------------
+// The generators: JSON Schema and TypeScript. The functions live in the
+// `@alexify/metaschema/generators` subpath (`toJSONSchema`, `toTypeScript`,
+// `saveTypes`); its `register()` installs the methods declared on `Schema`
+// and `Model` below and the Standard JSON Schema converter. The option
+// types are here so that the core and the subpath share them.
+// ---------------------------------------------------------------------------
 
-// The options of `toInterface`, `toTypeScript` and `saveTypes`.
+// The options of `toTypeScript`, `toInterface` and `saveTypes`.
 export interface InterfaceOptions {
   // Give a nested struct and an enum a type of their own, named after the
   // entity and the field (`interface AccountFullName`, `type IdentifierStorage`),
@@ -298,12 +300,8 @@ export interface InterfaceOptions {
   named?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// JSON Schema export: `schema.toJSONSchema(options)` and
-// `model.toJSONSchema(options)` render the rules of `check` as a document of
-// a target dialect; see the JSON Schema guide for the mapping.
-// ---------------------------------------------------------------------------
-
+// The JSON Schema export renders the rules of `check` as a document of a
+// target dialect; see the JSON Schema guide for the mapping.
 export type JSONSchemaTarget = 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | 'mongodb';
 
 export type JSONSchema = Record<string, unknown>;
@@ -346,7 +344,8 @@ export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
 // Standard JSON Schema (https://standardschema.dev/json-schema): the converter
 // `schema['~standard'].jsonSchema`, whose `input` and `output` take the
 // target and the other options of `toJSONSchema` as `libraryOptions`. The
-// mongodb target is not a JSON Schema and is refused here.
+// mongodb target is not a JSON Schema and is refused here. Installed by
+// `register()` of the generators subpath.
 export interface StandardJSONSchemaOptions {
   readonly target: 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | ({} & string);
   readonly libraryOptions?: Omit<JSONSchemaOptions, 'target' | 'io'> | undefined;
@@ -765,6 +764,7 @@ export interface StandardProps<D = string | object> {
   readonly vendor: 'alexify.metaschema';
   readonly validate: (value: unknown, options?: StandardOptions) => StandardResult<Infer<D>>;
   // Standard JSON Schema: `input(options)` and `output(options)` by target.
+  // Present once `register()` of the generators subpath has run.
   readonly jsonSchema: StandardConverter;
   // Nothing is transformed, so the input type is the output type. Type-level
   // only: no property of the object holds it.
@@ -811,6 +811,9 @@ export class Schema<const D extends string | object = string | object> {
   checkConsistency(): Array<string>;
   findReference(name: string): Schema | null;
   check(value: unknown, options?: CheckOptions): ValidationResult;
+  // The two methods below exist once `register()` of the generators subpath
+  // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
+  // are the same without it.
   // The schema as a JSON Schema document of the target dialect.
   toJSONSchema(options?: JSONSchemaOptions): JSONSchema;
   // The schema as a TypeScript interface, the description of a field as JSDoc.
@@ -838,6 +841,9 @@ export class Model {
     database?: Record<string, unknown> | null,
     options?: ModelOptions,
   );
+  // The members below exist once `register()` of the generators subpath has
+  // run; the subpath's `toJSONSchema(model)` and `toTypeScript(model)` are the
+  // same without it.
   // Every entity as a JSON Schema definition (`$defs`, `definitions` or
   // `components.schemas` by target), or the document of `options.root`.
   toJSONSchema(options?: ModelJSONSchemaOptions): JSONSchema;

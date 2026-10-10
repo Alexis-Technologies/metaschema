@@ -3,6 +3,9 @@ const assert = require('node:assert');
 const util = require('node:util');
 
 const { Schema, Model, ValidationResult } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Schema: constructor', () => {
   const definition = { field1: 'string' };

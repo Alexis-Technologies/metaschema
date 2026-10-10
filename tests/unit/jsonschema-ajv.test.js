@@ -19,10 +19,13 @@ const Ajv07 = require('ajv');
 const addFormats = require('ajv-formats');
 
 const { Schema, Model } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
 const { hasBrand } = require('../../src/util.js');
 const { isFirstUpper } = require('../../src/metautil.js');
 const { embeds } = require('../../src/prototypes/reference.js');
 const { database, types: customTypes, ...entities } = require('../fixtures/schemas/index.js');
+
+register();
 
 const VALUES_PER_SCHEMA = 400;
 

@@ -1,5 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const esbuild = require('esbuild');
@@ -10,9 +12,13 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
+// One bundle of the core entry and the generators subpath, the way an
+// application that uses both gets them: the subpath shares the core's
+// modules, and its register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
+  const contents = `module.exports = { core: require('./${entry}'), generators: require('./src/generators/index.js') };`;
   const result = await esbuild.build({
-    entryPoints: [path.join(ROOT, entry)],
+    stdin: { contents, resolveDir: ROOT },
     bundle: true,
     write: false,
     logLevel: 'silent',
@@ -45,7 +51,9 @@ const loadNode = async (minify) => {
 // which deepStrictEqual rejects, so results are copied into this realm first.
 const errorsOf = (result) => Array.from(result.errors);
 
-const checkBundle = ({ Schema, Model }) => {
+const checkBundle = async ({ core, generators }, browser) => {
+  const { Schema, Model } = core;
+  assert.strictEqual('saveTypes' in core, false);
   const flat = Schema.from({ name: 'string', age: 'number' });
   assert.deepStrictEqual(errorsOf(flat.check({ name: 1, age: 'x' })), [
     'Field "name" not of expected type: string',
@@ -94,10 +102,17 @@ const checkBundle = ({ Schema, Model }) => {
   assert.deepStrictEqual(issues, [['not of expected type: string', ['name']]]);
   assert.strictEqual(JSON.stringify(flat).includes('~standard'), false);
 
-  // The JSON Schema export and the dts options through the bundle.
+  // The generators through the bundle: the functions, then the methods
+  // register() installs on the bundled classes.
+  assert.strictEqual(typeof flat.toJSONSchema, 'undefined');
+  assert.strictEqual(generators.toJSONSchema(flat, { target: 'draft-07' }).type, 'object');
+  assert.strictEqual(generators.toTypeScript(person).startsWith('interface Person {'), true);
+  generators.register();
   const json = flat.toJSONSchema({ target: 'draft-07' });
   assert.strictEqual(json.$schema, 'http://json-schema.org/draft-07/schema#');
   assert.deepStrictEqual(Array.from(json.required), ['name', 'age']);
+  // The converter joins the props the core built before registration.
+  assert.strictEqual(flat['~standard'], standard);
   assert.strictEqual(standard.jsonSchema.input({ target: 'draft-2020-12' }).type, 'object');
   assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
   const mongo = model.toJSONSchema({ target: 'mongodb' });
@@ -105,10 +120,21 @@ const checkBundle = ({ Schema, Model }) => {
   assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
   const named = new Model({}, [['Doc', { Struct: {}, status: { enum: ['a'] } }]]);
   assert.strictEqual(named.toTypeScript({ named: true }).startsWith('type DocStatus = "a";'), true);
+  // The browser map swaps the runtime behind saveTypes; the Node runtime writes.
+  if (browser) {
+    const written = generators.saveTypes('model.d.ts', named);
+    await assert.rejects(written, { message: 'saveTypes is not available in the browser' });
+    return;
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metaschema-'));
+  const file = path.join(dir, 'model.d.ts');
+  await generators.saveTypes(file, named);
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), generators.toTypeScript(named));
+  fs.rmSync(dir, { recursive: true, force: true });
 };
 
 for (const minify of [false, true]) {
   const label = minify ? 'minified' : 'unminified';
-  test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify)));
-  test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify)));
+  test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify), true));
+  test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify), false));
 }

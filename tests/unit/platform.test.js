@@ -32,9 +32,16 @@ test('Platform: runtime twins share one interface', () => {
   assert.deepStrictEqual(Object.keys(browser), Object.keys(node));
 });
 
-test('Platform: browser saveTypes rejects', async () => {
-  const { saveTypes } = require('../../src/runtime/browser.js');
-  await assert.rejects(saveTypes('model.d.ts', { dts: '' }), {
+test('Platform: the browser runtime rejects a file write', async () => {
+  const { writeFile } = require('../../src/runtime/browser.js');
+  await assert.rejects(writeFile('model.d.ts', ''), {
     message: 'saveTypes is not available in the browser',
   });
+});
+
+test('Platform: the core entry has no Node runtime behind it', () => {
+  const core = fs.readFileSync(path.join(SRC, 'index.js'), 'utf8');
+  assert.strictEqual(core.includes('runtime'), false);
+  const generators = fs.readFileSync(path.join(SRC, 'generators/index.js'), 'utf8');
+  assert.strictEqual(generators.includes("require('../runtime/node.js')"), true);
 });

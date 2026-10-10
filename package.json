@@ -35,6 +35,10 @@
     "./locales/uk": {
       "types": "./src/locales/uk.d.ts",
       "default": "./src/locales/uk.js"
+    },
+    "./generators": {
+      "types": "./src/generators/index.d.ts",
+      "default": "./src/generators/index.js"
     }
   },
   "directories": {

@@ -31,8 +31,8 @@ test('Standard: the props of the interface, built once per schema', () => {
   assert.strictEqual(standard.version, 1);
   assert.strictEqual(standard.vendor, 'alexify.metaschema');
   assert.strictEqual(typeof standard.validate, 'function');
-  assert.deepStrictEqual(Object.keys(standard), ['version', 'vendor', 'validate', 'jsonSchema']);
-  assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
+  // The jsonSchema converter joins the props through the generators subpath.
+  assert.deepStrictEqual(Object.keys(standard), ['version', 'vendor', 'validate']);
   assert.strictEqual(schema['~standard'], standard);
   assert.notStrictEqual(Schema.from({ name: 'string' })['~standard'], standard);
   assert.strictEqual(isStandardSchema(schema), true);
