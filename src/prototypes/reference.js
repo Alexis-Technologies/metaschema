@@ -13,8 +13,14 @@ const runReferenced = (schema, value, context, key) => {
     schema[RUN](value, context, key);
     return;
   }
-  if (context.seen === null) context.seen = new Set();
-  const { seen } = context;
+  let { seen } = context;
+  if (seen === null) {
+    // The first embedded record creates the set, and the value the check
+    // started from joins it then, so a check that embeds nothing pays nothing.
+    seen = new Set();
+    if (context.source !== null) seen.add(context.source);
+    context.seen = seen;
+  }
   if (seen.has(value)) {
     issues.circular(context, key);
     return;

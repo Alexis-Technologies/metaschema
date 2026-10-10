@@ -87,6 +87,11 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     // The objects on the current path, created at the first object met so a
     // check over scalars never allocates it.
     seen: null,
+    // The value the check started from, when the schema can reach it again
+    // through a reference (Schema#check sets it): it joins `seen` when the
+    // first embedded record creates the set, so a check that embeds nothing
+    // never allocates it.
+    source: null,
     unknown,
     // How a reference is checked: by the kind of its target ('kind'), as
     // the record itself ('embed') or as its id ('id').

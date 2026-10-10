@@ -34,15 +34,6 @@ const compileSchema = (schema) => {
   };
 };
 
-// The root value joins the cycle detection when the schema can reach it
-// again through a reference.
-const track = (context, source) => {
-  if (source !== null && typeof source === 'object') {
-    context.seen = new Set();
-    context.seen.add(source);
-  }
-};
-
 const resultOf = (context) => {
   finalize(context.issues, context.messages);
   return new ValidationResult(context);
@@ -64,8 +55,8 @@ class Schema extends SchemaMetadata {
   // change.
   #types = null;
 
-  // Whether the root value joins the cycle detection: only a struct with
-  // references can reach it again.
+  // Whether the root value joins the cycle detection (`context.source`):
+  // only a struct with references can reach it again.
   #tracked = false;
 
   // The lint of the definition, run on first use: a schema built in a hot
@@ -195,7 +186,7 @@ class Schema extends SchemaMetadata {
   // locale). A validator that returns a promise is an error here.
   check(source, options) {
     const context = createContext(options, this.name, this.unknown);
-    if (this.#tracked) track(context, source);
+    if (this.#tracked) context.source = source;
     this[RUN](source, context);
     return resultOf(context);
   }
@@ -205,7 +196,7 @@ class Schema extends SchemaMetadata {
   async checkAsync(source, options) {
     const context = createContext(options, this.name, this.unknown);
     context.async = [];
-    if (this.#tracked) track(context, source);
+    if (this.#tracked) context.source = source;
     this[RUN](source, context);
     if (context.async.length > 0) await settle(context);
     return resultOf(context);
@@ -223,7 +214,7 @@ class Schema extends SchemaMetadata {
     const prepared = this.#pass(PREPARE, source, context);
     const value = looped(context) ? source : prepared;
     context.seen = null;
-    if (this.#tracked) track(context, value);
+    if (this.#tracked) context.source = value;
     return value;
   }
 
@@ -264,7 +255,7 @@ class Schema extends SchemaMetadata {
     const value = this.#pass(SERIALIZE, source, context);
     if (options === undefined || options.check !== true) return { value };
     context.seen = null;
-    if (this.#tracked) track(context, value);
+    if (this.#tracked) context.source = value;
     this[RUN](value, context);
     finalize(context.issues, context.messages);
     return { valid: context.count === 0, value, issues: context.issues };
