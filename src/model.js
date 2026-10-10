@@ -101,14 +101,20 @@ class Model {
     return modelToJSONSchema(this, options);
   }
 
-  get dts() {
+  // Every entity as a TypeScript interface, in dependency order; `options`
+  // are those of `schema.toInterface` (`named`).
+  toTypeScript(options) {
     const { entities, order } = this;
     const dts = [];
     for (const name of order) {
       const schema = entities.get(name);
-      dts.push(schema.toInterface());
+      dts.push(schema.toInterface(options));
     }
     return `${dts.join('\n\n')}\n`;
+  }
+
+  get dts() {
+    return this.toTypeScript();
   }
 }
 

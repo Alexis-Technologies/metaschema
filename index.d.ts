@@ -284,7 +284,19 @@ export function getKindMetadata(
   meta?: Record<string, unknown>,
   root?: Schema,
 ): { defs: Record<string, unknown>; metadata: KindMetadata };
-export function saveTypes(outputFile: string, model: Model): Promise<void>;
+export function saveTypes(
+  outputFile: string,
+  model: Model,
+  options?: InterfaceOptions,
+): Promise<void>;
+
+// The options of `toInterface`, `toTypeScript` and `saveTypes`.
+export interface InterfaceOptions {
+  // Give a nested struct and an enum a type of their own, named after the
+  // entity and the field (`interface AccountFullName`, `type IdentifierStorage`),
+  // rendered before the interface that uses them.
+  named?: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // JSON Schema export: `schema.toJSONSchema(options)` and
@@ -331,6 +343,19 @@ export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
   root?: string;
 }
 
+// Standard JSON Schema (https://standardschema.dev/json-schema): the converter
+// `schema['~standard'].jsonSchema`, whose `input` and `output` take the
+// target and the other options of `toJSONSchema` as `libraryOptions`. The
+// mongodb target is not a JSON Schema and is refused here.
+export interface StandardJSONSchemaOptions {
+  readonly target: 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | ({} & string);
+  readonly libraryOptions?: Omit<JSONSchemaOptions, 'target' | 'io'> | undefined;
+}
+
+export interface StandardConverter {
+  readonly input: (options: StandardJSONSchemaOptions) => JSONSchema;
+  readonly output: (options: StandardJSONSchemaOptions) => JSONSchema;
+}
 
 // ---------------------------------------------------------------------------
 // Static inference: the TypeScript type of a value a definition accepts.
@@ -716,20 +741,6 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
   Infer<E[Name], E> & IdOf<Name, E[Name]>
 >;
 
-// Standard JSON Schema (https://standardschema.dev/json-schema): the converter
-// `schema['~standard'].jsonSchema`, whose `input` and `output` take the
-// target and the other options of `toJSONSchema` as `libraryOptions`. The
-// mongodb target is not a JSON Schema and is refused here.
-export interface StandardJSONSchemaOptions {
-  readonly target: 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | ({} & string);
-  readonly libraryOptions?: Omit<JSONSchemaOptions, 'target' | 'io'> | undefined;
-}
-
-export interface StandardConverter {
-  readonly input: (options: StandardJSONSchemaOptions) => JSONSchema;
-  readonly output: (options: StandardJSONSchemaOptions) => JSONSchema;
-}
-
 // Standard Schema v1 (https://standardschema.dev): the interface every schema
 // exposes as `schema['~standard']`, so tRPC, TanStack Form, Hono and the other
 // consumers of the specification accept it without an adapter. The shape is
@@ -802,7 +813,8 @@ export class Schema<const D extends string | object = string | object> {
   check(value: unknown, options?: CheckOptions): ValidationResult;
   // The schema as a JSON Schema document of the target dialect.
   toJSONSchema(options?: JSONSchemaOptions): JSONSchema;
-  toInterface(): string;
+  // The schema as a TypeScript interface, the description of a field as JSDoc.
+  toInterface(options?: InterfaceOptions): string;
   attach(...namespaces: Array<Model>): void;
   detach(...namespaces: Array<Model>): void;
   toString(): string;
@@ -829,5 +841,8 @@ export class Model {
   // Every entity as a JSON Schema definition (`$defs`, `definitions` or
   // `components.schemas` by target), or the document of `options.root`.
   toJSONSchema(options?: ModelJSONSchemaOptions): JSONSchema;
+  // The interfaces of every entity in dependency order; `dts` is the same
+  // without options.
+  toTypeScript(options?: InterfaceOptions): string;
   get dts(): string;
 }

@@ -103,6 +103,8 @@ const checkBundle = ({ Schema, Model }) => {
   const mongo = model.toJSONSchema({ target: 'mongodb' });
   assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
   assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
+  const named = new Model({}, [['Doc', { Struct: {}, status: { enum: ['a'] } }]]);
+  assert.strictEqual(named.toTypeScript({ named: true }).startsWith('type DocStatus = "a";'), true);
 };
 
 for (const minify of [false, true]) {

@@ -1,9 +1,10 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { Model, Schema } from '../../index.js';
+import { Model, Schema, saveTypes } from '../../index.js';
 import type {
   DefinitionErrorCode,
   InferSchema,
+  InterfaceOptions,
   JSONSchema,
   JSONSchemaOptions,
   JSONSchemaTarget,
@@ -70,4 +71,13 @@ expectType<JSONSchema>(input({ target: 'draft-07' }));
 const account = model.entities.get('Account')!;
 expectAssignable<StandardJSONSchemaV1>(account);
 
+// The dts options.
+expectType<string>(user.toInterface());
+expectType<string>(user.toInterface({ named: true }));
+expectError(user.toInterface({ named: 'yes' }));
+expectType<string>(model.toTypeScript());
+expectType<string>(model.toTypeScript({ named: true }));
+expectType<string>(model.dts);
+expectType<Promise<void>>(saveTypes('./model.d.ts', model, { named: true }));
+expectAssignable<InterfaceOptions>({});
 expectAssignable<DefinitionErrorCode>('ERR_UNREPRESENTABLE');
