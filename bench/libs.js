@@ -43,6 +43,10 @@ const MODES = ['parseSafe', 'parseStrict', 'assertLoose', 'assertStrict'];
 
 const LOOSE = { unknown: 'ignore' };
 
+// The fields of a metaschema definition: a capitalized key is the kind
+// marker (`Struct: {}`), not a field.
+const fieldsOf = (definition) => Object.entries(definition).filter(([key]) => !/^[A-Z]/.test(key));
+
 // The version of an installed package, from the package.json above its
 // entry (valibot's exports map hides it from `require('valibot/package.json')`).
 const versionOf = (name) => {
@@ -75,7 +79,7 @@ const metaschema = (label, jit) => (definition) => {
 // nested struct where the definition has one.
 const zodOf = (definition, strict) => {
   const shape = {};
-  for (const [key, def] of Object.entries(definition)) {
+  for (const [key, def] of fieldsOf(definition)) {
     if (typeof def === 'object') shape[key] = zodOf(def, strict);
     else shape[key] = z[def]();
   }
@@ -102,7 +106,7 @@ const zod = (definition) => {
 
 const valibotOf = (definition, strict) => {
   const entries = {};
-  for (const [key, def] of Object.entries(definition)) {
+  for (const [key, def] of fieldsOf(definition)) {
     if (typeof def === 'object') entries[key] = valibotOf(def, strict);
     else entries[key] = v[def]();
   }
@@ -129,10 +133,10 @@ const valibot = (definition) => {
 
 const jsonSchemaOf = (definition, strict) => {
   const properties = {};
-  for (const [key, def] of Object.entries(definition)) {
+  for (const [key, def] of fieldsOf(definition)) {
     properties[key] = typeof def === 'object' ? jsonSchemaOf(def, strict) : { type: def };
   }
-  const required = Object.keys(definition);
+  const required = Object.keys(properties);
   return { type: 'object', properties, required, additionalProperties: !strict };
 };
 
@@ -152,7 +156,7 @@ const ajv = (definition) => {
 const typeboxOf = (definition, strict) => {
   const properties = {};
   const types = { number: Type.Number, string: Type.String, boolean: Type.Boolean };
-  for (const [key, def] of Object.entries(definition)) {
+  for (const [key, def] of fieldsOf(definition)) {
     properties[key] = typeof def === 'object' ? typeboxOf(def, strict) : types[def]();
   }
   return Type.Object(properties, strict ? { additionalProperties: false } : {});
@@ -199,6 +203,21 @@ const SUBJECTS = [
 
 const millions = (ops) => `${(ops / 1e6).toFixed(1)} M`;
 
+// A library that disagrees with the suite on the values is measuring
+// something else (a failing check is fast), so the verdicts are checked
+// before anything is timed.
+const verify = (built, value, loose) => {
+  const verdicts = [
+    built.parseSafe(value) !== null,
+    built.parseStrict(value) !== null,
+    built.assertLoose(loose) === true,
+    built.assertStrict(value) === true,
+    built.assertStrict(loose) === false,
+    built.parseStrict(loose) === null,
+  ];
+  if (verdicts.includes(false)) throw new Error(`${built.label}: a mode gives the wrong verdict`);
+};
+
 // Every library's four modes over every subject, through an adapter whose
 // `check` is the mode under measurement, in the holder of bench/helpers.js.
 const compareLibraries = ({ json = false } = {}) => {
@@ -207,6 +226,7 @@ const compareLibraries = ({ json = false } = {}) => {
     const rows = [];
     for (const library of LIBRARIES) {
       const built = library(definition);
+      verify(built, value, loose);
       const row = { library: built.label };
       for (const mode of MODES) {
         const input = mode === 'assertLoose' ? loose : value;

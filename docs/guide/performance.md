@@ -106,43 +106,49 @@ gains 1.6 times where the valid one gains 3. The `check` of 1.0 was slower than
 `pnpm bench --compare-libs` runs the moltar scenarios through zod, valibot, ajv and
 @sinclair/typebox beside metaschema's two backends (`bench/libs.js`), on one machine, in one
 process, every library reached through the same adapter object and the same megamorphic call
-site, so no library's check is inlined into the measuring loop. Node 24, Apple silicon,
-2026-10-10, in millions of operations a second:
+site, so no library's check is inlined into the measuring loop, and every adapter's verdicts
+are checked before anything is timed (a failing check is fast, and a mistranslated schema would
+measure that). Node 24, Apple silicon, 2026-10-10, in millions of operations a second:
 
 **moltar flat (6 fields)**
 
 | Library | parseSafe | parseStrict | assertLoose | assertStrict |
 | --- | ---: | ---: | ---: | ---: |
-| metaschema 3.0 (closures) | 9.7 | 9.8 | 10.6 | 9.8 |
-| metaschema 3.0 (JIT) | 37.2 | 35.2 | 39.0 | 32.3 |
-| zod 4.6.5 | 2.6 | 2.3 | 2.6 | 2.3 |
-| valibot 1.5.0 | 2.7 | 2.4 | 12.1 | 11.8 |
-| ajv 8.20.0 (draft 2020-12) | 46.6 | 45.9 | 45.7 | 46.9 |
-| @sinclair/typebox 0.34.52 (TypeCompiler) | 116.6 | 115.1 | 114.3 | 115.1 |
-| @sinclair/typebox 0.34.52 (Value.Check) | 20.6 | 19.3 | 20.0 | 19.4 |
+| metaschema 3.0 (closures) | 9.7 | 9.7 | 10.4 | 9.6 |
+| metaschema 3.0 (JIT) | 35.9 | 33.7 | 36.5 | 31.2 |
+| zod 4.6.5 | 23.7 | 11.6 | 23.9 | 11.6 |
+| valibot 1.5.0 | 3.6 | 3.0 | 3.6 | 3.0 |
+| ajv 8.20.0 (draft 2020-12) | 63.0 | 33.6 | 64.1 | 34.1 |
+| @sinclair/typebox 0.34.52 (TypeCompiler) | 98.5 | 59.0 | 98.0 | 59.4 |
+| @sinclair/typebox 0.34.52 (Value.Check) | 4.6 | 4.5 | 4.6 | 4.5 |
 
 **moltar nested (6 + 3 fields)**
 
 | Library | parseSafe | parseStrict | assertLoose | assertStrict |
 | --- | ---: | ---: | ---: | ---: |
-| metaschema 3.0 (closures) | 4.7 | 4.5 | 4.7 | 4.5 |
-| metaschema 3.0 (JIT) | 34.8 | 28.3 | 33.8 | 28.7 |
-| zod 4.6.5 | 2.4 | 2.0 | 2.4 | 2.0 |
-| valibot 1.5.0 | 1.7 | 1.6 | 11.2 | 11.0 |
-| ajv 8.20.0 (draft 2020-12) | 44.5 | 44.3 | 44.7 | 44.7 |
-| @sinclair/typebox 0.34.52 (TypeCompiler) | 70.9 | 70.4 | 70.8 | 71.9 |
-| @sinclair/typebox 0.34.52 (Value.Check) | 18.0 | 17.6 | 18.2 | 17.8 |
+| metaschema 3.0 (closures) | 4.8 | 4.6 | 4.8 | 4.6 |
+| metaschema 3.0 (JIT) | 33.6 | 27.3 | 32.3 | 27.0 |
+| zod 4.6.5 | 12.1 | 6.4 | 12.4 | 6.5 |
+| valibot 1.5.0 | 2.1 | 1.7 | 2.0 | 1.7 |
+| ajv 8.20.0 (draft 2020-12) | 37.1 | 18.0 | 35.7 | 18.8 |
+| @sinclair/typebox 0.34.52 (TypeCompiler) | 48.4 | 27.6 | 49.9 | 26.7 |
+| @sinclair/typebox 0.34.52 (Value.Check) | 2.6 | 2.5 | 2.6 | 2.5 |
 
 Read the table with its method in mind. The libraries do different work for one call: ajv and
 typebox's TypeCompiler return a boolean from generated code and allocate nothing on a valid
-value (ajv sets `validate.errors`, typebox keeps nothing), which is the floor of 9 to 20 ns a
-call; metaschema returns a `ValidationResult` with a context behind it, two allocations per
-check, and zod and valibot build a result object and, in the parse modes, a copy of the value
-without its unknown keys. The suite's published numbers come from a different harness
+value (ajv sets `validate.errors`, typebox keeps nothing), which is the floor of 10 to 17 ns a
+call on a flat value; metaschema returns a `ValidationResult` with a context behind it, two
+allocations per check, and zod and valibot build a result object and, in the parse modes, a
+copy of the value without its unknown keys. The strict modes cost every code generator about
+the same: the scan of the value's keys. The harness itself takes a share from all of them
+alike: called directly inside the measuring closure, zod's `safeParse` does 29 M on the flat
+value and metaschema's compiled `check` 44 M, against 24 M and 36 M through the adapter and
+the megamorphic site. The suite's published numbers come from a different harness
 (benchmark.js, direct calls), so they are not comparable with these one to one, only the order
 is. What the table says is where metaschema stands with its own API: the closures are in the
-range of the interpreters, the JIT in the range of the code generators, and both return every
-problem with its path.
+range of the interpreters, the JIT in the range of the code generators (level with typebox's
+compiler on the nested strict modes, ahead of ajv there, behind both on a flat loose value), and
+both return every problem with its path.
 
 ## Reproducing
 
