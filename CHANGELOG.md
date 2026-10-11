@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A failed branch of a plain union observed none of the promises it dropped.** A validator
+  of the branch that returned a promise was set aside, and when the branch failed on a later
+  field the entry was cut from the list without a handler, so its rejection was an
+  `unhandledRejection` while the value went on to match the next branch. Both backends now
+  release such entries (`release` in `issues.js`, reached by the generated code through the
+  scope), as the trial of `parse` and a `settle` stopped by `maxErrors` already did.
+- **An object with no key that starts with a letter is a struct.** `Schema.from({})`,
+  `{ _id: 'string' }` and a nested `{ a: {} }` threw a bare `TypeError` from the preprocessor
+  (the first key is the first one that starts with a letter, and there was none); they are
+  structs of those keys, or of none.
+- **A nested struct may have a field named `required`.** `{ a: { required: 'boolean' } }`
+  gave the field `a` the `required` of its nested definition (`'boolean'`), which showed in
+  `toJSON()` and in the snapshot; the key and the parsers decide, as everywhere else.
+- **`fromJSONSchema` wraps a nested struct whose first letter-led key reads as a type.** A
+  nested object with the properties `_id` and `string` came back bare and was read as a
+  `string` field; one with no properties came back as `{}` and could not be built. The rule
+  the generator asks (`readsAsStruct` in `types.js`) follows the preprocessor's `firstKey`
+  now, and the model subpath shares it.
+
+### Added
+
+- **Bench scenarios for the async path and for `strip`** (`pnpm bench`): `checkAsync` with
+  sync, resolved and event-loop-bound validators, `parseAsync` with an async decoder, and
+  `parse` under `unknown: 'strip'` over a nested value and a list of 100 records, each on both
+  backends, through a `benchAsync` twin of the harness (one `await` per call).
+
 ## [3.1.0] - 2026-10-11
 
 3.1 makes the model data. `model.toJSON()` writes a snapshot of a model, the contract other
