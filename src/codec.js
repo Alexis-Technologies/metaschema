@@ -10,7 +10,7 @@
 const { hasBrand, define } = require('./util.js');
 const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
-const { STRUCT, isStruct } = require('./struct.js');
+const { STRUCT, isStruct, aliasOf } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
 const collections = require('./prototypes/collections.js');
 const { schema: struct } = require('./prototypes/schema.js');
@@ -124,7 +124,10 @@ const infoOf = (node) => {
       const defaulted = type.default !== undefined;
       if (defaulted) bits |= DEFAULTS;
       if (defaulted || (sub.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
-      if ((sub.bits & DECODERS) !== 0) parts[DECODERS].push(index);
+      // A field with aliases is renamed by the pass that decodes.
+      const aliased = plan[index].aliases.length > 0;
+      if (aliased) bits |= DECODERS;
+      if (aliased || (sub.bits & DECODERS) !== 0) parts[DECODERS].push(index);
       if ((sub.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
       parts[STRUCTS].push(index);
     }
@@ -292,7 +295,10 @@ const walkSchema = (info, node, value, context, key, phase) => {
 
 // The fields of a struct: a default fills a missing key before the check, a
 // decoder replaces the value after it. Stripping rebuilds the object from
-// the known keys; otherwise the object is copied when a field changed.
+// the known keys; otherwise the object is copied when a field changed. A
+// value under an alias of a field is read from there (no default fills the
+// field, and the check sees it there), and the pass after the check writes
+// it under the field's own key.
 const walkFields = (info, fields, value, context, key, phase, want) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
   const { plan, infos, extra } = info;
@@ -304,15 +310,27 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
     const index = parts[position];
     const entry = plan[index];
     const name = entry.key;
+    let from = name;
     let item = entry.own && !Object.hasOwn(value, name) ? undefined : value[name];
-    if (item === undefined && phase === DEFAULTS) {
-      const fallback = entry.type.default;
-      if (fallback === undefined) continue;
-      item = typeof fallback === 'function' ? fallback() : fallback;
-      take(state, name, item, phase);
+    if (item === undefined) {
+      from = aliasOf(value, entry.aliases, name);
+      if (from !== name) item = value[from];
     }
-    const result = apply(infos[index], entry.type, item, context, name, phase);
-    if (strip ? result !== undefined : result !== item) take(state, name, result, phase);
+    if (phase === DEFAULTS) {
+      if (item === undefined) {
+        const fallback = entry.type.default;
+        if (fallback === undefined) continue;
+        item = typeof fallback === 'function' ? fallback() : fallback;
+        take(state, from, item, phase);
+      }
+      const result = apply(infos[index], entry.type, item, context, from, phase);
+      if (result !== item) take(state, from, result, phase);
+      continue;
+    }
+    const result = apply(infos[index], entry.type, item, context, from, phase);
+    const renamed = from !== name;
+    if (strip ? result !== undefined : renamed || result !== item) take(state, name, result, phase);
+    if (renamed && !strip) delete state.out[from];
   }
   if (strip) {
     for (let index = 0; index < extra.length; index += 1) {

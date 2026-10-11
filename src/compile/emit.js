@@ -309,6 +309,32 @@ const emitStruct = (fields, x, key, state) => {
     const { required, own } = entry;
     const name = quote(entry.key);
     const item = code.name('x');
+    if (entry.aliases.length > 0) {
+      // A field with aliases, when the value has nothing under its own key:
+      // the first alias the value carries, and the key the check reports
+      // under, as `aliasOf` in struct.js finds them.
+      const alias = code.name('k');
+      const inherited = own ? ` || !Object.hasOwn(${x}, ${name})` : '';
+      code.push(`let ${item} = ${prop(x, entry.key)}, ${alias} = ${name};`);
+      code.push(`if (${item} === undefined${inherited}) { ${item} = undefined;`);
+      let chain = '';
+      for (const other of entry.aliases) {
+        const taken = `${alias} = ${quote(other)}; ${item} = ${prop(x, other)};`;
+        chain += `${chain && ' else '}if (Object.hasOwn(${x}, ${quote(other)})) { ${taken} }`;
+      }
+      code.push(`${chain} }`);
+      if (required) {
+        code.push(`if (${item} === undefined && !Object.hasOwn(${x}, ${alias})) {`);
+        record(children, issue(state, 'required', name));
+        code.push('} else {');
+      } else {
+        code.push(`if (${item} !== undefined) {`);
+      }
+      code.push(`${found} += 1;`);
+      emitField(entry.type, item, alias, children);
+      code.push('}');
+      continue;
+    }
     code.push(`const ${item} = ${prop(x, entry.key)};`);
     if (required) {
       const missing = own ? '' : `${item} === undefined && `;

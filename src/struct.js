@@ -15,6 +15,18 @@ const STRUCT = Symbol.for('alexify.metaschema.struct');
 // fields, where a calculated field lives, but a value has no key by that name.
 const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 
+const invalidAliases = (reason) => new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+
+const ALIASES = 'Option "aliases" needs a list of key names';
+
+// The key a value carries for a field that has nothing under its own key: a
+// field renamed with `aliases: ['old']` is still read from its old key, and
+// the field's own key when the value has none of them.
+const aliasOf = (value, aliases, name) => {
+  for (const alias of aliases) if (Object.hasOwn(value, alias)) return alias;
+  return name;
+};
+
 // A field is read with a keyed load, and `Object.hasOwn` is consulted only
 // when the value is undefined, to tell a missing key from one set to
 // undefined. A field named after a member of Object.prototype (`toString`,
@@ -49,21 +61,27 @@ const compileStruct = (plan, known) => (value, context, key) => {
     if (context.count >= context.limit) break;
     const entry = plan[index];
     const name = entry.key;
-    const item = value[name];
+    let item = value[name];
+    if (item !== undefined && (!entry.own || Object.hasOwn(value, name))) {
+      found += 1;
+      entry.check(item, context, name);
+      continue;
+    }
+    // Absent, inherited, or own and set to undefined: an alias may hold the
+    // value, and the check reports it under the key it found it under. Then
+    // the same for an optional field, a required one asks which (own and
+    // undefined is a type error).
+    const under = aliasOf(value, entry.aliases, name);
+    item = under === name ? undefined : value[under];
     if (item === undefined) {
-      // Absent, or own and set to undefined: the same for an optional field,
-      // a required one asks which (the latter is a type error).
       if (!entry.required) continue;
-      if (!Object.hasOwn(value, name)) {
+      if (!Object.hasOwn(value, under)) {
         issues.required(context, name);
         continue;
       }
-    } else if (entry.own && !Object.hasOwn(value, name)) {
-      if (entry.required) issues.required(context, name);
-      continue;
     }
     found += 1;
-    entry.check(item, context, name);
+    entry.check(item, context, under);
   }
   if (context.unknown === 'reject' && context.count < context.limit) {
     let total = 0;
@@ -72,6 +90,25 @@ const compileStruct = (plan, known) => (value, context, key) => {
     if (total !== found) scanUnknown(value, known, context);
   }
   if (nested) context.path.pop();
+};
+
+// A key a value may carry: a field, a calculated field or an alias, each
+// once.
+const know = (known, key) => {
+  if (key in known) throw invalidAliases(`Key "${key}" is a field or an alias already`);
+  known[key] = true;
+};
+
+// The aliases of a field: the keys it is also read from, as a list of names.
+const aliasesOf = (field, known) => {
+  const { aliases } = field;
+  if (aliases === undefined) return [];
+  if (!Array.isArray(aliases) || aliases.length === 0) throw invalidAliases(ALIASES);
+  for (const alias of aliases) {
+    if (typeof alias !== 'string' || alias === '') throw invalidAliases(ALIASES);
+    know(known, alias);
+  }
+  return aliases;
 };
 
 // A struct is a null-prototype dictionary of field name -> Type (or the
@@ -92,7 +129,7 @@ const createStruct = (defs, prep) => {
       if (!Type) {
         fields[field] = entry;
         if (!CODEC_KEYS.has(field)) {
-          known[field] = true;
+          know(known, field);
           calculated.push(field);
         }
         continue;
@@ -103,12 +140,13 @@ const createStruct = (defs, prep) => {
       typeDefs.required = (typeDefs.required ?? true) && required;
       const child = new Type(typeDefs, prep);
       fields[field] = child;
-      known[field] = true;
+      know(known, field);
       plan.push({
         key: field,
         type: child,
         required: child.required,
         own: field in Object.prototype,
+        aliases: aliasesOf(child, known),
         check: child.check,
       });
     } catch (error) {
@@ -128,4 +166,4 @@ const isStruct = (fields) => hasBrand(fields, 'Struct');
 
 const checkOf = (fields) => fields[STRUCT].check;
 
-module.exports = { STRUCT, createStruct, isStruct, checkOf };
+module.exports = { STRUCT, createStruct, isStruct, checkOf, aliasOf };

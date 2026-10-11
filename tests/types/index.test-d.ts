@@ -195,6 +195,7 @@ expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
 expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
 expectType<SchemaDefinitionError>(new SchemaDefinitionError('ERR_INVALID_RULE', 'x'));
 
+// The snapshot of a model and the aliases of a field.
 declare const snapshotModel: Model;
 expectType<ModelSnapshot>(snapshotModel.toJSON());
 const snapshot = snapshotModel.toJSON();
@@ -206,4 +207,6 @@ expectType<FieldSnapshot | undefined>(snapshot.entities.Account.type);
 expectAssignable<FieldSnapshot | FunctionSnapshot>({ $function: true });
 expectAssignable<FieldSnapshot | FunctionSnapshot>({ type: 'string', required: true, length: 8 });
 expectAssignable<string[] | undefined>(
+  (Schema.from({ a: 'string' }).fields.a as FieldType).aliases,
 );
+expectType<{ name: string }>({} as Infer<{ name: { type: 'string'; aliases: ['old'] } }>);

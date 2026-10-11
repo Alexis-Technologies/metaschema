@@ -352,6 +352,41 @@ test('Compile: object, map, array, set and tuple', () => {
   ]);
 });
 
+test('Compile: a field is read from its aliases on both backends', () => {
+  const schema = new Schema('Aliased', {
+    name: { type: 'string', length: { min: 2 }, aliases: ['title', 'label'] },
+    'age?': { type: 'number', aliases: ['years'] },
+    toString: { type: 'string', aliases: ['str'] },
+    'addr?': { schema: { city: { type: 'string', aliases: ['town'] } }, aliases: ['address'] },
+    tags: { array: { schema: { id: { type: 'string', aliases: ['key'] } } } },
+  });
+  const inherited = Object.assign(Object.create({ title: 'x', str: 'y' }), {
+    label: 'l',
+    tags: [],
+  });
+  equivalent(schema, [
+    { title: 'ab', years: 2, str: 's', address: { town: 'c' }, tags: [{ key: 'k' }] },
+    { label: 'ab', str: 's', tags: [] },
+    { name: 'ab', title: 1, label: 2, str: 's', tags: [] },
+    { title: 1, years: 'y', str: 1, address: { city: 3 }, tags: [{ key: 1 }, { id: 2 }] },
+    { title: 'a', label: 'ab', str: 's', tags: [] },
+    { title: undefined, years: undefined, str: 's', tags: [] },
+    { name: undefined, title: 'ab', str: undefined, tags: [] },
+    { name: 'ab', toString: 't', str: 1, tags: [] },
+    { name: 'ab', str: 's', tags: [], extra: 1, title: 'x' },
+    { name: 'ab', str: 's', tags: [], address: null },
+    inherited,
+    {},
+    null,
+    [],
+  ]);
+  const compiled = compile(schema, JIT);
+  assert.strictEqual(compiled.accelerated, canEval());
+  const source = sourceOf(schema);
+  assert.strictEqual(source.includes('Object.hasOwn(v, "title")'), true);
+  assert.strictEqual(source.includes('Object.hasOwn(v, "label")'), true);
+});
+
 test('Compile: nested structs, own keys, calculated fields and the unknown policy', () => {
   const schema = new Schema('Structs', {
     inner: { a: 'string', 'b?': 'number' },

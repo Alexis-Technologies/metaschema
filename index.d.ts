@@ -245,6 +245,11 @@ export interface FieldType {
   serialize?: (value: any) => unknown;
   // What parse fills a missing key with: a value, or a function called for one.
   default?: unknown;
+  // The keys the field is also read from, in a struct: check accepts a value
+  // under an alias in place of the field's key, parse renames it. The keys
+  // of the value the schema accepts (`Infer`) and the generated documents
+  // name the field's own key only.
+  aliases?: string[];
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;
   toJSON(): object;

@@ -26,6 +26,7 @@ const KNOWN = new Set([
   'description',
   'examples',
   'deprecated',
+  'aliases',
 ]);
 
 const isCustom = (Type) => Type.source !== undefined && Type.source.js === undefined;
