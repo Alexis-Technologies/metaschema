@@ -11,7 +11,7 @@
 const { isFirstUpper } = require('../metautil.js');
 const { define } = require('../util.js');
 const { Schema } = require('../schema.js');
-const { TYPES } = require('../types.js');
+const { readsAsStruct } = require('../types.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
 const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
@@ -132,15 +132,6 @@ const compilesWithU = (pattern) => {
   } catch {
     return false;
   }
-};
-
-// A struct key that the first-key rule reads as something else needs the
-// `schema` shorthand around the struct.
-const safeFirstKey = (fields) => {
-  const first = Object.keys(fields)[0];
-  if (first === undefined) return true;
-  const key = first.endsWith('?') ? first.slice(0, -1) : first;
-  return key !== 'type' && TYPES[key] === undefined && !isFirstUpper(key);
 };
 
 // A definition of a type with no other key is its name.
@@ -490,7 +481,7 @@ const compactDef = (def, required) => {
   if (def.nullable === true && !required) delete def.nullable;
   if (def.type === 'schema' && Object.keys(def).length === 2) {
     const { schema } = def;
-    if (safeFirstKey(schema)) return required ? schema : { schema, required: false };
+    if (readsAsStruct(schema)) return required ? schema : { schema, required: false };
     return required ? { schema } : { schema, required: false };
   }
   return compact(def, required);

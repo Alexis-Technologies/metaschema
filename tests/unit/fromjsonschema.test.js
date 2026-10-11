@@ -248,6 +248,29 @@ test('fromJSONSchema: the root is a struct with its kind, or a definition of one
   assert.strictEqual(fromJSONSchema({ type: 'integer' }, { as: 'schema' }).check(1.5).valid, false);
 });
 
+test('fromJSONSchema: a nested struct is wrapped when its first key would read otherwise', () => {
+  // The first key that starts with a letter decides, so `_id` does not count
+  // and `string` after it would make the struct a string field; an object
+  // with no such key is a struct of its keys, or of none.
+  const wrapped = fieldOf({
+    type: 'object',
+    properties: { _id: { type: 'string' }, string: { type: 'number' } },
+    required: ['_id', 'string'],
+  });
+  assert.deepStrictEqual(wrapped, { schema: { _id: 'string', string: 'number' } });
+  assert.strictEqual(Schema.from({ x: wrapped }).check({ x: { _id: 'a', string: 1 } }).valid, true);
+  const empty = fieldOf({ type: 'object', properties: {} });
+  assert.deepStrictEqual(empty, {});
+  assert.strictEqual(Schema.from({ x: empty }).check({ x: {} }).valid, true);
+  const under = fieldOf({
+    type: 'object',
+    properties: { _a: { type: 'string' } },
+    required: ['_a'],
+  });
+  assert.deepStrictEqual(under, { _a: 'string' });
+  assert.strictEqual(Schema.from({ x: under }).check({ x: { _a: 'y' } }).valid, true);
+});
+
 test('fromJSONSchema: a $ref is inlined, or kept as the name of an entity', () => {
   const document = {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
