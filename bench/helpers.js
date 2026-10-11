@@ -17,21 +17,33 @@ const subject = { schema: null };
 
 const callCheck = (value, options) => subject.schema.check(value, options);
 
-// parse is measured the same way.
+// parse and the async methods are measured the same way.
 const callParse = (value, options) => subject.schema.parse(value, options);
+const callCheckAsync = (value, options) => subject.schema.checkAsync(value, options);
+const callParseAsync = (value, options) => subject.schema.parseAsync(value, options);
+
+const decoy = (shape, n) => ({
+  ...shape,
+  check: () => n,
+  parse: () => n,
+  checkAsync: () => n,
+  parseAsync: () => n,
+});
 
 const DECOYS = [
-  { check: () => 0, parse: () => 0 },
-  { a: 1, check: () => 1, parse: () => 1 },
-  { a: 1, b: 1, check: () => 2, parse: () => 2 },
-  { a: 1, b: 1, c: 1, check: () => 3, parse: () => 3 },
-  { a: 1, b: 1, c: 1, d: 1, check: () => 4, parse: () => 4 },
+  decoy({}, 0),
+  decoy({ a: 1 }, 1),
+  decoy({ a: 1, b: 1 }, 2),
+  decoy({ a: 1, b: 1, c: 1 }, 3),
+  decoy({ a: 1, b: 1, c: 1, d: 1 }, 4),
 ];
 for (let round = 0; round < 2_000; round++) {
-  for (const decoy of DECOYS) {
-    subject.schema = decoy;
+  for (const shape of DECOYS) {
+    subject.schema = shape;
     callCheck(null, undefined);
     callParse(null, undefined);
+    callCheckAsync(null, undefined);
+    callParseAsync(null, undefined);
   }
 }
 
@@ -50,10 +62,32 @@ const bench = (name, fn, options = {}) => {
     iterations += BATCH;
     now = performance.now();
   }
-  const elapsed = now - start;
+  return report(name, iterations, now - start, quiet);
+};
+
+// The twin of `bench` for an async method: one `await` per call, which every
+// caller pays too, so the overhead of the async path is the ratio between
+// this row and the synchronous row of the same schema. The clock is still
+// read once per batch.
+const benchAsync = async (name, fn, options = {}) => {
+  const { warmup = WARMUP_ITERATIONS, measureMs = MEASURE_MS, quiet = false, schema } = options;
+  if (schema !== undefined) subject.schema = schema;
+  for (let i = 0; i < warmup; i++) await fn();
+  let iterations = 0;
+  const start = performance.now();
+  let now = start;
+  while (now - start < measureMs) {
+    for (let i = 0; i < BATCH; i++) await fn();
+    iterations += BATCH;
+    now = performance.now();
+  }
+  return report(name, iterations, now - start, quiet);
+};
+
+const report = (name, iterations, elapsed, quiet) => {
   const opsPerSec = Math.round((iterations / elapsed) * 1000);
   const ops = opsPerSec.toLocaleString('en-US').padStart(12);
-  if (!quiet) console.log(`${name.padEnd(52)} ${ops} ops/sec`);
+  if (!quiet) console.log(`${name.padEnd(64)} ${ops} ops/sec`);
   return { name, opsPerSec };
 };
 
@@ -99,7 +133,42 @@ const SPARSE_SCHEMA = { ...FLAT_SCHEMA, nick: '?string', since: '?string' };
 // carries the alias and has nothing to do when it carries the field's key.
 const ALIAS_SCHEMA = { ...FLAT_SCHEMA, name: { type: 'string', aliases: ['title'] } };
 
+// The flat schema with a validator on every field, three ways: a plain
+// function, an async function that resolves at once (a microtask) and one
+// that waits for the event loop (what a lookup in a database costs). The
+// async scenarios measure the async path and how the promises are settled.
+const pass = () => true;
+const passResolved = async () => true;
+const passLater = () => new Promise((resolve) => setImmediate(() => resolve(true)));
+const passTimer = () => new Promise((resolve) => setTimeout(() => resolve(true), 1));
+
+const validated = (validate) => ({
+  name: { type: 'string', validate },
+  email: { type: 'string', validate },
+  age: { type: 'number', validate },
+  active: { type: 'boolean', validate },
+});
+
+const SYNC_VALIDATORS_SCHEMA = validated(pass);
+const RESOLVED_VALIDATORS_SCHEMA = validated(passResolved);
+const LATER_VALIDATORS_SCHEMA = validated(passLater);
+const TIMER_VALIDATORS_SCHEMA = validated(passTimer);
+const LATER_RECORDS_SCHEMA = { items: { array: { id: 'number', validate: passLater } } };
+const ASYNC_DECODER_SCHEMA = {
+  ...FLAT_SCHEMA,
+  since: { type: 'string', parse: async (text) => new Date(text) },
+};
+
+// A list of records with a key to strip from each: the pass over a large
+// value under `unknown: 'strip'`.
+const RECORDS_SCHEMA = { rows: { array: { a: 'string', 'b?': 'number' } } };
+
 const FLAT_VALID = { name: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
+const LATER_RECORDS_VALUE = { items: Array.from({ length: 32 }, (_, id) => ({ id })) };
+const RECORDS_VALUE = {
+  rows: Array.from({ length: 100 }, (_, i) => ({ a: `row ${i}`, b: i, extra: true })),
+};
+const STRIP = { unknown: 'strip' };
 const CODEC_VALID = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
 const FLAT_INVALID = { name: 7, email: 'm@x', extra: true };
 const SPARSE_VALID = { name: 'Marcus', email: 'marcus@example.com', active: true };
@@ -115,6 +184,14 @@ const NESTED_VALID = {
     [4, 5, 6],
   ],
   point: [10, 20],
+};
+
+// The nested value with a key to strip at every level.
+const NESTED_LOOSE = {
+  ...NESTED_VALID,
+  name: { ...NESTED_VALID.name, extra: 1 },
+  levelOne: { levelTwo: { ...NESTED_VALID.levelOne.levelTwo, extra: 1 }, extra: 1 },
+  extra: 1,
 };
 
 const NESTED_INVALID = {
@@ -186,8 +263,22 @@ const loadModelFixture = () => {
 
 module.exports = {
   bench,
+  benchAsync,
   callCheck,
   callParse,
+  callCheckAsync,
+  callParseAsync,
+  SYNC_VALIDATORS_SCHEMA,
+  RESOLVED_VALIDATORS_SCHEMA,
+  LATER_VALIDATORS_SCHEMA,
+  TIMER_VALIDATORS_SCHEMA,
+  LATER_RECORDS_SCHEMA,
+  LATER_RECORDS_VALUE,
+  ASYNC_DECODER_SCHEMA,
+  RECORDS_SCHEMA,
+  RECORDS_VALUE,
+  NESTED_LOOSE,
+  STRIP,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
   CODEC_SCHEMA,

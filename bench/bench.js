@@ -12,7 +12,10 @@
  * part of CI.
  *
  * The `check` and `parse` scenarios run twice: on the closure backend and,
- * as `(jit)`, on a second schema compiled by the ./compile subpath.
+ * as `(jit)`, on a second schema compiled by the ./compile subpath. The
+ * `checkAsync`/`parseAsync` scenarios go through `benchAsync` (one await per
+ * call): the sync-validator rows beside them give the cost of the async path
+ * itself, the setImmediate/setTimeout rows the latency of settling.
  */
 
 const fs = require('node:fs');
@@ -23,8 +26,22 @@ const { toTypeScript } = require('../src/generators/index.js');
 const { compile } = require('../src/compile/index.js');
 const {
   bench,
+  benchAsync,
   callCheck,
   callParse,
+  callCheckAsync,
+  callParseAsync,
+  SYNC_VALIDATORS_SCHEMA,
+  RESOLVED_VALIDATORS_SCHEMA,
+  LATER_VALIDATORS_SCHEMA,
+  TIMER_VALIDATORS_SCHEMA,
+  LATER_RECORDS_SCHEMA,
+  LATER_RECORDS_VALUE,
+  ASYNC_DECODER_SCHEMA,
+  RECORDS_SCHEMA,
+  RECORDS_VALUE,
+  NESTED_LOOSE,
+  STRIP,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
   CODEC_SCHEMA,
@@ -85,7 +102,7 @@ const compare = (results) => {
   for (const { name, opsPerSec } of results) {
     const before = base.get(name);
     const change = before ? percent(opsPerSec, before) : 'no baseline';
-    console.log(`${name.padEnd(52)} ${change.padStart(12)}`);
+    console.log(`${name.padEnd(64)} ${change.padStart(12)}`);
     if (before && failUnder !== null && ((opsPerSec - before) / before) * 100 < -failUnder) {
       regressions.push(name);
     }
@@ -116,7 +133,54 @@ const jit = (definition) => {
   return schema;
 };
 
-const main = () => {
+// The async scenarios over one schema (with its validators) and its values,
+// on one backend: the sync row of the same schema is the reference.
+const asyncRows = (schemas, tag = '') => {
+  const { sync, resolved, later, timer, records, decoder } = schemas;
+  const value = FLAT_VALID;
+  const codec = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
+  return [
+    [`check${tag} — 4 sync validators`, () => callCheck(value), sync],
+    [`checkAsync${tag} — 4 sync validators`, () => callCheckAsync(value), sync, true],
+    [
+      `checkAsync${tag} — 4 async validators, resolved promises`,
+      () => callCheckAsync(value),
+      resolved,
+      true,
+    ],
+    [
+      `checkAsync${tag} — 4 independent validators, setImmediate`,
+      () => callCheckAsync(value),
+      later,
+      true,
+    ],
+    [
+      `checkAsync${tag} — 4 independent validators, setTimeout(1)`,
+      () => callCheckAsync(value),
+      timer,
+      true,
+      { warmup: 50 },
+    ],
+    [
+      `checkAsync${tag} — 32 records, a validator each, setImmediate`,
+      () => callCheckAsync(LATER_RECORDS_VALUE),
+      records,
+      true,
+    ],
+    [`parseAsync${tag} — an async decoder`, () => callParseAsync(codec), decoder, true],
+  ];
+};
+
+const asyncSchemas = (build) => ({
+  sync: build(SYNC_VALIDATORS_SCHEMA),
+  resolved: build(RESOLVED_VALIDATORS_SCHEMA),
+  later: build(LATER_VALIDATORS_SCHEMA),
+  timer: build(TIMER_VALIDATORS_SCHEMA),
+  records: build(LATER_RECORDS_SCHEMA),
+  decoder: build(ASYNC_DECODER_SCHEMA),
+});
+
+const main = async () => {
   if (flags.has('--compare-libs')) {
     require('./libs.js').compareLibraries({ json });
     return;
@@ -136,6 +200,8 @@ const main = () => {
   const aliasedJit = jit(ALIAS_SCHEMA);
   const moltarFlatJit = jit(MOLTAR_FLAT_SCHEMA);
   const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
+  const records = Schema.from(RECORDS_SCHEMA);
+  const recordsJit = jit(RECORDS_SCHEMA);
   const { types, entities, database } = loadModelFixture();
   const model = new Model(types, entities, database);
 
@@ -182,6 +248,24 @@ const main = () => {
       () => callParse(ALIASED_VALID),
       aliasedJit,
     ],
+    [
+      'parse — nested struct, strip (extra keys at every level)',
+      () => callParse(NESTED_LOOSE, STRIP),
+      nested,
+    ],
+    ['parse — array of 100 records, strip', () => callParse(RECORDS_VALUE, STRIP), records],
+    [
+      'parse (jit) — nested struct, strip (extra keys at every level)',
+      () => callParse(NESTED_LOOSE, STRIP),
+      nestedJit,
+    ],
+    [
+      'parse (jit) — array of 100 records, strip',
+      () => callParse(RECORDS_VALUE, STRIP),
+      recordsJit,
+    ],
+    ...asyncRows(asyncSchemas(Schema.from)),
+    ...asyncRows(asyncSchemas(jit), ' (jit)'),
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',
@@ -210,8 +294,10 @@ const main = () => {
   ];
 
   const results = [];
-  for (const [name, fn, schema] of scenarios) {
-    if (name.includes(filter)) results.push(bench(name, fn, { quiet: json, schema }));
+  for (const [name, fn, schema, async, extra] of scenarios) {
+    if (!name.includes(filter)) continue;
+    const options = { quiet: json, schema, ...extra };
+    results.push(async ? await benchAsync(name, fn, options) : bench(name, fn, options));
   }
   if (json) console.log(JSON.stringify(results, null, 2));
   if (flags.has('--save')) {
