@@ -131,7 +131,7 @@ const createStruct = (defs, prep) => {
   const calculated = [];
   for (const key of Object.keys(defs)) {
     const entry = defs[key];
-    const { field, required } = formatters.key(key, entry?.required);
+    const { field, required } = formatters.key(key);
     try {
       const { Type, defs: typeDefs } = prep.parse(entry);
       if (!Type) {
