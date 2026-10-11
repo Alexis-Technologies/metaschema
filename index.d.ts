@@ -332,6 +332,8 @@ export type DefinitionErrorCode =
   | 'ERR_UNSATISFIABLE'
   | 'ERR_SAMPLE_PATTERN'
   | 'ERR_SAMPLE_TYPE'
+  // Thrown by `merge` of the same subpath for what no value can satisfy.
+  | 'ERR_MERGE_CONFLICT'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -455,6 +457,15 @@ export interface SchemaChange {
 // one; 'forward': a reader with the old model reads data written with the
 // new one; 'full': both; 'none': neither.
 export type Compatibility = 'full' | 'backward' | 'forward' | 'none';
+
+// The options of `merge` of the `@alexify/metaschema/model` subpath.
+export interface MergeOptions {
+  // The name of the merged schema: the first schema's by default.
+  name?: string;
+  // The kind metadata of the merged schema, over the first schema's: `kind`,
+  // `scope`, `store`, `allow`, `unknown` and any other key.
+  metadata?: Partial<KindMetadata>;
+}
 
 // The options of `sample` of the `@alexify/metaschema/model` subpath.
 export interface SampleOptions {
@@ -1070,6 +1081,10 @@ export class Schema<const D extends string | object = string | object> {
     options: FromJSONSchemaOptions & { as: 'schema' },
   ): Schema;
   static fromJSONSchema(document: JSONSchema | true, options?: FromJSONSchemaOptions): object | string;
+  // The schema two schemas describe, by unification: exists once `register()`
+  // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
+  // the same without it.
+  static merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
 
   kind: Kind;
   scope: Scope;

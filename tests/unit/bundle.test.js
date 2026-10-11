@@ -96,9 +96,23 @@ const checkBundle = async ({ core, generators, compile, model: tools }, browser)
     ['changed qty', 'added note'],
   );
   assert.strictEqual(tools.compatibility(changes), 'backward');
+  // A sample passes the check it was drawn for; a merge takes both fields.
+  const item = next.entities.get('Item');
+  assert.strictEqual(item.check(tools.sample(item, { seed: 3 })).valid, true);
+  const merged = tools.merge(item, Schema.from({ qty: { type: 'number', max: 9 }, tag: 'string' }));
+  assert.deepStrictEqual(Array.from(Object.keys(merged.fields)), [
+    'name',
+    'qty',
+    'note',
+    'itemId',
+    'tag',
+  ]);
+  assert.strictEqual(merged.check({ name: 'x', qty: 10, tag: 't' }).valid, false);
   assert.strictEqual(Model.diff, undefined);
   tools.register();
   assert.strictEqual(Model.compatibility(Model.diff(prev, next)), 'backward');
+  assert.strictEqual(typeof item.sample, 'function');
+  assert.strictEqual(Schema.merge, tools.merge);
   // The compile subpath through the bundle: the generated check validates
   // like the closures, inside a vm context too, or the fallback does.
   const fast = Schema.from({ name: 'string', 'age?': 'number', tags: { array: 'string' } });

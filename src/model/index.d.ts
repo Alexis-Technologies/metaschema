@@ -1,6 +1,7 @@
 import type {
   Compatibility,
   Infer,
+  MergeOptions,
   Model,
   ModelSnapshot,
   RestoreOptions,
@@ -35,6 +36,14 @@ export function sample<D extends string | object>(
   options?: SampleOptions,
 ): Infer<D>;
 
-// Installs `Model.fromJSON`, `Model.diff`, `Model.compatibility` and
-// `schema.sample`. Once per process; later calls do nothing.
+// The schema both schemas describe, by unification: a field in both takes
+// the constraints of both, a field in one comes as it is, and what no value
+// can satisfy (two types, two patterns, bounds with nothing in common, two
+// defaults) is `ERR_MERGE_CONFLICT` with the field. The kind, its metadata
+// and the name are the first schema's unless the options say otherwise.
+export function merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
+
+// Installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
+// `Schema.merge` and `schema.sample`. Once per process; later calls do
+// nothing.
 export function register(): void;

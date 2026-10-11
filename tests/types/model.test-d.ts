@@ -58,3 +58,16 @@ expectError(sample(user, { locale: 'fr' }));
 expectError(sample({ name: 'string' }));
 expectAssignable<DefinitionErrorCode>('ERR_UNSATISFIABLE');
 expectAssignable<DefinitionErrorCode>('ERR_SAMPLE_PATTERN');
+
+// merge: a Schema from two, with the options.
+import { merge } from '../../src/model/index.js';
+import type { MergeOptions } from '../../index.js';
+expectType<Schema>(merge(user, user));
+expectType<Schema>(
+  merge(user, user, { name: 'Merged', metadata: { kind: 'entity', scope: 'global' } }),
+);
+expectType<Schema>(Schema.merge(user, user));
+expectAssignable<MergeOptions>({});
+expectError(merge(user, { name: 'string' }));
+expectError(merge(user, user, { name: 1 }));
+expectAssignable<DefinitionErrorCode>('ERR_MERGE_CONFLICT');
