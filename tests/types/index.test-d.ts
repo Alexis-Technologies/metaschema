@@ -117,6 +117,13 @@ expectType<ValidationResult>(schema.check({}, { root: 'User', messages: locale }
 expectError<Locale>({ required: () => 1 });
 const field = schema.fields.name as FieldType;
 expectType<void>(field.check('x', {} as CheckContext));
+declare const context: CheckContext;
+expectType<number>(context.depth);
+expectType<number>(context.maxDepth);
+expectType<unknown>(context.source);
+expectType<'reject' | 'ignore' | 'strip'>(context.unknown);
+expectType<unknown[] | null>(context.async);
+expectType<CheckContext | null>(context.scratch);
 expectType<ValidationResult | null>(schema.validate({}, 'User'));
 expectType<ValidationResult | null>(schema.validate({}));
 expectType<Schema | null>(schema.findReference('Company'));

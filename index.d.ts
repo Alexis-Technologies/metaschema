@@ -201,15 +201,25 @@ export interface CheckContext {
   issues: ValidationIssue[];
   count: number;
   limit: number;
+  // How many embedded records the check is inside, and how many it may be
+  // before a record is a `depth` issue (128 by default).
+  depth: number;
+  maxDepth: number;
   path: PropertyKey[];
   seen: Set<object> | null;
-  unknown: 'reject' | 'ignore';
+  // The value the check started from, when the schema can reach it again
+  // through a reference; null otherwise.
+  source: unknown;
+  // 'strip' in a parse, where the check behind it treats it as 'ignore'.
+  unknown: 'reject' | 'ignore' | 'strip';
   references: 'kind' | 'embed' | 'id';
   root: string;
   messages: Messages;
   // The validators that returned a promise, settled after the walk by
   // checkAsync and parseAsync; null in a synchronous check.
   async: unknown[] | null;
+  // The context parse tries the branches of a plain union in; null in a check.
+  scratch: CheckContext | null;
 }
 
 // A validator may return a promise of its result to checkAsync and parseAsync;
