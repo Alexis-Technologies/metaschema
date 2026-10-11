@@ -7,7 +7,7 @@
 // (witness generation as a satisfiability check, ROADMAP §3).
 const { hasBrand } = require('../util.js');
 const { createContext } = require('../context.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { isStruct } = require('../struct.js');
 const { embeds } = require('../prototypes/reference.js');
 const { toDotPath, finalize } = require('../issues.js');
@@ -314,7 +314,7 @@ const optionsOf = (options) => {
 // reference is held, as in check) and `maxDepth` (how deep embedded records
 // nest, 3).
 const sample = (schema, options = {}) => {
-  if (!hasBrand(schema, 'Schema')) throw new TypeError('A Schema is expected');
+  if (!hasBrand(schema, 'Schema')) throw invalidTarget('A Schema is expected');
   const { seed, letters, references, maxDepth } = optionsOf(options);
   const state = {
     random: prng(seed),

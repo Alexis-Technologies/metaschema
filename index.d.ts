@@ -353,7 +353,10 @@ export class SchemaDefinitionError extends TypeError {
 // The code of the TypeError a synchronous check or parse throws when a
 // validator, a custom checkType or a decoder returns a promise: the call,
 // not the definition, is wrong, so it is a plain TypeError with `code`.
-export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR';
+// `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
+// given something other than what it takes (a Schema, a Model, a snapshot, a
+// list of changes).
+export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET';
 
 // ---------------------------------------------------------------------------
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The

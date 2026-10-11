@@ -34,4 +34,13 @@ const asyncReturn = (what, where, method) => {
   return error;
 };
 
-module.exports = { SchemaDefinitionError, asyncReturn };
+// A function of a subpath was given something other than what it takes (a
+// Schema, a Model, a snapshot, a list of changes): the call is wrong, not a
+// definition, so a plain TypeError with a code of its own, like asyncReturn.
+const invalidTarget = (message) => {
+  const error = new TypeError(message);
+  error.code = 'ERR_INVALID_TARGET';
+  return error;
+};
+
+module.exports = { SchemaDefinitionError, asyncReturn, invalidTarget };

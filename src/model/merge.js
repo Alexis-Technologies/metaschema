@@ -8,7 +8,7 @@ const { hasBrand } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { isThenable } = require('../issues.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { same, capitalize, definitionOf, structDefinitionOf } = require('./data.js');
 
 // The keys a field definition settles by a rule of its own; every other key
@@ -175,7 +175,7 @@ const mergeStruct = (a, b, path) => {
 // key), the functions of the schema itself compose as a field's do.
 const merge = (a, b, options = {}) => {
   if (!hasBrand(a, 'Schema') || !hasBrand(b, 'Schema')) {
-    throw new TypeError('Two Schemas are expected');
+    throw invalidTarget('Two Schemas are expected');
   }
   if (options === null || typeof options !== 'object') {
     throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Merge options must be an object');

@@ -350,6 +350,7 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   );
   assert.throws(() => merge(s({ a: 'string' }), { a: 'string' }), {
     name: 'TypeError',
+    code: 'ERR_INVALID_TARGET',
     message: 'Two Schemas are expected',
   });
   assert.throws(() => merge(s({ a: 'string' }), s({ a: 'string' }), null), {

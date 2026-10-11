@@ -7,6 +7,7 @@
 // snapshot compares with a model, and the rules assume a reader that ignores
 // the keys it does not know (`check` with `unknown: 'ignore'`, `parse` with
 // `strip`), as those registries do.
+const { invalidTarget } = require('../errors.js');
 const { snapshotOf, same, isFunctionMarker } = require('./data.js');
 
 const change = (kind, op, entity, name, from, to, detail) => {
@@ -368,7 +369,7 @@ const levelOf = (entry) => {
 
 // The class of a list of changes: 'full', 'backward', 'forward' or 'none'.
 const compatibility = (changes) => {
-  if (!Array.isArray(changes)) throw new TypeError('A list of changes is expected');
+  if (!Array.isArray(changes)) throw invalidTarget('A list of changes is expected');
   let level = FULL;
   for (const entry of changes) level &= levelOf(entry);
   return NAMES[level];

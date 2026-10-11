@@ -909,6 +909,7 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
   for (const target of [{}, null, 'User', { entities: new Map() }, Schema, undefined]) {
     assert.throws(() => compile(target), {
       name: 'TypeError',
+      code: 'ERR_INVALID_TARGET',
       message: 'A Schema or a Model is expected',
     });
   }

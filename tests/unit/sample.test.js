@@ -280,6 +280,7 @@ test('Sample: the options, the target and the registered method', () => {
   }
   assert.throws(() => sample({ a: 'string' }), {
     name: 'TypeError',
+    code: 'ERR_INVALID_TARGET',
     message: 'A Schema is expected',
   });
   assert.strictEqual(schema.sample, undefined);

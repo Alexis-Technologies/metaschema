@@ -40,10 +40,12 @@ test('Generators: the functions take a Schema or a Model', () => {
   for (const target of [{}, null, 'User', { entities: new Map() }, Schema]) {
     assert.throws(() => toJSONSchema(target), {
       name: 'TypeError',
+      code: 'ERR_INVALID_TARGET',
       message: 'A Schema or a Model is expected',
     });
     assert.throws(() => toTypeScript(target), {
       name: 'TypeError',
+      code: 'ERR_INVALID_TARGET',
       message: 'A Schema or a Model is expected',
     });
   }

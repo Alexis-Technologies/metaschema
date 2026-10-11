@@ -458,7 +458,8 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
     });
   }
   assert.throws(() => fromJSONSchema('string'), {
-    code: 'ERR_INVALID_OPTIONS',
+    name: 'TypeError',
+    code: 'ERR_INVALID_TARGET',
     message: 'A JSON Schema document (an object) is expected',
   });
 });

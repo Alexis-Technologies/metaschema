@@ -10,7 +10,7 @@ const { isFirstUpper } = require('../metautil.js');
 const { define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { TYPES } = require('../types.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
 const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
 
@@ -426,7 +426,7 @@ const convert = (context, node, required = true) => compactDef(longOf(context, n
 const fromJSONSchema = (document, options = {}) => {
   const context = createContext(document, options);
   if (!isObject(document) && document !== true) {
-    throw invalidOptions('A JSON Schema document (an object) is expected');
+    throw invalidTarget('A JSON Schema document (an object) is expected');
   }
   const def = longOf(context, document);
   let definition;
