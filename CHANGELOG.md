@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+
+- **The passes of `parse` and `serialize` allocate nothing per container they visit.** The
+  walkers of `codec.js` kept a state object per struct, list, dictionary or tuple whose bits a
+  pass wanted (`{ context, key, value, clone, put, out, pending }`), even where nothing
+  changed; the output under construction and the parts still decoding are locals of the walker
+  now, written through two small helpers. `pnpm bench`: `parse` of 100 records under
+  `unknown: 'strip'` from 61 K to 71 K a second on the closures and from 81 K to 100 K on the
+  JIT, a nested struct under `strip` from 1.9 M to 2.2 M on the JIT, defaults and a decoder
+  about 5% faster on both; the rest within the run-to-run band.
+
 ### Changed
 
 - **Independent async validators are in flight together.** `checkAsync` and `parseAsync` set a
