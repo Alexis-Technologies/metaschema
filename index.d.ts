@@ -321,6 +321,9 @@ export type DefinitionErrorCode =
   | 'ERR_UNKNOWN_JS_TYPE'
   | 'ERR_INVALID_OPTIONS'
   | 'ERR_UNREPRESENTABLE'
+  // Thrown by `fromJSON` and `diff` of the `@alexify/metaschema/model`
+  // subpath for a value that is not a snapshot of a model.
+  | 'ERR_INVALID_SNAPSHOT'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -402,6 +405,48 @@ export interface ModelSnapshot {
   types: Record<string, TypeSnapshot>;
   entities: Record<string, EntitySnapshot>;
 }
+
+// The options of `fromJSON` of the `@alexify/metaschema/model` subpath.
+export interface RestoreOptions {
+  // Entries of the table Model takes, over the types of the snapshot: the
+  // real custom types, where the restored model should validate as the
+  // original did.
+  types?: Record<string, TypeEntry>;
+  // 'isolated' (the default) gives the restored model its own registry, so
+  // the placeholders of its custom types never reach the shared one.
+  registry?: 'shared' | 'isolated';
+}
+
+// ---------------------------------------------------------------------------
+// The evolution of a model: `diff` and `compatibility` of the
+// `@alexify/metaschema/model` subpath.
+// ---------------------------------------------------------------------------
+
+export type ChangeKind = 'entity' | 'field' | 'index' | 'relation' | 'type';
+
+export type ChangeOp = 'added' | 'removed' | 'changed' | 'renamed';
+
+// One change between two versions of a model: what changed (`kind`), how
+// (`op`), in which entity ('' for a type), under which name (the entity, the
+// field, the index, the target of a relation, the type), what it was
+// (`from`) and is (`to`), and the detail: the keys that differ for a
+// `changed` entity, field, index or type; the old key (`renamed`) and the
+// keys that differ beyond `aliases` for a field renamed through an alias;
+// `deprecated: true` for a removed field that was marked so.
+export interface SchemaChange {
+  kind: ChangeKind;
+  op: ChangeOp;
+  entity: string;
+  name: string;
+  from?: unknown;
+  to?: unknown;
+  detail?: { keys?: string[]; renamed?: string; deprecated?: true };
+}
+
+// 'backward': a reader with the new model reads data written with the old
+// one; 'forward': a reader with the old model reads data written with the
+// new one; 'full': both; 'none': neither.
+export type Compatibility = 'full' | 'backward' | 'forward' | 'none';
 
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
@@ -1057,6 +1102,12 @@ export class Model {
   // The model as plain JSON, what JSON.stringify(model) writes; see
   // `ModelSnapshot`.
   toJSON(): ModelSnapshot;
+  // The three statics below exist once `register()` of the
+  // `@alexify/metaschema/model` subpath has run; its `fromJSON`, `diff` and
+  // `compatibility` are the same without it.
+  static fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): Model;
+  static diff(prev: Model | ModelSnapshot, next: Model | ModelSnapshot): SchemaChange[];
+  static compatibility(changes: SchemaChange[]): Compatibility;
   // The members below exist once `register()` of the generators subpath has
   // run; the subpath's `toJSONSchema(model)` and `toTypeScript(model)` are the
   // same without it.
