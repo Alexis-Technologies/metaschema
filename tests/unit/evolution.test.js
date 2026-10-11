@@ -274,9 +274,11 @@ test('Evolution: fromJSON locates what a snapshot cannot say', () => {
     { A: struct({ d: field('date', { default: { $date: 'junk' } }) }) },
     { message: '"junk" is not a date in "A.d.default"' },
   );
+  // The engine's text: V8 names the flags of the pattern since Node 20
+  // (`/(/u:`), Node 18 does not (`/(/:`).
   fails(
     { A: struct({ s: field('string', { pattern: { source: '(', flags: 'u' } }) }) },
-    { message: 'Invalid regular expression: /(/u: Unterminated group in "A.s"' },
+    { message: /^Invalid regular expression: \/\(\/u?: Unterminated group in "A\.s"$/ },
   );
   fails(
     { A: struct({ s: field('string', { pattern: {} }) }) },
