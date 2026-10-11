@@ -49,6 +49,30 @@ const scanUnknown = (value, known, context) => {
 // never touches the path. Unknown keys are looked for only when the value has
 // more keys than the plan found, so a value with exactly the expected keys is
 // never scanned twice.
+// A field with nothing under its own key (absent, inherited, or own and set
+// to undefined): an alias may hold the value, and the check reports it under
+// the key it found it under. Then the same for an optional field, a required
+// one asks which (own and undefined is a type error). Kept out of the loop
+// of the struct check, whose body is the fast path of a present field; the
+// return is what the field adds to the keys found.
+const checkAbsent = (entry, value, context, name) => {
+  const under = aliasOf(value, entry.aliases, name);
+  let item;
+  if (under !== name) {
+    item = value[under];
+    context.renamed = true;
+  }
+  if (item === undefined) {
+    if (!entry.required) return 0;
+    if (!Object.hasOwn(value, under)) {
+      issues.required(context, name);
+      return 0;
+    }
+  }
+  entry.check(item, context, under);
+  return 1;
+};
+
 const compileStruct = (plan, known) => (value, context, key) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     issues.type(context, 'object', value, key);
@@ -61,31 +85,11 @@ const compileStruct = (plan, known) => (value, context, key) => {
     if (context.count >= context.limit) break;
     const entry = plan[index];
     const name = entry.key;
-    let item = value[name];
+    const item = value[name];
     if (item !== undefined && (!entry.own || Object.hasOwn(value, name))) {
       found += 1;
       entry.check(item, context, name);
-      continue;
-    }
-    // Absent, inherited, or own and set to undefined: an alias may hold the
-    // value, and the check reports it under the key it found it under. Then
-    // the same for an optional field, a required one asks which (own and
-    // undefined is a type error).
-    const under = aliasOf(value, entry.aliases, name);
-    if (under === name) item = undefined;
-    else {
-      item = value[under];
-      context.renamed = true;
-    }
-    if (item === undefined) {
-      if (!entry.required) continue;
-      if (!Object.hasOwn(value, under)) {
-        issues.required(context, name);
-        continue;
-      }
-    }
-    found += 1;
-    entry.check(item, context, under);
+    } else found += checkAbsent(entry, value, context, name);
   }
   if (context.unknown === 'reject' && context.count < context.limit) {
     let total = 0;

@@ -40,6 +40,10 @@ const {
   MOLTAR_FLAT_LOOSE,
   MOLTAR_NESTED_LOOSE,
   loadModelFixture,
+  SPARSE_SCHEMA,
+  ALIAS_SCHEMA,
+  SPARSE_VALID,
+  ALIASED_VALID,
 } = require('./helpers.js');
 
 const BASELINE = path.join(__dirname, 'baseline.json');
@@ -123,9 +127,13 @@ const main = () => {
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
   const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
   const codec = Schema.from(CODEC_SCHEMA);
+  const sparse = Schema.from(SPARSE_SCHEMA);
+  const aliased = Schema.from(ALIAS_SCHEMA);
   const flatJit = jit(FLAT_SCHEMA);
   const nestedJit = jit(NESTED_SCHEMA);
   const codecJit = jit(CODEC_SCHEMA);
+  const sparseJit = jit(SPARSE_SCHEMA);
+  const aliasedJit = jit(ALIAS_SCHEMA);
   const moltarFlatJit = jit(MOLTAR_FLAT_SCHEMA);
   const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
@@ -142,12 +150,38 @@ const main = () => {
     ['check (jit) — flat struct, invalid', () => callCheck(FLAT_INVALID), flatJit],
     ['check (jit) — nested struct, valid', () => callCheck(NESTED_VALID), nestedJit],
     ['check (jit) — nested struct, invalid', () => callCheck(NESTED_INVALID), nestedJit],
+    ['check — sparse struct, two optional fields absent', () => callCheck(SPARSE_VALID), sparse],
+    [
+      'check (jit) — sparse struct, two optional fields absent',
+      () => callCheck(SPARSE_VALID),
+      sparseJit,
+    ],
     ['parse — flat struct, valid', () => callParse(FLAT_VALID), flat],
     ['parse — nested struct, valid', () => callParse(NESTED_VALID), nested],
     ['parse — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codec],
+    [
+      'parse — flat struct with an alias, no alias in the input',
+      () => callParse(FLAT_VALID),
+      aliased,
+    ],
+    [
+      'parse — flat struct with an alias, the alias in the input',
+      () => callParse(ALIASED_VALID),
+      aliased,
+    ],
     ['parse (jit) — flat struct, valid', () => callParse(FLAT_VALID), flatJit],
     ['parse (jit) — nested struct, valid', () => callParse(NESTED_VALID), nestedJit],
     ['parse (jit) — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codecJit],
+    [
+      'parse (jit) — flat struct with an alias, no alias in the input',
+      () => callParse(FLAT_VALID),
+      aliasedJit,
+    ],
+    [
+      'parse (jit) — flat struct with an alias, the alias in the input',
+      () => callParse(ALIASED_VALID),
+      aliasedJit,
+    ],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',
