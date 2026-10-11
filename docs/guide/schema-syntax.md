@@ -175,8 +175,12 @@ contact.fields.phone.required; // true: required in one is required
 contact.check({ name: 'Ann', email: 'ann@example.com' }).errors; // [ 'Field "Contact.phone" is required' ]
 
 merge(base, Schema.from({ email: 'number' }));
-// throws SchemaDefinitionError [ERR_MERGE_CONFLICT]: "email" is a string in one schema and a number in the other in "Contact"
+// throws SchemaDefinitionError [ERR_MERGE_CONFLICT]: The type is string in one schema and number in the other in "Contact.email"
 ```
+
+A conflict is located like a definition error: `error.schema` is the name of the merged
+schema, `error.field` the path of the field (`address.city` for a nested one, `''` when the
+schemas as a whole cannot be merged), and the message ends with both.
 
 The rules, per key of a field in both schemas:
 
@@ -185,11 +189,11 @@ The rules, per key of a field in both schemas:
 | `type` | the same type; `any` or `unknown` and a type is that type; `integer` and `number` is `integer`; anything else is a conflict |
 | `required` | required where either requires it |
 | `nullable` | null allowed only where both allow it |
-| `length`, `min`, `max` | the greater of the minimums and the lesser of the maximums; nothing in common is a conflict |
+| `length`, `min`, `max` | the greater of the minimums and the lesser of the maximums; nothing in common (a minimum above a maximum) is a conflict |
 | `enum` | the values both hold; none is a conflict |
 | `pattern`, `default`, `parse`, `serialize`, `union`, `discriminator`, the key type of an `object` or `map`, the target and `embed` of a reference | the same, or one side only; two different ones are a conflict |
 | `validate` | both, composed: the check gets what each returned, awaited when either is async |
-| `aliases` | the aliases of both |
+| `aliases` | the aliases of both; an alias that is a field of the other schema, or an alias of another field, is a conflict |
 | `unique`, `index`, `primary`, `deprecated` | set where either sets it |
 | a nested struct (`schema`) | its fields merged the same way; a struct and a schema of one type are a conflict |
 | the element of a collection, the elements of a tuple | merged the same way; tuples of another length are a conflict |

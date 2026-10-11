@@ -1,14 +1,16 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import { Model } from '../../index.js';
-import { compatibility, diff, fromJSON, register } from '../../src/model/index.js';
+import { compatibility, compatibilityOf, diff, fromJSON, register } from '../../src/model/index.js';
 import type {
   ChangeKind,
   ChangeOp,
   Compatibility,
   DefinitionErrorCode,
   ModelSnapshot,
+  RestoredModel,
   RestoreOptions,
   SchemaChange,
+  TypeEntry,
 } from '../../index.js';
 
 declare const model: Model;
@@ -16,8 +18,11 @@ const snapshot = model.toJSON();
 
 // The functions of the subpath take Models or snapshots.
 expectType<void>(register());
-expectType<Model>(fromJSON(snapshot));
-expectType<Model>(fromJSON(snapshot, { registry: 'shared', types: { money: { js: 'number' } } }));
+expectType<RestoredModel>(fromJSON(snapshot));
+expectAssignable<Model>(fromJSON(snapshot));
+expectType<RestoredModel>(
+  fromJSON(snapshot, { registry: 'shared', types: { money: { js: 'number' } } }),
+);
 expectAssignable<RestoreOptions>({});
 expectError(fromJSON(snapshot, { registry: 'private' }));
 expectError(fromJSON({ format: 2, database: null, types: {}, entities: {} }));
@@ -26,6 +31,12 @@ expectType<SchemaChange[]>(diff(snapshot, model));
 expectError(diff(model, { name: 'string' }));
 expectType<Compatibility>(compatibility(diff(model, model)));
 expectError(compatibility(model));
+
+// A restored model lists its placeholders, read-only.
+const restored = fromJSON(snapshot);
+expectType<string[]>(restored.placeholders);
+expectError((restored.placeholders = []));
+expectType<ModelSnapshot>(restored.toJSON());
 
 // A change and its parts.
 const change = diff(model, model)[0];
@@ -37,13 +48,16 @@ expectType<unknown>(change.from);
 expectType<string[] | undefined>(change.detail?.keys);
 expectType<string | undefined>(change.detail?.renamed);
 expectType<true | undefined>(change.detail?.deprecated);
+expectType<Compatibility>(compatibilityOf(change));
+expectError(compatibilityOf([change]));
 expectAssignable<Compatibility>('backward');
 expectAssignable<DefinitionErrorCode>('ERR_INVALID_SNAPSHOT');
 
 // The statics register() installs.
-expectType<Model>(Model.fromJSON(snapshot, { types: {} }));
+expectType<RestoredModel>(Model.fromJSON(snapshot, { types: {} }));
 expectType<SchemaChange[]>(Model.diff(snapshot, model));
 expectType<Compatibility>(Model.compatibility([]));
+expectType<Compatibility>(Model.compatibilityOf(change));
 expectType<ModelSnapshot>(Model.fromJSON(snapshot).toJSON());
 
 // sample: the type of a value the schema accepts, and its options.
@@ -58,6 +72,23 @@ expectError(sample(user, { locale: 'fr' }));
 expectError(sample({ name: 'string' }));
 expectAssignable<DefinitionErrorCode>('ERR_UNSATISFIABLE');
 expectAssignable<DefinitionErrorCode>('ERR_SAMPLE_PATTERN');
+
+// The `metadata.sample` hook of a custom type: a value, or a function of
+// the field and the seeded generator, typed where it is written.
+expectAssignable<TypeEntry>({ metadata: { sample: 'ffffff' } });
+expectAssignable<TypeEntry>({
+  metadata: { sample: (field, random) => `${field.type}${random()}` },
+});
+expectAssignable<TypeEntry>({ metadata: { pg: 'money' } });
+expectAssignable<TypeEntry>({
+  metadata: {
+    sample(field, random) {
+      expectType<string>(field.type);
+      expectType<number>(random());
+      return 1;
+    },
+  },
+});
 
 // merge: a Schema from two, with the options.
 import { merge } from '../../src/model/index.js';

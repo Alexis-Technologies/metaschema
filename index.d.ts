@@ -267,11 +267,23 @@ export interface TypeConstructor {
 
 export type TypeTable = Record<string, TypeConstructor>;
 
+// What `sample` of the `@alexify/metaschema/model` subpath draws for a
+// custom type: the value `metadata.sample` holds, or what the function it
+// holds returns for the field and the seeded generator of the draw.
+export type SampleHook = (field: FieldType, random: () => number) => unknown;
+
+// The metadata of a type: anything, read by the programs built on the
+// model; `sample` is the one key the package reads (see `SampleHook`).
+export interface TypeMetadata {
+  sample?: SampleHook | {} | null;
+  [key: string]: unknown;
+}
+
 // An entry of the table passed to Model: metadata for a built-in, an alias
 // (`js`), or a prototype with its own `construct` and `checkType`.
 export interface TypeEntry {
   js?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: TypeMetadata;
   kind?: 'scalar' | 'struct';
   // The rules the type accepts in a field definition (`length`, `min`, `max`).
   rules?: string[];
@@ -426,8 +438,18 @@ export interface RestoreOptions {
   // original did.
   types?: Record<string, TypeEntry>;
   // 'isolated' (the default) gives the restored model its own registry, so
-  // the placeholders of its custom types never reach the shared one.
+  // the placeholders of its custom types never reach the shared one; a
+  // 'shared' registry takes no placeholder type (`ERR_INVALID_SNAPSHOT`
+  // unless `types` brings the real one).
   registry?: 'shared' | 'isolated';
+}
+
+// A model restored by `fromJSON`: a Model that lists the paths of the
+// placeholders standing in for the functions of the snapshot (`Order.validate`,
+// `Order.total` for a calculated field, `Order.address.parse`, `Order.when.default`,
+// `types.hex.checkType`), invisibly to `toJSON`.
+export interface RestoredModel extends Model {
+  readonly placeholders: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1176,12 +1198,13 @@ export class Model {
   // The model as plain JSON, what JSON.stringify(model) writes; see
   // `ModelSnapshot`.
   toJSON(): ModelSnapshot;
-  // The three statics below exist once `register()` of the
-  // `@alexify/metaschema/model` subpath has run; its `fromJSON`, `diff` and
-  // `compatibility` are the same without it.
-  static fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): Model;
+  // The four statics below exist once `register()` of the
+  // `@alexify/metaschema/model` subpath has run; its `fromJSON`, `diff`,
+  // `compatibility` and `compatibilityOf` are the same without it.
+  static fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): RestoredModel;
   static diff(prev: Model | ModelSnapshot, next: Model | ModelSnapshot): SchemaChange[];
   static compatibility(changes: SchemaChange[]): Compatibility;
+  static compatibilityOf(change: SchemaChange): Compatibility;
   // The members below exist once `register()` of the generators subpath has
   // run; the subpath's `toJSONSchema(model)` and `toTypeScript(model)` are the
   // same without it.

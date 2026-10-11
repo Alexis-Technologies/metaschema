@@ -93,6 +93,7 @@ test('Exports: the model subpath is reachable through its subpath export', () =>
     'fromJSON',
     'diff',
     'compatibility',
+    'compatibilityOf',
     'sample',
     'merge',
     'register',

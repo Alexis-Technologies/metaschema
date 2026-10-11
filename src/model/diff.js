@@ -6,9 +6,19 @@
 // neither. Two models compare through their snapshots, so a committed
 // snapshot compares with a model, and the rules assume a reader that ignores
 // the keys it does not know (`check` with `unknown: 'ignore'`, `parse` with
-// `strip`), as those registries do.
-const { invalidTarget } = require('../errors.js');
-const { snapshotOf, same, isFunctionMarker } = require('./data.js');
+// `strip`), as those registries do. A snapshot and a list of changes are
+// input: the keys read are own keys, an entity is checked before it is
+// read, and whatever fails while a change is classified is an error of the
+// snapshot located at the change.
+const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const {
+  invalidSnapshot,
+  atSchema,
+  isObject,
+  snapshotOf,
+  same,
+  isFunctionMarker,
+} = require('./data.js');
 
 const change = (kind, op, entity, name, from, to, detail) => {
   const entry = { kind, op, entity, name };
@@ -17,6 +27,8 @@ const change = (kind, op, entity, name, from, to, detail) => {
   if (detail !== undefined) entry.detail = detail;
   return entry;
 };
+
+const own = (object, key) => (Object.hasOwn(object, key) ? object[key] : undefined);
 
 // The keys of either object, sorted.
 const keysOf = (a, b) => {
@@ -28,7 +40,7 @@ const keysOf = (a, b) => {
 // The keys whose values differ between two objects, sorted.
 const changedKeys = (a, b, keys = keysOf(a, b)) => {
   const changed = [];
-  for (const key of keys) if (!same(a[key], b[key])) changed.push(key);
+  for (const key of keys) if (!same(own(a, key), own(b, key))) changed.push(key);
   return changed;
 };
 
@@ -87,8 +99,8 @@ const diffFields = (entity, old, current, changes) => {
 // a model): added, removed and changed by key.
 const diffKeyed = (kind, entity, old, current, changes) => {
   for (const name of keysOf(old, current)) {
-    const from = old[name];
-    const to = current[name];
+    const from = own(old, name);
+    const to = own(current, name);
     if (from === undefined) changes.push(change(kind, 'added', entity, name, undefined, to));
     else if (to === undefined) changes.push(change(kind, 'removed', entity, name, from));
     else if (!same(from, to)) {
@@ -126,22 +138,44 @@ const diffRelations = (entity, old, current, changes) => {
 
 const META = ['kind', 'scope', 'store', 'allow', 'parent', 'unknown', 'custom'];
 
+// The metadata of an entity; a schema of one type is its type, so a struct
+// that became one (or back) differs in `type`.
 const metaOf = (entity) => {
   const meta = {};
   for (const key of META) if (entity[key] !== undefined) meta[key] = entity[key];
-  // A schema of one type is its type.
   if (entity.fields === undefined) meta.type = entity.type;
   return meta;
 };
 
+const isRelations = (list) => {
+  if (!Array.isArray(list)) return false;
+  for (const item of list) if (!isObject(item)) return false;
+  return true;
+};
+
+// What `diff` reads of an entity: an object with `fields` (every one an
+// object: a definition or a function marker) or a `type`, and the relations
+// as a list of objects, when there.
+const checkEntity = (entity, name) => {
+  const fail = (reason) => atSchema(invalidSnapshot(reason), name);
+  if (!isObject(entity)) throw fail('An entity of a snapshot must be an object');
+  const { fields, type, relations = [] } = entity;
+  if (!isObject(fields === undefined ? type : fields) || !isRelations(relations)) {
+    throw fail('An entity needs fields or a type, and relations as a list');
+  }
+  for (const key in fields) {
+    if (!isObject(fields[key])) {
+      throw invalidSnapshot('A field must be an object').locate(name, key);
+    }
+  }
+};
+
 const diffEntity = (name, old, current, changes) => {
+  checkEntity(old, name);
+  checkEntity(current, name);
   const from = metaOf(old);
   const to = metaOf(current);
   const keys = changedKeys(from, to);
-  // A struct that became a schema of one type (or back) changed its type.
-  if ((old.fields === undefined) !== (current.fields === undefined) && !keys.includes('type')) {
-    keys.push('type');
-  }
   if (keys.length > 0) changes.push(change('entity', 'changed', name, name, from, to, { keys }));
   if (old.fields !== undefined && current.fields !== undefined) {
     diffFields(name, old.fields, current.fields, changes);
@@ -244,7 +278,7 @@ const structLevel = (old, current) => {
   const renamed = new Set();
   for (const name of Object.keys(current)) {
     const to = current[name];
-    const from = old[name];
+    const from = own(old, name);
     if (isFunctionMarker(to) || isFunctionMarker(from)) {
       if (!same(from, to)) level &= functionLevel(name, from, to);
       continue;
@@ -303,10 +337,10 @@ const keyLevel = (key, from, to, field) => {
     case 'aliases':
       return aliasesLevel(from, to);
     case 'schema':
-      return typeof from === 'object' && typeof to === 'object' ? structLevel(from, to) : NONE;
+      return isObject(from) && isObject(to) ? structLevel(from, to) : NONE;
     case 'value':
       if (Array.isArray(from) && Array.isArray(to)) return listLevel(from, to, false);
-      return typeof from === 'object' && typeof to === 'object' ? fieldLevel(from, to) : NONE;
+      return isObject(from) && isObject(to) ? fieldLevel(from, to) : NONE;
     case 'union':
       return Array.isArray(from) && Array.isArray(to) ? listLevel(from, to, true) : NONE;
     case 'key':
@@ -332,8 +366,10 @@ const fieldLevel = (from, to) => {
     else return NONE;
   }
   for (const key of keysOf(from, to)) {
-    if (key === 'type' || same(from[key], to[key])) continue;
-    level &= keyLevel(key, from[key], to[key], to);
+    const a = own(from, key);
+    const b = own(to, key);
+    if (key === 'type' || same(a, b)) continue;
+    level &= keyLevel(key, a, b, to);
   }
   return level;
 };
@@ -367,12 +403,36 @@ const levelOf = (entry) => {
   return op === 'renamed' ? level & (optional(from) ? FULL : BACKWARD) : level;
 };
 
-// The class of a list of changes: 'full', 'backward', 'forward' or 'none'.
+// What a change carries, as `diff` writes it: a kind and an op, and the
+// keys that differ for `changed`.
+const isChange = (entry) =>
+  isObject(entry) &&
+  typeof entry.kind === 'string' &&
+  typeof entry.op === 'string' &&
+  (entry.op !== 'changed' || Array.isArray(entry.detail?.keys));
+
+// The class of a change as bits. Whatever fails while its definitions are
+// read (a bigint that does not read, a nesting the stack cannot take) is an
+// error of the snapshot, located at the change.
+const classOf = (entry) => {
+  if (!isChange(entry)) throw invalidTarget('A list of changes is expected');
+  try {
+    return levelOf(entry);
+  } catch (error) {
+    const located = error instanceof SchemaDefinitionError ? error : invalidSnapshot(error.message);
+    throw located.locate(entry.entity, entry.name);
+  }
+};
+
+// The class of one change: 'full', 'backward', 'forward' or 'none'.
+const compatibilityOf = (entry) => NAMES[classOf(entry)];
+
+// The class of a list of changes: the class every change allows.
 const compatibility = (changes) => {
   if (!Array.isArray(changes)) throw invalidTarget('A list of changes is expected');
   let level = FULL;
-  for (const entry of changes) level &= levelOf(entry);
+  for (const entry of changes) level &= classOf(entry);
   return NAMES[level];
 };
 
-module.exports = { diff, compatibility };
+module.exports = { diff, compatibility, compatibilityOf };

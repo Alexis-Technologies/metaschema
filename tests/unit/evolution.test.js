@@ -2,7 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
-const { fromJSON, diff, compatibility, register } = require('../../src/model/index.js');
+const {
+  fromJSON,
+  diff,
+  compatibility,
+  compatibilityOf,
+  register,
+} = require('../../src/model/index.js');
 const committed = require('../fixtures/snapshot.json');
 
 const json = (value) => JSON.parse(JSON.stringify(value));
@@ -85,6 +91,16 @@ test('Evolution: fromJSON revives tags and stands placeholders in for functions'
   assert.strictEqual(typeof doc.fields.ratio, 'function');
   assert.strictEqual(doc.options.validate({}), undefined);
   assert.strictEqual(doc.options.parse('x'), 'x');
+  assert.deepStrictEqual(restored.placeholders, [
+    'Doc.when.default',
+    'Doc.code.parse',
+    'Doc.code.validate',
+    'Doc.inner.validate',
+    'Doc.inner.serialize',
+    'Doc.ratio',
+    'Doc.validate',
+    'Doc.parse',
+  ]);
   const value = {
     name: 'abc',
     big: 2n,
@@ -197,33 +213,343 @@ test('Evolution: fromJSON takes the real custom types and a registry', () => {
   assert.strictEqual(chained.types.b.metadata.pg, 'text');
 });
 
+// A snapshot of the entities given, and a field of a type with more keys.
+const broken = (entities, types = {}) => ({ format: 1, database: null, types, entities });
+const field = (type, extra = {}) => ({ type, required: true, ...extra });
+const struct = (fields, extra = {}) => ({ kind: 'struct', fields, ...extra });
+
 test('Evolution: fromJSON and diff refuse what is not a snapshot', () => {
   const code = 'ERR_INVALID_SNAPSHOT';
-  for (const value of [null, 1, 'x', {}, { format: 2, entities: {} }, { format: 1 }, []]) {
+  const snapshots = [null, 1, 'x', {}, { format: 2, entities: {} }, { format: 1 }, []];
+  for (const value of [...snapshots, broken({}, 'types')]) {
     assert.throws(() => fromJSON(value), { name: 'SchemaDefinitionError', code });
     assert.throws(() => diff(value, committed), { code });
     assert.throws(() => diff(committed, value), { code });
   }
-  const broken = (entities, types = {}) => ({ format: 1, database: null, types, entities });
   assert.throws(() => fromJSON(broken({ A: { fields: {} } })), {
     code,
-    message: 'An entity of a snapshot needs a kind',
+    message: 'An entity of a snapshot needs a kind in "A"',
+    schema: 'A',
+    field: '',
   });
-  assert.throws(
-    () => fromJSON(broken({ A: { kind: 'struct', fields: { x: { required: true } } } })),
-    {
-      code,
-      message: 'A field of a snapshot needs a type',
-    },
-  );
-  assert.throws(() => fromJSON(broken({ A: { kind: 'struct', fields: { x: 'string' } } })), {
+  assert.throws(() => fromJSON(broken({ A: struct({ x: { required: true } }) })), {
     code,
+    message: 'A field of a snapshot needs a type in "A.x"',
+    schema: 'A',
+    field: 'x',
   });
+  assert.throws(() => fromJSON(broken({ A: struct({ x: 'string' }) })), { code });
   assert.throws(() => fromJSON(broken({}, { t: 'string' })), {
     code,
-    message: 'A type of a snapshot needs an object',
+    message: 'A type of a snapshot needs an object in "types.t"',
   });
-  assert.throws(() => compatibility({}), { name: 'TypeError' });
+  // The options, and a target that is not a list of changes.
+  for (const options of [null, 'shared', 1]) {
+    assert.throws(() => fromJSON(committed, options), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: 'Restore options must be an object',
+    });
+  }
+  assert.throws(() => compatibility({}), { name: 'TypeError', code: 'ERR_INVALID_TARGET' });
+});
+
+// S1, S5: a snapshot is input. What it cannot say is ERR_INVALID_SNAPSHOT
+// located in the entity, never a bare SyntaxError or TypeError, and what it
+// says does not loosen the model.
+test('Evolution: fromJSON locates what a snapshot cannot say', () => {
+  const code = 'ERR_INVALID_SNAPSHOT';
+  const fails = (entities, expected, types) =>
+    assert.throws(() => fromJSON(broken(entities, types)), {
+      name: 'SchemaDefinitionError',
+      code,
+      ...expected,
+    });
+  // A bigint, a date, a pattern that does not read; the location is the
+  // path of the value, and `schema`/`field` are set as the core sets them.
+  fails(
+    { A: struct({ n: field('bigint', { min: { $bigint: 'abc' } }) }) },
+    { message: 'Cannot convert abc to a BigInt in "A.n.min"', schema: 'A', field: 'n.min' },
+  );
+  fails(
+    { A: struct({ d: field('date', { default: { $date: 'junk' } }) }) },
+    { message: '"junk" is not a date in "A.d.default"' },
+  );
+  fails(
+    { A: struct({ s: field('string', { pattern: { source: '(', flags: 'u' } }) }) },
+    { message: 'Invalid regular expression: /(/u: Unterminated group in "A.s"' },
+  );
+  fails(
+    { A: struct({ s: field('string', { pattern: {} }) }) },
+    { message: 'A pattern needs a string source in "A.s"' },
+  );
+  fails(
+    { A: struct({ s: field('string', { pattern: { source: 'a', flags: 5 } }) }) },
+    { message: /^Invalid flags supplied to RegExp constructor '5' in "A\.s"$/ },
+  );
+  // Nested: the struct keys on the way, as a definition error is located.
+  const city = field('string', { length: { min: { $bigint: 'x' } } });
+  fails(
+    { A: struct({ address: field('schema', { schema: { city } }) }) },
+    { message: 'Cannot convert x to a BigInt in "A.address.city.length.min"' },
+  );
+  fails(
+    { A: struct({ tags: field('array', { value: field('string', { length: 'x' }) }) }) },
+    { code: 'ERR_INVALID_LENGTH', message: /in "A\.tags"$/ },
+  );
+  // A schema of one type, and the sections of an entity.
+  fails(
+    { Id: { kind: 'scalar', type: field('bigint', { min: { $bigint: 'q' } }) } },
+    { message: 'Cannot convert q to a BigInt in "Id.min"', schema: 'Id', field: 'min' },
+  );
+  fails({ A: null }, { message: 'An entity of a snapshot needs a kind in "A"' });
+  fails({ A: struct(null) }, { message: 'The fields of an entity must be an object in "A"' });
+  fails(
+    { A: struct({}, { custom: 'x' }) },
+    { message: 'The custom of an entity must be an object in "A"' },
+  );
+  fails(
+    { A: struct({}, { indexes: [] }) },
+    { message: 'The indexes of an entity must be an object in "A"' },
+  );
+  // An index named like a field would replace the field.
+  fails(
+    { A: struct({ email: field('string', { length: 3 }) }, { indexes: { email: {} } }) },
+    { message: 'An index is named like a field in "A.email"', schema: 'A', field: 'email' },
+  );
+  // The kind metadata wins over `custom`: a snapshot does not loosen `unknown`.
+  const loose = fromJSON(
+    broken({
+      A: struct({ a: field('string') }, { unknown: 'reject', custom: { unknown: 'ignore' } }),
+    }),
+  );
+  assert.strictEqual(loose.entities.get('A').unknown, 'reject');
+  assert.strictEqual(loose.entities.get('A').check({ a: 'x', b: 1 }).valid, false);
+  assert.deepStrictEqual(loose.entities.get('A').custom, {});
+});
+
+// S2: the walks over a snapshot stop at 128 levels.
+test('Evolution: a snapshot nested deeper than 128 levels is refused', () => {
+  const code = 'ERR_INVALID_SNAPSHOT';
+  const message = 'A snapshot nested deeper than 128 levels';
+  const nested = (count) => {
+    let def = field('string');
+    for (let index = 0; index < count; index += 1) def = field('array', { value: def });
+    return broken({ A: struct({ a: def }) });
+  };
+  assert.strictEqual(fromJSON(nested(128)).entities.get('A').fields.a.type, 'array');
+  assert.throws(() => fromJSON(nested(129)), { code, message: `${message} in "A.a"` });
+  const valued = (count) => {
+    let value = 1;
+    for (let index = 0; index < count; index += 1) value = { v: value };
+    return broken({ A: struct({ a: field('any', { default: value }) }) });
+  };
+  assert.deepStrictEqual(
+    json(fromJSON(valued(128)).entities.get('A').fields.a.default),
+    valued(128).entities.A.fields.a.default,
+  );
+  assert.throws(() => fromJSON(valued(129)), { code, message: /^A snapshot nested deeper/ });
+  // A chain of aliases.
+  const chained = (count) => {
+    const types = {};
+    for (let index = 0; index < count; index += 1) {
+      types[`t${index}`] = { js: index + 1 < count ? `t${index + 1}` : 'string', metadata: {} };
+    }
+    return broken({ A: struct({ a: field('t0') }) }, types);
+  };
+  assert.strictEqual(fromJSON(chained(100)).entities.get('A').check({ a: 'x' }).valid, true);
+  assert.throws(() => fromJSON(chained(200)), { code, message: `${message} in "types"` });
+  // `diff` compares values with the same limit.
+  assert.throws(() => diff(valued(129), valued(130)), { code, message });
+  assert.deepStrictEqual(diff(valued(128), valued(128)), []);
+  // A list of changes nested deeper than the stack takes is an error of
+  // the snapshot, located at the change.
+  let from = field('string');
+  let to = field('string', { x: 1 });
+  for (let index = 0; index < 20000; index += 1) {
+    from = field('array', { value: from, x: index });
+    to = field('array', { value: to });
+  }
+  const entry = { kind: 'field', op: 'changed', entity: 'A', name: 'a', from, to };
+  assert.throws(() => compatibility([{ ...entry, detail: { keys: ['value'] } }]), {
+    code,
+    message: /in "A\.a"$/,
+  });
+});
+
+// S4: the keys of a snapshot are defined, not assigned, so `__proto__` is a
+// field; diff reads own keys only, so `constructor` is one too.
+test('Evolution: a field named __proto__ or constructor is a field', () => {
+  const original = new Model({}, [
+    ['A', JSON.parse('{"Struct":{},"a":"string","__proto__":"string"}')],
+  ]);
+  const snapshot = json(original);
+  assert.deepStrictEqual(Object.keys(snapshot.entities.A.fields), ['a', '__proto__']);
+  const restored = fromJSON(snapshot);
+  assert.deepStrictEqual(json(restored), snapshot);
+  const entity = restored.entities.get('A');
+  assert.strictEqual(entity.check(JSON.parse('{"a":"x","__proto__":"y"}')).valid, true);
+  assert.deepStrictEqual(entity.check(JSON.parse('{"a":"x","__proto__":1}')).errors, [
+    'Field "A.__proto__" not of expected type: string',
+  ]);
+  assert.deepStrictEqual(
+    diff(json(one({ a: 'string' })), snapshot).map((c) => [c.op, c.name]),
+    [['added', '__proto__']],
+  );
+  // A definition key `__proto__` is no key of a definition (the core
+  // reserves it), not the prototype of the field.
+  const proto = '{"type":"string","required":true,"__proto__":{"required":false}}';
+  assert.throws(() => fromJSON(broken({ A: struct({ a: JSON.parse(proto) }) })), {
+    code: 'ERR_RESERVED_KEY',
+    message: /in "A\.a"$/,
+  });
+  // A type or a nested field named `constructor` is added, not compared
+  // with Object.prototype.constructor.
+  const types = diff(
+    broken({ A: struct({}) }),
+    broken({ A: struct({}) }, { constructor: { js: 'string', metadata: {} } }),
+  );
+  assert.deepStrictEqual(
+    types.map((c) => [c.kind, c.op, c.name, compatibilityOf(c)]),
+    [['type', 'added', 'constructor', 'full']],
+  );
+  const nested = (fields) => broken({ A: struct({ a: field('schema', { schema: fields }) }) });
+  const added = diff(nested({}), nested({ constructor: field('string', { required: false }) }));
+  assert.deepStrictEqual(
+    added.map((c) => [c.op, c.detail, compatibilityOf(c)]),
+    [['changed', { keys: ['schema'] }, 'full']],
+  );
+});
+
+// S6: a shared registry takes no placeholder type.
+test('Evolution: a shared registry refuses a placeholder type', () => {
+  const snapshot = broken(
+    { Wallet: struct({ color: field('hexa') }) },
+    { hexa: { kind: 'scalar', check: true, metadata: {} }, string: { metadata: { pg: 'text' } } },
+  );
+  assert.throws(() => fromJSON(snapshot, { registry: 'shared' }), {
+    code: 'ERR_INVALID_SNAPSHOT',
+    message:
+      'Type "hexa" of the snapshot needs options.types or an isolated registry in "types.hexa"',
+  });
+  assert.strictEqual(Schema.from({ a: 'string' }).types.hexa, undefined);
+  // With the real type, or isolated, it restores; a metadata-only entry for
+  // a built-in is what the registry takes from any model.
+  const hexa = { kind: 'scalar', construct() {}, checkType: (v) => /^[0-9a-f]+$/.test(v) || 'no' };
+  assert.deepStrictEqual(
+    fromJSON(snapshot, { registry: 'shared', types: { hexa } }).placeholders,
+    [],
+  );
+  assert.deepStrictEqual(fromJSON(snapshot).placeholders, ['types.hexa.checkType']);
+  assert.strictEqual(Schema.from({ a: 'string' }).types.string.metadata.pg, 'text');
+});
+
+// O3: a restored model lists where its placeholders stand.
+test('Evolution: fromJSON lists its placeholders', () => {
+  assert.deepStrictEqual(fromJSON(committed).placeholders, []);
+  const rgb = { kind: 'scalar', construct() {}, checkType: () => true };
+  const original = new Model({ rgb }, [
+    [
+      'Doc',
+      {
+        Entity: {},
+        name: { type: 'string', validate: () => true, parse: (v) => v },
+        when: { type: 'date', default: () => new Date() },
+        inner: { a: 'string', validate: () => true },
+        tags: { array: { type: 'string', serialize: (v) => v } },
+        point: [{ type: 'number', validate: () => true }, 'number'],
+        shape: { union: ['number', { type: 'string', validate: () => true }] },
+        color: 'rgb',
+        total: () => 1,
+        validate: () => true,
+        parse: (v) => v,
+      },
+    ],
+  ]);
+  const restored = fromJSON(json(original));
+  assert.deepStrictEqual(restored.placeholders, [
+    'types.rgb.checkType',
+    'Doc.name.parse',
+    'Doc.name.validate',
+    'Doc.when.default',
+    'Doc.inner.validate',
+    'Doc.tags.serialize',
+    'Doc.point.validate',
+    'Doc.shape.validate',
+    'Doc.total',
+    'Doc.validate',
+    'Doc.parse',
+  ]);
+  // Invisible to the snapshot, and not a key of the model.
+  assert.strictEqual(JSON.stringify(restored).includes('placeholders'), false);
+  assert.deepStrictEqual(json(restored), json(original));
+  assert.strictEqual(Object.keys(restored).includes('placeholders'), false);
+  assert.strictEqual(Object.getOwnPropertyDescriptor(restored, 'placeholders').enumerable, false);
+});
+
+// R4, S1: `compatibility` reads a list of changes as `diff` writes them.
+test('Evolution: compatibility refuses what is not a change and locates a bad definition', () => {
+  const target = {
+    name: 'TypeError',
+    code: 'ERR_INVALID_TARGET',
+    message: 'A list of changes is expected',
+  };
+  for (const entry of [null, 1, 'x', [], {}, { kind: 'field' }, { kind: 1, op: 'added' }]) {
+    assert.throws(() => compatibility([entry]), target);
+    assert.throws(() => compatibilityOf(entry), target);
+  }
+  const changed = { kind: 'field', op: 'changed', entity: 'A', name: 'a', from: {}, to: {} };
+  assert.throws(() => compatibility([changed]), target);
+  assert.throws(() => compatibility([{ ...changed, detail: {} }]), target);
+  assert.strictEqual(compatibility([{ ...changed, detail: { keys: [] } }]), 'full');
+  // A bigint of a snapshot that does not read, met while a bound is compared.
+  const bound = (text) => broken({ A: struct({ a: field('bigint', { min: { $bigint: text } }) }) });
+  assert.throws(() => compatibility(diff(bound('x'), bound('1'))), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_INVALID_SNAPSHOT',
+    message: 'Cannot convert x to a BigInt in "A.a"',
+    schema: 'A',
+    field: 'a',
+  });
+  assert.strictEqual(compatibility(diff(bound('0'), bound('1'))), 'forward');
+  // What `diff` does not read of a change it does not check: a definition
+  // that is not one is an error of the snapshot, located at the change.
+  assert.throws(() => compatibilityOf({ kind: 'field', op: 'added', entity: 'A', name: 'a' }), {
+    code: 'ERR_INVALID_SNAPSHOT',
+    message: /in "A\.a"$/,
+  });
+});
+
+// S1: `diff` checks an entity before it reads it.
+test('Evolution: diff refuses an entity it cannot read', () => {
+  const code = 'ERR_INVALID_SNAPSHOT';
+  const A = struct({ a: field('string') });
+  const fails = (entity, message) => {
+    assert.throws(() => diff(broken({ A: entity }), broken({ A })), { code, message, schema: 'A' });
+    assert.throws(() => diff(broken({ A }), broken({ A: entity })), { code, message });
+  };
+  fails(null, 'An entity of a snapshot must be an object in "A"');
+  fails({ kind: 'struct' }, 'An entity needs fields or a type, and relations as a list in "A"');
+  fails(struct(null), 'An entity needs fields or a type, and relations as a list in "A"');
+  fails(
+    struct({}, { relations: 'x' }),
+    'An entity needs fields or a type, and relations as a list in "A"',
+  );
+  fails(
+    struct({}, { relations: [null] }),
+    'An entity needs fields or a type, and relations as a list in "A"',
+  );
+  fails(struct({ a: null }), 'A field must be an object in "A.a"');
+  // A struct that became a schema of one type (or back) changed its type.
+  const changes = diff(broken({ A }), broken({ A: { kind: 'scalar', type: field('string') } }));
+  assert.deepStrictEqual(
+    changes.map((c) => [c.kind, c.op, c.detail]),
+    [['entity', 'changed', { keys: ['kind', 'type'] }]],
+  );
+  assert.strictEqual(compatibility(changes), 'none');
+  assert.strictEqual(
+    compatibility(diff(broken({ A: { kind: 'struct', type: field('string') } }), broken({ A }))),
+    'none',
+  );
 });
 
 test('Evolution: diff lists every change by kind, in the order of the new model', () => {
@@ -605,9 +931,27 @@ const RULES = [
 ];
 
 test('Evolution: the compatibility class of every rule', () => {
+  const BITS = { none: 0, backward: 1, forward: 2, full: 3 };
+  const NAMES = ['none', 'backward', 'forward', 'full'];
   for (const [label, from, to, expected] of RULES) {
-    assert.strictEqual(classOf(one(from), one(to)), expected, label);
+    const changes = diff(one(from), one(to));
+    assert.strictEqual(compatibility(changes), expected, label);
+    // The class of the list is the class every change allows.
+    let bits = 3;
+    for (const change of changes) bits &= BITS[compatibilityOf(change)];
+    assert.strictEqual(NAMES[bits], expected, label);
   }
+  // A function that stays a function is the same function.
+  const marker = { $function: true };
+  const same = {
+    kind: 'field',
+    op: 'changed',
+    entity: 'A',
+    name: 'validate',
+    detail: { keys: [] },
+  };
+  assert.strictEqual(compatibilityOf({ ...same, from: marker, to: marker }), 'full');
+  assert.strictEqual(compatibilityOf({ ...same, name: 'half', from: marker, to: marker }), 'full');
 });
 
 test('Evolution: the compatibility class of entities, kinds, relations and types', () => {
@@ -696,16 +1040,24 @@ test('Evolution: the compatibility class of entities, kinds, relations and types
 test('Evolution: register() installs the statics on Model, once', () => {
   assert.strictEqual(Model.fromJSON, undefined);
   assert.strictEqual(Model.diff, undefined);
+  assert.strictEqual(Model.compatibilityOf, undefined);
   register();
   register();
   assert.strictEqual(Model.fromJSON, fromJSON);
   assert.strictEqual(Model.diff, diff);
   assert.strictEqual(Model.compatibility, compatibility);
-  for (const name of ['fromJSON', 'diff', 'compatibility']) {
+  assert.strictEqual(Model.compatibilityOf, compatibilityOf);
+  for (const name of ['fromJSON', 'diff', 'compatibility', 'compatibilityOf']) {
     assert.strictEqual(Object.getOwnPropertyDescriptor(Model, name).enumerable, false);
   }
   assert.deepStrictEqual(Object.keys(Model), []);
   const model = Model.fromJSON(committed);
+  assert.deepStrictEqual(model.placeholders, []);
   assert.deepStrictEqual(Model.diff(model, committed), []);
   assert.strictEqual(Model.compatibility(Model.diff(committed, model)), 'full');
+  const changes = Model.diff(committed, one({ a: 'string' }));
+  assert.deepStrictEqual(
+    changes.filter((change) => Model.compatibilityOf(change) !== 'full').map((c) => c.op),
+    ['removed', 'removed', 'removed', 'removed', 'removed', 'removed'],
+  );
 });

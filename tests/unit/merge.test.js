@@ -239,52 +239,52 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   conflicts(
     s({ a: 'string' }),
     s({ a: 'number' }),
-    '"a" is a string in one schema and a number in the other in "S"',
+    'The type is string in one schema and number in the other in "S.a"',
   );
   conflicts(
     s({ a: { type: 'string', length: { min: 5 } } }),
     s({ a: { type: 'string', length: 3 } }),
-    'The lengths of "a" have nothing in common in "S"',
+    'The lengths have nothing in common in "S.a"',
   );
   conflicts(
     s({ a: { enum: ['x'] } }),
     s({ a: { enum: ['y'] } }),
-    'The enums of "a" have no value in common in "S"',
+    'The enums have no value in common in "S.a"',
   );
   conflicts(
     s({ a: { type: 'string', pattern: '^a', length: 8 } }),
     s({ a: { type: 'string', pattern: '^b', length: 8 } }),
-    'The pattern of "a" differs between the schemas in "S"',
+    'The pattern differs between the schemas in "S.a"',
   );
   conflicts(
     s({ a: { type: 'string', default: 'x' } }),
     s({ a: { type: 'string', default: 'y' } }),
-    'The default of "a" differs between the schemas in "S"',
+    'The default differs between the schemas in "S.a"',
   );
   conflicts(
     s({ a: { type: 'string', parse: (v) => v } }),
     s({ a: { type: 'string', parse: (v) => v } }),
-    'The parse of "a" differs between the schemas in "S"',
+    'The parse differs between the schemas in "S.a"',
   );
   conflicts(
     s({ a: { union: ['string'] } }),
     s({ a: { union: ['number'] } }),
-    'The union of "a" differs between the schemas in "S"',
+    'The union differs between the schemas in "S.a"',
   );
   conflicts(
     s({ a: { object: { string: 'number' } } }),
     s({ a: { object: { number: 'number' } } }),
-    'The key of "a" differs between the schemas in "S"',
+    'The key differs between the schemas in "S.a"',
   );
   conflicts(
     s({ a: 'Company' }),
     s({ a: 'Person' }),
-    '"a" is a Company in one schema and a Person in the other in "S"',
+    'The type is Company in one schema and Person in the other in "S.a"',
   );
   conflicts(
     s({ a: { type: 'Company', embed: false } }),
     s({ a: { type: 'Company', embed: true } }),
-    'The embed of "a" differs between the schemas in "S"',
+    'The embed differs between the schemas in "S.a"',
   );
   // A value the other side lacks stands.
   assert.strictEqual(
@@ -294,42 +294,42 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   conflicts(
     s({ a: { x: 'string' } }),
     s({ a: { x: 'number' } }),
-    '"a.x" is a string in one schema and a number in the other in "S"',
+    'The type is string in one schema and number in the other in "S.a.x"',
   );
   conflicts(
     s({ a: ['number'] }),
     s({ a: ['number', 'number'] }),
-    'The elements of "a" differ in number in "S"',
+    'The elements differ in number in "S.a"',
   );
   conflicts(
     s({ a: { array: 'string' } }),
     s({ a: ['string'] }),
-    '"a" is a array in one schema and a tuple in the other in "S"',
+    'The type is array in one schema and tuple in the other in "S.a"',
   );
   conflicts(
     s({ a: { x: 'string' } }),
     s({ a: { schema: Schema.from('string') } }),
-    '"a" holds a struct in one schema and a type in the other in "S"',
+    'A struct in one schema and a schema of one type in the other in "S.a"',
   );
   conflicts(
     s({ a: 'string', half: (v) => v.a }),
     s({ a: 'string', half: (v) => v.a }),
-    '"half" is a function in one schema and differs in the other in "S"',
+    'The function differs between the schemas in "S.half"',
   );
   conflicts(
     s({ a: 'string', half: (v) => v.a }),
     s({ a: 'string', half: 'string' }),
-    '"half" is a function in one schema and differs in the other in "S"',
+    'The function differs between the schemas in "S.half"',
   );
   conflicts(
     s({ a: 'string', byA: { index: ['a'] } }),
     s({ a: 'string', byA: { unique: ['a'] } }),
-    'The index "byA" differs between the schemas in "S"',
+    'The index differs between the schemas in "S.byA"',
   );
   conflicts(
     s({ a: 'string', parse: (v) => v }),
     s({ a: 'string', parse: (v) => v }),
-    'The parse of the schemas differ in "S"',
+    'The functions of the schemas differ in "S.parse"',
   );
   conflicts(
     s({ a: 'string' }),
@@ -340,12 +340,12 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   conflicts(
     s({ a: { b: { c: 'string' } } }),
     s({ a: { b: { c: 'boolean' } } }),
-    '"a.b.c" is a string in one schema and a boolean in the other in "S"',
+    'The type is string in one schema and boolean in the other in "S.a.b.c"',
   );
   conflicts(
     s({ a: 'string' }),
     s({ a: 'number' }),
-    '"a" is a string in one schema and a number in the other in "M"',
+    'The type is string in one schema and number in the other in "M.a"',
     { name: 'M' },
   );
   assert.throws(() => merge(s({ a: 'string' }), { a: 'string' }), {
@@ -381,6 +381,97 @@ test('Merge: annotations come from the first schema, flags from either, aliases 
   // The inputs are untouched.
   assert.deepStrictEqual(a.fields.a.aliases, ['x']);
   assert.strictEqual(a.check({ y: 'v' }).valid, false);
+});
+
+// R7, M7, G7: a conflict carries its field and is located like a definition
+// error; an alias that is a key of the other schema is a conflict, not a
+// definition error of the merged struct; the bounds of both sides.
+test('Merge: a conflict is located at its field, aliases and bounds included', () => {
+  const s = (def) => new Schema('S', def);
+  const located = (a, b, message, field) =>
+    assert.throws(() => merge(a, b), { code: 'ERR_MERGE_CONFLICT', message, schema: 'S', field });
+  located(
+    s({ a: { b: { c: 'string' } } }),
+    s({ a: { b: { c: 'number' } } }),
+    'The type is string in one schema and number in the other in "S.a.b.c"',
+    'a.b.c',
+  );
+  located(
+    s({ a: 'string' }),
+    Schema.from('string'),
+    'A struct and a schema of one type cannot be merged in "S"',
+    '',
+  );
+  // An alias that is a field of the other schema, or an alias of both.
+  located(
+    s({ title: { type: 'string', aliases: ['name'] } }),
+    s({ name: 'string' }),
+    'The alias "name" is a field or an alias already in "S.title"',
+    'title',
+  );
+  located(
+    s({ a: { type: 'string', aliases: ['z'] } }),
+    s({ b: { type: 'string', aliases: ['z'] } }),
+    'The alias "z" is a field or an alias already in "S.b"',
+    'b',
+  );
+  assert.deepStrictEqual(
+    merge(
+      s({ a: { type: 'string', aliases: ['x'] } }),
+      s({ b: { type: 'string', aliases: ['y'] } }),
+    ).check({ x: 'v', y: 'w' }).valid,
+    true,
+  );
+  // The bounds of both: the greater minimum, the lesser maximum, or nothing.
+  const bounded = merge(
+    s({ a: { type: 'number', min: 1, max: 9 }, b: { type: 'bigint', min: 2n } }),
+    s({ a: { type: 'number', min: 3, max: 5 }, b: { type: 'bigint', min: 1n, max: 4n } }),
+  );
+  assert.deepStrictEqual([bounded.fields.a.min, bounded.fields.a.max], [3, 5]);
+  assert.deepStrictEqual([bounded.fields.b.min, bounded.fields.b.max], [2n, 4n]);
+  located(
+    s({ a: { type: 'number', min: 5 } }),
+    s({ a: { type: 'number', max: 3 } }),
+    'The bounds have nothing in common in "S.a"',
+    'a',
+  );
+  // A `value` that is a tuple in one schema and not in the other: a custom
+  // type with a value option of its own, since a built-in type settles it.
+  const model = new Model(
+    {
+      pair: {
+        kind: 'scalar',
+        construct(def) {
+          this.value = def.value;
+        },
+        checkType: () => true,
+      },
+    },
+    [],
+  );
+  const pair = (value) => new Schema('S', { a: { type: 'pair', value } }, [model]);
+  located(pair(['x']), pair({ n: 1 }), 'A tuple in one schema and not in the other in "S.a"', 'a');
+  assert.deepStrictEqual(merge(pair(['x']), pair(['x'])).fields.a.value, ['x']);
+});
+
+// S4: the keys of the merged definition are defined, not assigned.
+test('Merge: a field named __proto__ merges like any other', () => {
+  const proto = (type) => Schema.from(JSON.parse(`{"a":"string","__proto__":"${type}"}`));
+  const merged = merge(proto('string'), proto('string'));
+  assert.deepStrictEqual(Object.keys(merged.fields), ['a', '__proto__']);
+  assert.strictEqual(merged.check(JSON.parse('{"a":"x","__proto__":"y"}')).valid, true);
+  assert.deepStrictEqual(merged.check(JSON.parse('{"a":"x","__proto__":1}')).errors, [
+    'Field "__proto__" not of expected type: string',
+  ]);
+  assert.deepStrictEqual(Object.keys(merge(Schema.from({ a: 'string' }), proto('number')).fields), [
+    'a',
+    '__proto__',
+  ]);
+  assert.throws(() => merge(proto('string'), proto('number')), {
+    code: 'ERR_MERGE_CONFLICT',
+    message: 'The type is string in one schema and number in the other in "__proto__"',
+    field: '__proto__',
+  });
 });
 
 test('Merge: register() installs Schema.merge', () => {

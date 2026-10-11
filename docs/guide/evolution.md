@@ -24,16 +24,17 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 
 The functions live outside the core entry, so that a program that only validates does not carry
 them: `@alexify/metaschema` is 17.0 KB min+gzip, `@alexify/metaschema/model` adds 7.8 KB on
-top. The subpath exports six functions:
+top. The subpath exports seven functions:
 
 | Export | Meaning |
 | --- | --- |
-| `fromJSON(snapshot, options?)` | a `Model` from a [snapshot](/guide/model#restoring-a-model) |
+| `fromJSON(snapshot, options?)` | a `Model` from a [snapshot](/guide/model#restoring-a-model), with the paths of its `placeholders` |
 | `diff(prev, next)` | the [changes](#diff) between two models or snapshots |
 | `compatibility(changes)` | the [compatibility class](#compatibility) of a list of changes |
+| `compatibilityOf(change)` | the compatibility class of one change |
 | `sample(schema, options?)` | a [value the schema accepts](/guide/samples), the same for a seed |
 | `merge(a, b, options?)` | the [schema both schemas describe](/guide/schema-syntax#merging-schemas) |
-| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge` and `schema.sample(options)` on the classes, once per process |
+| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Model.compatibilityOf`, `Schema.merge` and `schema.sample(options)` on the classes, once per process |
 
 `register()` installs the members like class members, invisible to `Object.keys`,
 `JSON.stringify` and `for...in`; the functions do the same job without it.
@@ -127,6 +128,13 @@ compare as one field: a change inside `address` is a `changed` field `address` w
 among its keys. Functions compare equal (a `validate` is a `validate`; the snapshot has no body
 for it).
 
+A `Model` is compared through its snapshot, built on every call: a registry service that
+compares many versions should keep the snapshots (`JSON.stringify(model)` at release time) and
+pass them to `diff`, rather than rebuild the models. A snapshot is input to `diff`, as it is
+to `fromJSON`: an entity that is not one (no `fields` of objects nor `type`, `relations` that
+are not a list) is `ERR_INVALID_SNAPSHOT` naming the entity; see
+[the snapshot as a trust boundary](/guide/model#the-snapshot-as-a-trust-boundary).
+
 ## `compatibility`
 
 Two readers meet whenever a model changes: the code deployed with the old model still reads
@@ -203,6 +211,17 @@ compatibility(diff(v1, v2)); // 'full': an alias and an optional field
 compatibility(diff(v2, v3)); // 'forward': v3 adds a required `role` and drops `active`, which had a default
 ```
 
+`compatibilityOf(change)` is the class of one change, by the same rules, so a list can be
+filtered down to what costs the class:
+
+```js
+const changes = diff(v2, v3);
+changes.map((change) => [change.op, change.name, compatibilityOf(change)]);
+// [ [ 'added', 'role', 'forward' ], [ 'removed', 'active', 'full' ] ]
+changes.filter((change) => compatibilityOf(change) !== 'full').map((change) => change.name);
+// [ 'role' ]
+```
+
 A CI check that holds a release to its promise:
 
 ```js
@@ -210,6 +229,11 @@ const changes = Model.diff(require('./model.snapshot.json'), model);
 const level = Model.compatibility(changes);
 assert.ok(level === 'full' || level === 'backward', `the model is ${level} compatible`);
 ```
+
+`compatibility` takes the list `diff` writes: an entry that is not a change (no `kind` or
+`op`, a `changed` without `detail.keys`) is `ERR_INVALID_TARGET`, and a definition inside a
+change that cannot be read (a bigint tag that does not read) is `ERR_INVALID_SNAPSHOT` located
+at the change.
 
 ## Boundaries
 

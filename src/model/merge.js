@@ -4,18 +4,24 @@
 // comes as it is, and what no value can satisfy (two types, two patterns,
 // bounds with nothing in common, two defaults) is ERR_MERGE_CONFLICT with
 // the field. CUE composes definitions this way, instead of inheritance.
-const { hasBrand } = require('../util.js');
+const { hasBrand, define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { isThenable } = require('../issues.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
-const { same, capitalize, definitionOf, structDefinitionOf } = require('./data.js');
+const { same, capitalize, definitionOf, structDefinitionOf, atSchema } = require('./data.js');
 
 // The keys a field definition settles by a rule of its own; every other key
 // (an annotation, an option of a custom type) comes from the first schema.
 const BOOLEANS = new Set(['unique', 'index', 'primary', 'deprecated']);
 
-const conflict = (reason) => new SchemaDefinitionError('ERR_MERGE_CONFLICT', reason);
+// A conflict carries the path of the field it is at; `merge` locates it in
+// the schema on the way out, as a struct does with a definition error.
+const conflict = (reason, path = '') => {
+  const error = new SchemaDefinitionError('ERR_MERGE_CONFLICT', reason);
+  error.field = path;
+  return error;
+};
 
 // Both validate functions, as one that returns what both returned (an
 // array of returns is one the check reads), awaited when either is async.
@@ -37,7 +43,7 @@ const mergeLength = (a, b, path) => {
   const min = lower(a.min, b.min);
   const max = upper(a.max, b.max);
   if (min !== undefined && max !== undefined && min > max) {
-    throw conflict(`The lengths of "${path}" have nothing in common`);
+    throw conflict('The lengths have nothing in common', path);
   }
   const length = {};
   if (min !== undefined) length.min = min;
@@ -55,12 +61,12 @@ const mergeEnum = (a, b, path) => {
       }
     }
   }
-  if (values.length === 0) throw conflict(`The enums of "${path}" have no value in common`);
+  if (values.length === 0) throw conflict('The enums have no value in common', path);
   return values;
 };
 
 const mergeList = (a, b, path) => {
-  if (a.length !== b.length) throw conflict(`The elements of "${path}" differ in number`);
+  if (a.length !== b.length) throw conflict('The elements differ in number', path);
   const list = [];
   for (let index = 0; index < a.length; index += 1) {
     list.push(mergeFields(a[index], b[index], `${path}[${index}]`));
@@ -93,12 +99,12 @@ const mergeKey = (key, a, b, path) => {
       return Array.from(new Set(a.concat(b)));
     case 'schema':
       if (typeof a.type === 'string' || typeof b.type === 'string') {
-        throw conflict(`"${path}" holds a struct in one schema and a type in the other`);
+        throw conflict('A struct in one schema and a schema of one type in the other', path);
       }
       return mergeStruct(a, b, path);
     case 'value':
       if (Array.isArray(a) !== Array.isArray(b)) {
-        throw conflict(`"${path}" holds a tuple in one schema and not in the other`);
+        throw conflict('A tuple in one schema and not in the other', path);
       }
       return Array.isArray(a) ? mergeList(a, b, path) : mergeFields(a, b, `${path}[]`);
     case 'pattern':
@@ -111,7 +117,7 @@ const mergeKey = (key, a, b, path) => {
     case 'one':
     case 'many':
     case 'embed':
-      throw conflict(`The ${key} of "${path}" differs between the schemas`);
+      throw conflict(`The ${key} differs between the schemas`, path);
     default:
       return BOOLEANS.has(key) ? a || b : a;
   }
@@ -124,11 +130,12 @@ const mergeType = (a, b, path) => {
   if (a === 'any' || a === 'unknown') return b;
   if (b === 'any' || b === 'unknown') return a;
   if ((a === 'integer' && b === 'number') || (a === 'number' && b === 'integer')) return 'integer';
-  throw conflict(`"${path}" is a ${a} in one schema and a ${b} in the other`);
+  throw conflict(`The type is ${a} in one schema and ${b} in the other`, path);
 };
 
 // Two definitions of one field as one; a string or a built field is its
-// definition first.
+// definition first. Bounds that leave nothing between them are a conflict,
+// as two lengths are.
 const mergeFields = (x, y, path) => {
   const a = typeof x === 'string' ? { type: x } : x;
   const b = typeof y === 'string' ? { type: y } : y;
@@ -141,30 +148,45 @@ const mergeFields = (x, y, path) => {
   for (const key of keys) {
     if (key === 'type') continue;
     const value = mergeKey(key, first[key], second[key], path);
-    if (value !== undefined) def[key] = value;
+    if (value !== undefined) define(def, key, value);
+  }
+  if (def.min !== undefined && def.max !== undefined && def.min > def.max) {
+    throw conflict('The bounds have nothing in common', path);
   }
   return def;
 };
 
 const isFunction = (value) => typeof value === 'function';
 
+const at = (path, key) => (path === '' ? key : `${path}.${key}`);
+
 // The fields of two structs as one: the fields of the first in their order,
-// then the ones only the second has.
+// then the ones only the second has. An alias of a field that is a field of
+// the other schema, or an alias of two fields, is a key the struct cannot
+// read twice.
 const mergeStruct = (a, b, path) => {
   const fields = {};
   const keys = new Set(Object.keys(a));
   for (const key of Object.keys(b)) keys.add(key);
+  const taken = new Set(keys);
   for (const key of keys) {
-    const x = a[key];
-    const y = b[key];
-    const where = path === '' ? key : `${path}.${key}`;
-    if (x === undefined || y === undefined) {
-      fields[key] = x === undefined ? y : x;
-    } else if (isFunction(x) || isFunction(y)) {
-      if (x === y) fields[key] = x;
-      else if (key === 'validate' && isFunction(x) && isFunction(y)) fields[key] = compose(x, y);
-      else throw conflict(`"${where}" is a function in one schema and differs in the other`);
-    } else fields[key] = mergeFields(x, y, where);
+    const x = Object.hasOwn(a, key) ? a[key] : undefined;
+    const y = Object.hasOwn(b, key) ? b[key] : undefined;
+    const where = at(path, key);
+    let def = x === undefined ? y : x;
+    if (x !== undefined && y !== undefined) {
+      if (isFunction(x) || isFunction(y)) {
+        if (key === 'validate' && isFunction(x) && isFunction(y)) def = compose(x, y);
+        else if (x !== y) throw conflict('The function differs between the schemas', where);
+      } else def = mergeFields(x, y, where);
+    }
+    define(fields, key, def);
+    for (const alias of def.aliases ?? []) {
+      if (taken.has(alias)) {
+        throw conflict(`The alias "${alias}" is a field or an alias already`, where);
+      }
+      taken.add(alias);
+    }
   }
   return fields;
 };
@@ -198,15 +220,15 @@ const merge = (a, b, options = {}) => {
     const { kind: given = kind, ...rest } = meta;
     const definition = { [capitalize(given)]: rest };
     const fields = mergeStruct(structDefinitionOf(a.fields), structDefinitionOf(b.fields), '');
-    for (const key of Object.keys(fields)) definition[key] = fields[key];
+    for (const key of Object.keys(fields)) define(definition, key, fields[key]);
     for (const source of [a, b]) {
       for (const key in source.indexes) {
         const index = source.indexes[key];
         if (index.many !== undefined) continue;
-        if (definition[key] !== undefined && !same(definition[key], index)) {
-          throw conflict(`The index "${key}" differs between the schemas`);
+        if (Object.hasOwn(definition, key) && !same(definition[key], index)) {
+          throw conflict('The index differs between the schemas', key);
         }
-        definition[key] = index;
+        define(definition, key, index);
       }
     }
     for (const key in a.options) {
@@ -215,13 +237,15 @@ const merge = (a, b, options = {}) => {
       if (x === null && y === null) continue;
       if (x === null || y === null || x === y) definition[key] = x === null ? y : x;
       else if (key === 'validate') definition[key] = compose(x, y);
-      else throw conflict(`The ${key} of the schemas differ`);
+      else throw conflict('The functions of the schemas differ', key);
     }
     return new Schema(name, definition, namespaces);
   } catch (error) {
     if (error instanceof SchemaDefinitionError && error.code === 'ERR_MERGE_CONFLICT') {
-      error.schema = name;
-      error.message = `${error.message} in "${name}"`;
+      const { field } = error;
+      error.field = '';
+      if (field) error.locate(name, field);
+      else atSchema(error, name);
     }
     throw error;
   }

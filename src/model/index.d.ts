@@ -4,6 +4,7 @@ import type {
   MergeOptions,
   Model,
   ModelSnapshot,
+  RestoredModel,
   RestoreOptions,
   SampleOptions,
   Schema,
@@ -11,9 +12,11 @@ import type {
 } from '../../index.js';
 
 // The model of a snapshot (`model.toJSON()`), with placeholders for the
-// functions; `options.types` brings the real custom types, the registry is
-// 'isolated' unless `options.registry` says otherwise.
-export function fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): Model;
+// functions, listed by path in `placeholders`; `options.types` brings the
+// real custom types, the registry is 'isolated' unless `options.registry`
+// says otherwise (a shared one takes no placeholder type). A snapshot that
+// does not read is `ERR_INVALID_SNAPSHOT`, located in its entity.
+export function fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): RestoredModel;
 
 // The changes from `prev` to `next`, each a Model or a snapshot: the
 // entities of `next` in their order (added, or their changes: fields,
@@ -25,6 +28,10 @@ export function diff(prev: Model | ModelSnapshot, next: Model | ModelSnapshot): 
 // written with the old one, 'forward' the other way, 'full' when both,
 // 'none' when neither.
 export function compatibility(changes: SchemaChange[]): Compatibility;
+
+// The compatibility class of one change, by the same rules: what to filter
+// a list of changes by.
+export function compatibilityOf(change: SchemaChange): Compatibility;
 
 // A value the schema accepts, the same for a seed: every field is drawn
 // from its definition and verified with its own check. A definition no
@@ -44,6 +51,6 @@ export function sample<D extends string | object>(
 export function merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
 
 // Installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
-// `Schema.merge` and `schema.sample`. Once per process; later calls do
-// nothing.
+// `Model.compatibilityOf`, `Schema.merge` and `schema.sample`. Once per
+// process; later calls do nothing.
 export function register(): void;
