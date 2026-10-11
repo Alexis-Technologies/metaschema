@@ -24,6 +24,9 @@ const json = (value) => JSON.parse(JSON.stringify(value));
 test('Snapshot: the fixture model writes the committed snapshot', () => {
   const model = fixtureModel();
   assert.deepStrictEqual(json(model), committed);
+  // The same text, not only the same values: the key order at every depth
+  // is the contract (`require` keeps the order of the file).
+  assert.strictEqual(JSON.stringify(json(model)), JSON.stringify(committed));
   assert.strictEqual(JSON.stringify(model), JSON.stringify(model.toJSON()));
   assert.deepStrictEqual(Object.keys(committed), ['format', 'database', 'types', 'entities']);
   assert.strictEqual(committed.format, 1);
@@ -214,6 +217,43 @@ test('Snapshot: every form of the language has a JSON form', () => {
     { to: 'Tag', type: 'one-to-many' },
   ]);
   assert.deepStrictEqual(json(model).types, {});
+});
+
+test('Snapshot: every tag of the format is written and read back', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const factory = () => 'a';
+  const model = new Model(
+    {},
+    [
+      [
+        'Tags',
+        {
+          Struct: {},
+          a: { type: 'string', default: factory },
+          b: { type: 'bigint', min: 10n },
+          c: { type: 'date', default: new Date(0) },
+          d: { type: 'string', pattern: /x/i },
+          e: { type: 'string', pattern: /x/u },
+        },
+      ],
+    ],
+    null,
+    { registry: 'isolated' },
+  );
+  // The tags, as snapshot.js writes them.
+  const { fields } = json(model).entities.Tags;
+  assert.deepStrictEqual(fields.a.default, { $function: true });
+  assert.deepStrictEqual(fields.b.min, { $bigint: '10' });
+  assert.deepStrictEqual(fields.c.default, { $date: '1970-01-01T00:00:00.000Z' });
+  assert.deepStrictEqual(fields.d.pattern, { source: 'x', flags: 'iu' });
+  assert.strictEqual(fields.e.pattern, 'x');
+  // The values, as restore.js reads them back.
+  const restored = fromJSON(json(model)).entities.get('Tags').fields;
+  assert.strictEqual(typeof restored.a.default, 'function');
+  assert.strictEqual(restored.b.min, 10n);
+  assert.strictEqual(restored.c.default.getTime(), 0);
+  assert.strictEqual(restored.d.pattern.flags, 'iu');
+  assert.strictEqual(restored.e.pattern.flags, 'u');
 });
 
 test('Snapshot: a schema of one type, custom types and metadata', () => {
