@@ -8,7 +8,7 @@
 // Generated code names three things: `v` the value, `c` the context and `k`
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE } = require('../util.js');
-const { issues, runValidate } = require('../issues.js');
+const { issues, runValidate, release } = require('../issues.js');
 const { codePoints, lengthOf, ruleNames } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
@@ -413,7 +413,7 @@ const emitUnion = (type, x, key, state) => {
       code.push('}');
       code.push(`if (c.count === ${before}) break ${label};`);
       code.push(`c.issues.length = ${before}; c.count = ${before};`);
-      code.push(`if (c.async !== null) c.async.length = ${pending};`);
+      code.push(`if (c.async !== null) ${code.ref(release)}(c.async, ${pending});`);
     }
     const names = [];
     for (let index = 0; index < branches.length; index += 1) names.push(nameOf(branches[index]));

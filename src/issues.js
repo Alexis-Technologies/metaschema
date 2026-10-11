@@ -173,6 +173,16 @@ const abandon = (thenable) => {
   Promise.resolve(thenable).then(undefined, swallow);
 };
 
+// Drops the entries of a list of pending validators from `from` on (a failed
+// branch of a union, a trial of parse, a settle stopped by the error limit):
+// their promises are observed, never awaited.
+const release = (list, from) => {
+  for (let index = from; index < list.length; index += 1) {
+    if (list[index].promise !== null) abandon(list[index].promise);
+  }
+  list.length = from;
+};
+
 // The params of a bare `false`: for a checkType the type it expected and what
 // it got, built only now that there is something to record.
 const fallbackOf = (code, owner, value) =>
@@ -244,9 +254,7 @@ const settle = async (context) => {
   const pending = context.async;
   for (let index = 0; index < pending.length; index += 1) {
     if (context.count >= context.limit) {
-      for (; index < pending.length; index += 1) {
-        if (pending[index].promise !== null) abandon(pending[index].promise);
-      }
+      release(pending, index);
       break;
     }
     const entry = pending[index];
@@ -285,6 +293,7 @@ module.exports = {
   describe,
   isThenable,
   abandon,
+  release,
   runValidate,
   runCheckType,
   settle,

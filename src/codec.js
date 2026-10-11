@@ -8,7 +8,16 @@
 // container is copied only when one of its parts changed: the value given is
 // never written to.
 const { hasBrand, define } = require('./util.js');
-const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
+const {
+  EMPTY,
+  NONE,
+  issues,
+  isThenable,
+  abandon,
+  release,
+  pathOf,
+  toDotPath,
+} = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct, aliasOf } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
@@ -434,12 +443,8 @@ const accepts = (branch, value, scratch, path, key) => {
   scratch.issues = NONE;
   scratch.count = 0;
   scratch.path = path;
-  const list = scratch.async;
-  list.length = 0;
   branch.check(value, scratch, key);
-  for (let index = 0; index < list.length; index += 1) {
-    if (list[index].promise !== null) abandon(list[index].promise);
-  }
+  release(scratch.async, 0);
   return scratch.count === 0;
 };
 

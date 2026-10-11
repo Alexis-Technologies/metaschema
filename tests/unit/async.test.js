@@ -584,14 +584,37 @@ test('Async: a promise the check cannot wait for never rejects unhandled', async
                 throw new Error('trial');
               },
             },
+            k: {
+              type: 'number',
+              validate: async () => {
+                await tick();
+                throw new Error('trial too');
+              },
+            },
             'd?': { type: 'number', default: 1 },
           },
           'string',
         ],
       },
     });
-    const parsed = await tried.parseAsync({ u: { n: 1 } });
+    const parsed = await tried.parseAsync({ u: { n: 1, k: 2 } });
     assert.deepStrictEqual(parsed.valid, false);
+    // A failed branch of a plain union drops the promises it set aside and
+    // observes them: the value matches the second branch after the first set
+    // a rejecting validator aside and failed on `b`.
+    const branched = Schema.from({
+      u: {
+        union: [
+          {
+            a: { type: 'string', validate: () => Promise.reject(new Error('dropped')) },
+            b: 'number',
+          },
+          { a: 'string', b: 'string' },
+        ],
+      },
+    });
+    assert.deepStrictEqual((await branched.checkAsync({ u: { a: 'x', b: 'y' } })).errors, []);
+    assert.strictEqual((await branched.parseAsync({ u: { a: 'x', b: 'y' } })).valid, true);
     await tick();
     await tick();
     await tick();

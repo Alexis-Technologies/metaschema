@@ -1,5 +1,5 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { issues } = require('../issues.js');
+const { issues, release } = require('../issues.js');
 
 const invalidUnion = (reason) => new SchemaDefinitionError('ERR_INVALID_UNION', `Union ${reason}`);
 
@@ -129,7 +129,7 @@ const union = {
         if (context.count === count) return;
         context.issues.length = count;
         context.count = count;
-        if (context.async !== null) context.async.length = pending;
+        if (context.async !== null) release(context.async, pending);
       }
       issues.union(context, expected, undefined, key);
     };

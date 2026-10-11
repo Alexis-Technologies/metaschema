@@ -1124,6 +1124,38 @@ test('Compile: a failed branch of a plain union drops its deferred validators on
   const expected = await run(closures);
   assert.deepStrictEqual(expected[0], []);
   assert.deepStrictEqual(await run(compiled), expected);
+  // The promise of a validator a failed branch set aside is observed, not
+  // dropped, on both backends: the generated code releases the entries as
+  // the closures do instead of truncating the list.
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    const dropping = () =>
+      new Schema('Drop', {
+        u: {
+          union: [
+            {
+              Struct: {},
+              a: { type: 'string', validate: () => Promise.reject(new Error('dropped')) },
+              b: 'number',
+            },
+            { Struct: {}, a: 'string', b: 'string' },
+          ],
+        },
+      });
+    const fast = dropping();
+    assert.deepStrictEqual(compile(fast, JIT), { accelerated: canEval() });
+    assert.strictEqual(sourceOf(fast).includes('c.async.length ='), false);
+    for (const schema of [dropping(), fast]) {
+      assert.deepStrictEqual((await schema.checkAsync({ u: { a: 'x', b: 'y' } })).errors, []);
+      assert.strictEqual((await schema.parseAsync({ u: { a: 'x', b: 'y' } })).valid, true);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
 });
 
 test('Compile: the generated source is strict and named after the schema', () => {
