@@ -284,15 +284,26 @@ test('Async: independent validators are in flight together; a validator over the
     'Field "Mix.a" a async',
     'Field "Mix.d" d async',
   ]);
-  // Two independent validators waiting on timers overlap: the check takes
-  // about one wait, not two.
+  // Two independent validators waiting on real timers overlap: both start
+  // before either ends, so the check takes one wait, not two. Told by the
+  // order, not by the clock: a timer of 20 ms fires after up to 31 ms where
+  // the resolution is 15.6 ms (Windows), which a bound on the time missed.
+  const timers = [];
+  const timer = (name) => () => {
+    timers.push(`start:${name}`);
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        timers.push(`end:${name}`);
+        resolve();
+      }, 20),
+    );
+  };
   const slow = new Schema('Slow', {
-    a: { type: 'string', validate: () => new Promise((resolve) => setTimeout(resolve, 20)) },
-    b: { type: 'string', validate: () => new Promise((resolve) => setTimeout(resolve, 20)) },
+    a: { type: 'string', validate: timer('a') },
+    b: { type: 'string', validate: timer('b') },
   });
-  const started = Date.now();
   assert.strictEqual((await slow.checkAsync({ a: 'a', b: 'b' })).valid, true);
-  assert.strictEqual(Date.now() - started < 36, true);
+  assert.deepStrictEqual(timers, ['start:a', 'start:b', 'end:a', 'end:b']);
 });
 
 test('Async: a custom type may check asynchronously', async () => {
