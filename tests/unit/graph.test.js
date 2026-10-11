@@ -1,0 +1,85 @@
+// The module graph of src/ has no cycles: a module that requires, through
+// the requires of what it requires, a module still being loaded would get a
+// partial module object. CLAUDE.md "Architecture" draws the graph by hand
+// and says nothing checks it; this does. Only relative requires are edges:
+// the one Node builtin lives in runtime/node.js (platform.test.js).
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const SRC = path.join(__dirname, '../../src');
+const REQUIRE = /require\('(\.{1,2}\/[^']+)'\)/g;
+
+const modulesOf = (dir, out = []) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) modulesOf(full, out);
+    else if (entry.name.endsWith('.js')) out.push(full);
+  }
+  return out;
+};
+
+const edgesOf = (file) => {
+  const source = fs.readFileSync(file, 'utf8');
+  const targets = [];
+  for (const match of source.matchAll(REQUIRE)) {
+    targets.push(path.resolve(path.dirname(file), match[1]));
+  }
+  return targets;
+};
+
+const relative = (file) => path.relative(SRC, file);
+
+// The graph as `{ cycles, leaves }`: every cycle as the path that closes
+// it, and the modules that require nothing of src/.
+const inspect = (graph) => {
+  const VISITING = 1;
+  const DONE = 2;
+  const state = new Map();
+  const stack = [];
+  const cycles = [];
+  const visit = (file) => {
+    const seen = state.get(file);
+    if (seen === DONE) return;
+    if (seen === VISITING) {
+      cycles.push([...stack.slice(stack.indexOf(file)), file].map(relative).join(' -> '));
+      return;
+    }
+    state.set(file, VISITING);
+    stack.push(file);
+    for (const target of graph.get(file)) {
+      assert.ok(graph.has(target), `${relative(file)} requires ${target}, not a module of src/`);
+      visit(target);
+    }
+    stack.pop();
+    state.set(file, DONE);
+  };
+  for (const file of graph.keys()) visit(file);
+  const leaves = [];
+  for (const [file, edges] of graph) if (edges.length === 0) leaves.push(relative(file));
+  return { cycles, leaves: leaves.sort() };
+};
+
+test('Graph: the modules of src/ require each other without a cycle', () => {
+  const graph = new Map();
+  for (const file of modulesOf(SRC)) graph.set(file, edgesOf(file));
+  assert.ok(graph.size > 30);
+  const { cycles, leaves } = inspect(graph);
+  assert.deepStrictEqual(cycles, []);
+  assert.deepStrictEqual(leaves, [
+    'errors.js',
+    'metautil.js',
+    'runtime/browser.js',
+    'runtime/node.js',
+    'util.js',
+  ]);
+  // The check sees a cycle when there is one.
+  const a = path.join(SRC, 'a.js');
+  const b = path.join(SRC, 'b.js');
+  const looped = new Map([
+    [a, [b]],
+    [b, [a]],
+  ]);
+  assert.deepStrictEqual(inspect(looped).cycles, ['a.js -> b.js -> a.js']);
+});
