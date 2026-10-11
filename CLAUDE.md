@@ -36,14 +36,14 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>]   # esbuild bundle sizes; CI gates at 17 KB per core entry, 7.5 KB for ./generators, 4 KB for ./compile and 8.5 KB for ./model on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>]   # esbuild bundle sizes; CI gates at 17.5 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile and 8.5 KB for ./model on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 17 --max-gzip-generators 7.5 --max-gzip-compile 4 --max-gzip-model 8.5`
+`pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 8.5`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -442,14 +442,18 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.1 bundle budgets are 17 KB min+gzip per core entry, 7.5 KB for the generators, 4 KB
-for the compile subpath and 8.5 KB for the model subpath on top of it** (`pnpm size --max-gzip
-17 --max-gzip-generators 7.5 --max-gzip-compile 4 --max-gzip-model 8.5` in CI). Workstream G
-(2026-10-11) added 850 bytes to the core (`src/snapshot.js`, the snapshot writer, about 660 of
-them; the aliases in `struct.js`, `codec.js` and `lint.js` the rest), which sits at 17394 bytes,
-17.0 KB, **14 bytes under the gate**: the next core change has to find its bytes first (the
-restore of a snapshot was moved to the subpath for that reason, see "Out of scope by design").
-The aliases cost the `./compile` subpath about 190 bytes, 4084 bytes, 12 bytes under its gate;
+**The 3.1 bundle budgets are 17.5 KB min+gzip per core entry, 7.5 KB for the generators,
+4.25 KB for the compile subpath and 8.5 KB for the model subpath on top of it** (`pnpm size
+--max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 8.5` in CI).
+Workstream G (2026-10-11) added 850 bytes to the core (`src/snapshot.js`, the snapshot writer,
+about 660 of them; the aliases in `struct.js`, `codec.js` and `lint.js` the rest), which took it
+to 17394 bytes, 17.0 KB, 14 bytes under the 17 KB gate of 3.0 (the restore of a snapshot was
+moved to the subpath for that reason, see "Out of scope by design"). The core gate moved from
+17 KB to 17.5 KB and the compile gate from 4 KB to 4.25 KB during the review of 3.1
+(2026-10-11, Alex's decision): the review's core fixes (the `renamed` flag of the context, the
+copy without the alias key in `parse`, the ENCODERS pass without `aliasOf`, the `dead-aliases`
+lint) need about 150 bytes, and a gate the next bug fix cannot fit under is no gate. The
+aliases cost the `./compile` subpath about 190 bytes, 4081 bytes, 15 bytes under the 4 KB gate;
 `fromJSONSchema` took `./generators` to 6978 bytes (6.8 KB, gate 7.5 KB); `./model` is 8022
 bytes (7.8 KB, gate 8.5 KB), of which `sample.js` is about 3 KB. The core gate had moved from
 16 KB to 17 KB during the review of

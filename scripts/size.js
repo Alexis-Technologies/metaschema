@@ -4,9 +4,9 @@
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
  * that on top of the core, with `--max-gzip-compile <KB>` when the `./compile`
  * subpath does, and with `--max-gzip-model <KB>` when the `./model` subpath
- * does (CI uses the four as gates). The budgets are 17 KB per core entry,
- * 7.5 KB for the generators, 4 KB for the compile subpath and 8.5 KB for the
- * model subpath (CLAUDE.md "Budgets").
+ * does (CI uses the four as gates). The budgets are 17.5 KB per core entry,
+ * 7.5 KB for the generators, 4.25 KB for the compile subpath and 8.5 KB for
+ * the model subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
