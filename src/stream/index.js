@@ -9,16 +9,8 @@
 // installs the methods on Schema for the programs that want them.
 const { hasBrand } = require('../util.js');
 const { abandon } = require('../issues.js');
-const { invalidTarget } = require('../errors.js');
+const { invalidTarget, invalidOption: invalid } = require('../errors.js');
 const { Schema } = require('../schema.js');
-
-const shown = (value) =>
-  typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
-
-// The options of the subpath sit in the object the options of check sit in,
-// so a wrong one is the TypeError a wrong `maxErrors` is.
-const invalid = (name, expected, value) =>
-  new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
 
 const optionsOf = (options) => {
   if (options === undefined || (options !== null && typeof options === 'object')) return options;
@@ -215,7 +207,9 @@ const transform = (schema, options) => {
   });
 };
 
-// Installed like class members: not enumerable.
+// Installed like class members: not enumerable. A copy per subpath rather
+// than a helper of the core: the core is measured on its own, the subpaths
+// on top of it.
 const install = (target, members) => {
   const descriptors = Object.getOwnPropertyDescriptors(members);
   for (const name in descriptors) {

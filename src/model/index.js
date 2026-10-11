@@ -14,7 +14,9 @@ const { sample } = require('./sample.js');
 const { merge } = require('./merge.js');
 const { infer } = require('./infer.js');
 
-// Installed like class members: not enumerable.
+// Installed like class members: not enumerable. A copy per subpath rather
+// than a helper of the core: the core is measured on its own, the subpaths
+// on top of it.
 const install = (target, members) => {
   const descriptors = Object.getOwnPropertyDescriptors(members);
   for (const name in descriptors) {

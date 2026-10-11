@@ -77,9 +77,12 @@ const SUBPATHS = [
   },
 ];
 
-// `entry` alone, or `entry` plus a subpath in one bundle.
+// `entry` alone, or `entry` plus a subpath in one bundle, exported so that
+// the bundle keeps them: the package says `sideEffects: false`, and esbuild
+// drops a require whose result nothing uses.
 const bundle = async (entry, platform, minify, subpath = null) => {
-  const contents = `require('./${entry}');${subpath === null ? '' : ` require('${subpath}');`}`;
+  const extra = subpath === null ? '' : `, require('${subpath}')`;
+  const contents = `module.exports = [require('./${entry}')${extra}];`;
   const result = await esbuild.build({
     stdin: { contents, resolveDir: ROOT },
     bundle: true,

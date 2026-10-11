@@ -60,7 +60,8 @@ const modelMethods = {
 };
 
 // Installed like class members: not enumerable, so a loop over a schema
-// never sees them.
+// never sees them. A copy per subpath rather than a helper of the core: the
+// core is measured on its own, the subpaths on top of it.
 const install = (prototype, members) => {
   const descriptors = Object.getOwnPropertyDescriptors(members);
   for (const name in descriptors) {

@@ -70,6 +70,7 @@
     "LICENSE",
     "SECURITY.md"
   ],
+  "sideEffects": false,
   "publishConfig": {
     "access": "public"
   },

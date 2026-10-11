@@ -57,7 +57,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.doesNotMatch(model.stderr, /exceeded: Compile/);
   assert.doesNotMatch(model.stderr, /exceeded: Stream/);
 
-  const stream = run('scripts/size.js', ['--max-gzip-stream', '1']);
+  const stream = run('scripts/size.js', ['--max-gzip-stream', '0.5']);
   assert.strictEqual(stream.status, 1);
   assert.match(stream.stderr, /Bundle budget exceeded: Stream \(\.\/stream\)/);
   assert.doesNotMatch(stream.stderr, /exceeded: Model/);
