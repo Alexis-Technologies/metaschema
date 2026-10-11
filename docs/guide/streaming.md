@@ -150,7 +150,18 @@ min+gzip on top of the core; the core entry does not carry it.
   the subpath (`maxInvalid`, `concurrency`, `mode`, `async`, `onInvalid`) are checked when the
   function is called, before anything is read.
 - **Memory is the consumer's.** The sync pair holds one entry, the async pair `concurrency` of
-  them; a program that collects every entry in an array keeps every result.
+  them; a program that collects every entry in an array keeps every result. `concurrency` is
+  meant in tens, not thousands: the queue is an array shifted from the front.
+- **A record is a value; a promise is a value to the sync pair and awaited by the async one.**
+  `for await` over a sync source awaits its elements, so `checkEachAsync(schema, [promise])`
+  checks what the promise resolves to, and a rejected element rejects the iteration with its
+  own error; `checkEach` checks the promise object itself.
+- **An `onInvalid` that throws, and a parse that throws, end a transform with their error**, as
+  a default factory that throws is the program's error in `parse`; `transform` catches nothing
+  of its own.
+- **A transform runs one record at a time**, in `async: true` too, since a `TransformStream`
+  waits for each `transform` call. For a window of records in flight, pipe the async pair:
+  `ReadableStream.from(parseEachAsync(schema, source, { concurrency: 8 }))` (Node.js 20.6+).
 - **The cost of a record is the check's, plus about 20 ns.** An entry object and the iterator's
   own result object come on top, nothing else; `pnpm bench` puts `checkEach — 1 000 flat
   records` beside the same records in a loop of `check` (7.6 K against 9.2 K batches a second on

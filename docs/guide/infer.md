@@ -69,6 +69,7 @@ After `register()` of the subpath the same is `Schema.infer(orders, options)`.
 | `integer` | `true` | whether whole numbers are `integer` rather than `number` |
 | `map` | `16` | the distinct keys past which the records of a place read as a dictionary (see below); `false` keeps every record a struct |
 | `maxDepth` | `128` | how deep a sample may nest; past it `ERR_INFER_DEPTH` |
+| `formats` | `true` | whether a place whose every string passes a registered [format](/guide/formats) is that format; nothing is registered until `register()` of the formats subpath ran |
 
 ```js
 infer(orders, { kind: 'entity', name: 'Order' });
@@ -87,7 +88,7 @@ or a set, the check accepts as one.
 
 | Values of a place | Definition |
 | --- | --- |
-| strings | `'string'`, or an `enum` of the values (below) |
+| strings | `'string'`, an `enum` of the values (below), or `{ type: 'string', format }` when every string passes a registered format (below) |
 | whole numbers | `'integer'` (`'number'` with `integer: false`) |
 | numbers with a fraction, `NaN`, `Infinity` | `'number'` |
 | booleans, bigints | `'boolean'`, `'bigint'` |
@@ -149,6 +150,20 @@ none.
 const statuses = ['paid', 'new', 'paid', 'shipped', 'new', 'paid', 'paid', 'shipped'];
 infer(statuses.map((status) => ({ status }))).status;
 // { enum: ['paid', 'new', 'shipped'] }
+```
+
+**Strings of one form are a `format`.** When the [formats subpath](/guide/formats) registered
+its formats and every string of a place passes one of them, the definition is
+`{ type: 'string', format }`, the first format that passes in the order of registration
+(`uuid`, `email`, `date-time`, `date`, `time`, `ipv4`, `ipv6`, `uri`, then the program's own);
+`hostname` is never inferred, since every word is one, a format registered with
+`infer: false` neither, and an `enum` wins. `formats: false` turns it off.
+
+```js
+const { register } = require('@alexify/metaschema/formats');
+register();
+infer([{ e: 'ann@example.com' }, { e: 'bob@example.org' }]).e;
+// { type: 'string', format: 'email' }
 ```
 
 **Records whose keys are data are a dictionary.** A record is `{ object: { string: T } }`,

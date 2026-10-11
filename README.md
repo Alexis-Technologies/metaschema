@@ -61,6 +61,10 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   defaults filled in, unknown keys stripped on request, a field's `parse` function decoding its
   value (a date-time string into a `Date`) and `serialize` the way back; `checkAsync` and
   `parseAsync` await validators and decoders that return promises.
+- **String formats.** `{ type: 'string', format: 'email' }` is a rule beside `length` and
+  `pattern`; `@alexify/metaschema/formats` registers `uuid`, `email`, `date-time`, `date`,
+  `time`, `ipv4`, `ipv6`, `uri`, `hostname` and your own, and the name travels into JSON Schema,
+  samples and inference.
 - **Records and streams.** `checkEach` and `parseEach` of `@alexify/metaschema/stream` run a
   schema over an iterable of records, lazily and in order, yielding `{ index, record, result }`
   for each; the async pair keeps `concurrency` records in flight over a sync or async source,
@@ -91,9 +95,10 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   schemas (`merge`) and infers a definition from the values that exist (`infer`); `aliases` and
   `deprecated` let a model carry its history, and `fromJSONSchema` of the generators reads a
   JSON Schema document back.
-- **Zero dependencies, 17.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB, the
-  model tools 11.7 KB and the record tools 1.0 KB where they are imported.
+- **Zero dependencies, 17.7 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.2 KB, the
+  model tools 12.0 KB, the record tools 1.0 KB and the string formats 1.3 KB where they are
+  imported.
 
 ## Installation
 
@@ -202,6 +207,28 @@ generated types alike. See
 [Kinds and Metadata](https://metaschema.vercel.app/guide/kinds-and-metadata),
 [Custom Types](https://metaschema.vercel.app/guide/custom-types) and
 [Domain Models](https://metaschema.vercel.app/guide/model).
+
+## String formats
+
+`format` names a form a string must have; `@alexify/metaschema/formats` registers the nine
+built-in formats and your own, once per process:
+
+```js
+const { register } = require('@alexify/metaschema/formats');
+register({ phone: { test: (value) => /^\+\d{9,15}$/.test(value), examples: ['+380501234567'] } });
+
+const signup = Schema.from({
+  email: { type: 'string', format: 'email', length: { max: 254 } },
+  phone: { type: 'string', format: 'phone' },
+});
+signup.check({ email: 'ann@', phone: '050' }).errors;
+// [ 'Field "email" is not a valid email', 'Field "phone" is not a valid phone' ]
+```
+
+A format the table does not know is a definition error, never a check that passes everything;
+`toJSONSchema` writes the name, `fromJSONSchema` reads it back, `sample` draws the format's
+examples and `infer` reads a format out of the strings. See
+[String formats](https://metaschema.vercel.app/guide/formats).
 
 ## Records and streams
 
@@ -361,9 +388,10 @@ const {
 } = require('@alexify/metaschema');
 
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
-const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
-const { fromJSON, diff, compatibility, sample, merge, infer } = require('@alexify/metaschema/model'); // and its own register()
+const { compile, compiled, canEval } = require('@alexify/metaschema/compile'); // and its own register()
+const { fromJSON, diff, compatibility, compatibilityOf, sample, merge, infer } = require('@alexify/metaschema/model'); // and its own register()
 const { checkEach, parseEach, checkEachAsync, parseEachAsync, transform } = require('@alexify/metaschema/stream'); // and its own register()
+const { FORMATS, register: registerFormats } = require('@alexify/metaschema/formats'); // fills the table the format rule reads
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })

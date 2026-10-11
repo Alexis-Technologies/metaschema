@@ -26,6 +26,7 @@ result.errors;
 | `summary` | `string` | the error lines joined with newlines |
 | `flatten()` | `{ formErrors, fieldErrors }` | messages by dotted path, for forms |
 | `tree()` | `{ errors, properties?, items? }` | messages as a tree that follows the value |
+| `toJSON()` | `{ valid, issues }` | what `JSON.stringify(result)` writes |
 
 An issue is data. `path` is the array of keys from the root of the value (a key, or an index for
 an array, set or tuple element), `message` describes the problem without its location, and
@@ -50,11 +51,12 @@ The codes the library produces, and their `params`:
 | --- | --- | --- |
 | `required` | a required field is missing, or a required `object`/`map` is empty | `{}` |
 | `type` | the value is not of the field's type (also a message from a custom type's `checkType`) | `{ expected, received }`, plus `key` when a key of an `object` or `map` has the wrong type |
-| `unexpected` | keys the schema does not have; one issue per struct | `{ keys }` |
+| `unexpected` | keys the schema does not have; one issue per struct | `{ keys }`, all of them; the message lists the first ten |
 | `enum` | the value is not one of the `enum` values | `{ values }` |
 | `length` | a `length` rule failed, or a tuple has too many elements | `{ min, max, actual }` |
 | `range` | a `min` or `max` rule failed | `{ min, max, actual }` |
 | `pattern` | a `pattern` rule failed | `{ pattern }`, the source of the expression |
+| `format` | a [`format`](/guide/formats) rule failed | `{ format }`, the name of the format |
 | `union` | no branch of a `union` matched; with a discriminator, the path ends with it | `{ expected, discriminator }`: the branch names, or the discriminator values |
 | `reference` | the referenced entity is not in any attached model | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
@@ -239,9 +241,13 @@ overlapping repetition (`^(a+)+$`, `^(\w+\s?)*$`) backtracks exponentially on a 
 and one such field is enough to stall the process: a regular expression denial of service. Two
 habits keep a schema safe:
 
-- **Bound the input.** Give every `pattern` field a `length.max`. Backtracking is a function of
-  input length, and a bound of a few hundred characters keeps even a bad expression fast. A
-  schema with a `pattern` and no `length.max` is reported in [`schema.warnings`](/guide/model#warnings).
+- **Bound the input.** Give every `pattern` field a `length.max`. A string longer than the bound
+  is reported for its length and the pattern is never run over it (with `unicode: true` the
+  length counts code points and the pattern may be run over at most twice the bound in UTF-16
+  units), so backtracking is bounded by the input you allow, and a bound of a few hundred
+  characters keeps even a bad expression fast. A schema with a `pattern` and no `length.max` is
+  reported in [`schema.warnings`](/guide/model#warnings). A [`format`](/guide/formats) is run
+  under the same bound.
 - **Write linear patterns.** Avoid a quantifier over a group that itself contains a quantifier,
   and alternatives that can match the same text (`(a|a)*`). Anchor with `^` and `$`, and prefer
   character classes (`[a-z0-9-]+`) over `.*`.

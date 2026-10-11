@@ -29,8 +29,9 @@ purposes:
   `diff` and `compatibility` of [`@alexify/metaschema/model`](/guide/evolution) tell two
   versions apart and classify the change, `sample` gives a value every schema accepts.
 - **Zero dependencies.** Nothing is installed besides the package itself, and the core entry is
-  17.3 KB min+gzip; the JSON Schema and TypeScript generators are a subpath of 7.1 KB more, the
-  JIT backend one of 4.0 KB, the model tools one of 11.7 KB, the record tools one of 1.0 KB.
+  17.7 KB min+gzip; the JSON Schema and TypeScript generators are a subpath of 7.1 KB more, the
+  JIT backend one of 4.2 KB, the model tools one of 12.0 KB, the record tools one of 1.0 KB, the
+  string formats one of 1.3 KB.
 - **One package for Node.js and browsers.** The browser entry is resolved automatically by
   bundlers.
 - **No build step.** The package is CommonJS that ships exactly as written, with hand-written

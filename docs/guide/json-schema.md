@@ -51,7 +51,7 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 17.3 KB min+gzip, `@alexify/metaschema/generators` adds
+carry them: `@alexify/metaschema` is 17.7 KB min+gzip, `@alexify/metaschema/generators` adds
 7.1 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
@@ -107,6 +107,7 @@ The `openapi-3.0` document is a schema object, not an OpenAPI document: put it u
 | Definition | JSON Schema (draft 2020-12) |
 | --- | --- |
 | `'string'`, `{ type: 'string', length: { min, max }, pattern }` | `{ type: 'string', minLength, maxLength, pattern }` (the pattern's source, without flags) |
+| `{ type: 'string', format: 'email' }` | `{ type: 'string', format: 'email' }`, the name as given (the built-in names are JSON Schema's); dropped by the strict profile and for mongodb; see [String formats](/guide/formats) |
 | `'number'`, `'integer'`, with `min`/`max` | `{ type: 'number' }`, `{ type: 'integer' }`, with `minimum`/`maximum` |
 | `'boolean'`, `'null'` | `{ type: 'boolean' }`, `{ type: 'null' }` |
 | `'any'`, `'unknown'` | `{}` |
@@ -375,6 +376,7 @@ The subset, the reverse of [the mapping](#the-mapping):
 | JSON Schema | Definition |
 | --- | --- |
 | `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }`; a pattern the `u` flag rejects is outside the subset (see below) |
+| `type: 'string'` with `format` | `{ type: 'string', format }` when the [formats subpath](/guide/formats) registered that name; any other `format` is dropped |
 | `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }` |
 | `type: 'boolean'`, `'null'` | `'boolean'`, `'null'` |
 | `type: 'object'` with `properties` and `required` | a nested struct, a property outside `required` optional (`'?string'`, `required: false`); `{ schema }` when its first key would read as a type or a kind |
@@ -394,8 +396,9 @@ The subset, the reverse of [the mapping](#the-mapping):
 | `{}`, `true` | `'any'` |
 
 `$schema`, `$id`, `$comment`, `readOnly`, `writeOnly`, `contentMediaType`, `contentEncoding`
-and `format` say nothing a check applies (`format` is an annotation in JSON Schema unless a
-dialect asserts it) and are dropped. `additionalProperties` inside the document is dropped too:
+and a `format` the formats subpath did not register say nothing a check applies (`format` is an
+annotation in JSON Schema unless a dialect asserts it) and are dropped. `additionalProperties`
+inside the document is dropped too:
 whether a struct is closed is a policy of the whole check, which the root decides. Everything
 else is outside the subset: `allOf` of several schemas, `not`, `if`/`then`/`else`,
 `patternProperties`, `unevaluatedProperties`, `dependentRequired`, `exclusiveMinimum`,

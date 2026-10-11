@@ -55,13 +55,32 @@ Some things work as intended and are not vulnerabilities:
   check the generator cannot build is reported (`compile().error`, `register({ onFallback })`),
   never installed. The core entry never calls `new Function`.
 - **Input shape is checked strictly.** Every key that is not in the schema is reported as
-  unexpected (`has unexpected keys: ...`), including `constructor`, `__proto__` and `toString`,
-  unless the schema or the call says `unknown: 'ignore'`. Fields live in a
-  null-prototype dictionary, so nothing on `Object.prototype` is ever read as a field, and
-  metaschema never writes to the value it checks. A value with a `then` function is data: the
-  passes of `parse` and `parseAsync` await only the promises their own decoders make, never a
-  thenable of the value. A graph nested deeper than `maxDepth` embedded records (128 by
-  default) is a `depth` issue, not a stack overflow.
+  unexpected (`has unexpected keys: ...`, the first ten of them), including `constructor`,
+  `__proto__` and `toString`, unless the schema or the call says `unknown: 'ignore'`. Fields
+  live in a null-prototype dictionary, so nothing on `Object.prototype` is ever read as a
+  field, and metaschema never writes to the value it checks. A built-in (`Map`, `Set`, `Date`)
+  is recognised by the name of its constructor and by its shape (an iterator, `getTime`), so a
+  value parsed from JSON that carries `{ "constructor": { "name": "Map" } }` is a type issue,
+  not a value the check iterates. A value with a `then` function is data: the passes of
+  `parse` and `parseAsync` await only the promises their own decoders make, never a thenable
+  of the value. A graph nested deeper than `maxDepth` embedded records (128 by default) is a
+  `depth` issue, not a stack overflow.
+- **A `pattern` or a `format` is never run over a string longer than `length.max`.** The bound
+  is what keeps a backtracking expression fast, so give every pattern one (the lint says where
+  one is missing); the built-in formats are linear and anchored, a custom format's `test` is
+  the program's code, like a `validate` function. A pattern taken from a document given to
+  `fromJSONSchema` or a snapshot given to `fromJSON` runs as a regular expression in `check`
+  all the same: those documents are untrusted input for their structure (a keyword outside the
+  subset, a key named `__proto__`, a depth past the limit are errors, never a looser schema),
+  but a pattern in them is the importer's to review or to bound.
+- **Samples are input.** `infer` of the model subpath walks the values it is given with a depth
+  limit, trusts no key (`__proto__`, `constructor` and the names of the methods of a field are
+  keys of the definition, written as own properties), and checks the definition it built
+  against every sample before it returns it. A key of a sample that reaches an error message
+  is truncated to 100 characters, as a key of a value under check is.
+- **The error a stream ends with carries the record.** `ERR_INVALID_RECORD` of the stream
+  subpath has `record` and `result` on it, since the stream carries them no further; a logger
+  that serializes error objects writes the record.
 - **Validation errors are data.** `check` collects problems as issues (a code, a path and params,
   with a rendered message) instead of throwing on bad input. The messages contain field paths (which can include key names taken from the input,
   truncated to 100 characters) and, for `enum`, the allowed values; they never contain the

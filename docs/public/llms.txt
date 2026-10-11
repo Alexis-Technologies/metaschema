@@ -9,9 +9,10 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 17.3 KB min+gzip for the core entry (the generators subpath adds
-  7.1 KB, the compile subpath 4.0 KB, the model subpath 11.7 KB, the stream subpath 1.0 KB);
-  about 10 million checks a second of a flat struct on the closures, about 30 million compiled
+- Zero runtime dependencies, 17.7 KB min+gzip for the core entry (the generators subpath adds
+  7.1 KB, the compile subpath 4.2 KB, the model subpath 12.0 KB, the stream subpath 1.0 KB, the
+  formats subpath 1.3 KB); `sideEffects: false`; about 10 million checks a second of a flat
+  struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
   `Infer`, `InferOutput`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
@@ -27,7 +28,22 @@ Key facts:
   `checkEach(schema, records, options)`, `parseEach(schema, records, options)` (generators of
   `{ index, record, result }`), `checkEachAsync`/`parseEachAsync(schema, records, options)`
   (async generators, `options.concurrency` records in flight), `transform(schema, options)` (a
-  `TransformStream`), `register()` (installs them as methods of `Schema`)
+  `TransformStream`), `register()` (installs them as methods of `Schema`), and the string
+  formats `@alexify/metaschema/formats`: `register(custom)` (fills the table the `format` rule
+  reads: `uuid`, `email`, `date-time`, `date`, `time`, `ipv4`, `ipv6`, `uri`, `hostname` and
+  the program's own `{ name: { test, examples, infer } }`), `FORMATS` (the table); the compile
+  subpath also has `compiled(target)` (whether a schema runs generated code now)
+- `{ type: 'string', format: 'email' }` is a rule of strings beside `length` and `pattern`: a
+  failed test is a `format` issue (`params.format`), a name the table lacks is
+  `ERR_INVALID_RULE` when the schema is built (nothing is registered until `register()` of the
+  formats subpath ran); `toJSONSchema` writes `format`, `fromJSONSchema` reads a registered one
+  back, `sample` draws the format's examples, `infer` writes the first registered format every
+  string of a place passes (`formats: false` turns it off; `hostname` is never inferred);
+  neither a `pattern` nor a `format` is run over a string longer than `length.max`
+- A built-in (`Map`, `Set`, `Date`) is recognised by the name of its constructor and by its
+  shape, so a value parsed from JSON with a `constructor` key is a type issue, never a throw;
+  `check` never throws because of the value; the message of `unexpected` lists the first ten
+  keys (`params.keys` has them all); `JSON.stringify(result)` is `{ valid, issues }`
 - `checkEach(schema, rows)` checks every record of an iterable and yields `{ index, record,
   result }` in order, lazily; `parseEach` does it with `parse`; `maxInvalid: n` ends the
   iteration after the n-th invalid record; the async pair takes a sync or async iterable and
@@ -61,7 +77,7 @@ Key facts:
   definition or a Schema; a keyword outside it is `ERR_UNSUPPORTED_SCHEMA` with a JSON pointer
 - `merge(a, b)` unifies two schemas CUE-style: the constraints of both per field, a conflict is
   `ERR_MERGE_CONFLICT`
-- `infer(samples, { as, name, kind, enum, integer, map, maxDepth })` is the reverse of `sample`:
+- `infer(samples, { as, name, kind, enum, integer, map, maxDepth, formats })` is the reverse of `sample`:
   a definition (or a Schema) every sample passes, from one pass over the values: the kinds of
   every place (a union when several), records fused into one struct with optional keys (absent
   or undefined) and nullable keys (null beside a type), `integer` for whole numbers, an `enum`
@@ -126,11 +142,14 @@ Docs:
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
 - Parse and serialize: https://metaschema.vercel.app/guide/parse
+- Records and streams: https://metaschema.vercel.app/guide/streaming
+- String formats: https://metaschema.vercel.app/guide/formats
 - Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
 - Model evolution: https://metaschema.vercel.app/guide/evolution
 - Sample values: https://metaschema.vercel.app/guide/samples
+- Schema inference: https://metaschema.vercel.app/guide/infer
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema
 - The JIT backend: https://metaschema.vercel.app/guide/compile
 - Performance: https://metaschema.vercel.app/guide/performance

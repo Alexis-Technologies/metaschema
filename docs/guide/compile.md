@@ -64,9 +64,17 @@ if (!accelerated && error) console.warn(`${user.name}: ${error.message}`, error.
 register({ onFallback: (schema, error) => log.warn(`JIT skipped ${schema.name}`, error) });
 ```
 
-To tell which backend a schema runs on, read the name of its check:
-`schema[Symbol.for('alexify.metaschema.run')].name` is `'jit'` for a compiled schema and `''`
-for the closures, and `.toString()` on that function is the generated source.
+To tell which backend a schema runs on, ask the subpath: `compiled(schema)` is `true` while the
+schema (every entity of a model) runs generated code, `false` for a schema built before
+`register()` and after `{ jit: false }`. The generated source is
+`schema[Symbol.for('alexify.metaschema.run')].toString()`.
+
+```js
+const { compile, compiled } = require('@alexify/metaschema/compile');
+compiled(user); // false
+compile(user);
+compiled(user); // true where the environment allows code generation
+```
 
 ## Where there is no eval
 

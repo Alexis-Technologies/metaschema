@@ -23,7 +23,7 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 17.3 KB min+gzip, `@alexify/metaschema/model` adds 11.7 KB on
+them: `@alexify/metaschema` is 17.7 KB min+gzip, `@alexify/metaschema/model` adds 12.0 KB on
 top. The subpath exports eight functions:
 
 | Export | Meaning |
@@ -184,6 +184,7 @@ that adds one.
 | a `pattern` added | `forward` | old data may not match |
 | a `pattern` removed | `backward` | |
 | a `pattern` changed | `none` | two patterns compare as nothing |
+| a [`format`](/guide/formats) added, removed or changed | `forward`, `backward`, `none` | as a pattern |
 | `enum` values added | `backward` | new data may hold them |
 | `enum` values removed | `forward` | old data may hold them |
 | values added and removed | `none` | |

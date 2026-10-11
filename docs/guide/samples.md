@@ -70,7 +70,7 @@ the time.
 
 | Definition | Sample |
 | --- | --- |
-| `'string'` | letters of the locale, within `length` (1 to 8 without one); a `pattern` is read, see below |
+| `'string'` | letters of the locale, within `length` (1 to 8 without one); a `pattern` is read, see below; a [`format`](/guide/formats) draws one of the examples the format was registered with |
 | `'number'`, `'integer'`, `'bigint'` | a value within `min` and `max` (0 to 100 without them); an integer is whole |
 | `'boolean'`, `'date'`, `'null'` | either value, a date in the 2020s, `null` |
 | `'any'`, `'unknown'` | a short string |

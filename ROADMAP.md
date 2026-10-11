@@ -290,11 +290,11 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | **2.0.0** | A new core + honest semantics | A1–A6 (context, plan, specialization, issues with `params`, array paths, lazy messages, `uk`), B1–B9 (first key, `min/max/integer`, `union`/`date`/`null`/`any`, `nullable`, the unknown policy, references by kind, `Set`, lint, `pattern`), C (`Infer`, `Schema<D>`), D1 (Standard Schema), H (migration guide) | yes |
 | **3.0.0** (planned as 2.1.0) | Speed, outputs and data | E (JIT `./compile` with a fallback), D2 (JSON Schema: 2020-12/07/openapi-3.0/mongodb + the strict profile + `~standard.jsonSchema`), D3 (annotations in dts), the `./generators` subpath, bench comparison with zod/valibot/ajv/typebox, F (`parse`/`serialize`, defaults, strip, codecs, `checkAsync`/`parseAsync`, `InferOutput`) | yes: the generators (`model.dts`, `toInterface`, `saveTypes`) left the core entry, and `~standard.validate` is `parse` |
 | **3.1.0** (planned as 2.2.0) | The model as data | G1 (the `model.toJSON()` snapshot), G2 (`diff` + `compatibility` in the `./model` subpath, `aliases`/`deprecated` in the core), G3 (`sample`), G4 (`fromJSONSchema` in `./generators`, `merge` in `./model`); the three fixes found on the way (a `many` reference re-parsed, the name of a tuple element, a `validate` on a schema field). Left as candidates: warnings as `{ code, message }` objects (breaking: 4.0), parallel settling of independent async validators and one state object per parse pass (3.2, with a benchmark that shows the need) | no |
-| **3.2.0** | Records, inference, the async drain | the `@alexify/metaschema/stream` subpath (record-wise and streaming validation: `checkEach`/`parseEach` as generators over an iterable, the async pair with `concurrency`, `transform` as a `TransformStream`, `maxInvalid`); `infer` in `./model` (`Schema.infer`); the two performance candidates of the 3.0 review, measured first and done (independent async validators in flight together: 3.7× on four event-loop waits, 20× on 32 records; the passes of parse without a state object per container: +16–24% under `strip`); four fixes found on the way (the promises a failed union branch dropped, `{}` as a struct, a nested field named `required`, `fromJSONSchema` and the first-key rule) | no |
+| **3.2.0** | Records, inference, formats, the async drain | the `@alexify/metaschema/stream` subpath (record-wise and streaming validation: `checkEach`/`parseEach` as generators over an iterable, the async pair with `concurrency`, `transform` as a `TransformStream`, `maxInvalid`); `infer` in `./model` (`Schema.infer`); the `format` rule of strings with the `@alexify/metaschema/formats` subpath (nine built-in formats and the program's own, read by the generators, `sample` and `infer`); the two performance candidates of the 3.0 review, measured first and done (independent async validators in flight together: 3.7× on four event-loop waits, 20× on 32 records; the passes of parse without a state object per container: +16–24% under `strip`); four fixes found on the way (the promises a failed union branch dropped, `{}` as a struct, a nested field named `required`, `fromJSONSchema` and the first-key rule) and the fixes of the review of 3.2 (a built-in by name and shape, the ReDoS bound, two unhandled rejections) | no |
 | **3.3.0** | Ecosystem | adapters in the sibling repositories: wrpc `signature` ↔ metaschema, migronaut `converge` from a `Model` snapshot, protoarray layout from field order, kerberos on one schema (through `fromJSONSchema`) | no |
 | later | — | more locales; warnings as `{ code, message }` objects (breaking: 4.0); the lazy settle of nested async validators (a struct's `validate` over a field's, in every record of a list) if a benchmark shows the need | — |
 
-### Status (2026-10-11, branches `feature/v2.1` and `feature/v3.1`)
+### Status (2026-10-11, branches `feature/v2.1`, `feature/v3.1` and `feature/v3.2`)
 
 | Workstream | State | Where |
 | --- | --- | --- |
@@ -317,6 +317,7 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | 3.2 `infer` | done, 3.2 | df4c921 (`infer` in `./model`, `Schema.infer`; 2.3 KB, the model gate 10 → 12 KB) |
 | 3.2 parallel settle | done, 3.2 | f3d42ee (`under` in `guarded`, `failedUnder` over it; measured 18 K → 66 K on four `setImmediate` waits, 2.2 K → 45 K on 32 records, the sync rows unchanged) |
 | 3.2 codec without per-container state | done, 3.2 | a79b427 (`written`/`queued`/`settled` replace `enter`/`take`/`leave`; A/B in scratch worktrees, separate processes: +16% and +24% on 100 records under `strip`, +15% on a nested struct on the JIT, the rest within the band) |
+| Review of 3.2 (2026-10-11) | done | 16 commits on `feature/v3.2` after the release commit: the P0 fix (a built-in recognised by name and shape, so crafted JSON no longer throws out of `check`), the ReDoS bound (`pattern` never past `length.max`), the capped `unexpected` message, the two unhandled rejections (a walk that throws in `checkAsync`, a queued record of the stream subpath), the `./formats` subpath with the `format` rule, `compiled()`, `result.toJSON`, a model's `inspect`, `RecordEntry<T, R>`, `sideEffects: false`, the module-graph test, the shortened keys of untrusted input; the core gate 17.5 → 17.75 KB; see the CHANGELOG |
 
 What 2.0 delivers against the plan: all of A1–A6 except the library comparison; all of B1–B9 except "unused references" in B8 (no well-defined meaning, dropped); C without `Model<E>`; D1 with `types.input = Infer<D>`; H in full. The bundle budget is 13 KB (§5.8) and the measured `check` numbers are below the A6 targets (§5.1 status, §7).
 
@@ -339,8 +340,15 @@ benchmark the row asked for (`benchAsync` and the strip scenarios in `bench/`; t
 were ≥ 2× on the latency of independent validators and ≥ 5% on the strip scenarios without a
 regression elsewhere, both met: §5.6 status), and the gates of §5.8 moved for the model subpath
 (10 → 12 KB) with a new one for the stream subpath (1.5 KB); the ecosystem adapters move to 3.3,
-since they live in the sibling repositories. Left as candidates: warnings as objects (4.0) and
-the lazy settle of nested async validators (a benchmark first).
+since they live in the sibling repositories. The review of 3.2 (the same day, before the tag)
+added the `format` rule and the `./formats` subpath (the largest gap against JSON Schema, zod
+and ajv: a custom type named `email` would break the first-key rule, so a rule with a table the
+subpath fills), fixed a P0 that predates 3.2 (a value parsed from JSON with a `constructor` key
+threw out of `check`), made the ReDoS note true (`pattern` never past `length.max`), closed two
+unhandled rejections, and moved the core gate to 17.75 KB. Left as candidates: warnings as
+objects (4.0), the lazy settle of nested async validators (a benchmark first), `infer` over
+large collections (`check: false`, `inferAsync`, a cap on the keys of a place), a compatibility
+gate as a CLI or an action in a sibling repository, and a "guarantees" page of the docs.
 
 Prioritization inside 2.0 (if something has to be cut): A1–A4 and B1/B6/B7 (the fixes that change the result shape) are mandatory for 2.0; B3 `union`/`date`, B9 `pattern` and C `Infer` can ship in 2.0.x as additive if the core takes longer. D1 is cheap (≈ 20 lines) and stays in 2.0.
 

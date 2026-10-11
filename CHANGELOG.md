@@ -14,12 +14,45 @@ a schema over a sequence of records, lazily and in order, as generators and as a
 `TransformStream`; `infer` in the model subpath reads a definition out of the values that
 exist, the reverse of `sample`; and the two performance candidates the review of 3.0 left were
 measured and done: independent async validators are in flight together, and the passes of
-`parse` allocate nothing per container they visit. Four fixes were found on the way. Nothing
-breaks; the order of the issues of an async check with a sync validator after an unrelated
-promise is the one change in behaviour, listed under Changed.
+`parse` allocate nothing per container they visit. The review of the release before its tag
+added the `format` rule of strings with the `@alexify/metaschema/formats` subpath, fixed a value
+parsed from JSON that could throw out of `check`, made the ReDoS note true, and closed two
+unhandled rejections. Nothing breaks; the changes in behaviour (the order of the issues of an
+async check with a sync validator after an unrelated promise, a pattern no longer run past
+`length.max`, the message of `unexpected` capped at ten keys) are listed under Changed.
 
 ### Added
 
+- **The `format` rule of strings and the `@alexify/metaschema/formats` subpath.**
+  `{ type: 'string', format: 'email' }` is a rule beside `length` and `pattern`: the core knows
+  the rule and keeps an empty table (`FORMATS`), and `register()` of the subpath fills it with
+  `uuid`, `email`, `date-time`, `date`, `time`, `ipv4`, `ipv6`, `uri` and `hostname` (the
+  expressions of ajv-formats' fast mode, linear and anchored, with the date and time ranges
+  checked and the leap second as RFC 3339 has it) and with the program's own
+  (`register({ phone: { test, examples, infer } })`), once per name, process-wide; a name the
+  table lacks is `ERR_INVALID_RULE` with the hint when the schema is built, an entry that is
+  not a format `ERR_INVALID_FORMAT`, a name registered again with another test
+  `ERR_FORMAT_REGISTERED`. A failed test is the new `format` issue (`params.format`, rendered
+  by both locales); the rule runs after the pattern, under the bound of `length.max`, and the
+  JIT reaches the test through its scope. `toJSONSchema` writes `format` (the built-in names
+  are JSON Schema's; the strict profile drops it, a `$jsonSchema` has none) and
+  `fromJSONSchema` reads a registered one back; `sample` draws one of the format's examples;
+  `infer` writes the first registered format every string of a place passes (`formats: false`
+  turns it off; `hostname`, which every word passes, is never inferred); `merge` refuses two
+  formats and `diff` classifies one as a pattern. A rule, not a type: a type named `email`
+  would make `{ email: 'string', name: 'string' }` read as a shorthand. The subpath is 1.3 KB
+  min+gzip on top of the core, gated at 2 KB; the typings add `FormatDefinition`, the issue
+  code and the two error codes.
+- **`compiled(target)` in the `@alexify/metaschema/compile` subpath**: whether a schema (every
+  entity of a model) runs generated code now, in place of the internal symbol the guide pointed
+  at.
+- **`result.toJSON()`**: `JSON.stringify(result)` writes `{ valid, issues }` (the verdict was a
+  getter and was left out); `util.inspect(model)` prints the snapshot, as a schema prints its
+  definition.
+- **`sideEffects: false` in package.json**: nothing registers on import, so a bundler may drop
+  a subpath a program imports and never calls.
+- **`tests/unit/graph.test.js`**: the module graph of `src/` has no cycles (CLAUDE.md drew it
+  by hand and said nothing checked it).
 - **`infer(samples, options)` in the `@alexify/metaschema/model` subpath, the reverse of
   `sample`.** A definition (or a `Schema`, with `as: 'schema'`) that accepts every sample
   given, to bootstrap a model from the documents that exist: one pass summarizes the kinds of
@@ -49,7 +82,8 @@ promise is the one change in behaviour, listed under Changed.
   code `ERR_INVALID_RECORD` (with `index`, `record` and `result` on it). `register()` installs
   the five as methods of `Schema`. The subpath is 1.0 KB min+gzip on top of the core, gated at
   1.5 KB; the typings add `EachOptions`, `ParseEachOptions`, `EachAsyncOptions`,
-  `TransformOptions` and `RecordEntry<R>`.
+  `TransformOptions` and `RecordEntry<T, R>` (`T` the type of the records of the source:
+  `checkEach<T>(schema, records: Iterable<T>)` and its kin).
 - **Bench scenarios for the async path and for `strip`** (`pnpm bench`): `checkAsync` with
   sync, resolved and event-loop-bound validators, `parseAsync` with an async decoder, and
   `parse` under `unknown: 'strip'` over a nested value and a list of 100 records, each on both
@@ -70,9 +104,20 @@ promise is the one change in behaviour, listed under Changed.
   them, in field order; under a low `maxErrors`, and in a branch of a plain union that fails, a
   validator may be called whose result is dropped, as in `check`. The issues recorded are the
   same, on both backends.
+- **A `pattern` is never run over a string longer than `length.max`.** The ReDoS note promised
+  that the bound keeps a backtracking expression fast, but every rule of a field ran: a string
+  past the bound got its length issue and then the pattern (2.5 s for `^(a+)+$` on 27
+  characters). Both backends skip the pattern on such a string (twice the bound in UTF-16
+  units with `unicode: true`), which is reported for its length alone: one issue where there
+  were two. A field without `length.max` is unchanged. A `format` is run under the same bound.
+- **The message of `unexpected` lists the first ten keys** and says how many more; `params.keys`
+  keeps them all. The unexpected keys are one issue, so `maxErrors` never bounded the message,
+  and a value with a million keys the schema does not have rendered a million of them.
 - **The gate of the `./model` subpath is 12 KB** (was 10): `infer` costs 2.3 KB min+gzip and
-  the subpath measures 11.7 KB; the subpath is tooling, not the validation path, as for the
-  move from 8.5 to 10 KB in 3.1.
+  the subpath measures 11.7 KB (12.0 KB with the formats); the subpath is tooling, not the
+  validation path, as for the move from 8.5 to 10 KB in 3.1. **The core gate is 17.75 KB**
+  (was 17.5): the `format` rule, its issue and the fixes of the review measure 17.7 KB
+  together, and a gate the next fix cannot fit under is no gate, as in 3.1.
 
 ### Performance
 
@@ -87,6 +132,27 @@ promise is the one change in behaviour, listed under Changed.
 
 ### Fixed
 
+- **A value parsed from JSON could throw out of `check`.** A built-in was recognised by the
+  name of its constructor alone, and `{ "constructor": { "name": "Map" } }` as the value of a
+  `map`, `set` or `date` field was iterated, or asked for `getTime`, and threw a `TypeError`
+  out of `check`, `parse`, a union branch and both backends, where the contract is that
+  nothing in the value makes the check throw. The name is still tested first, then the shape
+  (an iterator for a `Map` or a `Set`, `getTime` for a `Date`), which JSON cannot fake; such a
+  value is a type issue. Since 2.0.
+- **A walk that threw out of `checkAsync` or `parseAsync` left its promises unhandled.** A
+  getter of the value that throws (or, before the fix above, a crafted value) ended the call
+  with that error while the promise a validator had returned before it rejected with no
+  handler. The walk of an async check releases what it queued on the way out.
+- **A queued record of the async stream pair could reject unhandled.** With a window of
+  records in flight, a later record whose parse threw while an earlier one still waited for
+  its validator fired `unhandledRejection` before its turn, then rejected the iteration all
+  the same; the promise is observed when it is queued.
+- **Keys of untrusted input are shortened in every message.** The place of an `infer` error
+  (a key of a sample), of a `fromJSON` error (a key of a snapshot) and of a `fromJSONSchema`
+  error (a property name in the pointer) went into the message whole; they are truncated to
+  100 characters as a key of a value under check is. A snapshot index named `__proto__` is
+  written as a key instead of vanishing, and the `validate` method of a schema reports a
+  thrown `null` as an exception instead of throwing on it.
 - **A failed branch of a plain union observed none of the promises it dropped.** A validator
   of the branch that returned a promise was set aside, and when the branch failed on a later
   field the entry was cut from the list without a handler, so its rejection was an
@@ -1182,7 +1248,7 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...HEAD
 [3.2.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...v3.0.0

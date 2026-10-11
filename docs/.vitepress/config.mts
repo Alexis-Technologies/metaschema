@@ -119,6 +119,7 @@ export default defineConfig({
           items: [
             { text: 'Schema Syntax', link: '/guide/schema-syntax' },
             { text: 'Types', link: '/guide/types' },
+            { text: 'String formats', link: '/guide/formats' },
             { text: 'Unions, nullable and null', link: '/guide/unions' },
             { text: 'References', link: '/guide/references' },
             { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },

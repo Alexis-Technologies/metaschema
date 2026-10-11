@@ -55,12 +55,18 @@ the bug, not the implementation.
 pnpm run lint
 pnpm run format
 pnpm test
+pnpm run test:jit
+pnpm run test:nojit
+pnpm run test:coverage
 pnpm run test:types
 pnpm run check:dts
+pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2
+pnpm docs:build
 ```
 
-`prepublishOnly` runs lint, format check, coverage, tsd and `check:dts`. Treat that as the merge
-gate.
+That list is what CI runs, and the merge gate. `prepublishOnly` runs the first part of it (lint,
+format check, coverage, tsd and `check:dts`) before a publish; the JIT and no-eval runs of the
+suite, the bundle budgets and the docs build are CI's.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat(scope):`, `fix(scope):`, `test:`, `docs:`).

@@ -89,7 +89,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (17.3 KB min+gzip) does not carry them (7.1 KB more); see
+subpath so that the core entry (17.7 KB min+gzip) does not carry them (7.1 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -104,7 +104,7 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (11.7 KB min+gzip on top of the
+The model as the source of truth, in a subpath of its own (12.0 KB min+gzip on top of the
 core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
 [Schema inference](/guide/infer).
 
@@ -115,7 +115,7 @@ core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) 
 | `compatibility(changes)` | `'full'`, `'backward'`, `'forward'` or `'none'` by the [rules](/guide/evolution#compatibility) of the Confluent Schema Registry |
 | `sample(schema, options?)` | a value the schema accepts, the same for `options.seed`; `options`: `seed`, `locale` (`'en'`, `'uk'`), `references`, `maxDepth`; a field no value satisfies is `ERR_UNSATISFIABLE`, a pattern it cannot read `ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample` `ERR_SAMPLE_TYPE` |
 | `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ERR_MERGE_CONFLICT` |
-| `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`; a sample nested past `maxDepth` is `ERR_INFER_DEPTH`, a definition that rejects a sample `ERR_INFER_MISMATCH` |
+| `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`, a registered [format](/guide/formats) every string passes; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`; a sample nested past `maxDepth` is `ERR_INFER_DEPTH`, a definition that rejects a sample `ERR_INFER_MISMATCH` |
 | `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge`, `Schema.infer` and `schema.sample` on the classes, once per process |
 
 A `sample` or `merge` target that is not a `Schema` is a `TypeError` with `code:
@@ -124,7 +124,7 @@ argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (4.0 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (4.2 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
@@ -132,6 +132,7 @@ The JIT backend, in a subpath of its own (4.0 KB min+gzip on top of the core); s
 | `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated, error }`: `accelerated` is `false` where code generation from strings is not allowed (the closures stay, no `error`) and where a check could not be generated (`error` is the `ERR_JIT_BUILD` error with the generator's error as `cause`); `options.jit`: `'auto'` (the default: fall back), `true` (throw `ERR_NO_EVAL` or `ERR_JIT_BUILD` instead; a model all or nothing), `false` (never generate code; restores the closures of a compiled schema) |
 | `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched; `options.onFallback(schema, error)` is told of every schema whose check could not be generated |
 | `canEval()` | whether this environment allows code generation from strings, probed once |
+| `compiled(target)` | whether the check of a `Schema` (of every entity of a `Model`) runs generated code now: `false` for a schema built before `register()` and after `{ jit: false }` |
 
 A target that is neither a `Schema` nor a `Model` is a `TypeError`; an option with a value it
 does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
@@ -156,6 +157,20 @@ A target that is not a `Schema`, or a source that is not iterable (a string incl
 `TypeError` with `code: 'ERR_INVALID_TARGET'`; a wrong option of the subpath is a `TypeError`
 like a wrong option of `check` (`maxInvalid must be an integer of at least 1, got 0`).
 
+## `@alexify/metaschema/formats`
+
+The formats a string field may name with the [`format`](/guide/formats) rule, in a subpath of
+its own (1.3 KB min+gzip on top of the core); the rule is the core's, the table of formats the
+subpath's, empty until `register()` ran.
+
+| Export | Description |
+| --- | --- |
+| `register(custom?)` | registers the built-in formats (`uuid`, `email`, `date-time`, `date`, `time`, `ipv4`, `ipv6`, `uri`, `hostname`) and the program's own (`{ phone: { test, examples, infer? } }`), once per name, process-wide; the same `test` again is nothing, another under a registered name `ERR_FORMAT_REGISTERED`, an entry that is not a format `ERR_INVALID_FORMAT` |
+| `FORMATS` | the table of the registered formats by name, `{ test, examples, infer }` each, to read |
+
+A schema that names a format the table lacks is `ERR_INVALID_RULE` when it is built. The type
+of an entry is `FormatDefinition`.
+
 ## Runtime errors
 
 Validation of data never throws because of the value. A synchronous `check` or `parse` throws a
@@ -178,6 +193,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 | `result.summary` | the error lines joined with newlines |
 | `result.flatten()` | `{ formErrors, fieldErrors }`: messages by dotted path |
 | `result.tree()` | `{ errors, properties?, items? }`: messages as a tree that follows the value |
+| `result.toJSON()` | `{ valid, issues }`: what `JSON.stringify(result)` writes |
 | `result.add(error, code?)` | adds `false`, a string, a `{ code, message, path?, params? }` object, an array of them or another result, with `code` (default `custom`) for entries that carry none; `true`, `null` and `undefined` add nothing |
 | `ValidationResult.issuesOf(error, path?, code?)` | the issues `add` would produce, under the `path` keys |
 | `ValidationResult.isInstance(value)` | whether `value` is a result, from any copy of the package |
@@ -186,7 +202,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
 table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
-`range`, `pattern`, `union`, `reference`, `circular`, `depth`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+`range`, `pattern`, `format`, `union`, `reference`, `circular`, `depth`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
 to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
@@ -228,6 +244,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, a calculated field or an index that differs; the message names the field |
 | `ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
 | `ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
+| `ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings) |
+| `ERR_FORMAT_REGISTERED` | a format name registered again with another `test` |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
@@ -258,10 +276,11 @@ it; see [Validation](/guide/validation#the-result).
 | `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`, `FunctionSnapshot`, `TypeSnapshot` | what `model.toJSON()` returns and its parts |
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
-| `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`) |
+| `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`) |
+| `FormatDefinition` | an entry of the formats subpath: `{ test: (value: string) => boolean; examples: readonly string[]; infer?: boolean }` |
 | `EachOptions`, `ParseEachOptions`, `EachAsyncOptions` | the options of `checkEach` (`CheckOptions` and `maxInvalid`), of `parseEach` (`ParseOptions` and `maxInvalid`) and the one the async pair adds (`concurrency`) |
 | `TransformOptions` | the options of `transform`: `ParseOptions`, `mode`, `async`, `onInvalid`, `maxInvalid` |
-| `RecordEntry<R>` | what the generators of the stream subpath yield: `{ index, record, result: R }` |
+| `RecordEntry<T, R>` | what the generators of the stream subpath yield: `{ index, record: T, result: R }`, `T` the type of the records of the source |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
