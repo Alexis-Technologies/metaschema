@@ -317,12 +317,13 @@ const emitStruct = (fields, x, key, state) => {
       const inherited = own ? ` || !Object.hasOwn(${x}, ${name})` : '';
       code.push(`let ${item} = ${prop(x, entry.key)}, ${alias} = ${name};`);
       code.push(`if (${item} === undefined${inherited}) { ${item} = undefined;`);
-      let chain = '';
+      // The first alias the value carries: once one is taken the rest are
+      // skipped, as the chain of the closure backend stops at it.
       for (const other of entry.aliases) {
         const taken = `${alias} = ${quote(other)}; ${item} = ${prop(x, other)};`;
-        chain += `${chain && ' else '}if (Object.hasOwn(${x}, ${quote(other)})) { ${taken} }`;
+        code.push(`if (${alias} === ${name} && Object.hasOwn(${x}, ${quote(other)})) { ${taken} }`);
       }
-      code.push(`${chain} }`);
+      code.push('}');
       if (required) {
         code.push(`if (${item} === undefined && !Object.hasOwn(${x}, ${alias})) {`);
         record(children, issue(state, 'required', name));
