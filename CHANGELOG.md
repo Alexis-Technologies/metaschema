@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-The next release is **3.0.0**: the generators of JSON Schema and TypeScript leave the core entry
-for the `@alexify/metaschema/generators` subpath, which takes `model.dts`, `schema.toInterface()`
-and `saveTypes` with them (a breaking change, so not 2.1.0), and `schema['~standard'].validate`
+## [3.0.0] - 2026-10-11
+
+3.0 moves the generators of JSON Schema and TypeScript from the core entry to the
+`@alexify/metaschema/generators` subpath, which takes `model.dts`, `schema.toInterface()`
+and `saveTypes` with them (a breaking change, hence the major), and `schema['~standard'].validate`
 is `parse` rather than `check` (a second one). The rest is additive: `parse`, `serialize`,
 `checkAsync` and `parseAsync` in the core, the JIT backend of the new
 `@alexify/metaschema/compile` subpath, the JSON Schema export with its four targets and the
@@ -963,7 +965,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Alexis-Technologies/metaschema/releases/tag/v1.0.0
 [upstream-2.2.2]: https://github.com/metarhia/metaschema/compare/v2.2.1...v2.2.2
