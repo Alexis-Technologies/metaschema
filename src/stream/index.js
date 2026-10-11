@@ -111,7 +111,12 @@ const eachAsync = async function* (schema, records, options, limit, width, call)
   let index = 0;
   try {
     for await (const record of records) {
-      queue.push({ index, record, result: call(schema, record, options) });
+      const result = call(schema, record, options);
+      // Observed from the start: a record that rejects while an earlier one
+      // is still awaited would reject unhandled before its turn (the await
+      // of its entry still throws it).
+      abandon(result);
+      queue.push({ index, record, result });
       index += 1;
       if (queue.length < width) continue;
       const entry = queue.shift();

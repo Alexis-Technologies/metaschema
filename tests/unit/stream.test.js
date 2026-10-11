@@ -403,3 +403,39 @@ test('Stream: register() installs the methods on Schema, once', async () => {
   assert.strictEqual(user.transform() instanceof TransformStream, true);
   assert.strictEqual(user.transform({ mode: 'check' }) instanceof TransformStream, true);
 });
+
+test('Stream: a record that rejects while an earlier one is pending never rejects unhandled', async () => {
+  // With a window of records in flight, the promise of a later record is
+  // observed from the start: before this, a parse that threw for the second
+  // record while the first still waited for its validator fired
+  // unhandledRejection, then rejected the iteration all the same.
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    const schema = Schema.from({
+      n: { type: 'number', validate: () => new Promise((resolve) => setTimeout(resolve, 20)) },
+      'd?': {
+        type: 'number',
+        default: () => {
+          throw new Error('factory');
+        },
+      },
+    });
+    const records = [{ n: 1, d: 1 }, { n: 2 }];
+    const seen = [];
+    await assert.rejects(
+      async () => {
+        for await (const entry of parseEachAsync(schema, records, { concurrency: 2 })) {
+          seen.push(entry.index);
+        }
+      },
+      { message: 'factory' },
+    );
+    assert.deepStrictEqual(seen, [0]);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
+});
