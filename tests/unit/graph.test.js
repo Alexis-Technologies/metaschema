@@ -29,7 +29,9 @@ const edgesOf = (file) => {
   return targets;
 };
 
-const relative = (file) => path.relative(SRC, file);
+// POSIX separators on every platform, so the names compare the same on
+// Windows, where path.relative joins with a backslash.
+const relative = (file) => path.relative(SRC, file).split(path.sep).join('/');
 
 // The graph as `{ cycles, leaves }`: every cycle as the path that closes
 // it, and the modules that require nothing of src/.
