@@ -439,3 +439,54 @@ test('Stream: a record that rejects while an earlier one is pending never reject
     process.off('unhandledRejection', listen);
   }
 });
+
+test('Stream: a record that is a promise is awaited by the async pair, data to the sync pair', async () => {
+  // `for await` over a sync iterable awaits its elements, so the async pair
+  // checks what a promise resolves to; the sync pair checks the promise
+  // itself, an object with no keys of the schema.
+  const promised = [Promise.resolve({ name: 'a' }), { name: 'b' }];
+  assert.deepStrictEqual(await collect(checkEachAsync(user, promised)), [
+    [0, { name: 'a' }, true],
+    [1, { name: 'b' }, true],
+  ]);
+  const sync = entries(checkEach(user, promised));
+  assert.strictEqual(sync[0][1], promised[0]);
+  assert.deepStrictEqual(
+    sync.map((entry) => entry[2]),
+    [false, true],
+  );
+  // A rejected element rejects the iteration, as the source's own error.
+  await assert.rejects(collect(checkEachAsync(user, [Promise.reject(new Error('source'))])), {
+    message: 'source',
+  });
+});
+
+test('Stream: an onInvalid that throws, and a parse that rejects, end the stream with their error', async () => {
+  const thrower = transform(user, {
+    onInvalid: () => {
+      throw new Error('boom');
+    },
+  });
+  await assert.rejects(drain(readable(rows).pipeThrough(thrower)), { message: 'boom' });
+  const throwing = Schema.from({
+    n: 'number',
+    'd?': {
+      type: 'number',
+      default: () => {
+        throw new Error('factory');
+      },
+    },
+  });
+  const records = [{ n: 1, d: 1 }, { n: 2 }];
+  await assert.rejects(drain(readable(records).pipeThrough(transform(throwing))), {
+    message: 'factory',
+  });
+  await assert.rejects(drain(readable(records).pipeThrough(transform(throwing, { async: true }))), {
+    message: 'factory',
+  });
+  // In check mode the default is never applied, so both records pass.
+  const checked = await drain(
+    readable(records).pipeThrough(transform(throwing, { mode: 'check' })),
+  );
+  assert.deepStrictEqual(checked, records);
+});
