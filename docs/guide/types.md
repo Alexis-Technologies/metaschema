@@ -4,7 +4,7 @@
 
 | Type | Accepts | Rules |
 | --- | --- | --- |
-| `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern` |
+| `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern`, [`format`](/guide/formats) |
 | `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max` |
 | `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |

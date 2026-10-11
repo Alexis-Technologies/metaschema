@@ -39,6 +39,17 @@ payment.parse({ amount: '12.3' });
 
 `schema.parse(value, options?)` runs, in this order:
 
+```mermaid
+flowchart TB
+    IN["the value given"] --> D["1 · defaults<br/>missing or undefined keys, at any depth"]
+    D --> C["2 · the check"]
+    C -->|"invalid"| BAD(["{ valid: false, value: undefined, issues }"])
+    C -->|"valid"| S["3 · strip<br/>with unknown: 'strip'"]
+    S --> DEC["4 · the decoders<br/>the parts of a value before the value"]
+    DEC --> P["5 · the schema's parse"]
+    P --> OK(["{ valid: true, value, issues: [] }"])
+```
+
 1. **Defaults.** Every struct field with a `default` whose key is missing or `undefined` is
    filled in, at any depth (nested structs, the elements of collections, the records a reference
    embeds). A function is a factory, called on every parse: `default: () => new Date()`.
@@ -156,8 +167,9 @@ The rules of a decoder:
 The schema-level `parse` and `serialize` functions (next to `validate` in a definition) are the
 decoder and encoder of the whole record: the schema's `parse` runs last, after every field; its
 `serialize` runs first. A nested struct's own `parse`/`serialize` work the same way for that
-struct, and a `Schema` instance used as a field brings its own. `format` is collected into
-`schema.options` and not called by metaschema.
+struct, and a `Schema` instance used as a field brings its own. A schema-level `format`
+function is collected into `schema.options` and not called by metaschema (the `format` rule of
+a string field is something else: a [string format](/guide/formats)).
 
 ## Strip
 
@@ -239,6 +251,11 @@ before the value.
 Under a low `maxErrors` a validator may be called whose result is then dropped: the limit
 decides what is recorded, as in `check`, not which validators run.
 
+The promises of independent validators are in flight together, so the latency of a check is the
+longest of theirs, not the sum; a validator over them waits for them, and such validators settle
+one after the other: the rule that a validator runs only when nothing under it failed needs
+that much order.
+
 The synchronous `check` and `parse` throw a `TypeError` with the code `ERR_ASYNC_VALIDATOR` when
 a validator, a `checkType` or a decoder returns a promise:
 
@@ -258,11 +275,6 @@ validator settles after the walk and may still make the value invalid, and no fu
 tried for it. A branch that fails drops the validators it set aside with its issues, and their
 promises are observed, never awaited. Where branches carry async validators, a `discriminator`
 says which branch a value is without a trial.
-
-The promises of independent validators are in flight together, so the latency of a check is the
-longest of theirs, not the sum; a validator over them waits for them, and such validators settle
-one after the other: the rule that a validator runs only when nothing under it failed needs
-that much order.
 
 ## Standard Schema
 
@@ -315,6 +327,6 @@ and `serialize` takes an `InferOutput<D>` and gives an `Infer<D>`.
   `discriminator` picks the branch without trying.
 - Decoders do not change what `check` reports and are not part of the JSON Schema export or the
   generated TypeScript: both describe the value as it is validated (the input side).
-- `format` is stored in `schema.options` and never called.
+- A schema-level `format` function is stored in `schema.options` and never called.
 - A value that loops through its embedded references cannot be defaulted (the copies could not
   close the loop) and is checked as it was given, which reports the loop.

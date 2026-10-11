@@ -60,6 +60,7 @@ The codes the library produces, and their `params`:
 | `union` | no branch of a `union` matched; with a discriminator, the path ends with it | `{ expected, discriminator }`: the branch names, or the discriminator values |
 | `reference` | the referenced entity is not in any attached model | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
+| `depth` | embedded records are nested deeper than `maxDepth` (128 by default) | `{ max }` |
 | `exception` | a `validate` or `checkType` function threw | `{ error }` |
 | `custom` | a message from a `validate` function | whatever the function gave, or `{}` |
 
@@ -172,7 +173,7 @@ const schema = Schema.from({
 });
 ```
 
-A field is checked in order: its type, then its rules (`length`, `pattern`, `min`, `max`), then `validate`. A type failure
+A field is checked in order: its type, then its rules (`length`, `pattern`, `format`, `min`, `max`), then `validate`. A type failure
 is reported once and cancels the rest, and `validate` runs only on a value that passed everything
 before it, so it can rely on the type and the rules. `path` is the dotted path of the field,
 including the root. The function can return:

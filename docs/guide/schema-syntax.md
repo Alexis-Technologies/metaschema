@@ -40,7 +40,8 @@ schema.check({ title: 'Meditations', author: 'Marcus' }).errors;
 
 ## The first key decides
 
-An object definition is read by its **first key**, and nothing else:
+An object definition is read by its **first key**, the first key that starts with a letter (so
+`{ _id: 'string', type: 'string' }` is read by `type`), and nothing else:
 
 | First key | The object is | Example |
 | --- | --- | --- |
@@ -191,7 +192,7 @@ The rules, per key of a field in both schemas:
 | `nullable` | null allowed only where both allow it |
 | `length`, `min`, `max` | the greater of the minimums and the lesser of the maximums; nothing in common (a minimum above a maximum) is a conflict |
 | `enum` | the values both hold; none is a conflict |
-| `pattern`, `default`, `parse`, `serialize`, `union`, `discriminator`, the key type of an `object` or `map`, the target and `embed` of a reference | the same, or one side only; two different ones are a conflict |
+| `pattern`, `format`, `default`, `parse`, `serialize`, `union`, `discriminator`, the key type of an `object` or `map`, the target and `embed` of a reference | the same, or one side only; two different ones are a conflict |
 | `validate` | both, composed: the check gets what each returned, awaited when either is async |
 | `aliases` | the aliases of both; an alias that is a field of the other schema, or an alias of another field, is a conflict |
 | `unique`, `index`, `primary`, `deprecated` | set where either sets it |

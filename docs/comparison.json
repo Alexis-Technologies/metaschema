@@ -1,0 +1,5264 @@
+{
+  "legend": "✅ built in, or in an official package of the same project (named) · ⚠️ partial, opt-in, with a caveat, or through a third-party package (named) · ❌ not built in · 🔜 planned by the maintainers, no code yet · — does not apply. Every cell was checked against the source of the published package in October 2026.",
+  "groups": [
+    {
+      "title": "Package",
+      "rows": [
+        {
+          "id": "version",
+          "title": "Version compared"
+        },
+        {
+          "id": "released",
+          "title": "Latest release"
+        },
+        {
+          "id": "deps",
+          "title": "Runtime dependencies"
+        },
+        {
+          "id": "license",
+          "title": "License"
+        }
+      ]
+    },
+    {
+      "title": "Runtime",
+      "rows": [
+        {
+          "id": "platforms",
+          "title": "Runs on"
+        },
+        {
+          "id": "module",
+          "title": "Module format"
+        },
+        {
+          "id": "noEval",
+          "title": "Works without eval (strict CSP, edge)"
+        },
+        {
+          "id": "noBuild",
+          "title": "Works without a build step"
+        }
+      ]
+    },
+    {
+      "title": "Defining schemas",
+      "rows": [
+        {
+          "id": "style",
+          "title": "How a schema is written"
+        },
+        {
+          "id": "asData",
+          "title": "The definition is data (store, send, rebuild)"
+        },
+        {
+          "id": "optionalNullable",
+          "title": "Optional vs nullable"
+        },
+        {
+          "id": "unions",
+          "title": "Unions, discriminated"
+        },
+        {
+          "id": "tuples",
+          "title": "Tuples"
+        },
+        {
+          "id": "recursive",
+          "title": "Recursive schemas"
+        },
+        {
+          "id": "namedRefs",
+          "title": "Schemas referenced by name"
+        },
+        {
+          "id": "customTypes",
+          "title": "Custom types registered by name"
+        },
+        {
+          "id": "formats",
+          "title": "String formats"
+        },
+        {
+          "id": "jsTypes",
+          "title": "Date, BigInt, Map, Set"
+        },
+        {
+          "id": "refinements",
+          "title": "Custom validators"
+        },
+        {
+          "id": "async",
+          "title": "Async validators"
+        }
+      ]
+    },
+    {
+      "title": "Validation results",
+      "rows": [
+        {
+          "id": "allErrors",
+          "title": "Every issue in one run"
+        },
+        {
+          "id": "errorLimit",
+          "title": "A cap on the number of issues"
+        },
+        {
+          "id": "errorData",
+          "title": "Issues as data: code, path, params"
+        },
+        {
+          "id": "i18n",
+          "title": "Localized messages"
+        },
+        {
+          "id": "unknownKeys",
+          "title": "Unknown keys"
+        },
+        {
+          "id": "noThrow",
+          "title": "A result instead of an exception"
+        },
+        {
+          "id": "cycles",
+          "title": "Cyclic and very deep input"
+        }
+      ]
+    },
+    {
+      "title": "Parsing",
+      "rows": [
+        {
+          "id": "defaults",
+          "title": "Defaults"
+        },
+        {
+          "id": "transforms",
+          "title": "Transforms and decoders"
+        },
+        {
+          "id": "coercion",
+          "title": "Coercion of input types"
+        },
+        {
+          "id": "encode",
+          "title": "Encode back (bidirectional codecs)"
+        }
+      ]
+    },
+    {
+      "title": "TypeScript",
+      "rows": [
+        {
+          "id": "infer",
+          "title": "Static type inferred from the schema"
+        },
+        {
+          "id": "inOut",
+          "title": "Separate input and output types"
+        },
+        {
+          "id": "dts",
+          "title": "Generates TypeScript source"
+        }
+      ]
+    },
+    {
+      "title": "Interoperability",
+      "rows": [
+        {
+          "id": "standard",
+          "title": "Standard Schema"
+        },
+        {
+          "id": "jsonSchemaOut",
+          "title": "JSON Schema export"
+        },
+        {
+          "id": "jsonSchemaIn",
+          "title": "JSON Schema import"
+        },
+        {
+          "id": "llm",
+          "title": "LLM structured-output profile"
+        }
+      ]
+    },
+    {
+      "title": "Domain models",
+      "rows": [
+        {
+          "id": "entities",
+          "title": "Entities with storage metadata"
+        },
+        {
+          "id": "references",
+          "title": "References: an id or the record"
+        },
+        {
+          "id": "indexes",
+          "title": "Indexes and unique keys"
+        },
+        {
+          "id": "relations",
+          "title": "Relation metadata"
+        },
+        {
+          "id": "derive",
+          "title": "Derive a schema: pick, omit, partial, extend"
+        },
+        {
+          "id": "model",
+          "title": "A model of many schemas"
+        }
+      ]
+    },
+    {
+      "title": "Evolution",
+      "rows": [
+        {
+          "id": "snapshot",
+          "title": "Snapshot of a schema or model"
+        },
+        {
+          "id": "diff",
+          "title": "Diff of two versions"
+        },
+        {
+          "id": "compat",
+          "title": "Compatibility of a change"
+        },
+        {
+          "id": "aliases",
+          "title": "Field aliases (renames)"
+        },
+        {
+          "id": "deprecated",
+          "title": "Deprecation markers"
+        }
+      ]
+    },
+    {
+      "title": "Tooling",
+      "rows": [
+        {
+          "id": "sample",
+          "title": "Sample values from a schema"
+        },
+        {
+          "id": "inferFromData",
+          "title": "A schema inferred from data"
+        },
+        {
+          "id": "merge",
+          "title": "Merge or intersect two schemas"
+        },
+        {
+          "id": "lint",
+          "title": "Warnings about a definition"
+        },
+        {
+          "id": "stream",
+          "title": "Streams and iterables of records"
+        },
+        {
+          "id": "jit",
+          "title": "Compiled to code, with a fallback"
+        },
+        {
+          "id": "introspection",
+          "title": "Readable at runtime"
+        }
+      ]
+    }
+  ],
+  "libraries": [
+    {
+      "id": "metaschema",
+      "name": "metaschema",
+      "url": "https://github.com/Alexis-Technologies/metaschema",
+      "direction": "schemas + IDL",
+      "package": "@alexify/metaschema",
+      "version": "3.2.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "3.2.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10 (this release)"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node 18+, browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS, ESM named imports"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "closures; JIT opt-in, falls back"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "plain object: `'?string'`, `{ array: 'number' }`"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "plain objects (functions aside)"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "`'?x'`, `'key?'`, `nullable: true`"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "`union`, `discriminator`"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "`['number', 'string']`"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "by name, cycles tracked"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "capitalized names in a `Model`"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "registered by name"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "9 + your own (`./formats`)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, Map, Set"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "`validate` on a field and a schema"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "`checkAsync`, run concurrently"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all, by default"
+        },
+        "errorLimit": {
+          "mark": "✅",
+          "text": "`maxErrors`"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "code, path array, params"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "en, uk; a locale per call"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "reject (default), ignore, strip"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "`check`, `parse` return a result"
+        },
+        "cycles": {
+          "mark": "✅",
+          "text": "tracked at references, `maxDepth`"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "`default`, a value or a factory"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "a field's `parse` (decoder)"
+        },
+        "coercion": {
+          "mark": "❌",
+          "text": "a decoder on a string field"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "`serialize`"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "`Infer`, `InferSchema`"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "`Infer` / `InferOutput`"
+        },
+        "dts": {
+          "mark": "✅",
+          "text": "`toTypeScript`, `saveTypes`"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 + JSON Schema converter"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "2020-12, draft-07, OpenAPI 3.0, MongoDB"
+        },
+        "jsonSchemaIn": {
+          "mark": "✅",
+          "text": "`fromJSONSchema` (a subset)"
+        },
+        "llm": {
+          "mark": "✅",
+          "text": "the strict profile"
+        },
+        "entities": {
+          "mark": "✅",
+          "text": "kinds: Entity, Registry, …"
+        },
+        "references": {
+          "mark": "✅",
+          "text": "an id or the record, by kind or per call"
+        },
+        "indexes": {
+          "mark": "✅",
+          "text": "`index`, `primary`, `unique`"
+        },
+        "relations": {
+          "mark": "✅",
+          "text": "`schema.relations`"
+        },
+        "derive": {
+          "mark": "⚠️",
+          "text": "`Projection`, `merge`; no partial"
+        },
+        "model": {
+          "mark": "✅",
+          "text": "`Model`: order, missing references"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "`model.toJSON()`, `fromJSON`"
+        },
+        "diff": {
+          "mark": "✅",
+          "text": "`diff`"
+        },
+        "compat": {
+          "mark": "✅",
+          "text": "backward / forward / full"
+        },
+        "aliases": {
+          "mark": "✅",
+          "text": "`aliases`, renamed by `parse`"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": "`deprecated`"
+        },
+        "sample": {
+          "mark": "✅",
+          "text": "`sample`, seeded"
+        },
+        "inferFromData": {
+          "mark": "✅",
+          "text": "`infer`"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "`merge`"
+        },
+        "lint": {
+          "mark": "✅",
+          "text": "`schema.warnings`"
+        },
+        "stream": {
+          "mark": "✅",
+          "text": "`checkEach`, `transform`"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "`compile()`, closures fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "`fields`, `toJSON()`"
+        }
+      }
+    },
+    {
+      "id": "metarhia",
+      "name": "Metarhia metaschema",
+      "url": "https://github.com/metarhia/metaschema",
+      "direction": "IDL, the original",
+      "package": "metaschema",
+      "version": "2.2.2",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.2.2"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-05"
+        },
+        "deps": {
+          "mark": "",
+          "text": "2: metautil, metavm"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node; browsers via bundler",
+          "note": "A minified bundle validates nothing but unknown keys: identity is checked by constructor.name === 'Type' (lib/util.js:42, lib/struct.js:34), which minifiers rename. esbuild minify without keepNames: { a: 1 } against { a: 'string' } is valid."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (validation)"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "plain object literal ('?string', kind key)"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "plain objects (functions aside)"
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "'?type' = absent/undefined/null"
+        },
+        "unions": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "tuples": {
+          "mark": "⚠️",
+          "text": "array shorthand, scalars only"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "by entity name in a Model"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "capitalized names via Model"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "Model types: js alias or checkType"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "BigInt, Map, Set; no Date"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "field and schema validate",
+          "note": "A field validate runs even when the type check already failed (both messages reported)."
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "errorData": {
+          "mark": "❌",
+          "text": "message strings",
+          "note": "An unknown nested key loses its path: { nested: { extra } } reports Field \"extra\" (research-scripts/metarhia-basics.mjs)."
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "⚠️",
+          "text": "reject only (no option)",
+          "note": "Keys named like Struct.prototype members (constructor, check, __proto__) pass silently: this[name] finds the inherited member (lib/struct.js:29-34)."
+        },
+        "noThrow": {
+          "mark": "⚠️",
+          "text": "check() returns a result",
+          "note": "`check(null)` throws."
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "no detection; stack overflow"
+        },
+        "defaults": {
+          "mark": "❌",
+          "text": "kept as metadata only"
+        },
+        "transforms": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "coercion": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "model.dts, flat scalars only",
+          "note": "Only number/string/boolean are typed: a nested struct, enum, array or custom type is rendered as string (profile: string), and a reference as <name>Id: string although check validates the embedded record."
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "✅",
+          "text": "11 kinds: scope, store, id field"
+        },
+        "references": {
+          "mark": "⚠️",
+          "text": "embedded record only",
+          "note": "An id is never accepted, while the generated dts names the field companyId: string."
+        },
+        "indexes": {
+          "mark": "✅",
+          "text": "index/primary/unique arrays"
+        },
+        "relations": {
+          "mark": "⚠️",
+          "text": "schema.relations { to, type }",
+          "note": "The labels are reversed: a many field is labelled many-to-one and a single reference one-to-many."
+        },
+        "derive": {
+          "mark": "⚠️",
+          "text": "Projection kind (pick fields)"
+        },
+        "model": {
+          "mark": "✅",
+          "text": "Model: order, missing refs"
+        },
+        "snapshot": {
+          "mark": "⚠️",
+          "text": "schema.toJSON(), fields only"
+        },
+        "diff": {
+          "mark": "🔜",
+          "text": "issue #251 (migrations)"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "lint": {
+          "mark": "⚠️",
+          "text": "model.warnings: refs, recursion"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "fields, kind, indexes, relations"
+        }
+      }
+    },
+    {
+      "id": "zod",
+      "name": "Zod",
+      "url": "https://github.com/colinhacks/zod",
+      "direction": "TS-first",
+      "package": "zod",
+      "version": "4.6.6",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "4.6.6"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "object JIT by default; auto fallback",
+          "note": "z.object builds a fast path with new Function when eval is allowed; a CSP probe (or z.config({ jitless: true })) switches to the interpreter. z.compile / \"zod/compile\" also use new Function and fall back to the runtime parser."
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder / method chain (zod/mini: functional)"
+        },
+        "asData": {
+          "mark": "⚠️",
+          "text": "via toJSONSchema / fromJSONSchema"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional, exactOptional, nullable, nullish"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "union, discriminatedUnion, xor"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "z.tuple with rest"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "getters or z.lazy"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "JS variables only"
+        },
+        "customTypes": {
+          "mark": "❌",
+          "text": "z.custom() values, no name registry"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "30+ (email, uuid, url, ip, iso.datetime…)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, Map, Set, Symbol, File"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": ".refine / .superRefine / .check"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "parseAsync; concurrent"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first (validate) or all"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "code, path[], expected/minimum…"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "62 locales; per-call error fn"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "strip (default), strict, loose"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "safeParse"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "cycle-safe; no depth limit",
+          "note": "The classic API installs a memoizer: a self-referencing value parses (output keeps the cycle), unless the cycle closes through a transform ($ZodCyclicError). zod/mini has no memoizer unless configured. 10 000-deep input overflows the stack."
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": ".default(), .prefault(), .catch()"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": ".transform, z.pipe, z.preprocess"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "z.coerce.*, z.stringbool"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "z.codec + z.encode"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "z.infer"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "z.input / z.output"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "zod-to-ts (third-party)"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 + ~standard.jsonSchema"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "2020-12, draft-07, draft-04, OpenAPI 3.0"
+        },
+        "jsonSchemaIn": {
+          "mark": "✅",
+          "text": "z.fromJSONSchema",
+          "note": "Its JSDoc calls it semi-experimental."
+        },
+        "llm": {
+          "mark": "⚠️",
+          "text": "openai/helpers/zod (third-party)"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, required, extend, deepPartial"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "⚠️",
+          "text": "via JSON Schema round trip"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": ".meta({ deprecated: true })"
+        },
+        "sample": {
+          "mark": "⚠️",
+          "text": "zod-schema-faker (third-party)"
+        },
+        "inferFromData": {
+          "mark": "⚠️",
+          "text": "json-to-zod (third-party, 2022)"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "z.intersection, .extend"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "z.compile / zod/compile; runtime fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": ".def, .shape, .meta()"
+        }
+      }
+    },
+    {
+      "id": "valibot",
+      "name": "Valibot",
+      "url": "https://github.com/open-circle/valibot",
+      "direction": "TS-first",
+      "package": "valibot",
+      "version": "1.5.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.5.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-09"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "functions + pipe()"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "export only (@valibot/to-json-schema)"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional, exactOptional, nullable, nullish, undefinedable"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "union, variant (discriminated)"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "tuple, strictTuple, tupleWithRest"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "v.lazy"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "JS variables only"
+        },
+        "customTypes": {
+          "mark": "❌",
+          "text": "v.custom() values, no name registry"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "~37 actions (email, uuid, url, isoDateTime…)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, Map, Set, Blob, File"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "check (field), forward+partialCheck (object)"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "*Async schemas; concurrent",
+          "note": "Async needs the parallel *Async API (objectAsync, pipeAsync, checkAsync). In plain JS, the sync safeParse of an async schema reports success: true for invalid input (the Promise has no issues); TypeScript forbids the call."
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default; abortEarly"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "type, path[], expected/received/requirement"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "@valibot/i18n (34 locales); per-call message fn",
+          "note": "In @valibot/i18n 1.3.0 the CommonJS root entry does not load (index.cjs declares `var import_zh-CN`, a SyntaxError); ESM and per-locale imports work."
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "strip (default), strict, loose, rest"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "safeParse, is"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow, no depth limit"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "optional(schema, default), fallback"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "transform, rawTransform in pipe"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "toNumber, toDate, toBoolean… actions"
+        },
+        "encode": {
+          "mark": "🔜",
+          "text": "planned for v2 (#658)"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "InferOutput"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "InferInput / InferOutput"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 on every schema"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "draft-07, 2020-12, OpenAPI 3.0 (@valibot/to-json-schema)"
+        },
+        "jsonSchemaIn": {
+          "mark": "⚠️",
+          "text": "json-schema-to-valibot (third-party, codegen)"
+        },
+        "llm": {
+          "mark": "⚠️",
+          "text": "@ai-sdk/valibot (third-party)"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, required"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "export only, no restore"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "free-form metadata() only"
+        },
+        "sample": {
+          "mark": "⚠️",
+          "text": "valimock (third-party)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "intersect"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "🔜",
+          "text": "compiler PR by the author (#1441)"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "plain schema objects (type, entries, pipe)"
+        }
+      }
+    },
+    {
+      "id": "arktype",
+      "name": "ArkType",
+      "url": "https://github.com/arktypeio/arktype",
+      "direction": "TS-first",
+      "package": "arktype",
+      "version": "2.2.8",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.2.8"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "3: @ark/schema, @ark/util, arkregex"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "JIT by default; auto jitless under CSP"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "TS-syntax strings in object literals + chaining"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "string/object defs; .json IR"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "'key?' (no undefined), '| null', '| undefined'"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "'a | b', .or(); auto-discriminated"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "['string', 'number'], variadic '...'"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "scope names, 'this'"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "scope({ User, Group }) by name"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "scope aliases, generics, keywords"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "~18 string.* (email, uuid, url, ip…)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, bigint, Map, Set, symbol, Blob, File…"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": ".narrow() on fields and objects"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "not supported (by design)",
+          "note": "A narrow that returns a Promise passes, because the predicate result is only tested for truthiness."
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "all only"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "code, path[], expected/actual/rule"
+        },
+        "i18n": {
+          "mark": "⚠️",
+          "text": "per-kind message config; no locales"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore (default), reject, delete"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "T(data) returns data | ArkErrors"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "cycle-safe; no depth limit"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "'string = \"x\"', .default()"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "morphs: .pipe(), .to(), '=>'"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "string.numeric.parse, string.date.parse…"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "typeof T.infer"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "T.inferIn / T.inferOut"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": ".expression is ArkType syntax, not TS"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 + ~standard.jsonSchema"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "draft 2020-12, draft-07"
+        },
+        "jsonSchemaIn": {
+          "mark": "⚠️",
+          "text": "@ark/json-schema 0.0.12 (no $ref)"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, required, merge"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "scope(): resolves names, errors on missing"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": ".json → type.schema()"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "⚠️",
+          "text": "via .extends() / .equals()"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": ".configure({ deprecated: true })"
+        },
+        "sample": {
+          "mark": "✅",
+          "text": "@ark/fast-check (arkToArbitrary)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": ".merge(), .and()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "JIT by default; jitless fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": ".json, .props, .expression, .select()"
+        }
+      }
+    },
+    {
+      "id": "effect",
+      "name": "Effect Schema",
+      "url": "https://github.com/Effect-TS/effect",
+      "direction": "TS-first",
+      "package": "effect",
+      "version": "4.0.3",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "4.0.3"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never by default (JIT opt-in)"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder values: Schema.Struct({...}).pipe/.check"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "SchemaRepresentation.toJson / fromJson"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optionalKey, optional, NullOr, UndefinedOr, NullishOr"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "Union, Literals, TaggedUnion"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "Tuple, TupleWithRest"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "Schema.suspend"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "JS variables only"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "Schema.declare; reviver ids for restore"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "uuid, ulid, base64, URL, IP; no email"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, ReadonlyMap, ReadonlySet, Symbol…"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": ".check(makeFilter), refine"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "Effect getters; concurrency option"
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first by default; errors: 'all'"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "tagged issue tree; paths; check params"
+        },
+        "i18n": {
+          "mark": "⚠️",
+          "text": "message annotations, formatter hooks; no locales"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "strip (default), error; keep via StructWithRest"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "decodeUnknownResult / Exit / Option"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow, no depth limit",
+          "note": "The RangeError surfaces as a defect: the Result/Exit adapters throw \"Result adapter can only return schema issues\"."
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "withDecodingDefault(Key), withConstructorDefault"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "decodeTo + SchemaTransformation"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "NumberFromString, DateFromString…"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "encodeSync / encodeUnknown*"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "typeof S.Type"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "S.Type / S.Encoded"
+        },
+        "dts": {
+          "mark": "✅",
+          "text": "SchemaRepresentation.toCodeDocument"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 via toStandardSchemaV1()",
+          "note": "Schemas do not carry ~standard themselves ('~standard' in schema is false); wrap with Schema.toStandardSchemaV1 / toStandardJSONSchemaV1."
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "2020-12, draft-07, draft-04, OpenAPI 3.1"
+        },
+        "jsonSchemaIn": {
+          "mark": "✅",
+          "text": "SchemaRepresentation.fromJsonSchemaDocument"
+        },
+        "llm": {
+          "mark": "✅",
+          "text": "effect/ai toCodecOpenAI, toCodecAnthropic",
+          "note": "Marked @stability unstable."
+        },
+        "entities": {
+          "mark": "⚠️",
+          "text": "schema/Model variants + SqlModel"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "mapFields + Struct.pick/omit/map"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "SchemaRepresentation toJson / fromJson"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "⚠️",
+          "text": "Schema.encodeKeys (one encoded name)"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "✅",
+          "text": "Arbitrary.schema (own engine)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "⚠️",
+          "text": "fieldsAssign (struct fields only)"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "✅",
+          "text": "ChannelSchema.decode/encode",
+          "note": "Works on Effect Channels/Streams (unstable), not on Web Streams directly."
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "opt-in JIT + AOT; interpreter fallback",
+          "note": "Both are @stability unstable; the interpreter is the default."
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": ".ast, .fields, annotations"
+        }
+      }
+    },
+    {
+      "id": "superstruct",
+      "name": "Superstruct",
+      "url": "https://github.com/ianstormtaylor/superstruct",
+      "direction": "TS-first",
+      "package": "superstruct",
+      "version": "2.0.2",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.0.2",
+          "note": "No release since 2024-07; MetaMask publishes a maintained fork, `@metamask/superstruct`."
+        },
+        "released": {
+          "mark": "",
+          "text": "2024-07"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥14, browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "function combinators: object({ a: string() })"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional(), nullable()"
+        },
+        "unions": {
+          "mark": "⚠️",
+          "text": "union(); no discriminated union"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "tuple([..])"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "lazy(() => S)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "define(name, fn); no registry"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none (pattern() only)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, Map, Set"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "refine(struct, name, fn)"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first; all via `failures()`"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all only"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "path array, type/refinement; no params"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none (per-call message string)"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "object() rejects; type() ignores; mask() strips"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "validate() → [error, value]; is()"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "defaulted(), via create()/mask()",
+          "note": "Defaults apply only on the coercing calls (create, mask, validate with coerce: true), not in is()/assert()."
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "coerce(struct, from, fn) via create()"
+        },
+        "coercion": {
+          "mark": "❌",
+          "text": "none (trimmed() only)"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "Infer<typeof S>"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, assign"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": "deprecated(struct, log)"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "assign(), intersection()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "⚠️",
+          "text": "struct.type, struct.schema"
+        }
+      }
+    },
+    {
+      "id": "io-ts",
+      "name": "io-ts",
+      "url": "https://github.com/gcanti/io-ts",
+      "direction": "TS-first",
+      "package": "io-ts",
+      "version": "2.2.22",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "2.2.22"
+        },
+        "released": {
+          "mark": "",
+          "text": "2024-12"
+        },
+        "deps": {
+          "mark": "",
+          "text": "0 + peer fp-ts"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS + ESM (module field)"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "codec combinators: t.type({ a: t.string })"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "t.partial vs t.union([X, t.null])"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "union(), tag detected automatically"
+        },
+        "tuples": {
+          "mark": "⚠️",
+          "text": "tuple([..]) strips extra items",
+          "note": "A longer array is accepted and truncated, not rejected."
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "t.recursion(name, f)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "new t.Type(name, is, validate, encode); no registry"
+        },
+        "formats": {
+          "mark": "⚠️",
+          "text": "io-ts-types: UUID, ISO dates"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "BigInt; Date/Map/Set via io-ts-types"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "refinement(), brand()"
+        },
+        "async": {
+          "mark": "⚠️",
+          "text": "experimental TaskDecoder, concurrent",
+          "note": "TaskDecoder belongs to the experimental modules (lib/TaskDecoder.d.ts:2, \"independent and backward-incompatible with stable ones\")."
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "all only"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "context path, expected codec, value; no codes"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "⚠️",
+          "text": "ignore (t.type), strip (t.exact/t.strict); no reject"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "decode() → Either"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "io-ts-types fromNullable/withFallback"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "custom Type with validate/encode"
+        },
+        "coercion": {
+          "mark": "⚠️",
+          "text": "io-ts-types NumberFromString etc."
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "codec.encode()"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "t.TypeOf<typeof C>"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "TypeOf, InputOf, OutputOf"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "⚠️",
+          "text": "io-ts-to-json-schema (third-party)"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "⚠️",
+          "text": "partial, exact, intersection; no pick/omit"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "⚠️",
+          "text": "fast-check-io-ts (third-party)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "intersection()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "_tag, props, types, name"
+        }
+      }
+    },
+    {
+      "id": "runtypes",
+      "name": "Runtypes",
+      "url": "https://github.com/runtypes/runtypes",
+      "direction": "TS-first",
+      "package": "runtypes",
+      "version": "7.0.5",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "7.0.5"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-08"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, Deno (JSR), browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "runtype values: Object({ a: String })"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional(), nullable(), undefinedable()"
+        },
+        "unions": {
+          "mark": "⚠️",
+          "text": "Union(...); no discriminator"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "Tuple(...), with Spread rest"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "Lazy(() => R)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "withBrand/withConstraint; no registry"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none (Template literals)"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "BigInt, Symbol; Date/Map/Set via InstanceOf"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "withConstraint, withGuard, withAssertion"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "all only"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "code, expected, received; nested details"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "check ignores, parse strips, exact() rejects",
+          "note": "The same schema keeps unknown keys under check()/guard() and drops them under parse()."
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "inspect() → result; guard()"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "cycles accepted; deep input overflows"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "default(value), parse only",
+          "note": "The default is a value, not a factory: default([]) hands every parse the same array (script)."
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "withParser(fn), parse only"
+        },
+        "coercion": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "Static<typeof R>"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "Static vs Parsed"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, extend, asPartial"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "Intersect(...), and()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "tag, fields, alternatives, element"
+        }
+      }
+    },
+    {
+      "id": "myzod",
+      "name": "myzod",
+      "url": "https://github.com/davidmdm/myzod",
+      "direction": "TS-first",
+      "package": "myzod",
+      "version": "1.12.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.12.1",
+          "note": "No commits since the 2025-02 release."
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-02"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node; browsers/edge via a bundler"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder chain: myzod.object({ a: myzod.string() })"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional(), nullable()"
+        },
+        "unions": {
+          "mark": "⚠️",
+          "text": "union([..]) / or(); no discriminator"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "tuple([..])"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "lazy(() => S)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "withPredicate/map on a base type; no registry"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none (pattern() only)"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date, BigInt"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "withPredicate(fn, msg)"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none",
+          "note": "An async predicate silently passes every value (its promise is truthy)."
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first; collectErrors() per object"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all only"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "path array + message; no codes"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none (per-schema messages)"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "reject (default), strip"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "try() → value | ValidationError"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "the overflow caught as an issue",
+          "note": "The RangeError of a cyclic or 3 000-deep value is returned as an issue whose path is thousands of keys long."
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "default(value | fn)"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "map(fn)"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "number coerce, date, bigint, enum case",
+          "note": "Lenient: number().coerce() turns \"1abc\" into 1, number() accepts NaN, bigint() accepts true (script)."
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "Infer<typeof S>"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial (deep), required"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "and() / intersection()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "⚠️",
+          "text": "shape(); other parts private"
+        }
+      }
+    },
+    {
+      "id": "valita",
+      "name": "Valita",
+      "url": "https://github.com/badrap/valita",
+      "direction": "TS-first",
+      "package": "@badrap/valita",
+      "version": "0.5.5",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "0.5.5"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node ≥22, Deno (JSR), browsers, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder chain: v.object({ a: v.string() })"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional(), nullable()"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "union(), auto-discriminated"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "tuple([..]), variadic via concat",
+          "note": "The invalid_length message is garbled in 0.5.5 (\"expected an arraywith items\", :852-866): a missing space and no count."
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "lazy(() => T)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "unknown().assert()/chain(); no registry"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "BigInt only"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "assert(fn, msg), chain()"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none (non-goal)",
+          "note": "An async predicate silently passes every value."
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "all only"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "code, path array, expected/keys/bounds"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "strict (default), strip, passthrough per call"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "try() → { ok, value | issues }"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "optional(() => v), nullable(() => v)"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "map(fn), chain(fn)"
+        },
+        "coercion": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "v.Infer<typeof T>"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "output only"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1 (~standard), libraryOptions.mode"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, extend, rest"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "⚠️",
+          "text": "extend(other.shape); no intersection"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "⚠️",
+          "text": "name, shape, options; transforms opaque"
+        }
+      }
+    },
+    {
+      "id": "yup",
+      "name": "Yup",
+      "url": "https://github.com/jquense/yup",
+      "direction": "validator",
+      "package": "yup",
+      "version": "1.7.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.7.1"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-09"
+        },
+        "deps": {
+          "mark": "",
+          "text": "4: property-expr, tiny-case, toposort, type-fest"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder / method chain"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "describe() is one-way"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional() / nullable() / defined()"
+        },
+        "unions": {
+          "mark": "❌",
+          "text": "no union type"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "tuple()"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "lazy()"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none (ref() is a value ref)"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "addMethod(), mixed(check)"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "4: email, url, uuid, datetime",
+          "note": "Regex-only: uuid() accepts versions 1-5 only (a v7 UUID fails) and datetime() does not check ranges."
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "test() on fields and objects"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "async test(), concurrent"
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first by default; abortEarly: false"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "type, params; path is a string"
+        },
+        "i18n": {
+          "mark": "⚠️",
+          "text": "global setLocale(); English only"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "keep default; exact() rejects, stripUnknown",
+          "note": "noUnknown() strips unknown keys instead of rejecting them unless the schema is strict() (the README warns about it); exact() rejects."
+        },
+        "noThrow": {
+          "mark": "⚠️",
+          "text": "isValid(), ~standard.validate"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "default(), factories"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "transform()"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "on by default; strict() off"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "InferType"
+        },
+        "inOut": {
+          "mark": "⚠️",
+          "text": "defaults only, in ~standard types"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1, always async",
+          "note": "~standard.validate always returns a promise and runs with abortEarly: false; array indexes come back as strings."
+        },
+        "jsonSchemaOut": {
+          "mark": "⚠️",
+          "text": "@sodaru/yup-to-json-schema (3rd party)"
+        },
+        "jsonSchemaIn": {
+          "mark": "⚠️",
+          "text": "json-schema-to-yup (3rd party)"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, shape, concat"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "⚠️",
+          "text": "describe(), no restore"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "✅",
+          "text": "object.from(old, new, alias)"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none (meta() is free-form)"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "concat()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "describe(), fields, spec"
+        }
+      }
+    },
+    {
+      "id": "joi",
+      "name": "Joi",
+      "url": "https://github.com/hapijs/joi",
+      "direction": "validator",
+      "package": "joi",
+      "version": "18.2.9",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "18.2.9"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-09"
+        },
+        "deps": {
+          "mark": "",
+          "text": "7 (@hapi/*, …)"
+        },
+        "license": {
+          "mark": "",
+          "text": "BSD-3-Clause"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node ≥ 20; browsers via a separate bundle",
+          "note": "The browser bundle has no describe()/build() ('Manifest functionality disabled'), binary() or trace(); the main entry needs Node's url and util modules."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder / method chain"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "describe() ↔ Joi.build()"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "optional default; allow(null); required()"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "alternatives(); conditional() switch"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "array().ordered()"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "link('#id')"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "id() + link('#id'), shared()"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "Joi.extend({ type })"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "14: email, uri, uuid, ip, isoDate..."
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date, Buffer, symbol, function"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "custom() on any schema"
+        },
+        "async": {
+          "mark": "⚠️",
+          "text": "external(): sequential, after sync rules",
+          "note": "custom() given an async function passes and returns a Promise as the value (research-scripts/joi-extra.mjs)."
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first by default; abortEarly: false"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all"
+        },
+        "errorData": {
+          "mark": "✅",
+          "text": "type, path array, context"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "messages + errors.language per call"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "reject default; allowUnknown, stripUnknown"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "validate() → { value, error }"
+        },
+        "cycles": {
+          "mark": "✅",
+          "text": "link.depth issue; maxRecursion(n)"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "default(), factories"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "custom() return value, rename(), trim()..."
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "convert: true by default",
+          "note": "number() also rejects values beyond Number.MAX_SAFE_INTEGER unless unsafe() (types/number.js:104)."
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "joi-to-typescript (3rd party)"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "v1, + Standard JSON Schema"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "2020-12 via ~standard.jsonSchema"
+        },
+        "jsonSchemaIn": {
+          "mark": "⚠️",
+          "text": "enjoi (3rd party)"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "keys, append, fork, tailor, concat"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "describe() / Joi.build()"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "✅",
+          "text": "rename(old, new, { alias })"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none (meta(), notes free-form)"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none (example() is an annotation)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "concat()"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "describe(), $_terms, _rules"
+        }
+      }
+    },
+    {
+      "id": "vine",
+      "name": "VineJS",
+      "url": "https://github.com/vinejs/vine",
+      "direction": "validator",
+      "package": "@vinejs/vine",
+      "version": "4.4.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "4.4.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-04"
+        },
+        "deps": {
+          "mark": "",
+          "text": "10 (validator.js, dayjs, …)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node, Bun, Deno; browsers if eval is allowed",
+          "note": "The compiled validator needs code generation, so it does not run on Cloudflare Workers or under a CSP without unsafe-eval."
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "❌",
+          "text": "new AsyncFunction per schema"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder / method chain (mutable)"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "toJSON() holds functions"
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "optional() also accepts null",
+          "note": "optional() lets null through and drops it from the output; nullable() keeps the key required; an absent key and undefined are the same."
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "union() with if(), unionOfTypes()"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "vine.tuple()"
+        },
+        "recursive": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "createRule(), macro() methods"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "18: email, url, uuid, ulid, ip, iban, jwt..."
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date (output), File"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "createRule() + use(), any level"
+        },
+        "async": {
+          "mark": "⚠️",
+          "text": "async rules, in sequence"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all fields; first per field"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "rule, meta; path is a dot string"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "messagesProvider per call; English only"
+        },
+        "unknownKeys": {
+          "mark": "⚠️",
+          "text": "strip default; allowUnknownProperties()",
+          "note": "No way to reject unknown keys."
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "tryValidate() → [error, value]"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "finite schemas; the unknown-key copy overflows"
+        },
+        "defaults": {
+          "mark": "❌",
+          "text": "none (parse() can fill)"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "transform(), parse()"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "form semantics by default; { strict: true }"
+        },
+        "encode": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "Infer<typeof schema>"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "InferInput / Infer"
+        },
+        "dts": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "standard": {
+          "mark": "⚠️",
+          "text": "v1 on validators; path is a string",
+          "note": "~standard.validate puts the dotted field string in path (the specification wants an array) and, for a valid falsy output (false, 0, ''), returns { issues: undefined } without the value. Schemas themselves have no ~standard; vine.create() validators do."
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "draft-07 via toJSONSchema()"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, partial, merge(group)"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "⚠️",
+          "text": "toJSON(), no restore"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "always; no interpreter fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "toJSON() tree, getProperties()"
+        }
+      }
+    },
+    {
+      "id": "class-validator",
+      "name": "class-validator",
+      "url": "https://github.com/typestack/class-validator",
+      "direction": "decorators",
+      "package": "class-validator",
+      "version": "0.15.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "0.15.1"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-02"
+        },
+        "deps": {
+          "mark": "",
+          "text": "3 (validator.js, libphonenumber-js, …)"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never"
+        },
+        "noBuild": {
+          "mark": "⚠️",
+          "text": "legacy TS decorators, or by hand",
+          "note": "Standard (TC39) decorators are not supported; class-transformer's implicit conversion also needs emitDecoratorMetadata."
+        },
+        "style": {
+          "mark": "",
+          "text": "decorators on classes"
+        },
+        "asData": {
+          "mark": "❌",
+          "text": "registerSchema() is broken",
+          "note": "After registerSchema(), validating any decorated class throws the same TypeError (MetadataStorage.js:107)."
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "IsOptional() skips null and undefined"
+        },
+        "unions": {
+          "mark": "⚠️",
+          "text": "class-transformer discriminator"
+        },
+        "tuples": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "@ValidateNested + @Type(() => Self)"
+        },
+        "namedRefs": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "registerDecorator(), @ValidatorConstraint"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "50+ via validator.js (IsEmail, IsUUID, IsUrl...)"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date; Set/Map via each"
+        },
+        "refinements": {
+          "mark": "⚠️",
+          "text": "custom decorators per property"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "async constraints, concurrent",
+          "note": "validateSync() skips async validators silently and reports the value valid (Validator.js:31; script)."
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all by default; stopAtFirstError"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "constraint names; nested error tree"
+        },
+        "i18n": {
+          "mark": "⚠️",
+          "text": "message functions; none built in"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "keep default; whitelist strips, forbidNonWhitelisted",
+          "note": "whitelist deletes the keys from the validated object itself; forbidUnknownValues (default true) rejects an object with no metadata, so a plain object fails."
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "validate() → ValidationError[]"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "field initializers (class-transformer)"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "@Transform (class-transformer)"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "@Type / implicit (class-transformer)"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "instanceToPlain (class-transformer)"
+        },
+        "infer": {
+          "mark": "⚠️",
+          "text": "the class is the type"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "—",
+          "text": "schemas are TS classes"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaOut": {
+          "mark": "⚠️",
+          "text": "class-validator-jsonschema (3rd party)"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "⚠️",
+          "text": "class extends; @nestjs/mapped-types"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "⚠️",
+          "text": "@Expose({ name }) (class-transformer)"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "getMetadataStorage()"
+        }
+      }
+    },
+    {
+      "id": "ajv",
+      "name": "Ajv",
+      "url": "https://github.com/ajv-validator/ajv",
+      "direction": "JSON Schema",
+      "package": "ajv",
+      "version": "8.20.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "8.20.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-04"
+        },
+        "deps": {
+          "mark": "",
+          "text": "4"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node, browsers; CSP/edge need standalone",
+          "note": "Runtimes that forbid eval (Cloudflare Workers, strict CSP) can only run validation code pre-generated with ajv/dist/standalone at build time."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "new Function; standalone precompile"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS; standalone optional"
+        },
+        "style": {
+          "mark": "",
+          "text": "JSON Schema or JTD document"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "JSON Schema / JTD documents"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "`required` vs type null / `nullable`"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "anyOf / oneOf; `discriminator` opt-in"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "prefixItems + items: false"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "$ref, $dynamicRef"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "$ref by $id; ajv.addSchema"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "addKeyword / addSchema, not types"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "ajv-formats: 26",
+          "note": "The core has none: in strict mode a schema with an unknown format fails to compile (\"unknown format \\\"email\\\" ignored in schema\")."
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Date via ajv-keywords or JTD"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "custom keywords (addKeyword)"
+        },
+        "async": {
+          "mark": "⚠️",
+          "text": "$async schemas; awaited one by one"
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first by default; `allErrors: true`",
+          "note": "The Ajv security guide says not to use allErrors: true in production (research/ajv-src/docs/security.md:41)."
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "keyword, params; path as JSON Pointer"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "ajv-i18n: 23 locales"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore default; reject, strip (removeAdditional)"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "validate() → boolean + .errors"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "RangeError; no detection or depth limit"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "useDefaults: true (in place)",
+          "note": "Defaults are written into the input object, and not inside anyOf/oneOf/not."
+        },
+        "transforms": {
+          "mark": "⚠️",
+          "text": "ajv-keywords transform (strings only)"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "coerceTypes: true | \"array\""
+        },
+        "encode": {
+          "mark": "⚠️",
+          "text": "JTD compileSerializer (to JSON)"
+        },
+        "infer": {
+          "mark": "⚠️",
+          "text": "JTDDataType (JTD only)"
+        },
+        "inOut": {
+          "mark": "—",
+          "text": "no transforms"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "json-schema-to-typescript (third-party)"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "the schema is JSON Schema"
+        },
+        "jsonSchemaIn": {
+          "mark": "✅",
+          "text": "draft-07, 2019-09, 2020-12, JTD"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "⚠️",
+          "text": "allOf; ajv-merge-patch $merge/$patch"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "Ajv instance as $ref registry"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "schemas are JSON"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": "deprecated keyword (annotation)"
+        },
+        "sample": {
+          "mark": "⚠️",
+          "text": "json-schema-faker (third-party)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "⚠️",
+          "text": "allOf; ajv-merge-patch $merge"
+        },
+        "lint": {
+          "mark": "✅",
+          "text": "strict mode; strictTypes logs"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "always compiles; no interpreter"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "the schema is a plain object"
+        }
+      }
+    },
+    {
+      "id": "typebox",
+      "name": "TypeBox",
+      "url": "https://github.com/sinclairzx81/typebox",
+      "direction": "JSON Schema",
+      "package": "typebox",
+      "version": "1.3.36",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "1.3.36",
+          "note": "The legacy @sinclair/typebox 0.34.52 differs materially: CJS + ESM, Type.Date / Uint8Array and a TypeRegistry for custom kinds, and a Value.Parse that cleans, defaults and converts by default (research/typebox-legacy/node_modules/@sinclair/typebox/build/cjs/value/parse/parse.js:60-66)."
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "Node, browsers, Deno, Bun, edge"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "Compile evals, falls back; Value never"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "builder (Type.Object…); TS-syntax strings via Type.Script"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "types are JSON Schema objects"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "Optional, Union with Null, Undefined"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "Type.Union (anyOf); no discriminator"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "Type.Tuple"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "Type.Cyclic, Type.Module"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "Type.Ref + context, Module, $id"
+        },
+        "customTypes": {
+          "mark": "⚠️",
+          "text": "Unsafe + Refine; Script/Module names"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "21 built in",
+          "note": "An unregistered format name passes silently: Format.Test returns true when the name is unknown (_registry.ts:103-106; typebox-behaviour.mjs)."
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "BigInt, Symbol, Undefined; no Date/Map/Set",
+          "note": "Type.Date and Type.Uint8Array were removed in 1.0; the migration guide rebuilds them with Type.Unsafe + Type.Refine."
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "Type.Refine on any type"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "sync only",
+          "note": "A refinement that returns a promise is not awaited: Value.Check returns true, and a compiled Check returns the Promise object itself, so the value is accepted."
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "`Errors()`: up to 8 by default"
+        },
+        "errorLimit": {
+          "mark": "⚠️",
+          "text": "`maxErrors` (8), process-wide"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "keyword, params; path as JSON Pointer"
+        },
+        "i18n": {
+          "mark": "✅",
+          "text": "38 locales; global Locale.Set"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore default; reject, Value.Clean strips"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "Check + Errors; Parse throws"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "RangeError; no detection or depth limit"
+        },
+        "defaults": {
+          "mark": "⚠️",
+          "text": "Value.Default; Decode pipeline",
+          "note": "Value.Parse and Compile().Parse never fill defaults (only with the global correctiveParse setting, and only for a value that fails the check); Value.Decode does, and Compile().Decode does only when the type contains a codec."
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "Type.Codec / Decode / Encode"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "Value.Convert (also inside Decode)"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "Codec + Value.Encode"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "Static<T>, also from plain JSON Schema"
+        },
+        "inOut": {
+          "mark": "✅",
+          "text": "StaticDecode / StaticEncode"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "json-schema-to-typescript (third-party)"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "types are JSON Schema (2020-12)"
+        },
+        "jsonSchemaIn": {
+          "mark": "✅",
+          "text": "Compile/Value accept drafts 3–2020-12"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "Pick, Omit, Partial, Required, Mapped"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "Type.Module (named types)"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "JSON.stringify; Compile reads it back"
+        },
+        "diff": {
+          "mark": "⚠️",
+          "text": "Value.Diff (generic JSON edits)"
+        },
+        "compat": {
+          "mark": "⚠️",
+          "text": "Type.Extends (assignability)"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "⚠️",
+          "text": "deprecated: true passes through"
+        },
+        "sample": {
+          "mark": "⚠️",
+          "text": "Value.Create (zero values)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "Intersect + Evaluate"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "Compile; interpreter fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "JSON Schema objects; Type.Is* guards"
+        }
+      }
+    },
+    {
+      "id": "typia",
+      "name": "typia",
+      "url": "https://github.com/samchon/typia",
+      "direction": "AOT compiler",
+      "package": "typia",
+      "version": "15.1.0",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "15.1.0"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "3: randexp, @typia/interface, @typia/utils"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "✅",
+          "text": "generated JS runs anywhere"
+        },
+        "module": {
+          "mark": "",
+          "text": "ESM + CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "code is generated at build time"
+        },
+        "noBuild": {
+          "mark": "❌",
+          "text": "requires ttsc transform (TypeScript 7)",
+          "note": "Since v13 the transform is written in Go and run by ttsc on the TypeScript 7 native compiler (the first build compiled the plugin in 85 s); typia 12 is the legacy ts-patch setup for TypeScript < 7. Bundlers need @ttsc/unplugin."
+        },
+        "style": {
+          "mark": "",
+          "text": "TS types + transformer; type tags"
+        },
+        "asData": {
+          "mark": "⚠️",
+          "text": "only via json.schema + @typia/utils"
+        },
+        "optionalNullable": {
+          "mark": "✅",
+          "text": "TS `?:`, `| null`, `| undefined`"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "TS unions; discriminant detected"
+        },
+        "tuples": {
+          "mark": "✅",
+          "text": "TS tuples"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "recursive TS types"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "TS type names"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "custom tags (tags.TagBase)"
+        },
+        "formats": {
+          "mark": "✅",
+          "text": "22 via tags.Format"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, bigint, Map, Set, typed arrays",
+          "note": "An invalid Date (new Date(\"nope\")) passes as a Date, and NaN passes as a number unless the numeric/finite transform flags are set."
+        },
+        "refinements": {
+          "mark": "⚠️",
+          "text": "TagBase validate expressions (strings)"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "validate: all; assert: first"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first (assert) or all (validate)"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "path string, expected, value; no code"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "no messages"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore default; equals rejects, prune strips",
+          "note": "equals accepts an extra key whose value is undefined."
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "is / validate"
+        },
+        "cycles": {
+          "mark": "⚠️",
+          "text": "WeakSet guard; deep input overflows",
+          "note": "A cycle is accepted (coinductive), and there is no depth limit."
+        },
+        "defaults": {
+          "mark": "❌",
+          "text": "Default<V> is metadata only"
+        },
+        "transforms": {
+          "mark": "⚠️",
+          "text": "built-in only: http, notations, llm"
+        },
+        "coercion": {
+          "mark": "⚠️",
+          "text": "http.query/headers, llm.coerce"
+        },
+        "encode": {
+          "mark": "⚠️",
+          "text": "protobuf.encode/decode, json.stringify"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "the TS type is the schema"
+        },
+        "inOut": {
+          "mark": "—",
+          "text": "no transforms or defaults"
+        },
+        "dts": {
+          "mark": "—",
+          "text": "the source is TypeScript"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "createValidate<T>() (v1)"
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "json.schema(s): OpenAPI 3.0, 3.1"
+        },
+        "jsonSchemaIn": {
+          "mark": "⚠️",
+          "text": "@typia/utils OpenApiValidator (untyped)"
+        },
+        "llm": {
+          "mark": "✅",
+          "text": "llm.application/parameters; strict mode"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "TS Pick, Omit, Partial"
+        },
+        "model": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "snapshot": {
+          "mark": "⚠️",
+          "text": "export only (json.schema, reflect.schema)"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "deprecated": {
+          "mark": "✅",
+          "text": "JSDoc @deprecated → schema"
+        },
+        "sample": {
+          "mark": "✅",
+          "text": "typia.random<T>() (randexp)"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "TS intersection (A & B)"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "compile errors only"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "AOT at build time; no fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "reflect.schema / json.schema"
+        }
+      }
+    },
+    {
+      "id": "avsc",
+      "name": "avsc",
+      "url": "https://github.com/mtth/avsc",
+      "direction": "IDL · Avro",
+      "package": "avsc",
+      "version": "5.7.9",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "5.7.9"
+        },
+        "released": {
+          "mark": "",
+          "text": "2025-07"
+        },
+        "deps": {
+          "mark": "✅",
+          "text": "0"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node; browsers need polyfills",
+          "note": "Built for browserify-era Node polyfills; and since every type is created with new Function, eval-free edge runtimes (Cloudflare Workers) cannot load it."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "❌",
+          "text": "needs new Function"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "Avro schema JSON (.avsc) or IDL"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "Avro JSON schema"
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "['null', T] union; absent needs default"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "unions; wrapped = tagged by name"
+        },
+        "tuples": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "named types"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "names + namespaces, registry"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "logicalTypes classes, typeHook"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Buffer; Date, BigInt via custom types",
+          "note": "A JS Map passes a map type vacuously (it has no own keys): new Map([['a', 'x']]) is valid for values int and encodes as an empty map (lib/types.js:1799-1830)."
+        },
+        "refinements": {
+          "mark": "⚠️",
+          "text": "only via a LogicalType"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "⚠️",
+          "text": "first; all via `errorHook`"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first or all only"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "errorHook(path[], value, type)"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore (default), reject, strip"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "isValid() -> boolean"
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "stack overflow"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "field default (clone, decode)"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "logical types (_fromValue)"
+        },
+        "coercion": {
+          "mark": "⚠️",
+          "text": "coerceBuffers only"
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "toBuffer/fromBuffer; logical _toValue"
+        },
+        "infer": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "third-party: @ovotech/avro-ts"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none (named types embed)"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "protocols, shared registry"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "schema(), JSON.stringify(type)"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "✅",
+          "text": "reader/writer resolution",
+          "note": "A resolver either builds or throws for one reader/writer pair; there is no backward/forward/full classification."
+        },
+        "aliases": {
+          "mark": "✅",
+          "text": "type and field aliases"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "✅",
+          "text": "type.random()"
+        },
+        "inferFromData": {
+          "mark": "✅",
+          "text": "Type.forValue, Type.forTypes",
+          "note": "Any non-integer number below 2^53 is inferred as float (32-bit), which loses precision when encoded (lib/types.js:247-252)."
+        },
+        "merge": {
+          "mark": "⚠️",
+          "text": "Type.forTypes (widening)"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "⚠️",
+          "text": "Node stream codecs"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "new Function; no fallback"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "fields, typeName, schema()"
+        }
+      }
+    },
+    {
+      "id": "protobufjs",
+      "name": "protobuf.js",
+      "url": "https://github.com/protobufjs/protobuf.js",
+      "direction": "IDL · Protobuf",
+      "package": "protobufjs",
+      "version": "8.8.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "8.8.1"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "1: long"
+        },
+        "license": {
+          "mark": "",
+          "text": "BSD-3-Clause"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node, browsers, Deno, Bun"
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS (+ UMD dist)"
+        },
+        "noEval": {
+          "mark": "⚠️",
+          "text": "reflection evals; static code not"
+        },
+        "noBuild": {
+          "mark": "⚠️",
+          "text": "optional pbjs codegen"
+        },
+        "style": {
+          "mark": "",
+          "text": ".proto IDL or JSON descriptor"
+        },
+        "asData": {
+          "mark": "✅",
+          "text": "JSON descriptors"
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "presence only; null = unset"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "oneof (virtual discriminator)"
+        },
+        "tuples": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "self-referencing messages"
+        },
+        "namedRefs": {
+          "mark": "✅",
+          "text": "full names via Root"
+        },
+        "customTypes": {
+          "mark": "❌",
+          "text": "messages and enums only"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsTypes": {
+          "mark": "⚠️",
+          "text": "Uint8Array, Long; BigInt via fromObject",
+          "note": "verify() rejects a BigInt for int64 (\"integer|Long expected\") although fromObject and toObject accept it."
+        },
+        "refinements": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "async": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "allErrors": {
+          "mark": "❌",
+          "text": "first error only"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "first only"
+        },
+        "errorData": {
+          "mark": "❌",
+          "text": "string with dotted path"
+        },
+        "i18n": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "ignore, strip, reject",
+          "note": "Each policy belongs to a different API: verify ignores, fromObject strips, ProtoJSON fromJson rejects by default."
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "verify() -> null | string"
+        },
+        "cycles": {
+          "mark": "✅",
+          "text": "depth limit 100"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "proto defaults, toObject({ defaults })"
+        },
+        "transforms": {
+          "mark": "⚠️",
+          "text": "conversion options only"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "fromObject casts",
+          "note": "fromObject does not validate: { age: 'abc' } becomes 0 and { name: 42 } \"42\"."
+        },
+        "encode": {
+          "mark": "✅",
+          "text": "binary, toObject, ProtoJSON"
+        },
+        "infer": {
+          "mark": "⚠️",
+          "text": "via pbjs --dts codegen"
+        },
+        "inOut": {
+          "mark": "⚠️",
+          "text": "$Properties vs class (pbts)"
+        },
+        "dts": {
+          "mark": "✅",
+          "text": "pbjs --dts / pbts (protobufjs-cli)"
+        },
+        "standard": {
+          "mark": "❌",
+          "text": "no"
+        },
+        "jsonSchemaOut": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "references": {
+          "mark": "❌",
+          "text": "none (messages embed)"
+        },
+        "indexes": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "relations": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "derive": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "Root: lookup, resolveAll()"
+        },
+        "snapshot": {
+          "mark": "✅",
+          "text": "root.toJSON() / Root.fromJSON()"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "⚠️",
+          "text": "renames free on the wire"
+        },
+        "deprecated": {
+          "mark": "⚠️",
+          "text": "[deprecated] kept in options"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "lint": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none (delimited framing only)"
+        },
+        "jit": {
+          "mark": "✅",
+          "text": "runtime codegen; static AOT"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "reflection: fields, options"
+        }
+      }
+    },
+    {
+      "id": "mongoose",
+      "name": "Mongoose",
+      "url": "https://github.com/Automattic/mongoose",
+      "direction": "ODM",
+      "package": "mongoose",
+      "version": "9.11.1",
+      "cells": {
+        "version": {
+          "mark": "",
+          "text": "9.11.1"
+        },
+        "released": {
+          "mark": "",
+          "text": "2026-10"
+        },
+        "deps": {
+          "mark": "",
+          "text": "7, incl. mongodb driver"
+        },
+        "license": {
+          "mark": "",
+          "text": "MIT"
+        },
+        "platforms": {
+          "mark": "⚠️",
+          "text": "Node ≥ 20.19; browser: @mongoosejs/browser",
+          "note": "@mongoosejs/browser 0.1.3 is a prebuilt UMD (1.1 MB, 270 KB gzip) of mongoose 9.0.0-rc1 that validates documents only; its Node entry exports the driver, not mongoose, despite its README."
+        },
+        "module": {
+          "mark": "",
+          "text": "CJS"
+        },
+        "noEval": {
+          "mark": "✅",
+          "text": "never (validation)"
+        },
+        "noBuild": {
+          "mark": "✅",
+          "text": "plain JS"
+        },
+        "style": {
+          "mark": "",
+          "text": "Mongoose Schema (SchemaType options)"
+        },
+        "asData": {
+          "mark": "⚠️",
+          "text": "via toJSONSchema() only"
+        },
+        "optionalNullable": {
+          "mark": "⚠️",
+          "text": "optional = absent/undefined/null"
+        },
+        "unions": {
+          "mark": "✅",
+          "text": "Schema.Types.Union; discriminators"
+        },
+        "tuples": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "recursive": {
+          "mark": "✅",
+          "text": "schema.add({ self: schema })"
+        },
+        "namedRefs": {
+          "mark": "⚠️",
+          "text": "ref: 'Model' for populate"
+        },
+        "customTypes": {
+          "mark": "✅",
+          "text": "Schema.Types.Name = class"
+        },
+        "formats": {
+          "mark": "❌",
+          "text": "none (match: RegExp)"
+        },
+        "jsTypes": {
+          "mark": "✅",
+          "text": "Date, BigInt, Map, Buffer"
+        },
+        "refinements": {
+          "mark": "✅",
+          "text": "validate; pre('validate') + invalidate"
+        },
+        "async": {
+          "mark": "✅",
+          "text": "async validators, concurrent"
+        },
+        "allErrors": {
+          "mark": "✅",
+          "text": "all paths, one per path"
+        },
+        "errorLimit": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "errorData": {
+          "mark": "⚠️",
+          "text": "kind, path string, properties"
+        },
+        "i18n": {
+          "mark": "⚠️",
+          "text": "global mongoose.Error.messages"
+        },
+        "unknownKeys": {
+          "mark": "✅",
+          "text": "strip (default), keep, throw"
+        },
+        "noThrow": {
+          "mark": "✅",
+          "text": "validateSync() returns the error",
+          "note": "validateSync is deprecated in 9.x and emits a process warning on every call (research-scripts/mongoose-custom.mjs); validate() rejects; the constructor throws for strict: 'throw' and cyclic input."
+        },
+        "cycles": {
+          "mark": "❌",
+          "text": "throws (circular JSON, RangeError)"
+        },
+        "defaults": {
+          "mark": "✅",
+          "text": "default values and functions"
+        },
+        "transforms": {
+          "mark": "✅",
+          "text": "set/get, trim, lowercase"
+        },
+        "coercion": {
+          "mark": "✅",
+          "text": "casting on by default"
+        },
+        "encode": {
+          "mark": "⚠️",
+          "text": "getters, toJSON transform"
+        },
+        "infer": {
+          "mark": "✅",
+          "text": "InferSchemaType"
+        },
+        "inOut": {
+          "mark": "⚠️",
+          "text": "InferRawDocType vs hydrated"
+        },
+        "dts": {
+          "mark": "⚠️",
+          "text": "third-party: mongoose-tsgen"
+        },
+        "standard": {
+          "mark": "✅",
+          "text": "Model['~standard'] v1 (9.7+)",
+          "note": "On models only (a Schema has none), and validate always returns a promise; it casts, so { n: '5' } is valid with value n: 5."
+        },
+        "jsonSchemaOut": {
+          "mark": "✅",
+          "text": "toJSONSchema(): JSON Schema, $jsonSchema"
+        },
+        "jsonSchemaIn": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "llm": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "entities": {
+          "mark": "✅",
+          "text": "model(name), collection option"
+        },
+        "references": {
+          "mark": "⚠️",
+          "text": "ref: id or populated doc",
+          "note": "A populated document is not validated with its own schema (an invalid Dog passes)."
+        },
+        "indexes": {
+          "mark": "✅",
+          "text": "index/unique/sparse, schema.index()"
+        },
+        "relations": {
+          "mark": "⚠️",
+          "text": "ref, virtual populate (justOne)"
+        },
+        "derive": {
+          "mark": "✅",
+          "text": "pick, omit, add, clone, discriminator"
+        },
+        "model": {
+          "mark": "⚠️",
+          "text": "mongoose.model() registry"
+        },
+        "snapshot": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "diff": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "compat": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "aliases": {
+          "mark": "✅",
+          "text": "alias option (virtual)"
+        },
+        "deprecated": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "sample": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "inferFromData": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "merge": {
+          "mark": "✅",
+          "text": "schema.add(other), new Schema([a, b])"
+        },
+        "lint": {
+          "mark": "⚠️",
+          "text": "reserved-key, duplicate-index warnings"
+        },
+        "stream": {
+          "mark": "❌",
+          "text": "none"
+        },
+        "jit": {
+          "mark": "❌",
+          "text": "interpreter only"
+        },
+        "introspection": {
+          "mark": "✅",
+          "text": "schema.paths, path(), eachPath"
+        }
+      }
+    }
+  ]
+}

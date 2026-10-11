@@ -37,7 +37,12 @@ pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on it
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
 pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>]   # esbuild bundle sizes; CI gates at 17.75 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model, 1.5 KB for ./stream and 2 KB for ./formats on top
-pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
+pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
+pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
+node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
+pnpm size:compare [--json]         # the comparison's schema bundled per library, verified, min+gzip → bench/results/size.json
+pnpm bench:report                  # the charts (docs/public/benchmarks/*.svg) and the generated tables of README and docs/guide/benchmarks.md
+pnpm docs:comparison               # the feature matrix of README and docs/guide/comparison.md from docs/comparison.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
@@ -196,8 +201,13 @@ tests/
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
   fixtures/snapshot.json  the committed snapshot of the fixture model (the format 1 contract, pinned by snapshot.test.js)
 scripts/size.js     bundle-size report and budget gate (CI smoke)
-bench/              zero-dependency ops/sec harness (closures and JIT); libs.js compares with zod, valibot,
-                    ajv and typebox (--compare-libs); baseline.json is a snapshot for --compare
+scripts/size-compare.js  the comparison's schema per library, bundled for the browser and verified
+scripts/comparison.js    renders docs/comparison.json (the feature matrix) into README and the docs
+bench/              zero-dependency ops/sec harness (closures and JIT); baseline.json is a snapshot for
+                    --compare; compare.js + compare/ (adapters per library, scenarios, measure.js,
+                    the workers) and releases.js run the cross-library and release benchmarks into
+                    results/*.json; report.js + report/ (model.mjs: the chart models shared by the
+                    docs components and svg.mjs, the README images) render them
 docs/               VitePress site (metaschema.vercel.app), not published
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
 ```
@@ -632,9 +642,27 @@ at the root, and the 14.1–14.7 M of the 2.0 baseline (and the "no strict/loose
 measured that. The roadmap's 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
 25 M on flat valid is met at 30.9 M, the 8 M on flat invalid is not (5.6 M): the invalid path is
 bounded by the issue objects (a params object, a path array and a rendered message each, about
-40 ns an issue), which both backends build with the same constructors. `pnpm bench
---compare-libs` (`bench/libs.js`) runs the moltar scenarios through zod 4, valibot, ajv and
-typebox beside both backends; the tables are in `docs/guide/performance.md`.
+40 ns an issue), which both backends build with the same constructors.
+
+**`pnpm bench:compare` is the cross-library comparison (2026-10-11, replacing `bench/libs.js`
+and `--compare-libs`), built like kerberos's.** One adapter per library in
+`bench/compare/adapters/` translates a library-neutral shape of the moltar object into the
+library's idiom (metaschema on the closures and the JIT, Metarhia's metaschema 2.2.2, zod,
+valibot, ArkType, Effect Schema, TypeBox 1.x `Compile` and `Value`, Ajv, Yup, Joi,
+Superstruct; all devDependencies); `bench/compare/scenarios.js` has the moltar flat and nested
+objects in the suite's four modes, every issue of an invalid value (four wrong fields, the
+paths compared) and building the strict nested schema. Every (library, scenario) pair runs in a
+fresh process (`compare/worker.js`) that checks the verdicts before timing and measures through
+one megamorphic call site (`compare/measure.js`), median of 5 × 1 s after a 1 s warmup; a cold
+start (load, build, first check) is the median of 20 processes. `bench/releases.js --src <dir>`
+runs metaschema's own scenarios against a checkout of another release (`git archive vX | tar
+-x`) or `node_modules/metaschema`, so the release chart is one machine and one harness.
+Metarhia's metaschema has no loose mode (the chart says why a row is missing), and its bundle
+needs `keepNames` (its checks compare `constructor.name`; minified, it accepts everything).
+`pnpm bench:report` renders `docs/public/benchmarks/*.svg` (README images, absolute URLs to the
+docs site) and the tables between `<!-- bench:<name>:start/end -->` markers; the docs pages
+render the same models interactively (`docs/.vitepress/theme/components/Bench*.vue`). Run the
+comparison on a quiet machine, never beside other work.
 
 ## Platform split
 
@@ -849,7 +877,9 @@ change. **This file wins** if they ever disagree.
   fixture model is the one the migration guide (`docs/guide/migrating-from-1.md`) was run
   against: it builds with no warnings, validates rows (ids) by default and the graph with
   `{ references: 'embed' }`.
-- `bench/bench.js` has no test. Its scenarios are `Schema.from` flat/nested, `check` flat/nested
+- `bench/` has no tests (the compare adapters need the devDependencies, some of them ESM-only,
+  which `require` loads on Node 22+ only); `pnpm size:compare` loads every bundle it measures
+  and checks its verdicts, so a broken entry fails there. `bench/bench.js` has no test. Its scenarios are `Schema.from` flat/nested, `check` flat/nested
   valid/invalid, the eight moltar modes on both backends (`bench/helpers.js`), the `parse`
   scenarios and `new Model`/`model.dts` over the
   fixture; `pnpm bench moltar` filters by name. `tests/unit/scripts.test.js` covers
@@ -1224,7 +1254,18 @@ change. **This file wins** if they ever disagree.
 VitePress in `docs/`, deployed to Vercel (`vercel.json`) at `metaschema.vercel.app`. It is not
 published to npm, and lint/format do not cover it.
 
-- Only `docs/index.md` has frontmatter; links between pages are absolute and extensionless.
+- Only `docs/index.md` has frontmatter; links between pages are absolute and extensionless. The
+  comparison page gets its full width from `.VPDoc:has(.ms-matrix)` in `custom.css`, not from
+  frontmatter.
+- Diagrams are mermaid blocks (`vitepress-plugin-mermaid`). pnpm does not hoist mermaid's
+  browser dependencies, so `@braintree/sanitize-url`, `cytoscape`, `cytoscape-cose-bilkent`,
+  `dayjs`, `debug` and `fastdom` are devDependencies (as in kerberos) and `fastdom` is in
+  `vite.optimizeDeps.include`; without them every page fails to load in the dev server. Keep a
+  diagram narrow (top to bottom, short labels): a wide one is scaled down to unreadable text.
+- Generated regions: the benchmark tables (`pnpm bench:report`) and the feature matrix
+  (`pnpm docs:comparison`, from `docs/comparison.json`, every cell checked against the
+  published source in October 2026) sit between markers in README and the docs; edit the data,
+  then regenerate.
 - `ignoreDeadLinks` is off, so `pnpm docs:build` failing on a dead link is a feature.
 - The nav version label is read from `package.json`.
 - The brand is the violet "braces" mark (`#7C5CFF`, `#9D85FF` on dark): `docs/public/logo-mark*.svg`,
@@ -1233,7 +1274,7 @@ published to npm, and lint/format do not cover it.
 - When behavior changes, update README and the matching docs page together. Example outputs in the
   docs were checked against the code, so keep them true.
 - The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
-  `guide/performance.md` (the core, the baseline numbers, the JIT, the library comparison), `guide/migrating-from-1.md`
+  `guide/performance.md` (the core, the baseline numbers and their chart, the JIT), `guide/migrating-from-1.md`
   (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
   produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 pages are
 `guide/parse.md` (the pipeline, defaults, codecs, strip, serialize, async, the boundaries),
@@ -1251,7 +1292,10 @@ value, optional/nullable/null, the enum, format and dictionary rules, the keys, 
 self-check, the round trip with `sample`, the boundaries) and `guide/formats.md` (the `format`
 rule, the built-in formats, `register` and the program's own, JSON Schema, samples and
 inference, evolution, the boundaries); `guide/parse.md` describes the
-settle of 3.2 and `guide/performance.md` its rows. The sidebar is in
+settle of 3.2 and `guide/performance.md` its rows. Added with 3.2 as well:
+`guide/benchmarks.md` (the comparison, cold start, bundle size, release over release, method),
+`guide/comparison.md` (the feature matrix of twenty alternatives) and `guide/architecture.md`
+(the mermaid diagrams of the pipeline). The sidebar is in
 `.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
 fact.
 

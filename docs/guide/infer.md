@@ -115,8 +115,8 @@ What is **not** inferred: `length`, `min` and `max` bounds (the extremes of a sa
 observations, not a contract: `max: 42` because 42 was the largest value would reject the 43rd
 record, the reverse of what the samples promise), patterns, tuples (an array is a list, whatever
 its length), references (an id samples as a string), custom types, `validate` functions and
-annotations. `integer` and `enum` are the two refinements kept: both are types of the language,
-and both are one edit to loosen.
+annotations. `integer`, `enum` and, with the formats registered, a string `format` are the
+refinements kept: each is one edit to loosen.
 
 ## Optional, nullable and null
 
@@ -255,5 +255,6 @@ infer(samples, { as: 'schema', name: 'Order' }).check(sample(original, { seed: 9
   definition is yours to edit.
 - **The order of a struct's keys is the order of first sight**, an integer-like key first, as
   JavaScript orders the keys of an object.
-- **A `date` is a `Date` instance.** A date-time string stays a string; a field's `parse`
-  function decodes it, and that is the program's to add.
+- **A `date` is a `Date` instance.** A date-time string stays a string (with the formats
+  registered, `{ type: 'string', format: 'date-time' }`); a field's `parse` function decodes it,
+  and that is the program's to add.

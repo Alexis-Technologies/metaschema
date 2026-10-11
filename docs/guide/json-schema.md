@@ -229,6 +229,8 @@ toJSONSchema(model, { target: 'openapi-3.0' });
 // { components: { schemas: { Tag: {...}, Company: {...}, Person: {...} } } }
 
 toJSONSchema(model, { target: 'mongodb' });
+// throws ERR_UNREPRESENTABLE here: Tag refers to itself, and the mongodb target inlines
+// references (see below); without `parent` in Tag:
 // { Tag: {...}, Company: {...}, Person: {...} }  (one $jsonSchema per entity)
 ```
 

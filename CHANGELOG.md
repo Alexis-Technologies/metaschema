@@ -172,6 +172,28 @@ async check with a sync validator after an unrelated promise, a pattern no longe
   the generator asks (`readsAsStruct` in `types.js`) follows the preprocessor's `firstKey`
   now, and the model subpath shares it.
 
+### Tooling
+
+- **A cross-library benchmark, charted.** `pnpm bench:compare` replaces `pnpm bench
+  --compare-libs` (`bench/libs.js` is gone): metaschema on both backends beside Metarhia's
+  metaschema 2.2.2, zod, Valibot, ArkType, Effect Schema, TypeBox (1.x, `Compile` and `Value`),
+  Ajv, Yup, Joi and Superstruct, one adapter per library, each pair in a fresh process that
+  checks the verdicts before it times anything, median of five one-second samples. The
+  scenarios are the moltar object in its four modes, every issue of an invalid value, building
+  a schema and a cold start; `pnpm size:compare` bundles the same schema per library and checks
+  the bundle; `bench/releases.js` measures every release since Metarhia's 2.2.2 with one
+  harness. `pnpm bench:report` turns the results into SVG charts for the README and the tables
+  of the README and `docs/guide/benchmarks.md`; the docs render the same models as interactive
+  charts. The libraries are devDependencies (`@sinclair/typebox` 0.34 gave way to `typebox`
+  1.x).
+- **A feature matrix of twenty alternatives.** `docs/guide/comparison.md` and the README compare
+  metaschema with TypeScript-first validators, JSON Schema tools, IDLs and Mongoose in one
+  table, every cell checked against the source of the published package; `pnpm docs:comparison`
+  renders it from `docs/comparison.json`.
+- **Docs.** New pages: Benchmarks, Compared with alternatives and Architecture (mermaid diagrams
+  of the pipeline); the home page and the Why page were rewritten around "fast, zero-dependency";
+  the package description says so too.
+
 ## [3.1.0] - 2026-10-11
 
 3.1 makes the model data. `model.toJSON()` writes a snapshot of a model, the contract other

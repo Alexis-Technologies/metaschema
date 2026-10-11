@@ -36,6 +36,16 @@ Schema.from({ email: { type: 'string', format: 'email' } }); // before register(
 
 ## The rule
 
+```mermaid
+flowchart TB
+    V["a value of a string field"] --> T{"a string?"}
+    T -->|"no"| TI(["a type issue, nothing more"])
+    T -->|"yes"| R["the rules, each recording its own issue:<br/>length, then pattern and format,<br/>these two only up to length.max"]
+    R --> Q{"an issue?"}
+    Q -->|"no"| VA["validate"]
+    Q -->|"yes"| END(["the issues of the rules"])
+```
+
 `format` applies to `string` fields only (`{ type: 'number', format: 'email' }` is
 `ERR_INVALID_RULE`, as any rule on a type that does not accept it). It runs after the type,
 `length` and `pattern`, before `validate`, and a failed test is a `format` issue with the name in
@@ -48,7 +58,7 @@ generated code.
 
 The field keeps the name (`schema.fields.email.format` is `'email'`), so a
 [snapshot](/guide/model#the-snapshot) writes it, [`diff`](/guide/evolution#diff) compares it and
-[`merge`](/guide/schema-syntax#merging-definitions) refuses two different ones. The
+[`merge`](/guide/schema-syntax#merging-schemas) refuses two different ones. The
 [TypeScript type](/guide/typescript) of a formatted field is `string`.
 
 ## The built-in formats
@@ -88,7 +98,7 @@ Schema.from({ phone: { type: 'string', format: 'phone', length: { max: 16 } } })
 // [ 'Field "phone" is not a valid phone' ]
 ```
 
-A name is registered once, process-wide, like a [custom type](/guide/custom-types#the-registry):
+A name is registered once, process-wide, like a [custom type](/guide/custom-types#types-are-registered-globally):
 the same `test` again does nothing, another `test` under a registered name is
 `ERR_FORMAT_REGISTERED` (the schemas built so far hold the first one), and an entry that is not
 a format (no `test` function, no example strings) is `ERR_INVALID_FORMAT`. Importing the subpath

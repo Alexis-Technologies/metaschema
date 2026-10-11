@@ -1,9 +1,10 @@
 # @alexify/metaschema
 
-> Zero-dependency metadata schema and interface definition language (IDL) for Node.js and
-> browsers. Declare data structures and domain models as plain JavaScript objects, validate data
-> against them (every error is collected with its path, nothing throws on bad data), and generate
-> TypeScript interfaces from a model. A fork of metarhia/metaschema maintained by Alexis
+> Fast, zero-dependency metadata schema and interface definition language (IDL) for Node.js and
+> browsers. Declare data structures and domain models as plain JavaScript objects, validate and
+> parse data against them (every error is collected with its path, nothing throws on bad data;
+> a JIT backend generates the checks where `new Function` is allowed), and generate TypeScript
+> types and JSON Schema from them. A fork of metarhia/metaschema maintained by Alexis
 > Technologies.
 
 Key facts:
@@ -138,7 +139,10 @@ Key facts:
 - Does not load schemas from files or evaluate source strings; pass schema objects directly
 
 Docs:
+- Why metaschema: https://metaschema.vercel.app/guide/why
+- Compared with alternatives (one feature matrix of 20 libraries): https://metaschema.vercel.app/guide/comparison
 - Getting started: https://metaschema.vercel.app/guide/getting-started
+- Architecture: https://metaschema.vercel.app/guide/architecture
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
 - Parse and serialize: https://metaschema.vercel.app/guide/parse
@@ -153,4 +157,5 @@ Docs:
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema
 - The JIT backend: https://metaschema.vercel.app/guide/compile
 - Performance: https://metaschema.vercel.app/guide/performance
+- Benchmarks (against 10 validators, cold start, bundle size, release over release): https://metaschema.vercel.app/guide/benchmarks
 - API: https://metaschema.vercel.app/api/exports

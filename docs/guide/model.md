@@ -23,7 +23,7 @@ const database = { name: 'example', driver: 'pg', version: 1 };
 const model = new Model(types, entities, database);
 ```
 
-`new Model(types, entities, database?)` takes:
+`new Model(types, entities, database?, options?)` takes:
 
 - `types`: built-in type annotations and custom types (see [Custom Types](/guide/custom-types)).
 - `entities`: any iterable of `[name, definition]` pairs, such as a `Map` or `Object.entries(...)`.
@@ -32,6 +32,17 @@ const model = new Model(types, entities, database);
   `model.database` and does not read it.
 - `options`: `{ registry: 'isolated' }` gives the model its own type registry instead of the
   process-wide one; see [Custom Types](/guide/custom-types#an-isolated-registry).
+
+What the constructor does, in order:
+
+```mermaid
+flowchart TB
+    T["types"] -->|"1 · register (shared or isolated registry)"| R[("type registry")]
+    E["[name, definition], …"] -->|"2 · build every entity as a Schema"| S["entities"]
+    S -->|"3 · build the projections from their parents"| S
+    S -->|"4 · order: Identifier first, dependencies before dependents"| O["model.order"]
+    O -.->|"on first read"| W["model.warnings<br/>missing references and types, recursion"]
+```
 
 ## What a model holds
 
@@ -156,7 +167,7 @@ The format, `format: 1`:
 | `database` | the `database` argument, as given |
 | `types` | the types the entities use, by name, sorted: an alias of a built-in as `{ js, metadata }`, a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
 | `entities` | every entity in `model.order`: `kind`, `scope`, `store`, `allow`, `parent` (`''` unless a projection), `unknown`, `custom` (the other keys of the kind metadata, as given), then `fields` for a struct or `type` for a schema of one type, `indexes` (the `index`, `primary` and `unique` definitions, as given; a `many` field is a field) and `relations` (`{ to, type }`) |
-| a field | its `type` and `required` first, then the other keys of its definition sorted: a nested struct under `schema`, the element of a collection under `value`, the elements of a tuple as a list under `value`, the branches under `union`, the rules as the definition normalised them (`length` as `{ min, max }`, `pattern` as its source, or `{ source, flags }` with flags beyond `u`), `aliases`, `deprecated` and every annotation |
+| a field | its `type` and `required` first, then the other keys of its definition sorted: a nested struct under `schema`, the element of a collection under `value`, the elements of a tuple as a list under `value`, the branches under `union`, the rules as the definition normalised them (`length` as `{ min, max }`, `pattern` as its source, or `{ source, flags }` with flags beyond `u`, `format` by its name), `aliases`, `deprecated` and every annotation |
 
 A function has no JSON form and is written as `{ $function: true }` wherever it stands: a
 `validate`, a `parse`, a `serialize`, a `default` factory, a calculated field, and the functions

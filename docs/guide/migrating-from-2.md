@@ -73,9 +73,9 @@ require('@alexify/metaschema/generators').register();
 model.dts === toTypeScript(model); // true
 ```
 
-Nothing happens on import, and `register()` is idempotent. The subpath is 4.5 KB min+gzip on top
-of the core entry, which is 16.1 KB and carries no Node.js runtime any more; the browser entry is
-the same. `toJSONSchema` is new (2.0 had no JSON Schema export), and so are the JSDoc and the
+Nothing happens on import, and `register()` is idempotent. The subpath is 7.1 KB min+gzip on top
+of the core entry, which is 17.7 KB in 3.2 (4.5 KB and 16.1 KB in 3.0) and carries no Node.js
+runtime any more; the browser entry is the same. `toJSONSchema` is new (2.0 had no JSON Schema export), and so are the JSDoc and the
 `named` option of the rendering. See
 [The generators subpath](/guide/json-schema#the-generators-subpath) and
 [Generating interfaces from a model](/guide/typescript#generating-interfaces-from-a-model).
@@ -304,10 +304,12 @@ keys of the object, in their order:
 ```js
 // 2.0: issues, count, limit, path, seen, unknown, references, root, messages
 // 3.0: issues, count, limit, depth, maxDepth, path, seen, source, unknown, references, root, messages, async, scratch
+// 3.1: the same, then renamed
 ```
 
-A context built by hand needs `depth: 0`, `maxDepth: 128`, `source: null`, `async: null` and
-`scratch: null` besides the slots of 2.0, and its `unknown` may be `'strip'` in a parse. The
+A context built by hand needs `depth: 0`, `maxDepth: 128`, `source: null`, `async: null`,
+`scratch: null` and, since 3.1, `renamed: false` (whether the check read a field from an alias)
+besides the slots of 2.0, and its `unknown` may be `'strip'` in a parse. The
 internal constructor of an `exception` issue takes the key of the field as well. Nothing changes
 for a validator, a `checkType` or a decoder: they receive the value and the path, as before.
 
@@ -334,6 +336,29 @@ with the code `ERR_JIT_BUILD`, the generator's error as its `cause`; the closure
 `register({ onFallback })` is told of every such schema, and `jit: true` throws instead
 (`ERR_NO_EVAL` where there is no eval at all). A compiled schema records exactly the issues the
 closures record. See [The JIT backend](/guide/compile).
+
+## Since 3.0: 3.1 and 3.2
+
+The releases after 3.0 add without breaking, but a few behaviours a 2.x program meets on the
+way changed:
+
+- **3.1: two fields of one key are an error.** `{ a: 'string', 'a?': 'number' }`, or a
+  calculated field and a field of one name, is `ERR_INVALID_DEFINITION`; the second silently
+  replaced the first before.
+- **3.1: `aliases` is read.** It is a key of a field (old names the field is read from), so
+  `aliases: 'old'` (not a list) is `ERR_INVALID_DEFINITION`, and a custom type no longer sees
+  an option of that name. See [Model evolution](/guide/evolution#aliases-and-deprecated).
+- **3.1: `JSON.stringify(model)` writes the [snapshot](/guide/model#the-snapshot)** rather than
+  the instance's own enumerable properties.
+- **3.1: a subpath function given the wrong thing throws `ERR_INVALID_TARGET`** (a plain
+  `TypeError` with a code, like `ERR_ASYNC_VALIDATOR`).
+- **3.2: the order of the issues of an async check.** Independent async validators are in
+  flight together: a synchronous validator met after an unrelated promise runs during the
+  walk, so the issues of the walk come first and the settled ones after them, in field order.
+- **3.2: a `pattern` is never run over a string longer than `length.max`**; such a string has
+  its `length` issue alone.
+- **3.2: the message of `unexpected` lists the first ten keys** and says how many more;
+  `params.keys` keeps them all.
 
 ## Checklist
 

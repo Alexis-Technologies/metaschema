@@ -53,7 +53,7 @@ const user = Schema.from({
 user.check({ name: 'marcus' }).valid; // true: `name` is read as `login`
 user.check({ name: 1 }).errors; // [ 'Field "name" not of expected type: string' ]
 user.check({}).errors; // [ 'Field "login" is required' ]
-user.parse({ name: 'marcus' }).value; // { active: true, login: 'marcus' }
+user.parse({ name: 'marcus' }).value; // { login: 'marcus', active: true }
 ```
 
 The rules, the same on both [backends](/guide/compile):
@@ -150,6 +150,15 @@ the two still works, with the words of the Confluent Schema Registry:
 | `'full'` | both |
 | `'none'` | neither |
 
+```mermaid
+flowchart TB
+    V1["the old model or snapshot"] --> D["diff(prev, next)"]
+    V2["the new one"] --> D
+    D --> C["a list of changes"]
+    C -->|"compatibilityOf, one change at a time"| K["full · backward · forward · none"]
+    K -->|"what every change allows"| R(["compatibility(changes)"])
+```
+
 The class of a list is the class every change allows: `full` changes nothing, `backward` and
 `forward` together are `none`. The rules assume a reader that ignores keys it does not know, as
 those registries do and as `check(value, { unknown: 'ignore' })` and `parse` with
@@ -209,6 +218,11 @@ that adds one.
 | a type added or removed | `full` | the fields that used it changed |
 
 ```js
+const v3 = new Model(types, [
+  ['Company', { Dictionary: {}, name: { type: 'string', unique: true } }],
+  ['User', { Registry: {}, login: { type: 'string', length: { min: 3, max: 32 }, aliases: ['name'] }, company: 'Company', 'email?': 'string', role: { enum: ['admin', 'member'] } }],
+]);
+
 compatibility(diff(v1, v2)); // 'full': an alias and an optional field
 compatibility(diff(v2, v3)); // 'forward': v3 adds a required `role` and drops `active`, which had a default
 ```

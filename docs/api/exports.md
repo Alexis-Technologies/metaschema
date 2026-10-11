@@ -1,6 +1,8 @@
 # Exports
 
-Everything is exported from the package root, in Node.js and in the browser.
+The core is exported from the package root, in Node.js and in the browser; the generators, the
+JIT backend, the model tools, the record tools, the string formats and the locales are subpaths
+(see [Architecture](/guide/architecture#the-packages)).
 
 ```js
 const {
@@ -9,9 +11,10 @@ const {
 } = require('@alexify/metaschema');
 
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
-const jit = require('@alexify/metaschema/compile'); // compile, register, canEval
-const tools = require('@alexify/metaschema/model'); // fromJSON, diff, compatibility, sample, merge, infer, register
+const jit = require('@alexify/metaschema/compile'); // compile, compiled, register, canEval
+const tools = require('@alexify/metaschema/model'); // fromJSON, diff, compatibility, compatibilityOf, sample, merge, infer, register
 const records = require('@alexify/metaschema/stream'); // checkEach, parseEach, checkEachAsync, parseEachAsync, transform, register
+const formats = require('@alexify/metaschema/formats'); // register, FORMATS
 ```
 
 ## Constants
@@ -84,7 +87,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `model.toJSONSchema(options?)` | after `register()`: `toJSONSchema(model, options)`, every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of the entity `options.root` |
 | `model.toJSON()` | the model as plain JSON, what `JSON.stringify(model)` writes: `{ format: 1, database, types, entities }`, the entities in dependency order with a fixed key order, a function as `{ $function: true }`; see [The snapshot](/guide/model#the-snapshot) |
 | `Model.fromJSON(snapshot, options?)` | after `register()` of the model subpath: `fromJSON(snapshot, options)`, a model back from its snapshot |
-| `Model.diff(prev, next)`, `Model.compatibility(changes)` | after `register()` of the model subpath: `diff` and `compatibility` of the subpath |
+| `Model.diff(prev, next)`, `Model.compatibility(changes)`, `Model.compatibilityOf(change)` | after `register()` of the model subpath: `diff`, `compatibility` and `compatibilityOf` of the subpath |
 
 ## `@alexify/metaschema/generators`
 
@@ -97,7 +100,7 @@ subpath so that the core entry (17.7 KB min+gzip) does not carry them (7.1 KB mo
 | `toJSONSchema(target, options?)` | the [JSON Schema](/guide/json-schema) document of a `Schema`, or of a `Model` (every entity as a definition, or `options.root`); `options`: `target` (`'draft-2020-12'`, `'draft-07'`, `'openapi-3.0'`, `'mongodb'`), `profile` (`'strict'`), `io` (`'input'`, `'output'`), `unrepresentable` (`'throw'`, `'any'`), `references` (`'kind'`, `'embed'`, `'id'`), `definitions` (a pointer), `root` (a model) |
 | `toTypeScript(target, options?)` | the TypeScript interface of a `Schema`, or the interfaces of every entity of a `Model` in dependency order; the `description` of a field as JSDoc, `deprecated: true` as `@deprecated`; `options.named` gives enums and nested structs types of their own; see [TypeScript](/guide/typescript#generating-interfaces-from-a-model) |
 | `saveTypes(outputFile, target, options?)` | writes `toTypeScript(target, options)` to `outputFile`; returns `Promise<void>`; rejects in the browser |
-| `fromJSONSchema(document, options?)` | a definition (or a `Schema` with `as: 'schema'`) from a [JSON Schema document](/guide/json-schema#importing-a-document); `options`: `name`, `as` (`'definition'`, `'schema'`), `references` (`'inline'`, `'name'`), `unsupported` (`'throw'`, `'ignore'`) |
+| `fromJSONSchema(document, options?)` | a definition (or a `Schema` with `as: 'schema'`) from a [JSON Schema document](/guide/json-schema#importing-a-document); `options`: `name`, `as` (`'definition'`, `'schema'`), `references` (`'inline'`, `'name'`), `unsupported` (`'throw'`, `'ignore'`), `onUnsupported(reason, pointer)` (told of every drop in the ignore mode) |
 | `register()` | installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`, `model.toTypeScript`, `model.dts`, `Schema.fromJSONSchema` and `schema['~standard'].jsonSchema` on the classes, once per process |
 
 A target that is neither a `Schema` nor a `Model` is a `TypeError`.
@@ -113,10 +116,11 @@ core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) 
 | `fromJSON(snapshot, options?)` | a `Model` from the snapshot `model.toJSON()` gave, with placeholders for the functions; `options.types` brings the real custom types, `options.registry` is `'isolated'` unless `'shared'`; a value that is not a snapshot is `ERR_INVALID_SNAPSHOT` |
 | `diff(prev, next)` | the changes from one `Model` or snapshot to another, as `{ kind, op, entity, name, from?, to?, detail? }` in the order of the new model; a field renamed through its `aliases` is `renamed`, a removed `deprecated` field carries `detail.deprecated` |
 | `compatibility(changes)` | `'full'`, `'backward'`, `'forward'` or `'none'` by the [rules](/guide/evolution#compatibility) of the Confluent Schema Registry |
+| `compatibilityOf(change)` | the class of one change of `diff`, by the same rules |
 | `sample(schema, options?)` | a value the schema accepts, the same for `options.seed`; `options`: `seed`, `locale` (`'en'`, `'uk'`), `references`, `maxDepth`; a field no value satisfies is `ERR_UNSATISFIABLE`, a pattern it cannot read `ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample` `ERR_SAMPLE_TYPE` |
 | `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ERR_MERGE_CONFLICT` |
 | `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`, a registered [format](/guide/formats) every string passes; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`; a sample nested past `maxDepth` is `ERR_INFER_DEPTH`, a definition that rejects a sample `ERR_INFER_MISMATCH` |
-| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge`, `Schema.infer` and `schema.sample` on the classes, once per process |
+| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Model.compatibilityOf`, `Schema.merge`, `Schema.infer` and `schema.sample` on the classes, once per process |
 
 A `sample` or `merge` target that is not a `Schema` is a `TypeError` with `code:
 'ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list and an `infer`
@@ -228,11 +232,11 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
 | `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
-| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string), a `min`/`max` that is not a number or a bigint, a `max` below `min`, or a `pattern` that is not a string or `RegExp` or does not compile |
+| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string), a `min`/`max` that is not a number or a bigint, a `max` below `min`, or a `pattern` that is not a string or `RegExp` or does not compile, a `format` the table does not have (the [formats subpath](/guide/formats) registers them) or on a type other than `string` |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) or the `jit` option of `compile`/`register` with a value it does not accept |
+| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have), an option of `sample` or `infer`, or the `jit` option of `compile`/`register` with a value it does not accept |
 | `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
 | `ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
 | `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
@@ -241,7 +245,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_UNSATISFIABLE` | `sample` found a field no draw satisfies (an object with number keys, a pattern a length contradicts, a `validate` that rejects everything, a reference the model does not have, a required reference nested deeper than `maxDepth`); the message names the field and the reason |
 | `ERR_SAMPLE_PATTERN` | a `pattern` outside the subset `sample` reads (a lookaround, a back reference, a word boundary, another Unicode property) |
 | `ERR_SAMPLE_TYPE` | a custom type with a check of its own and no `metadata.sample` |
-| `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, a calculated field or an index that differs; the message names the field |
+| `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, two formats, a calculated field or an index that differs; the message names the field |
 | `ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
 | `ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
 | `ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings) |
@@ -272,7 +276,7 @@ it; see [Validation](/guide/validation#the-result).
 | `JSONSchema` | what `toJSONSchema` returns: `Record<string, unknown>` |
 | `JSONSchemaOptions`, `ModelJSONSchemaOptions`, `JSONSchemaTarget` | the options of `schema.toJSONSchema`, those of `model.toJSONSchema` (plus `root`), and the four targets |
 | `InterfaceOptions` | the options of `toTypeScript`, `toInterface` and `saveTypes`: `named` |
-| `FromJSONSchemaOptions` | the options of `fromJSONSchema`: `name`, `as`, `references`, `unsupported` |
+| `FromJSONSchemaOptions` | the options of `fromJSONSchema`: `name`, `as`, `references`, `unsupported`, `onUnsupported` |
 | `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`, `FunctionSnapshot`, `TypeSnapshot` | what `model.toJSON()` returns and its parts |
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
