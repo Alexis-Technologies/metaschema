@@ -35,7 +35,8 @@ sample(order, { seed: 2 });
 order.check(sample(order, { seed: 3 })).valid; // true, for every seed
 ```
 
-After `register()` of the subpath the same is `order.sample({ seed: 1 })`.
+After `register()` of the subpath the same is `order.sample({ seed: 1 })`. The other direction,
+a definition from the values that exist, is [`infer`](/guide/infer).
 
 ## Options
 

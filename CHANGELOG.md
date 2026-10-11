@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The gate of the `./model` subpath is 12 KB** (was 10): `infer` costs 2.3 KB min+gzip and
+  the subpath measures 11.7 KB; the subpath is tooling, not the validation path, as for the
+  move from 8.5 to 10 KB in 3.1.
+
 ### Fixed
 
 - **A failed branch of a plain union observed none of the promises it dropped.** A validator
@@ -30,6 +36,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`infer(samples, options)` in the `@alexify/metaschema/model` subpath, the reverse of
+  `sample`.** A definition (or a `Schema`, with `as: 'schema'`) that accepts every sample
+  given, to bootstrap a model from the documents that exist: one pass summarizes the kinds of
+  every place, the records of a place fuse into one struct with optional keys (absent or
+  `undefined`) and nullable keys (`null` beside a type), arrays fuse their elements, values of
+  several kinds are a `union` with the record last, whole numbers are `integer`, a string of
+  few recurring values an `enum`, records whose keys are not names (or many sparse keys of one
+  kind) a dictionary `{ object: { string: T } }`, `Set`, `Map`, `Date` and bigint their types,
+  and what no type describes `any`; no bounds, patterns, references or tuples. Every key of the
+  data is a key of the definition (`__proto__` through `define`, a struct wrapped as
+  `{ schema }` where its first key would read otherwise, the root under its `kind`). The
+  samples are input: a sample nested deeper than `maxDepth` (128) is `ERR_INFER_DEPTH` with its
+  index and place, and the definition is checked against every sample before it is returned
+  (`ERR_INFER_MISMATCH`, with `error.index`, names the id field a stored kind adds over a field
+  of that name, or a bug). `register()` installs `Schema.infer`; the typings add
+  `InferOptions` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`) and the two codes.
 - **The `@alexify/metaschema/stream` subpath: a schema over a sequence of records.**
   `checkEach(schema, records, options)` and `parseEach` run `check` or `parse` on every record
   of an iterable, lazily, and yield `{ index, record, result }` in the order of the records;

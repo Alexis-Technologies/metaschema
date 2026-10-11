@@ -135,6 +135,10 @@ const checkBundle = async ({ core, generators, compile, model: tools, stream }, 
     'tag',
   ]);
   assert.strictEqual(merged.check({ name: 'x', qty: 10, tag: 't' }).valid, false);
+  // A definition inferred from values accepts them, through the bundle.
+  const inferred = tools.infer([{ name: 'x', qty: 1 }, { name: 'y' }], { as: 'schema' });
+  assert.strictEqual(inferred.check({ name: 'z', qty: 2 }).valid, true);
+  assert.strictEqual(inferred.check({ name: 1 }).valid, false);
   assert.strictEqual(Model.diff, undefined);
   tools.register();
   assert.strictEqual(Model.compatibility(Model.diff(prev, next)), 'backward');

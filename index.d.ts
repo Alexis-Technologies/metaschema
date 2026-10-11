@@ -346,6 +346,11 @@ export type DefinitionErrorCode =
   | 'ERR_SAMPLE_TYPE'
   // Thrown by `merge` of the same subpath for what no value can satisfy.
   | 'ERR_MERGE_CONFLICT'
+  // Thrown by `infer` of the same subpath: a sample nested deeper than
+  // `maxDepth`, and a definition that rejects a sample it was inferred from
+  // (a bug of the inference, to report).
+  | 'ERR_INFER_DEPTH'
+  | 'ERR_INFER_MISMATCH'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -490,6 +495,32 @@ export interface MergeOptions {
   // The kind metadata of the merged schema, over the first schema's: `kind`,
   // `scope`, `store`, `allow`, `unknown` and any other key.
   metadata?: Partial<KindMetadata>;
+}
+
+// The options of `infer` of the `@alexify/metaschema/model` subpath (the
+// name sits beside the type `Infer<D>`: the function reads samples, the type
+// reads a definition).
+export interface InferOptions {
+  // What comes back: the definition ('definition', the default), or a Schema
+  // built from it ('schema').
+  as?: 'definition' | 'schema';
+  // The name of the Schema, and of the error locations ('').
+  name?: string;
+  // The kind of a root that is a struct ('struct'); a stored kind adds its
+  // id field, which wins over an inferred field of that name.
+  kind?: string;
+  // The most distinct strings a place may hold to be an enum (8), each
+  // value seen twice on average over at least four samples; 0 or false never.
+  enum?: number | false;
+  // Whether whole numbers are `integer` (true) rather than `number`.
+  integer?: boolean;
+  // The distinct keys past which records of a place read as a dictionary
+  // (16) when every key is missing from some record and the values are of
+  // one kind; keys that are not names are a dictionary from one sample on;
+  // false keeps every record a struct.
+  map?: number | false;
+  // How deep a sample may nest (128, the most); past it `ERR_INFER_DEPTH`.
+  maxDepth?: number;
 }
 
 // The options of `sample` of the `@alexify/metaschema/model` subpath.
@@ -1158,6 +1189,11 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
   // the same without it.
   static merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
+  // A definition (or a Schema) that accepts every sample: exists once
+  // `register()` of the `@alexify/metaschema/model` subpath has run; its
+  // `infer(samples, options)` is the same without it.
+  static infer(samples: Iterable<unknown>, options: InferOptions & { as: 'schema' }): Schema;
+  static infer(samples: Iterable<unknown>, options?: InferOptions): object | string;
 
   kind: Kind;
   scope: Scope;

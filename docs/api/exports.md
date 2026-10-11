@@ -10,7 +10,7 @@ const {
 
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
 const jit = require('@alexify/metaschema/compile'); // compile, register, canEval
-const tools = require('@alexify/metaschema/model'); // fromJSON, diff, compatibility, sample, merge, register
+const tools = require('@alexify/metaschema/model'); // fromJSON, diff, compatibility, sample, merge, infer, register
 const records = require('@alexify/metaschema/stream'); // checkEach, parseEach, checkEachAsync, parseEachAsync, transform, register
 ```
 
@@ -44,6 +44,7 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
 | `Schema.fromJSONSchema(document, options?)` | after `register()` of the generators subpath: `fromJSONSchema(document, options)`, a definition or a `Schema` from a [JSON Schema document](/guide/json-schema#importing-a-document) |
 | `Schema.merge(a, b, options?)` | after `register()` of the model subpath: `merge(a, b, options)`, the [schema both schemas describe](/guide/schema-syntax#merging-schemas) |
+| `Schema.infer(samples, options?)` | after `register()` of the model subpath: `infer(samples, options)`, a [definition the samples pass](/guide/infer), or a `Schema` with `as: 'schema'` |
 | `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors` (a whole number), `maxDepth` (embedded records, 128 by default), `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `TypeError` with the code `ERR_ASYNC_VALIDATOR` |
 | `schema.checkAsync(value, options?)` | the same check as a promise, with the validators and custom `checkType`s that return a promise settled after the walk, in field order; see [Async](/guide/parse#async) |
 | `schema.parse(value, options?)` | validates a value and returns `{ valid, value, issues }`: the `default` of every missing key filled in, the check, `unknown: 'strip'`, the `parse` function of every field (the parts of a value before the value) and the schema's own `parse`; `value` is `undefined` when invalid and the value given when there was nothing to apply. `options`: those of `check`, with `unknown` also `'strip'`; see [Parse and serialize](/guide/parse) |
@@ -103,8 +104,9 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (9.5 KB min+gzip on top of the core);
-see [Model evolution](/guide/evolution) and [Sample values](/guide/samples).
+The model as the source of truth, in a subpath of its own (11.7 KB min+gzip on top of the
+core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
+[Schema inference](/guide/infer).
 
 | Export | Description |
 | --- | --- |
@@ -113,10 +115,12 @@ see [Model evolution](/guide/evolution) and [Sample values](/guide/samples).
 | `compatibility(changes)` | `'full'`, `'backward'`, `'forward'` or `'none'` by the [rules](/guide/evolution#compatibility) of the Confluent Schema Registry |
 | `sample(schema, options?)` | a value the schema accepts, the same for `options.seed`; `options`: `seed`, `locale` (`'en'`, `'uk'`), `references`, `maxDepth`; a field no value satisfies is `ERR_UNSATISFIABLE`, a pattern it cannot read `ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample` `ERR_SAMPLE_TYPE` |
 | `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ERR_MERGE_CONFLICT` |
-| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge` and `schema.sample` on the classes, once per process |
+| `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`; a sample nested past `maxDepth` is `ERR_INFER_DEPTH`, a definition that rejects a sample `ERR_INFER_MISMATCH` |
+| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge`, `Schema.infer` and `schema.sample` on the classes, once per process |
 
 A `sample` or `merge` target that is not a `Schema` is a `TypeError` with `code:
-'ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list.
+'ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list and an `infer`
+argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
 
@@ -222,6 +226,8 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_SAMPLE_PATTERN` | a `pattern` outside the subset `sample` reads (a lookaround, a back reference, a word boundary, another Unicode property) |
 | `ERR_SAMPLE_TYPE` | a custom type with a check of its own and no `metadata.sample` |
 | `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, a calculated field or an index that differs; the message names the field |
+| `ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
+| `ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
@@ -252,7 +258,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`, `FunctionSnapshot`, `TypeSnapshot` | what `model.toJSON()` returns and its parts |
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
-| `SampleOptions`, `MergeOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`) and of `merge` (`name`, `metadata`) |
+| `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`) |
 | `EachOptions`, `ParseEachOptions`, `EachAsyncOptions` | the options of `checkEach` (`CheckOptions` and `maxInvalid`), of `parseEach` (`ParseOptions` and `maxInvalid`) and the one the async pair adds (`concurrency`) |
 | `TransformOptions` | the options of `transform`: `ParseOptions`, `mode`, `async`, `onInvalid`, `maxInvalid` |
 | `RecordEntry<R>` | what the generators of the stream subpath yield: `{ index, record, result: R }` |

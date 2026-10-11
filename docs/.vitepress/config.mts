@@ -134,6 +134,7 @@ export default defineConfig({
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'Model evolution', link: '/guide/evolution' },
             { text: 'Sample values', link: '/guide/samples' },
+            { text: 'Schema inference', link: '/guide/infer' },
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },
             { text: 'JSON Schema', link: '/guide/json-schema' },

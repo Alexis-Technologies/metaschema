@@ -102,3 +102,23 @@ expectAssignable<MergeOptions>({});
 expectError(merge(user, { name: 'string' }));
 expectError(merge(user, user, { name: 1 }));
 expectAssignable<DefinitionErrorCode>('ERR_MERGE_CONFLICT');
+
+// infer: a definition from samples, or a Schema, with the options.
+import { infer } from '../../src/model/index.js';
+import type { InferOptions } from '../../index.js';
+expectType<object | string>(infer([{ name: 'x' }]));
+expectType<Schema>(infer([{ name: 'x' }], { as: 'schema', name: 'User' }));
+expectType<Schema>(Schema.infer(new Set([1, 2]), { as: 'schema' }));
+expectType<object | string>(Schema.infer([1, 2]));
+expectAssignable<InferOptions>({
+  kind: 'entity',
+  enum: false,
+  integer: false,
+  map: 32,
+  maxDepth: 8,
+});
+expectError(infer(1));
+expectError(infer([1], { as: 'json' }));
+expectError(infer([1], { enum: 'many' }));
+expectAssignable<DefinitionErrorCode>('ERR_INFER_DEPTH');
+expectAssignable<DefinitionErrorCode>('ERR_INFER_MISMATCH');

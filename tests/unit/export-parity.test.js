@@ -97,6 +97,7 @@ test('Exports: the model subpath is reachable through its subpath export', () =>
     'compatibilityOf',
     'sample',
     'merge',
+    'infer',
     'register',
   ]);
   const source = [

@@ -111,10 +111,10 @@ once per construction, that `register()` fills. A new backend goes there too.
 without an import and the snapshot is the contract other programs read the model through
 (migronaut, Alioth, wrpc); `aliases` and `deprecated` are in the core because `check`, `parse`
 and the lint read them. Everything that reads a snapshot or builds on it (`fromJSON`, `diff`,
-`compatibility`), and everything that builds values or schemas from schemas (`sample`,
-`merge`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an explicit
-`register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
-`Schema.merge` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
+`compatibility`), and everything that builds values or schemas from schemas or from values (`sample`,
+`merge`, `infer`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an
+explicit `register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
+`Schema.merge`, `Schema.infer` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
 was planned for the core (ROADMAP §5.7 G1) and moved to the subpath on 2026-10-11 because the
 restore is 0.8 KB that validation never needs and the core had 14 bytes of headroom left.
 `fromJSONSchema` is the other direction of `toJSONSchema` and lives beside it in
@@ -166,7 +166,9 @@ src/
                     diff.js (diff, compatibility: the Confluent rules as bits),
                     sample.js (the seeded witness: mulberry32, per-field verification), pattern.js (the regex
                     subset: a parser into nodes once per RegExp, a string drawn from the nodes),
-                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT)
+                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT),
+                    infer.js (a definition from samples: the summary of every place, fused records,
+                    the dictionary and enum heuristics, the self-check, ERR_INFER_DEPTH/ERR_INFER_MISMATCH)
   stream/           the ./stream subpath: index.js (checkEach, parseEach, checkEachAsync, parseEachAsync,
                     transform, register), index.d.ts
 tests/
@@ -223,8 +225,10 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `model/sample.js` requires `util`, `context` (`createContext`, for the verification of a
   draw), `errors`, `struct`, `prototypes/reference` (`embeds`), `issues` (`toDotPath`,
   `finalize`), `locales/en` and `pattern`; `model/merge.js` requires `util`, `schema.js`,
-  `struct`, `issues` (`isThenable`), `errors` and `data`; `model/index.js` requires
-  `schema.js`, `model.js` and the five. Nothing in the core requires `model/`.
+  `struct`, `issues` (`isThenable`), `errors` and `data`; `model/infer.js` requires `util`
+  (`define`, `IDENTIFIER`), `schema.js`, `errors`, `types` (`readsAsStruct`), `issues`
+  (`toDotPath`, `finalize`), `locales/en` and `data` (`DEPTH`, `capitalize`); `model/index.js`
+  requires `schema.js`, `model.js` and the six. Nothing in the core requires `model/`.
 - `stream/index.js` requires `util` (`hasBrand`), `issues` (`abandon`), `errors`
   (`invalidTarget`) and `schema.js` (for `register()`); it calls the public methods of a
   schema and never `codec` or the prototypes. Nothing in the core requires `stream/`.
@@ -260,8 +264,8 @@ kind or the `schema` shorthand.
 `ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`, `ERR_UNKNOWN_JS_TYPE`,
 `ERR_INVALID_OPTIONS`, `ERR_INVALID_RULE`, `ERR_INVALID_UNION`, `ERR_UNREPRESENTABLE` and
 `ERR_UNSUPPORTED_SCHEMA` of the generators, `ERR_NO_EVAL` and `ERR_JIT_BUILD` of the compile
-subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`
-and `ERR_MERGE_CONFLICT` of the model subpath), `schema` and `field`. A function of a subpath
+subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`,
+`ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH` and `ERR_INFER_MISMATCH` of the model subpath), `schema` and `field`. A function of a subpath
 given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
 JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
 (`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
@@ -730,7 +734,13 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
-- 3.2 suites: `stream.test.js` (the generators over arrays, Sets and generators, `parseEach`
+- 3.2 suites: `infer.test.js` (every form of a value, optional/nullable/null, the enum and
+  dictionary rules with their options, unions with the record last, nested fusion, the root
+  forms and the id of a stored kind, every hostile key (`__proto__`, `constructor`, keys not
+  led by a letter, keys named like types, `foo?`, symbol and inherited keys, the names of the
+  methods of a field), the depth limit with a cycle, the call errors, `register()`, and the
+  round trip with `sample` over the fixture entities and every form of the language, both
+  backends throughout), `stream.test.js` (the generators over arrays, Sets and generators, `parseEach`
   with defaults/strip/decoders/aliases, `maxInvalid`, the async pair over sync and async
   sources with `concurrency` 1/3/100 and the count in flight observed, an iteration that ends
   early with promises in flight (no unhandled rejection, a parse that throws), `transform` in
@@ -1076,6 +1086,20 @@ change. **This file wins** if they ever disagree.
   draft-07 comes back as a plain union (only `openapi-3.0` writes it). A nested struct comes
   back as its fields unless its first key would read as a type or a kind, then as `{ schema }`.
 
+- **`infer` makes a struct of records, never a union of two struct shapes**, and a
+  dictionary of records whose keys are not names (ids, dates) from one sample on: both are
+  Baazizi's record fusion and quicktype's map rule, with `map: false`/`enum: 0` to turn the
+  heuristics off. It infers no bounds (`length`, `min`, `max`): the extremes of a sample are
+  not the domain. A root of records and `null` is `{ union: [struct], required: false }`
+  because the `schema` shorthand at the root is the struct itself and `required` means nothing
+  there (`Schema.from({ schema: {...}, required: false }).check(null)` is a type issue). A key
+  ending in `?` is written `'foo??'`; a key that is not a name makes the record a dictionary,
+  so `{ 'foo?': 1 }` alone is `{ object: { string: 'integer' } }`.
+- **The id field of a stored kind wins over a field of the same name in a definition.**
+  `new Schema('Order', { Entity: {}, orderId: 'integer' })` has `orderId: '?string'`
+  (`schema.js` spreads the kind's fields over the definition's). `infer` therefore defaults to
+  `kind: 'struct'`, and its self-check names such a field (`ERR_INFER_MISMATCH`). Not changed
+  in 3.2 (it is the kinds' semantics); documented in the inference guide.
 - **The entries of `checkEach` carry the record and its index; the error lines carry the
   schema name.** `{ index, record, result }` is one shape for every entry: an iterator has no
   position and a stream cannot be read again. `root` is one label per call, not per record

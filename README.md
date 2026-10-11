@@ -87,12 +87,13 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
 - **The model as data.** `model.toJSON()` is a snapshot other programs read the model through
   (a migration tool, an introspecting service, a committed baseline), and
   `@alexify/metaschema/model` tells two versions apart (`diff`), classifies the change by the
-  Confluent rules (`compatibility`), draws a value every schema accepts (`sample`) and unifies
-  two schemas (`merge`); `aliases` and `deprecated` let a model carry its history, and
-  `fromJSONSchema` of the generators reads a JSON Schema document back.
+  Confluent rules (`compatibility`), draws a value every schema accepts (`sample`), unifies two
+  schemas (`merge`) and infers a definition from the values that exist (`infer`); `aliases` and
+  `deprecated` let a model carry its history, and `fromJSONSchema` of the generators reads a
+  JSON Schema document back.
 - **Zero dependencies, 17.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB, the
-  model tools 9.4 KB and the record tools 1.0 KB where they are imported.
+  model tools 11.7 KB and the record tools 1.0 KB where they are imported.
 
 ## Installation
 
@@ -311,7 +312,7 @@ const {
 
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
 const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
-const { fromJSON, diff, compatibility, sample, merge } = require('@alexify/metaschema/model'); // and its own register()
+const { fromJSON, diff, compatibility, sample, merge, infer } = require('@alexify/metaschema/model'); // and its own register()
 const { checkEach, parseEach, checkEachAsync, parseEachAsync, transform } = require('@alexify/metaschema/stream'); // and its own register()
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages

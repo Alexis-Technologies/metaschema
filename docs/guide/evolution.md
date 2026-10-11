@@ -23,8 +23,8 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 17.2 KB min+gzip, `@alexify/metaschema/model` adds 9.5 KB on
-top. The subpath exports seven functions:
+them: `@alexify/metaschema` is 17.3 KB min+gzip, `@alexify/metaschema/model` adds 11.7 KB on
+top. The subpath exports eight functions:
 
 | Export | Meaning |
 | --- | --- |
@@ -34,7 +34,8 @@ top. The subpath exports seven functions:
 | `compatibilityOf(change)` | the compatibility class of one change |
 | `sample(schema, options?)` | a [value the schema accepts](/guide/samples), the same for a seed |
 | `merge(a, b, options?)` | the [schema both schemas describe](/guide/schema-syntax#merging-schemas) |
-| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Model.compatibilityOf`, `Schema.merge` and `schema.sample(options)` on the classes, once per process |
+| `infer(samples, options?)` | a [definition the samples pass](/guide/infer), the reverse of `sample` |
+| `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Model.compatibilityOf`, `Schema.merge`, `Schema.infer` and `schema.sample(options)` on the classes, once per process |
 
 `register()` installs the members like class members, invisible to `Object.keys`,
 `JSON.stringify` and `for...in`; the functions do the same job without it.
