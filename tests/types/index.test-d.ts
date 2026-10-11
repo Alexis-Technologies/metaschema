@@ -16,18 +16,25 @@ import type {
   Cardinality,
   CheckContext,
   DefinitionErrorCode,
+  EntitySnapshot,
+  FieldSnapshot,
   FieldType,
   Fields,
+  FieldsSnapshot,
   FlatIssues,
+  FunctionSnapshot,
+  Infer,
   IssueCode,
   IssueOf,
   IssueTree,
   Kind,
   KindMetadata,
   Locale,
+  ModelSnapshot,
   Relation,
   Scope,
   TypeEntry,
+  TypeSnapshot,
   TypeTable,
   ValidationIssue,
 } from '../../index.js';
@@ -187,3 +194,16 @@ expectType<string>(error.field);
 expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
 expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
 expectType<SchemaDefinitionError>(new SchemaDefinitionError('ERR_INVALID_RULE', 'x'));
+
+declare const snapshotModel: Model;
+expectType<ModelSnapshot>(snapshotModel.toJSON());
+const snapshot = snapshotModel.toJSON();
+expectType<1>(snapshot.format);
+expectType<Record<string, EntitySnapshot>>(snapshot.entities);
+expectType<Record<string, TypeSnapshot>>(snapshot.types);
+expectType<FieldsSnapshot | undefined>(snapshot.entities.Account.fields);
+expectType<FieldSnapshot | undefined>(snapshot.entities.Account.type);
+expectAssignable<FieldSnapshot | FunctionSnapshot>({ $function: true });
+expectAssignable<FieldSnapshot | FunctionSnapshot>({ type: 'string', required: true, length: 8 });
+expectAssignable<string[] | undefined>(
+);

@@ -1,0 +1,286 @@
+{
+  "format": 1,
+  "database": {
+    "name": "example",
+    "description": "Example database schema",
+    "version": 4,
+    "driver": "pg",
+    "authors": [
+      {
+        "name": "Timur Shemsedinov",
+        "email": "timur.shemsedinov@gmail.com"
+      }
+    ],
+    "extensions": ["hstore", "postgis", "postgis_topology", "pg_trgm"],
+    "connection": {
+      "host": "127.0.0.1",
+      "port": 5432,
+      "database": "application",
+      "user": "postgres",
+      "password": "postgres"
+    }
+  },
+  "types": {
+    "datetime": {
+      "js": "string",
+      "metadata": {
+        "pg": "timestamp with time zone"
+      }
+    },
+    "string": {
+      "metadata": {
+        "pg": "varchar"
+      }
+    }
+  },
+  "entities": {
+    "Identifier": {
+      "kind": "registry",
+      "scope": "global",
+      "store": "persistent",
+      "allow": "write",
+      "parent": "",
+      "unknown": "reject",
+      "custom": {},
+      "fields": {
+        "storage": {
+          "type": "enum",
+          "required": true,
+          "enum": ["master", "cache", "backup", "replica"],
+          "index": true
+        },
+        "status": {
+          "type": "enum",
+          "required": true,
+          "enum": ["prealloc", "init", "actual", "historical"],
+          "index": true
+        },
+        "creation": {
+          "type": "datetime",
+          "required": true
+        },
+        "change": {
+          "type": "datetime",
+          "required": true
+        },
+        "lock": {
+          "type": "boolean",
+          "required": true,
+          "default": false
+        },
+        "version": {
+          "type": "number",
+          "required": true,
+          "default": 0
+        },
+        "hashsum": {
+          "type": "string",
+          "required": true
+        },
+        "identifierId": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "indexes": {},
+      "relations": []
+    },
+    "Company": {
+      "kind": "registry",
+      "scope": "application",
+      "store": "persistent",
+      "allow": "write",
+      "parent": "",
+      "unknown": "reject",
+      "custom": {},
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        "parent": {
+          "type": "Company",
+          "required": false,
+          "one": "Company"
+        },
+        "companyId": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "indexes": {},
+      "relations": [
+        {
+          "to": "Company",
+          "type": "many-to-one"
+        }
+      ]
+    },
+    "Address": {
+      "kind": "entity",
+      "scope": "application",
+      "store": "persistent",
+      "allow": "write",
+      "parent": "",
+      "unknown": "reject",
+      "custom": {},
+      "fields": {
+        "city": {
+          "type": "string",
+          "required": true
+        },
+        "street": {
+          "type": "string",
+          "required": false
+        },
+        "building": {
+          "type": "string",
+          "required": false
+        },
+        "addressId": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "indexes": {
+        "naturalKey": {
+          "unique": ["city", "street", "building"]
+        }
+      },
+      "relations": []
+    },
+    "Account": {
+      "kind": "registry",
+      "scope": "application",
+      "store": "persistent",
+      "allow": "write",
+      "parent": "",
+      "unknown": "reject",
+      "custom": {},
+      "fields": {
+        "login": {
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        "password": {
+          "type": "string",
+          "required": true
+        },
+        "blocked": {
+          "type": "boolean",
+          "required": true,
+          "default": false
+        },
+        "company": {
+          "type": "Company",
+          "required": true,
+          "one": "Company"
+        },
+        "fullName": {
+          "type": "schema",
+          "required": true,
+          "schema": {
+            "given": {
+              "type": "string",
+              "required": false
+            },
+            "middle": {
+              "type": "string",
+              "required": false
+            },
+            "surname": {
+              "type": "string",
+              "required": false
+            }
+          }
+        },
+        "birth": {
+          "type": "schema",
+          "required": true,
+          "schema": {
+            "date": {
+              "type": "string",
+              "required": false
+            },
+            "place": {
+              "type": "string",
+              "required": false
+            }
+          }
+        },
+        "addresses": {
+          "type": "Address",
+          "required": true,
+          "many": "Address"
+        },
+        "accountId": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "indexes": {},
+      "relations": [
+        {
+          "to": "Company",
+          "type": "many-to-one"
+        },
+        {
+          "to": "Address",
+          "type": "one-to-many"
+        }
+      ]
+    },
+    "Aaa": {
+      "kind": "projection",
+      "scope": "local",
+      "store": "memory",
+      "allow": "write",
+      "parent": "Account",
+      "unknown": "reject",
+      "custom": {
+        "schema": "Account",
+        "fields": ["login", "password"]
+      },
+      "fields": {
+        "login": {
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        "password": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "indexes": {},
+      "relations": []
+    },
+    "Signin": {
+      "kind": "projection",
+      "scope": "local",
+      "store": "memory",
+      "allow": "write",
+      "parent": "Account",
+      "unknown": "reject",
+      "custom": {
+        "schema": "Account",
+        "fields": ["login", "password"]
+      },
+      "fields": {
+        "login": {
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        "password": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "indexes": {},
+      "relations": []
+    }
+  }
+}

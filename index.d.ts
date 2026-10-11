@@ -337,6 +337,67 @@ export class SchemaDefinitionError extends TypeError {
 // not the definition, is wrong, so it is a plain TypeError with `code`.
 export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR';
 
+// ---------------------------------------------------------------------------
+// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
+// entities in dependency order with a fixed key order, the types the
+// entities use, and the `database` metadata as given. A function is
+// `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a Date
+// `{ $date }`, a RegExp its source (or `{ source, flags }` with flags beyond
+// `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads it back.
+// ---------------------------------------------------------------------------
+
+export interface FunctionSnapshot {
+  $function: true;
+}
+
+// A field of a snapshot: its type and whether it is required first, then
+// the other keys of its definition, sorted (a nested struct under `schema`,
+// an element under `value`, branches under `union`).
+export interface FieldSnapshot {
+  type: string;
+  required: boolean;
+  [key: string]: unknown;
+}
+
+// The fields of a struct in their order: a calculated field, the validate,
+// parse or serialize of the struct are `{ $function: true }`.
+export type FieldsSnapshot = Record<string, FieldSnapshot | FunctionSnapshot>;
+
+export interface EntitySnapshot {
+  kind: Kind;
+  scope: Scope;
+  store: Store;
+  allow: Allow;
+  // The parent of a projection, '' otherwise.
+  parent: string;
+  unknown: 'reject' | 'ignore';
+  // The other keys of the kind metadata, as given.
+  custom: Record<string, unknown>;
+  // A struct's fields, with the schema-level functions among them, or
+  fields?: FieldsSnapshot;
+  // the type of a schema of one type.
+  type?: FieldSnapshot;
+  // The index definitions (`index`, `primary`, `unique` lists), as given.
+  indexes: Record<string, object>;
+  relations: Relation[];
+}
+
+// A type the entities use: an alias of a built-in (`js`), a type with a
+// check of its own (`check: true`, its kind), or a built-in with metadata.
+export interface TypeSnapshot {
+  js?: string;
+  kind?: 'scalar' | 'struct';
+  check?: true;
+  metadata: Record<string, unknown>;
+}
+
+export interface ModelSnapshot {
+  format: 1;
+  database: Record<string, unknown> | null;
+  types: Record<string, TypeSnapshot>;
+  entities: Record<string, EntitySnapshot>;
+}
+
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
 export const KIND_MEMORY: Array<string>;
@@ -988,6 +1049,9 @@ export class Model {
     database?: Record<string, unknown> | null,
     options?: ModelOptions,
   );
+  // The model as plain JSON, what JSON.stringify(model) writes; see
+  // `ModelSnapshot`.
+  toJSON(): ModelSnapshot;
   // The members below exist once `register()` of the generators subpath has
   // run; the subpath's `toJSONSchema(model)` and `toTypeScript(model)` are the
   // same without it.
