@@ -45,6 +45,11 @@ test('Lint: an option a type does not know is a warning, an annotation is not', 
     'Warning [unknown-option]: option "lazy" of "Order.owner" is not known to type "Owner"',
   ]);
   assert.deepStrictEqual(Schema.from({ a: 'string', b: { array: 'number' } }).warnings, []);
+  // The name of a named tuple element is the tuple's, not an option.
+  assert.deepStrictEqual(Schema.from({ p: [{ x: 'number' }, { 'y?': 'string' }] }).warnings, []);
+  assert.deepStrictEqual(Schema.from({ p: [{ x: { type: 'number', step: 1 } }] }).warnings, [
+    'Warning [unknown-option]: option "step" of "p[0].x" is not known to type "number"',
+  ]);
   // A nested struct whose first field is named like a type is read as that
   // type, and the lint is what catches it.
   const birth = Schema.from({ birth: { date: '?string', place: '?string' } });

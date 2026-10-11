@@ -30,11 +30,14 @@ const KNOWN = new Set([
 
 const isCustom = (Type) => Type.source !== undefined && Type.source.js === undefined;
 
-const lintField = (field, path, warnings) => {
+// `element` says the field is an element of a tuple, whose `name` is the
+// name the tuple gave it (`[{ x: 'number' }]`), not an option.
+const lintField = (field, path, warnings, element = false) => {
   const Type = field.constructor;
   if (!isCustom(Type)) {
     for (const key of Object.keys(field)) {
       if (KNOWN.has(key) || Type.options.has(key)) continue;
+      if (element && key === 'name') continue;
       const text = `option "${key}" of "${path}" is not known to type "${field.type}"`;
       warnings.push(warning('unknown-option', text));
     }
@@ -48,7 +51,7 @@ const lintField = (field, path, warnings) => {
   if (value !== undefined) {
     if (Array.isArray(value)) {
       for (let index = 0; index < value.length; index += 1) {
-        lintField(value[index], `${path}[${index}]`, warnings);
+        lintField(value[index], `${path}[${index}]`, warnings, true);
       }
     } else {
       lintField(value, `${path}[]`, warnings);
