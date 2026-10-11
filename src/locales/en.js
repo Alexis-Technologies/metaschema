@@ -10,10 +10,16 @@ const required = () => 'is required';
 const type = ({ expected, key }) =>
   key === undefined ? `not of expected type: ${expected}` : `keys must be of type ${expected}`;
 
+// The first keys of the list and how many more there are: a value with a
+// million keys the schema does not have is one issue, and its message is
+// not the million keys.
+const SHOWN = 10;
+
 const list = (keys) => {
+  const count = Math.min(keys.length, SHOWN);
   let text = shorten(keys[0]);
-  for (let index = 1; index < keys.length; index += 1) text += `, ${shorten(keys[index])}`;
-  return text;
+  for (let index = 1; index < count; index += 1) text += `, ${shorten(keys[index])}`;
+  return keys.length > SHOWN ? `${text} and ${keys.length - SHOWN} more` : text;
 };
 
 const unexpected = ({ keys }) => `has unexpected keys: ${list(keys)}`;

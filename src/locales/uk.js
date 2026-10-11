@@ -9,10 +9,15 @@ const required = () => 'є обовʼязковим';
 const type = ({ expected, key }) =>
   key === undefined ? `не відповідає типу: ${expected}` : `ключі мають бути типу ${expected}`;
 
+// Перші ключі списку і скільки їх ще: значення з мільйоном невідомих ключів
+// є одним issue, і його повідомлення не є цим мільйоном.
+const SHOWN = 10;
+
 const list = (keys) => {
+  const count = Math.min(keys.length, SHOWN);
   let text = shorten(keys[0]);
-  for (let index = 1; index < keys.length; index += 1) text += `, ${shorten(keys[index])}`;
-  return text;
+  for (let index = 1; index < count; index += 1) text += `, ${shorten(keys[index])}`;
+  return keys.length > SHOWN ? `${text} і ще ${keys.length - SHOWN}` : text;
 };
 
 const unexpected = ({ keys }) => `має неочікувані ключі: ${list(keys)}`;
