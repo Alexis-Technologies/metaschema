@@ -733,3 +733,37 @@ test('Async: the decoders that reject respect maxErrors', async () => {
     [['b'], 'validation failed Error: b'],
   ]);
 });
+
+test('Async: a walk that throws leaves no promise of the check unhandled', async () => {
+  // A getter of the value that throws is the program's error and leaves
+  // checkAsync as such; the promise a validator met before it returned is
+  // observed on the way out, not left to reject on its own.
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    const schema = Schema.from({
+      a: {
+        type: 'string',
+        validate: async () => {
+          await tick();
+          throw new Error('a rejects');
+        },
+      },
+      b: 'string',
+    });
+    const value = {
+      a: 'x',
+      get b() {
+        throw new Error('getter');
+      },
+    };
+    await assert.rejects(schema.checkAsync(value), { message: 'getter' });
+    await assert.rejects(schema.parseAsync(value), { message: 'getter' });
+    await tick();
+    await tick();
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
+});
