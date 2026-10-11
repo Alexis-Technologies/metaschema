@@ -203,6 +203,56 @@ generated types alike. See
 [Custom Types](https://metaschema.vercel.app/guide/custom-types) and
 [Domain Models](https://metaschema.vercel.app/guide/model).
 
+## Records and streams
+
+`@alexify/metaschema/stream` runs a schema over a sequence of records, lazily and in order:
+
+```js
+const { checkEach, parseEach, transform } = require('@alexify/metaschema/stream');
+
+for (const { index, record, result } of checkEach(user, rows)) {
+  if (!result.valid) console.log(index, result.errors);
+}
+for (const { result } of parseEach(user, rows, { unknown: 'strip', maxInvalid: 10 })) save(result.value);
+
+const parsed = ReadableStream.from(rows).pipeThrough(
+  transform(user, { onInvalid: (record, result, index) => log(index, result.issues) }),
+);
+```
+
+`checkEachAsync` and `parseEachAsync` take a sync or async source and keep `concurrency` records
+in flight; `maxInvalid` ends an iteration after that many invalid records, and a `transform`
+without `onInvalid` ends its stream with `ERR_INVALID_RECORD`. See
+[Records and streams](https://metaschema.vercel.app/guide/streaming).
+
+## Inferring a definition
+
+`infer` of `@alexify/metaschema/model` reads a definition out of the values that exist, the
+reverse of `sample`, to bootstrap a model from the documents of a collection or the rows of a
+table:
+
+```js
+const { infer } = require('@alexify/metaschema/model');
+
+infer([
+  { id: 'ord-1', total: 12.5, status: 'paid', address: { city: 'Kyiv', zip: '01001' } },
+  { id: 'ord-2', total: 7, status: 'new', address: { city: 'Lviv', zip: null }, coupon: 'X1' },
+]);
+// {
+//   Struct: {},
+//   id: 'string',
+//   total: 'number',
+//   status: 'string',
+//   address: { city: 'string', zip: { type: 'string', nullable: true } },
+//   coupon: '?string',
+// }
+```
+
+Records fuse into one struct with optional keys, a string of few recurring values is an `enum`,
+records whose keys are data are a dictionary, and the definition is checked against every
+sample before it comes back. See
+[Schema inference](https://metaschema.vercel.app/guide/infer).
+
 ## TypeScript
 
 A schema keeps its definition as a type parameter, and `InferSchema` turns it into the type of

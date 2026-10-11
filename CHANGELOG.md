@@ -7,56 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Performance
+## [3.2.0] - 2026-10-11
 
-- **The passes of `parse` and `serialize` allocate nothing per container they visit.** The
-  walkers of `codec.js` kept a state object per struct, list, dictionary or tuple whose bits a
-  pass wanted (`{ context, key, value, clone, put, out, pending }`), even where nothing
-  changed; the output under construction and the parts still decoding are locals of the walker
-  now, written through two small helpers. `pnpm bench`: `parse` of 100 records under
-  `unknown: 'strip'` from 61 K to 71 K a second on the closures and from 81 K to 100 K on the
-  JIT, a nested struct under `strip` from 1.9 M to 2.2 M on the JIT, defaults and a decoder
-  about 5% faster on both; the rest within the run-to-run band.
-
-### Changed
-
-- **Independent async validators are in flight together.** `checkAsync` and `parseAsync` set a
-  validator aside uncalled only when a promise is pending under its path (the `validate` of a
-  struct whose field is still being checked, the schema's own); every other validator runs
-  where `check` runs it, during the walk, and the promises are awaited together after it, so
-  the latency of a check is the longest of the waits rather than their sum (`pnpm bench`:
-  four independent validators awaiting `setImmediate` went from 18 K to 66 K checks a second,
-  32 records with one each from 2.2 K to 45 K, four awaiting `setTimeout(1)` from 190 to
-  845; the sync validators and the resolved promises are unchanged). What
-  changes besides the latency: a synchronous validator met after an unrelated promise runs
-  during the walk, so the issues of the walk come first, in walk order, and the promises after
-  them, in field order; under a low `maxErrors`, and in a branch of a plain union that fails, a
-  validator may be called whose result is dropped, as in `check`. The issues recorded are the
-  same, on both backends.
-- **The gate of the `./model` subpath is 12 KB** (was 10): `infer` costs 2.3 KB min+gzip and
-  the subpath measures 11.7 KB; the subpath is tooling, not the validation path, as for the
-  move from 8.5 to 10 KB in 3.1.
-
-### Fixed
-
-- **A failed branch of a plain union observed none of the promises it dropped.** A validator
-  of the branch that returned a promise was set aside, and when the branch failed on a later
-  field the entry was cut from the list without a handler, so its rejection was an
-  `unhandledRejection` while the value went on to match the next branch. Both backends now
-  release such entries (`release` in `issues.js`, reached by the generated code through the
-  scope), as the trial of `parse` and a `settle` stopped by `maxErrors` already did.
-- **An object with no key that starts with a letter is a struct.** `Schema.from({})`,
-  `{ _id: 'string' }` and a nested `{ a: {} }` threw a bare `TypeError` from the preprocessor
-  (the first key is the first one that starts with a letter, and there was none); they are
-  structs of those keys, or of none.
-- **A nested struct may have a field named `required`.** `{ a: { required: 'boolean' } }`
-  gave the field `a` the `required` of its nested definition (`'boolean'`), which showed in
-  `toJSON()` and in the snapshot; the key and the parsers decide, as everywhere else.
-- **`fromJSONSchema` wraps a nested struct whose first letter-led key reads as a type.** A
-  nested object with the properties `_id` and `string` came back bare and was read as a
-  `string` field; one with no properties came back as `{}` and could not be built. The rule
-  the generator asks (`readsAsStruct` in `types.js`) follows the preprocessor's `firstKey`
-  now, and the model subpath shares it.
+3.2 takes a schema to the records around it. The new `@alexify/metaschema/stream` subpath runs
+a schema over a sequence of records, lazily and in order, as generators and as a
+`TransformStream`; `infer` in the model subpath reads a definition out of the values that
+exist, the reverse of `sample`; and the two performance candidates the review of 3.0 left were
+measured and done: independent async validators are in flight together, and the passes of
+`parse` allocate nothing per container they visit. Four fixes were found on the way. Nothing
+breaks; the order of the issues of an async check with a sync validator after an unrelated
+promise is the one change in behaviour, listed under Changed.
 
 ### Added
 
@@ -94,6 +54,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sync, resolved and event-loop-bound validators, `parseAsync` with an async decoder, and
   `parse` under `unknown: 'strip'` over a nested value and a list of 100 records, each on both
   backends, through a `benchAsync` twin of the harness (one `await` per call).
+
+### Changed
+
+- **Independent async validators are in flight together.** `checkAsync` and `parseAsync` set a
+  validator aside uncalled only when a promise is pending under its path (the `validate` of a
+  struct whose field is still being checked, the schema's own); every other validator runs
+  where `check` runs it, during the walk, and the promises are awaited together after it, so
+  the latency of a check is the longest of the waits rather than their sum (`pnpm bench`:
+  four independent validators awaiting `setImmediate` went from 18 K to 66 K checks a second,
+  32 records with one each from 2.2 K to 45 K, four awaiting `setTimeout(1)` from 190 to
+  845; the sync validators and the resolved promises are unchanged). What
+  changes besides the latency: a synchronous validator met after an unrelated promise runs
+  during the walk, so the issues of the walk come first, in walk order, and the promises after
+  them, in field order; under a low `maxErrors`, and in a branch of a plain union that fails, a
+  validator may be called whose result is dropped, as in `check`. The issues recorded are the
+  same, on both backends.
+- **The gate of the `./model` subpath is 12 KB** (was 10): `infer` costs 2.3 KB min+gzip and
+  the subpath measures 11.7 KB; the subpath is tooling, not the validation path, as for the
+  move from 8.5 to 10 KB in 3.1.
+
+### Performance
+
+- **The passes of `parse` and `serialize` allocate nothing per container they visit.** The
+  walkers of `codec.js` kept a state object per struct, list, dictionary or tuple whose bits a
+  pass wanted (`{ context, key, value, clone, put, out, pending }`), even where nothing
+  changed; the output under construction and the parts still decoding are locals of the walker
+  now, written through two small helpers. `pnpm bench`: `parse` of 100 records under
+  `unknown: 'strip'` from 61 K to 71 K a second on the closures and from 81 K to 100 K on the
+  JIT, a nested struct under `strip` from 1.9 M to 2.2 M on the JIT, defaults and a decoder
+  about 5% faster on both; the rest within the run-to-run band.
+
+### Fixed
+
+- **A failed branch of a plain union observed none of the promises it dropped.** A validator
+  of the branch that returned a promise was set aside, and when the branch failed on a later
+  field the entry was cut from the list without a handler, so its rejection was an
+  `unhandledRejection` while the value went on to match the next branch. Both backends now
+  release such entries (`release` in `issues.js`, reached by the generated code through the
+  scope), as the trial of `parse` and a `settle` stopped by `maxErrors` already did.
+- **An object with no key that starts with a letter is a struct.** `Schema.from({})`,
+  `{ _id: 'string' }` and a nested `{ a: {} }` threw a bare `TypeError` from the preprocessor
+  (the first key is the first one that starts with a letter, and there was none); they are
+  structs of those keys, or of none.
+- **A nested struct may have a field named `required`.** `{ a: { required: 'boolean' } }`
+  gave the field `a` the `required` of its nested definition (`'boolean'`), which showed in
+  `toJSON()` and in the snapshot; the key and the parsers decide, as everywhere else.
+- **`fromJSONSchema` wraps a nested struct whose first letter-led key reads as a type.** A
+  nested object with the properties `_id` and `string` came back bare and was read as a
+  `string` field; one with no properties came back as `{}` and could not be built. The rule
+  the generator asks (`readsAsStruct` in `types.js`) follows the preprocessor's `firstKey`
+  now, and the model subpath shares it.
 
 ## [3.1.0] - 2026-10-11
 
@@ -1172,6 +1183,7 @@ published.
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
 [unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...HEAD
+[3.2.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...v2.0.0

@@ -477,12 +477,21 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.1 bundle budgets are 17.5 KB min+gzip per core entry, 7.5 KB for the generators,
-4.25 KB for the compile subpath and 10 KB for the model subpath on top of it** (`pnpm size
---max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10` in CI).
-After the review of 3.1 (2026-10-11) the entries measure 17626 bytes (17.2 KB) each, the
-generators 7303 bytes (7.1 KB), the compile subpath 4124 bytes (4.0 KB) and the model subpath
-9682 bytes (9.5 KB).
+**The 3.2 bundle budgets are 17.5 KB min+gzip per core entry, 7.5 KB for the generators,
+4.25 KB for the compile subpath, 12 KB for the model subpath and 1.5 KB for the stream subpath
+on top of it** (`pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25
+--max-gzip-model 12 --max-gzip-stream 1.5` in CI). On the 3.2 branch (2026-10-11) the entries
+measure 17741 bytes (17.3 KB) each, the generators 7230 bytes (7.1 KB), the compile subpath
+4132 bytes (4.0 KB), the model subpath 11948 bytes (11.7 KB) and the stream subpath 1026 bytes
+(1.0 KB). 3.2 cost the core 115 bytes, none of them on the synchronous hot path: the `release`
+helper, `readsAsStruct` and the guard that reads `{}` as a struct (+94), `under` in `guarded`
+with `failedUnder` rewritten over it (+16), the walkers of `codec.js` without a state object
+per container (+5); `infer` cost the model subpath 2.3 KB, which moved its gate from 10 KB to
+12 KB (Alex's decision, 2026-10-11: the subpath is tooling, not the validation path, as for
+the move from 8.5 to 10 KB in the review of 3.1; 340 bytes of headroom remain); the stream
+subpath is new, with a gate of its own. After the review of 3.1 (2026-10-11) the entries
+measured 17626 bytes (17.2 KB) each, the generators 7303 bytes (7.1 KB), the compile subpath
+4124 bytes (4.0 KB) and the model subpath 9682 bytes (9.5 KB).
 Workstream G (2026-10-11) added 850 bytes to the core (`src/snapshot.js`, the snapshot writer,
 about 660 of them; the aliases in `struct.js`, `codec.js` and `lint.js` the rest), which took it
 to 17394 bytes, 17.0 KB, 14 bytes under the 17 KB gate of 3.0 (the restore of a snapshot was
@@ -550,6 +559,16 @@ harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
 
+`bench/baseline.json` was re-saved on the 3.2 branch (2026-10-11): the rows of 3.1 moved by
+less than the run-to-run band, the strip rows gained from the walkers without a state object
+(100 records under `strip` 61 K → 66 K on the closures, 81 K → 95 K on the JIT, measured as
++16% and +24% in an A/B of scratch worktrees before the merge), the async rows are the settle
+of 3.2 (four independent validators awaiting `setImmediate` 18 K → 65 K checks a second, 32
+records with one each 2.2 K → 43 K, four awaiting `setTimeout(1)` 190 → 812; the sync and
+resolved-promise rows unchanged), and `checkEach` costs about 20 ns a record over a loop of
+`check` (7.6 K vs 9.2 K batches of 1 000 on the closures, 19 K vs 31 K on the JIT: the entry
+and the iterator's result object); `docs/guide/performance.md` has the table. The figures that
+follow are those of 3.1, kept for the history of the targets.
 `bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream F): on the
 closures flat valid ≈ 10.4 M ops/s, flat invalid ≈ 3.4 M, nested ≈ 2.5 M / 1.4 M, the moltar
 modes ≈ 7.1–7.4 M flat and 4.2–4.4 M nested; on the JIT (`check (jit) — …`, a second schema
@@ -1148,7 +1167,12 @@ the generated code contains, the boundaries). The 3.1 pages are `guide/evolution
 model subpath, `aliases` and `deprecated`, `diff`, the change shape, `compatibility` with the
 rules table, the boundaries) and `guide/samples.md` (`sample`, the options, what is drawn per
 type, the pattern subset, the unsatisfiable cases); `guide/model.md` has the snapshot format and
-`fromJSON`, `guide/schema-syntax.md` the merge rules. The sidebar is in
+`fromJSON`, `guide/schema-syntax.md` the merge rules. The 3.2 pages are `guide/streaming.md`
+(the stream subpath: the entries, `parseEach`, `maxInvalid`, the async pair and `concurrency`,
+`transform`, the boundaries) and `guide/infer.md` (`infer`, the options, what is inferred per
+value, optional/nullable/null, the enum and dictionary rules, the keys, the root, the
+self-check, the round trip with `sample`, the boundaries); `guide/parse.md` describes the
+settle of 3.2 and `guide/performance.md` its rows. The sidebar is in
 `.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
 fact.
 

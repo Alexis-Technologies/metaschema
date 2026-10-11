@@ -151,6 +151,8 @@ min+gzip on top of the core; the core entry does not carry it.
   function is called, before anything is read.
 - **Memory is the consumer's.** The sync pair holds one entry, the async pair `concurrency` of
   them; a program that collects every entry in an array keeps every result.
-- **The cost of a record is the check's.** An entry object and the iterator's own result object
-  come on top, nothing else; `pnpm bench` puts `checkEach — 1 000 flat records` beside the same
-  records in a loop of `check`.
+- **The cost of a record is the check's, plus about 20 ns.** An entry object and the iterator's
+  own result object come on top, nothing else; `pnpm bench` puts `checkEach — 1 000 flat
+  records` beside the same records in a loop of `check` (7.6 K against 9.2 K batches a second on
+  the closures, 19 K against 31 K on the JIT, Node 24). A program that validates millions of
+  records at the speed of the JIT and needs no entry per record loops over `check` itself.

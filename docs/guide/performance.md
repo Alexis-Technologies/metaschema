@@ -66,12 +66,11 @@ closures stay.
 
 ## Numbers
 
-`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.1 branch (Node
-24, Apple silicon, 2026-10-11, after the review of 3.1). The 1.0 column is the same scenarios on
-the same machine the day before 2.0; the closure column is what every `check` does, the JIT
-column the same schemas after `compile`. A run of one scenario on its own comes out higher than
-the same scenario in the whole run (the call sites are warmer); the figures are from the whole
-run.
+`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.2 branch (Node
+24, Apple silicon, 2026-10-11). The 1.0 column is the same scenarios on the same machine the day
+before 2.0; the closure column is what every `check` does, the JIT column the same schemas after
+`compile`. A run of one scenario on its own comes out higher than the same scenario in the whole
+run (the call sites are warmer); the figures are from the whole run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
@@ -86,11 +85,22 @@ run.
 | `parse`, nested struct, valid | — | 2.5 M | 14.5 M |
 | `parse`, flat struct, a default and a `Date` decoder | — | 2.0 M | 2.8 M |
 | `parse`, flat struct with an alias, no alias in the input | — | 8.0 M | 27.6 M |
-| `parse`, flat struct with an alias, the alias in the input | — | 3.1 M | 4.3 M |
-| moltar flat (6 fields), four modes | — | 7.0–7.3 M | 29.0–32.3 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.1–4.3 M | 22.2–29.6 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.2 M | 4.6 M |
+| `parse`, nested struct under `strip`, an extra key at every level | — | 1.3 M | 2.0 M |
+| `parse`, 100 records under `strip` | — | 66 K | 95 K |
+| `check`, flat struct, four sync validators | — | 3.8 M | 5.6 M |
+| `checkAsync`, the same four sync validators | — | 2.9 M | 3.7 M |
+| `checkAsync`, four async validators, resolved promises | — | 1.5 M | 1.7 M |
+| `checkAsync`, four independent validators awaiting `setImmediate` | — | 65 K | 66 K |
+| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 812 | 841 |
+| `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 43 K | 44 K |
+| `parseAsync`, flat struct, an async decoder | — | 1.3 M | 1.4 M |
+| `check`, 1 000 flat records in a loop | — | 9.2 K | 31 K |
+| `checkEach`, the same 1 000 records | — | 7.6 K | 19 K |
+| moltar flat (6 fields), four modes | — | 7.2 M | 27.7–29.4 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.5–25.6 M |
 | `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
-| `toTypeScript(model)`, fixture model | — | 86 K | — |
+| `toTypeScript(model)`, fixture model | — | 89 K | — |
 
 The moltar scenarios are the object of the
 [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
@@ -118,7 +128,28 @@ the result object). With a default to fill and a `Date` to decode the flat struc
 [alias](/guide/evolution#aliases-and-deprecated) parses a value that carries none at the
 speed of a schema without (the pass that renames runs only after a check that read an alias),
 and a value under the alias at the speed of a decoded field: the copy that renames, and a
-second one that puts the field where the alias was.
+second one that puts the field where the alias was. Under `unknown: 'strip'` every struct of
+the output is rebuilt from its known keys, so the pass visits every container; since 3.2 it
+allocates nothing per container it visits (the output under construction is a local of the
+walker), which is what took 100 records from 61 K to 66 K on the closures and from 81 K to
+95 K on the JIT in this run.
+
+The async rows measure the path of [`checkAsync`](/guide/parse#async). With sync validators
+only, the async method is the sync one plus the promise it returns and the `await` of the
+caller: 2.9 M against 3.8 M. With validators that resolve at once the time is the microtasks:
+one per validator. With validators that wait for the event loop the time is the waits, and
+since 3.2 independent validators wait together: four of them awaiting `setImmediate` cost one
+turn of the loop per check (65 K checks a second, 18 K in 3.1, when they waited one after the
+other), 32 records with a validator each cost one turn too (43 K, 2.2 K in 3.1), and four
+awaiting `setTimeout(1)` cost one millisecond rather than four (812 a second, 190 in 3.1). A
+validator over a promise, a struct's own `validate` or the schema's, still waits for it.
+
+[`checkEach`](/guide/streaming) of the stream subpath costs what a loop of `check` costs plus
+about 20 ns a record on this machine: the entry `{ index, record, result }` and the result
+object of the iterator itself. On the closures that is 7.6 K against 9.2 K batches of a
+thousand records a second; on the JIT, where a check is 33 ns, 19 K against 31 K, so a program
+that validates millions of records at the speed of the JIT and needs no entries per record
+loops over `check` itself.
 
 ## Other libraries
 

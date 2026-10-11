@@ -89,7 +89,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (17.2 KB min+gzip) does not carry them (7.1 KB more); see
+subpath so that the core entry (17.3 KB min+gzip) does not carry them (7.1 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
