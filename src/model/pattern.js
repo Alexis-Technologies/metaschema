@@ -4,7 +4,8 @@
 // made of: alternatives, groups, classes, escapes and quantifiers; what
 // generates no string (a lookaround, a back reference, a word boundary) is
 // ERR_SAMPLE_PATTERN. Nothing here reads a schema: `sample.js` hands over
-// the RegExp, the letters of the locale and the random source.
+// the RegExp and the random source, and the letters of the locale are read
+// at draw time, so the nodes serve every locale.
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalid = (reason) => new SchemaDefinitionError('ERR_SAMPLE_PATTERN', reason);
@@ -21,13 +22,19 @@ const code = (char) => char.codePointAt(0);
 
 const range = (from, to) => [code(from), code(to)];
 
+// How many times a quantifier may repeat, and how deep groups may nest: the
+// bounds of what a draw allocates and of what the parser recurses into.
+const MAX_REPEAT = 10_000;
+const MAX_GROUPS = 64;
+
 const CLASSES = Object.assign(Object.create(null), {
   d: [range('0', '9')],
   w: [range('0', '9'), range('A', 'Z'), range('a', 'z'), range('_', '_')],
   s: [range(' ', ' ')],
 });
 
-// The Unicode property escapes a validation pattern uses.
+// The Unicode property escapes a validation pattern uses; the letters are
+// those of the locale, read when the string is drawn.
 const PROPERTIES = Object.assign(Object.create(null), {
   L: 'letters',
   Letter: 'letters',
@@ -37,13 +44,18 @@ const PROPERTIES = Object.assign(Object.create(null), {
   Nd: [range('0', '9')],
 });
 
-// The nodes of a pattern: { alt }, { seq }, { set, negate }, { text }, and
+const LETTER = /^[A-Za-z]$/;
+
+const classNode = (set, negate, letters) => ({ set, negate, letters });
+
+// The nodes of a pattern: { alt }, { seq }, { set, negate, letters } for a
+// class (`letters`: the letters of the locale are in it), { text }, and
 // { node, min, max } for a repetition.
 class PatternParser {
-  constructor(source, letters) {
+  constructor(source) {
     this.source = source;
-    this.letters = letters;
     this.at = 0;
+    this.groups = 0;
   }
 
   fail(what) {
@@ -90,13 +102,15 @@ class PatternParser {
     if (char === '^' || char === '$') return null;
     if (char === '(') return this.group();
     if (char === '[') return this.set();
-    if (char === '.') return { set: this.lettersSet(), negate: false };
+    if (char === '.') return classNode([], false, true);
     if (char === '\\') return this.escape(false);
     if (char === '*' || char === '+' || char === '?') throw this.fail(`nothing to repeat`);
     return { text: char };
   }
 
   group() {
+    this.groups += 1;
+    if (this.groups > MAX_GROUPS) throw this.fail(`groups nested deeper than ${MAX_GROUPS}`);
     if (this.peek() === '?') {
       this.next();
       const kind = this.next();
@@ -108,13 +122,8 @@ class PatternParser {
     }
     const node = this.alternatives();
     if (this.next() !== ')') throw this.fail('an unclosed group');
+    this.groups -= 1;
     return node;
-  }
-
-  lettersSet() {
-    const ranges = [];
-    for (const letter of this.letters) ranges.push(range(letter, letter));
-    return ranges;
   }
 
   // A class escape (\d, \w, \s, \p{..}) as ranges, the negated ones as
@@ -123,9 +132,7 @@ class PatternParser {
     const char = this.next();
     if (char === undefined) throw this.fail('a trailing backslash');
     const lower = char.toLowerCase();
-    if (CLASSES[lower] !== undefined) {
-      return { set: CLASSES[lower], negate: char !== lower };
-    }
+    if (CLASSES[lower] !== undefined) return classNode(CLASSES[lower], char !== lower, false);
     if (lower === 'p') {
       if (this.next() !== '{') throw this.fail('a property escape');
       let name = '';
@@ -136,8 +143,8 @@ class PatternParser {
       this.next();
       const property = PROPERTIES[name.replace(/^(General_Category|gc)=/, '')];
       if (property === undefined) throw this.fail(`the property "${name}"`);
-      const set = property === 'letters' ? this.lettersSet() : property;
-      return { set, negate: char !== lower };
+      const letters = property === 'letters';
+      return classNode(letters ? [] : property, char !== lower, letters);
     }
     if (char === 'b' && !inSet) throw this.fail('a word boundary');
     if (char === 'B' || char === 'k' || (char >= '1' && char <= '9')) {
@@ -146,6 +153,11 @@ class PatternParser {
     const named = { t: '\t', n: '\n', r: '\r', f: '\f', v: '\v', 0: '\0', b: '\b' };
     if (named[char] !== undefined) return { text: named[char] };
     if (char === 'x' || char === 'u') return { text: this.codePoint(char) };
+    if (char === 'c') {
+      const letter = this.next();
+      if (!LETTER.test(letter)) throw this.fail('a control escape');
+      return { text: String.fromCharCode(letter.charCodeAt(0) % 32) };
+    }
     return { text: char };
   }
 
@@ -153,7 +165,10 @@ class PatternParser {
     let hex = '';
     if (kind === 'u' && this.peek() === '{') {
       this.next();
-      while (this.peek() !== '}') hex += this.next();
+      while (this.peek() !== '}') {
+        if (this.at >= this.source.length) throw this.fail('a code point escape');
+        hex += this.next();
+      }
       this.next();
     } else {
       for (let index = 0; index < (kind === 'x' ? 2 : 4); index += 1) hex += this.next();
@@ -168,6 +183,7 @@ class PatternParser {
     const negate = this.peek() === '^';
     if (negate) this.next();
     const set = [];
+    let letters = false;
     while (this.peek() !== ']') {
       if (this.at >= this.source.length) throw this.fail('an unclosed class');
       let char = this.next();
@@ -175,6 +191,7 @@ class PatternParser {
         const escaped = this.escape(true);
         if (escaped.set !== undefined) {
           if (escaped.negate) throw this.fail('a negated class escape inside a class');
+          if (escaped.letters) letters = true;
           for (const pair of escaped.set) set.push(pair);
           continue;
         }
@@ -192,7 +209,7 @@ class PatternParser {
       } else set.push([code(char), code(char)]);
     }
     this.next();
-    return { set, negate };
+    return classNode(set, negate, letters);
   }
 
   // The quantifier after an atom; a lazy one generates the same.
@@ -211,6 +228,9 @@ class PatternParser {
       if (match === null) return node;
       min = Number(match[1]);
       max = match[2] === undefined ? min : match[3] === '' ? Infinity : Number(match[3]);
+      if (min > MAX_REPEAT || (max !== Infinity && max > MAX_REPEAT)) {
+        throw this.fail(`a repetition over ${MAX_REPEAT}`);
+      }
       this.at = close;
     } else return node;
     this.next();
@@ -219,19 +239,42 @@ class PatternParser {
   }
 }
 
+// The fewest code points a string of the node has: a lower bound of its
+// length however the length rule counts (a surrogate pair in the source is
+// two text nodes and one code point).
+const minLengthOf = (node) => {
+  if (node.text !== undefined) return /^[\uDC00-\uDFFF]$/.test(node.text) ? 0 : 1;
+  if (node.set !== undefined) return 1;
+  if (node.alt !== undefined) {
+    let least = Infinity;
+    for (const branch of node.alt) least = Math.min(least, minLengthOf(branch));
+    return least;
+  }
+  if (node.seq !== undefined) {
+    let total = 0;
+    for (const part of node.seq) total += minLengthOf(part);
+    return total;
+  }
+  return node.min * minLengthOf(node.node);
+};
+
 const PATTERNS = new WeakMap();
 
-const patternOf = (pattern, letters) => {
-  let node = PATTERNS.get(pattern);
-  if (node === undefined) {
-    node = new PatternParser(pattern.source, letters).parse();
-    PATTERNS.set(pattern, node);
+// The nodes of a RegExp and the minimal length of its strings, once per
+// RegExp: the nodes carry nothing of a locale or a seed.
+const patternOf = (pattern) => {
+  let entry = PATTERNS.get(pattern);
+  if (entry === undefined) {
+    const node = new PatternParser(pattern.source).parse();
+    entry = { node, minLength: minLengthOf(node) };
+    PATTERNS.set(pattern, entry);
   }
-  return node;
+  return entry;
 };
 
 // The pool a negated class draws from: the letters and digits that are not
-// in it.
+// in it; a class that excludes the letters excludes every letter of the
+// pool, since \P{L} matches no letter in any locale.
 const POOL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_- ';
 
 const inSet = (set, point) => {
@@ -239,15 +282,22 @@ const inSet = (set, point) => {
   return false;
 };
 
+// A character of a class: one of its ranges, or a letter of the locale
+// where the class holds them.
 const fromSet = (state, node) => {
   if (node.negate) {
     const out = [];
-    for (const char of POOL) if (!inSet(node.set, code(char))) out.push(char);
+    for (const char of POOL) {
+      if (!inSet(node.set, code(char)) && !(node.letters && LETTER.test(char))) out.push(char);
+    }
     if (out.length === 0) throw invalid('A class excludes every character');
     return pick(state, out);
   }
-  if (node.set.length === 0) throw invalid('A class allows no character');
-  const pair = pick(state, node.set);
+  const choices = node.set.length + (node.letters ? 1 : 0);
+  if (choices === 0) throw invalid('A class allows no character');
+  const index = int(state, choices - 1);
+  if (index === node.set.length) return pick(state, state.letters);
+  const pair = node.set[index];
   return String.fromCodePoint(pair[0] + int(state, pair[1] - pair[0]));
 };
 

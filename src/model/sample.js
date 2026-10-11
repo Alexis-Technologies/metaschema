@@ -5,7 +5,7 @@
 // a validate function), and a field no draw satisfies is an error: a
 // definition that no value can satisfy is found here, not in production
 // (witness generation as a satisfiability check, ROADMAP §3).
-const { hasBrand } = require('../util.js');
+const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { isStruct } = require('../struct.js');
@@ -66,11 +66,20 @@ const lettersOf = (state, count) => {
   return text;
 };
 
-const stringOf = (state, field) => {
+// A string of the pattern, or of the letters within the length rule; a
+// pattern whose shortest string is over `length.max` is unsatisfiable before
+// a string is built.
+const stringOf = (state, field, key) => {
   const { pattern, length } = field;
   if (pattern !== undefined) {
-    const extra = Math.min(length?.max ?? 3, Math.max(3, length?.min ?? 0));
-    return fromPattern(state, patternOf(pattern, state.letters), extra);
+    const { node, minLength } = patternOf(pattern);
+    const max = length?.max;
+    if (max !== undefined && minLength > max) {
+      const reason = `the pattern needs at least ${minLength} characters, over the maximum ${max}`;
+      throw unsatisfiable(state, key, reason);
+    }
+    const extra = Math.min(max ?? 3, Math.max(3, length?.min ?? 0));
+    return fromPattern(state, node, extra);
   }
   return lettersOf(state, countOf(state, length, 1, 7));
 };
@@ -86,6 +95,9 @@ const numberOf = (state, field, whole) => {
   return whole ? Math.min(Math.ceil(value), Math.floor(high)) : value;
 };
 
+// The widest span a bigint is drawn from: what a number holds exactly.
+const SPAN = 2n ** 53n;
+
 const bigintOf = (state, field) => {
   const low =
     field.min === undefined
@@ -94,7 +106,8 @@ const bigintOf = (state, field) => {
         : BigInt(field.max) - 100n
       : BigInt(field.min);
   const high = field.max === undefined ? low + 100n : BigInt(field.max);
-  return low + BigInt(int(state, Number(high - low)));
+  const span = high - low > SPAN ? SPAN : high - low;
+  return low + BigInt(int(state, Number(span)));
 };
 
 const idOf = (state, name) => `${name.toLowerCase()}-${int(state, 0xffff).toString(16)}`;
@@ -136,7 +149,30 @@ const tupleOf = (state, field) => {
   return list;
 };
 
-const unionOf = (state, field, key) => sampleField(pick(state, field.union), state, key);
+// The errors of a branch that another branch may not have: a union tries
+// every branch from a random one on and fails with the last error only when
+// every branch failed.
+const RETRIED = new Set(['ERR_UNSATISFIABLE', 'ERR_SAMPLE_PATTERN', 'ERR_SAMPLE_TYPE']);
+
+const unionOf = (state, field, key) => {
+  const branches = field.union;
+  const start = int(state, branches.length - 1);
+  const { depth } = state;
+  const at = state.path.length;
+  let error = null;
+  for (let index = 0; index < branches.length; index += 1) {
+    const branch = branches[(start + index) % branches.length];
+    try {
+      return sampleField(branch, state, key);
+    } catch (thrown) {
+      if (!RETRIED.has(thrown?.code)) throw thrown;
+      error = thrown;
+      state.depth = depth;
+      state.path.length = at;
+    }
+  }
+  throw error;
+};
 
 // A referenced entity: its id, or the record itself where the check embeds
 // it, as a nested struct; a record nested deeper than `maxDepth` is left
@@ -192,9 +228,17 @@ const customOf = (state, field, key) => {
 
 const pathOf = (state, key) => (key === undefined ? state.path : state.path.concat([key]));
 
+// A field no value satisfies, with the seed the draws were made with, so
+// that the error is reproduced with the same call.
 const unsatisfiable = (state, key, reason) => {
   const where = toDotPath(pathOf(state, key), state.root.name);
-  return invalid('ERR_UNSATISFIABLE', `No value satisfies "${where}": ${reason}`);
+  const { seed } = state;
+  const error = invalid(
+    'ERR_UNSATISFIABLE',
+    `No value satisfies "${where}" (seed ${seed}): ${reason}`,
+  );
+  error.seed = seed;
+  return error;
 };
 
 // One draw for a field, by the built-in type it validates as.
@@ -205,7 +249,7 @@ const draw = (state, field, key) => {
   }
   switch (baseOf(field)) {
     case 'string':
-      return stringOf(state, field);
+      return stringOf(state, field, key);
     case 'number':
       return numberOf(state, field, false);
     case 'integer':
@@ -265,11 +309,11 @@ const drawStruct = (fields, state, key) => {
     if (!hasBrand(field, 'Type')) continue;
     if (!field.required && int(state, PRESENT) === 0) continue;
     if (field.nullable === true && int(state, 4) === 0) {
-      out[name] = null;
+      define(out, name, null);
       continue;
     }
     const value = sampleField(field, state, name);
-    if (value !== ABSENT) out[name] = value;
+    if (value !== ABSENT) define(out, name, value);
   }
   if (nested) state.path.pop();
   return out;
@@ -292,6 +336,11 @@ const sampleField = (field, state, key) => {
   throw unsatisfiable(state, key, issue.message);
 };
 
+// How a reference may be held, as in check, and how deep embedded records
+// may nest: a `many` reference fans out by up to four records a level.
+const REFERENCES = ['kind', 'embed', 'id'];
+const MAX_DEPTH = 32;
+
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
     throw invalidOptions('Sample options must be an object');
@@ -303,8 +352,13 @@ const optionsOf = (options) => {
       `Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`,
     );
   }
-  if (!Number.isInteger(maxDepth) || maxDepth < 0) {
-    throw invalidOptions('Sample option "maxDepth" must be an integer of at least 0');
+  if (!REFERENCES.includes(references)) {
+    throw invalidOptions(
+      `Sample option "references" must be "kind", "embed" or "id", got ${JSON.stringify(references)}`,
+    );
+  }
+  if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > MAX_DEPTH) {
+    throw invalidOptions(`Sample option "maxDepth" must be an integer from 0 to ${MAX_DEPTH}`);
   }
   return { seed, letters: LETTERS[locale], references, maxDepth };
 };
@@ -312,12 +366,13 @@ const optionsOf = (options) => {
 // A value the schema accepts, the same for a seed. `options`: `seed` (1),
 // `locale` ('en' or 'uk', the letters of free strings), `references` (how a
 // reference is held, as in check) and `maxDepth` (how deep embedded records
-// nest, 3).
+// nest, 3, at most 32).
 const sample = (schema, options = {}) => {
   if (!hasBrand(schema, 'Schema')) throw invalidTarget('A Schema is expected');
   const { seed, letters, references, maxDepth } = optionsOf(options);
   const state = {
     random: prng(seed),
+    seed,
     letters,
     references,
     maxDepth,
