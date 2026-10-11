@@ -260,7 +260,7 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 
 *Status (2026-10-10, branch `feature/v2.1`):* done, in 3.0.0 rather than 3.1 (Alex's decision: `~standard.validate` becomes `parse`, a second breaking change of the same release). `parse` is the check of the schema, whichever backend installed it, between two passes of `src/codec.js` (defaults before, strip and decoders after), so the JIT needed no second generator and both backends give byte-identical results (the compile suite holds them to it); `serialize` is one pass the other way; `checkAsync`/`parseAsync` settle the promises after the synchronous walk through the one helper both backends run user code through (`guarded` in `issues.js`), in field order, keeping the "a validator runs only when nothing under it failed" rule across promises; the synchronous calls throw `ERR_ASYNC_VALIDATOR`. `~standard.validate` is `parse` with the schema's policies and returns a promise for a schema with an `async function` among its validators, decoders and custom types (detected on first use). `InferOutput<D>` types the output (decoders applied, defaulted keys present) and `Infer<D>` makes a defaulted key optional. `format` stays collected and uncalled. The core grew by 3.1 KB to 15.1 KB (budget 16 KB), in the core because every schema is a Standard Schema. Deviations: `parse` returns the value itself when nothing applied (copy-on-write) rather than a copy always; a plain union's branch is found by a second check of the union value only when its subtree carries something for the pass; a looping value is checked as given (the defaults cannot close a loop).
 
-### 5.7 Workstream G: the model as the source of truth (3.1 → 3.2)
+### 5.7 Workstream G: the model as the source of truth (3.1)
 
 - **G1. Snapshot.** `model.toJSON()`: a stable, serialized description (entities in `order`, fields with types/rules/metadata, kinds, indexes, relations, database). This is the contract for migronaut (`converge` collection declarations: indexes from `schema.indexes`, the validator from `toJSONSchema({ target: 'mongodb' })`), for Alioth (model import/export), for wrpc (introspection).
 - **G2. Diff and compatibility.** `Model.diff(prev, next)` → a list of changes (entity/field/index/type/required/default) + a compatibility class `full | backward | forward | none` by the Confluent rules (a field with a `default` is a fully compatible change). Evolution primitives in the language: `default`, `aliases: []`, `deprecated: true`.
@@ -293,7 +293,7 @@ Principle: **2.0.0 collects every breaking change into one release** (the new co
 | **3.2.0** (planned as 2.3.0) | Ecosystem | adapters in the sibling repositories: wrpc `signature` ↔ metaschema, migronaut `converge` from a `Model` snapshot, protoarray layout from field order, kerberos on one schema (through `fromJSONSchema`); the two performance candidates of the 3.0 review | no |
 | later | — | record-wise/streaming validation of large arrays; `Schema.infer(samples)`; more locales | — |
 
-### Status (2026-10-11, branch `feature/v2.1`)
+### Status (2026-10-11, branches `feature/v2.1` and `feature/v3.1`)
 
 | Workstream | State | Where |
 | --- | --- | --- |

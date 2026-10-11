@@ -85,9 +85,9 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   Confluent rules (`compatibility`), draws a value every schema accepts (`sample`) and unifies
   two schemas (`merge`); `aliases` and `deprecated` let a model carry its history, and
   `fromJSONSchema` of the generators reads a JSON Schema document back.
-- **Zero dependencies, 17.0 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 6.8 KB, the JIT backend 4.0 KB and
-  the model tools 7.8 KB where they are imported.
+- **Zero dependencies, 17.2 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB and
+  the model tools 9.5 KB where they are imported.
 
 ## Installation
 

@@ -9,8 +9,8 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 17.0 KB min+gzip for the core entry (the generators subpath adds
-  6.8 KB, the compile subpath 4.0 KB, the model subpath 7.8 KB); about 10 million checks a
+- Zero runtime dependencies, 17.2 KB min+gzip for the core entry (the generators subpath adds
+  7.1 KB, the compile subpath 4.0 KB, the model subpath 9.5 KB); about 10 million checks a
   second of a flat struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types

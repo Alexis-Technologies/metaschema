@@ -82,7 +82,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (17.0 KB min+gzip) does not carry them (6.8 KB more); see
+subpath so that the core entry (17.2 KB min+gzip) does not carry them (7.1 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -97,7 +97,7 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (7.8 KB min+gzip on top of the core);
+The model as the source of truth, in a subpath of its own (9.5 KB min+gzip on top of the core);
 see [Model evolution](/guide/evolution) and [Sample values](/guide/samples).
 
 | Export | Description |
@@ -109,12 +109,12 @@ see [Model evolution](/guide/evolution) and [Sample values](/guide/samples).
 | `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ERR_MERGE_CONFLICT` |
 | `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge` and `schema.sample` on the classes, once per process |
 
-A `sample` or `merge` target that is not a `Schema` is a `TypeError`, as is a `compatibility`
-argument that is not a list.
+A `sample` or `merge` target that is not a `Schema` is a `TypeError` with `code:
+'ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (3.9 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (4.0 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
