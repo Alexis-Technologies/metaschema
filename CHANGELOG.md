@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-11
+
+3.1 makes the model data. `model.toJSON()` writes a snapshot of a model, the contract other
+programs read it through, and the new `@alexify/metaschema/model` subpath builds on it:
+`fromJSON` restores a model from a snapshot, `diff` and `compatibility` compare two versions by
+the rules of schema evolution, `sample` draws a value a schema accepts, and `merge` unifies two
+schemas. A field may carry `aliases`, read by `check` and renamed by `parse`, and
+`fromJSONSchema` of the generators reads a JSON Schema document back into a definition. Nothing
+breaks: the core, the generators and the compile subpath keep their 3.0 behaviour, with the
+fixes listed below.
+
 ### Added
 
 - **The snapshot.** `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as
@@ -1072,7 +1083,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...v3.0.0
 [2.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Alexis-Technologies/metaschema/releases/tag/v1.0.0
