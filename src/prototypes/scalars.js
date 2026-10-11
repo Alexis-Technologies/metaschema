@@ -1,6 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
 const { issues } = require('../issues.js');
-const { ENUM_SET_SIZE } = require('../util.js');
+const { ENUM_SET_SIZE, isDate } = require('../util.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
@@ -86,7 +86,7 @@ const date = {
   compile() {
     const { required } = this;
     return (value, context, key) => {
-      if (value?.constructor?.name === 'Date' && !Number.isNaN(value.getTime())) return;
+      if (isDate(value) && !Number.isNaN(value.getTime())) return;
       if (!required && value == null) return;
       issues.type(context, 'date', value, key);
     };

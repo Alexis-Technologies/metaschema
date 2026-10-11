@@ -1218,3 +1218,21 @@ test('Compile: the generated source is strict and named after the schema', () =>
     ]);
   }
 });
+
+test('Compile: a built-in by name and shape on both backends', () => {
+  // A value parsed from JSON may carry `constructor: { name: 'Map' }`; both
+  // backends read the shape as well and report a type issue instead of
+  // throwing out of the check.
+  const fake = (name) => JSON.parse(`{"constructor":{"name":"${name}"},"size":0}`);
+  const schema = new Schema('Shapes', {
+    when: 'date',
+    table: { map: { string: 'number' } },
+    bag: { set: 'number' },
+    u: { union: [{ set: 'number' }, 'date', 'string'] },
+  });
+  equivalent(schema, [
+    { when: new Date(0), table: new Map(), bag: new Set([1]), u: 'x' },
+    { when: fake('Date'), table: fake('Map'), bag: fake('Set'), u: fake('Set') },
+    { when: new Date(0), table: new Map([['a', 1]]), bag: new Set(), u: 'x' },
+  ]);
+});

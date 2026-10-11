@@ -9,6 +9,21 @@ const INSPECT = Symbol.for('nodejs.util.inspect.custom');
 
 const hasBrand = (value, name) => value?.[BRAND] === name;
 
+// A built-in is recognised by the name of its constructor, which nothing
+// renames, and by its shape, which a value parsed from JSON cannot fake: an
+// own key called `constructor` holding `{ name: 'Map' }` is data, and
+// iterating such a value, or calling `getTime` on it, would throw out of a
+// check. The name is tested first, since most values fail it at once.
+const iterableNamed = (name) => (value) =>
+  value?.constructor?.name === name && typeof value[Symbol.iterator] === 'function';
+
+const isMap = iterableNamed('Map');
+
+const isSet = iterableNamed('Set');
+
+const isDate = (value) =>
+  value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
+
 // A JavaScript identifier: what generated code may write as `object.key` and
 // a TypeScript declaration as a bare name.
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -77,6 +92,9 @@ module.exports = {
   BRAND,
   INSPECT,
   hasBrand,
+  isMap,
+  isSet,
+  isDate,
   IDENTIFIER,
   define,
   RUN,

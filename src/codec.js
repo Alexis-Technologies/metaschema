@@ -7,7 +7,7 @@
 // whose subtree carries nothing for a phase is returned as it is, and a
 // container is copied only when one of its parts changed: the value given is
 // never written to.
-const { hasBrand, define } = require('./util.js');
+const { hasBrand, define, isMap, isSet } = require('./util.js');
 const {
   EMPTY,
   NONE,
@@ -381,7 +381,7 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
 // as a Set.
 const walkItems = (children, infos, fixed, value, context, key, phase, want) => {
   const set = !Array.isArray(value);
-  if (set && (fixed || value.constructor?.name !== 'Set')) return value;
+  if (set && (fixed || !isSet(value))) return value;
   const nested = key !== undefined;
   if (nested) context.path.push(key);
   let out = null;
@@ -408,7 +408,7 @@ const walkList = (info, node, value, context, key, phase, want) =>
 
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, value, context, key, phase, want) => {
-  const map = value.constructor?.name === 'Map';
+  const map = isMap(value);
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;
   const child = info.children[0];
   const sub = info.infos[0];

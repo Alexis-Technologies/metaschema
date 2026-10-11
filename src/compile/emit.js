@@ -53,6 +53,14 @@ const typeIssue = (state, expected, x, key) =>
 
 const notObject = (x) => `${x} === null || typeof ${x} !== "object" || Array.isArray(${x})`;
 
+// A built-in by the name of its constructor and by its shape, as util.js
+// tests it: the name alone is what a value parsed from JSON can carry.
+const isDateCode = (x) =>
+  `${x}?.constructor?.name === "Date" && typeof ${x}.getTime === "function"`;
+
+const isIterableCode = (x, name) =>
+  `${x}?.constructor?.name === ${quote(name)} && typeof ${x}[Symbol.iterator] === "function"`;
+
 // The conditions of the bounds a field has.
 const outside = (state, x, min, max) => {
   const parts = [];
@@ -155,7 +163,7 @@ const emitInteger = (type, x, key, state) =>
   typed(type, x, key, state, `!Number.isInteger(${x})`, typeIssue(state, 'integer', x, key));
 
 const emitDate = (type, x, key, state) => {
-  const fails = `!(${x}?.constructor?.name === "Date" && !Number.isNaN(${x}.getTime()))`;
+  const fails = `!(${isDateCode(x)} && !Number.isNaN(${x}.getTime()))`;
   typed(type, x, key, state, fails, typeIssue(state, 'date', x, key));
 };
 
@@ -228,7 +236,7 @@ const emitObject = (type, x, key, state) => {
 const emitMap = (type, x, key, state) => {
   const { code } = state;
   const failure = typeIssue(state, type.type, x, key);
-  typed(type, x, key, state, `${x}?.constructor?.name !== "Map"`, failure, () => {
+  typed(type, x, key, state, `!(${isIterableCode(x, 'Map')})`, failure, () => {
     if (type.required) {
       code.push(`if (${x}.size === 0) {`);
       record(state, issue(state, 'required', keyOf(key)));
@@ -258,7 +266,7 @@ const emitMap = (type, x, key, state) => {
 const emitList = (type, x, key, state) => {
   const { code } = state;
   const set = type.isInstance === collections.set.isInstance;
-  const fails = set ? `${x}?.constructor?.name !== "Set"` : `!Array.isArray(${x})`;
+  const fails = set ? `!(${isIterableCode(x, 'Set')})` : `!Array.isArray(${x})`;
   typed(type, x, key, state, fails, typeIssue(state, type.type, x, key), () => {
     const children = inside(state, key);
     const index = code.name('i');

@@ -6,6 +6,7 @@
 // the type check.
 const { issues } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
+const { isMap, isSet } = require('./util.js');
 
 const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);
 
@@ -92,8 +93,7 @@ const keyCount = (value) => {
 // length of an array, the size of a Set or a Map, the own keys of an object.
 const lengthOf = (value) => {
   if (typeof value === 'string' || Array.isArray(value)) return value.length;
-  const name = value.constructor?.name;
-  return name === 'Set' || name === 'Map' ? value.size : keyCount(value);
+  return isMap(value) || isSet(value) ? value.size : keyCount(value);
 };
 
 // A string field measures its units, or its code points when it asks for
