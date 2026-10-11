@@ -390,10 +390,19 @@ does. `~standard.validate` is `parse` with the schema's policies.
 **Async.** `checkAsync`/`parseAsync` set `context.async = []`; `guarded` in `issues.js`, the one
 place where user code runs (field and schema `validate`, custom `checkType`, on both backends,
 the JIT reaching it through `runValidate` in the scope), keeps a promise it gets with the path
-it was met at, and every validator met after it as a deferred call, so that "a validator runs
-only when nothing under it failed" holds across promises; `settle` runs the list after the walk,
-in field order, each entry under its path, skipping a deferred call when an issue recorded since
-lies under its path, and stops at `maxErrors`. The sync `check`/`parse` throw a `TypeError`
+it was met at, and keeps a validator met later as a deferred call only when the **last entry of
+the list lies under the validator's path** (`under`): the walk is depth first and every
+container pushes its key before its children, so the entries under a validator's path are a
+contiguous suffix of the list, and one prefix test against the last entry is the whole
+dependency test (3.2; until then every validator after the first promise was deferred and the
+latency was the sum of the waits). Every other validator runs at once, as in `check`, its
+promise in flight with the rest. "A validator runs only when nothing under it failed" holds
+across promises; `settle` runs the list after the walk, in field order, each entry under its
+path, awaiting a promise and calling a deferred entry unless an issue recorded since lies under
+its path (`failedUnder`, through `under`), and stops at `maxErrors` with `release` over the
+rest (the promises are observed, never awaited; `release` is also what a failed union branch
+and the trial of parse drop their entries with, on both backends). Under a low `maxErrors` a
+validator may be called whose result is dropped: the limit decides what is recorded. The sync `check`/`parse` throw a `TypeError`
 with `code: 'ERR_ASYNC_VALIDATOR'` (`asyncReturn` in `errors.js`) for a promise. Decoders that
 return promises are awaited by `parseAsync` inside the `finish` pass (`Promise.all` over the
 parts of a container, then the container's own decoder). `hasAsync(schema)` (an `AsyncFunction`

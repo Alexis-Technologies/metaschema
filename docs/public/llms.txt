@@ -88,8 +88,9 @@ Key facts:
   the schema's own `parse` last; `value` is `undefined` when invalid and the value given when
   nothing applied (the input is never written to). `schema.serialize(value, { check })` is the
   way back through the `serialize` functions, top down. `checkAsync` and `parseAsync` await
-  validators, custom `checkType`s and decoders that return promises (settled after the walk, in
-  field order); the synchronous calls throw `ERR_ASYNC_VALIDATOR` for a promise
+  validators, custom `checkType`s and decoders that return promises (independent validators in
+  flight together, settled after the walk in field order, a validator over a promise waiting
+  for it); the synchronous calls throw `ERR_ASYNC_VALIDATOR` for a promise
 - Every schema is a Standard Schema v1 (`schema['~standard']`, whose `validate` is `parse` with
   the schema's policies, a promise for a schema with async functions; the Standard JSON Schema
   converter `jsonSchema` joins it after `register()` of the generators); `InferSchema<typeof

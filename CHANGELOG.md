@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Independent async validators are in flight together.** `checkAsync` and `parseAsync` set a
+  validator aside uncalled only when a promise is pending under its path (the `validate` of a
+  struct whose field is still being checked, the schema's own); every other validator runs
+  where `check` runs it, during the walk, and the promises are awaited together after it, so
+  the latency of a check is the longest of the waits rather than their sum (`pnpm bench`:
+  four independent validators awaiting `setImmediate` went from 18 K to 66 K checks a second,
+  32 records with one each from 2.2 K to 45 K, four awaiting `setTimeout(1)` from 190 to
+  845; the sync validators and the resolved promises are unchanged). What
+  changes besides the latency: a synchronous validator met after an unrelated promise runs
+  during the walk, so the issues of the walk come first, in walk order, and the promises after
+  them, in field order; under a low `maxErrors`, and in a branch of a plain union that fails, a
+  validator may be called whose result is dropped, as in `check`. The issues recorded are the
+  same, on both backends.
 - **The gate of the `./model` subpath is 12 KB** (was 10): `infer` costs 2.3 KB min+gzip and
   the subpath measures 11.7 KB; the subpath is tooling, not the validation path, as for the
   move from 8.5 to 10 KB in 3.1.

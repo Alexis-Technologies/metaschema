@@ -223,14 +223,21 @@ result.errors; // [ 'Field "Signup.login" is taken' ]
 const parsed = await signup.parseAsync({ login: 'marcus', password: 'secret' });
 ```
 
-The walk of the value is synchronous; a validator that returns a promise is set aside with the
-path it was met at, and so is every validator met after it, so that the rule of
+The walk of the value is synchronous, and every validator runs where `check` runs it, with one
+exception: a validator that returns a promise is set aside with the path it was met at, and a
+validator met later with a promise pending under its path (the `validate` of a struct whose
+field is still being checked, the schema's own) is set aside uncalled, so that the rule of
 [validation](/guide/validation#custom-validation) holds across promises: a validator runs only
-when nothing under it failed, and the schema's own after the fields. After the walk the promises
-are settled one after the other, in the order the fields were met, each recording its issues at
-its path; `maxErrors` stops the list as it stops the walk. The issues the walk recorded come
-first, the validators' after them, in field order. Decoders in `parseAsync` settle the same way,
-the parts of a value before the value.
+when nothing under it failed, and the schema's own after the fields. Validators beside a promise
+run at once, and their promises are in flight together. After the walk the entries are settled
+in the order they were met: a promise is awaited, a validator set aside is called once the
+promises under it settled, each recording its issues at its path; `maxErrors` stops the list as
+it stops the walk. The issues the walk recorded come first, in walk order, the settled ones
+after them, in field order. Decoders in `parseAsync` settle the same way, the parts of a value
+before the value.
+
+Under a low `maxErrors` a validator may be called whose result is then dropped: the limit
+decides what is recorded, as in `check`, not which validators run.
 
 The synchronous `check` and `parse` throw a `TypeError` with the code `ERR_ASYNC_VALIDATOR` when
 a validator, a `checkType` or a decoder returns a promise:
@@ -248,12 +255,14 @@ signup.check({ login: 'marcus', password: 'secret' });
 A plain `union` picks the first branch whose synchronous checks pass. A validator of a branch
 that returns a promise is set aside: the branch is taken if nothing else in it failed, the
 validator settles after the walk and may still make the value invalid, and no further branch is
-tried for it. A branch that fails drops the validators it set aside with its issues. Where
-branches carry async validators, a `discriminator` says which branch a value is without a trial.
+tried for it. A branch that fails drops the validators it set aside with its issues, and their
+promises are observed, never awaited. Where branches carry async validators, a `discriminator`
+says which branch a value is without a trial.
 
-The validators that return promises settle one after the other, in field order, so the latency
-of a check is the sum of theirs, not the maximum: the rule that a validator runs only when
-nothing under it failed needs that order.
+The promises of independent validators are in flight together, so the latency of a check is the
+longest of theirs, not the sum; a validator over them waits for them, and such validators settle
+one after the other: the rule that a validator runs only when nothing under it failed needs
+that much order.
 
 ## Standard Schema
 

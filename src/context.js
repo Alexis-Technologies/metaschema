@@ -126,9 +126,10 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     references: 'kind',
     root: name,
     messages: en,
-    // The validators that returned a promise, in field order, settled after
-    // the walk by checkAsync and parseAsync; null in a synchronous check,
-    // where such a promise is an error.
+    // The validators that returned a promise, in field order, and the ones
+    // kept uncalled over them, settled after the walk by checkAsync and
+    // parseAsync; null in a synchronous check, where such a promise is an
+    // error.
     async: null,
     // The context parse tries the branches of a plain union in, made at the
     // first such union of a pass and reused for the rest; null in a check.

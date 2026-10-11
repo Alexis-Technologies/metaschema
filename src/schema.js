@@ -204,8 +204,8 @@ class Schema extends SchemaMetadata {
     return resultOf(context);
   }
 
-  // The same check, with the validators that return a promise settled after
-  // the walk, in field order.
+  // The same check, with the validators that return a promise in flight
+  // together and settled after the walk, in field order.
   async checkAsync(source, options) {
     const context = createContext(options, this.name, this.unknown);
     context.async = [];

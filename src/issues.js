@@ -195,20 +195,32 @@ const conclude = (context, output, code, owner, value) => {
   absorb(context, output, code, bare ? fallbackOf(code, owner, value) : EMPTY);
 };
 
+// Whether a path lies under a prefix: the prefix itself, or a key below it.
+const under = (prefix, path) => {
+  if (path.length < prefix.length) return false;
+  for (let index = 0; index < prefix.length; index += 1) {
+    if (path[index] !== prefix[index]) return false;
+  }
+  return true;
+};
+
 // Where user code runs (a validator, a custom checkType; the decoders have
 // their own place in codec.js): an exception is reported as an issue, not
 // thrown, and the function gets the value and the dotted path of the field,
 // called on its owner here rather than through a closure made per call. In
 // an async check (`context.async` is a list) a promise is kept with the path
-// it was met at, and every validator after it is kept too, with what it needs
-// to be called, so that the rule "a validator runs only when nothing before
-// it failed" holds over the promises as well; `settle` runs the list after
-// the walk, in field order. In a synchronous check a promise is an error of
-// the call.
+// it was met at, and a validator met later is kept too, uncalled, when a
+// promise is pending under its path (the fields of the value it validates
+// were met before it, so their entries are the end of the list), so that the
+// rule "a validator runs only when nothing under it failed" holds over the
+// promises as well; every other validator runs at once, as in check, and
+// its promise is in flight with the rest. `settle` runs the list after the
+// walk, in field order. In a synchronous check a promise is an error of the
+// call.
 const guarded = (context, code, owner, fn, value) => {
   const pending = context.async;
   const { path, count } = context;
-  if (pending !== null && pending.length > 0) {
+  if (pending !== null && pending.length > 0 && under(path, pending[pending.length - 1].path)) {
     pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
     return;
   }
@@ -234,22 +246,17 @@ const guarded = (context, code, owner, fn, value) => {
 // path: the fields of the value it validates were checked before it.
 const failedUnder = (context, entry) => {
   const { issues: list } = context;
-  const { path } = entry;
   for (let index = entry.count; index < list.length; index += 1) {
-    const recorded = list[index].path;
-    if (recorded.length < path.length) continue;
-    let under = true;
-    for (let depth = 0; depth < path.length && under; depth += 1) {
-      under = recorded[depth] === path[depth];
-    }
-    if (under) return true;
+    if (under(entry.path, list[index].path)) return true;
   }
   return false;
 };
 
-// Runs the validators an async check kept, one after the other in the order
-// they were met, each recording under the path it was met at; the error
-// limit stops the list as it stops the walk.
+// Settles the entries an async check kept, in the order they were met: a
+// promise is awaited (it has been in flight since the walk), a validator kept
+// uncalled is called once the promises under it have settled, each recording
+// under the path it was met at; the error limit stops the list as it stops
+// the walk.
 const settle = async (context) => {
   const pending = context.async;
   for (let index = 0; index < pending.length; index += 1) {

@@ -1158,6 +1158,46 @@ test('Compile: a failed branch of a plain union drops its deferred validators on
   }
 });
 
+test('Compile: the order of the issues of an async check is the same on both backends', async () => {
+  const build = () =>
+    new Schema('Mix', {
+      a: { type: 'string', validate: async (value) => value !== 'bad' || 'a async' },
+      b: { type: 'string', validate: (value) => value !== 'bad' || 'b sync' },
+      c: 'number',
+      inner: {
+        x: { type: 'string', validate: async (value) => value !== 'bad' || 'x async' },
+        validate: () => 'inner ran',
+      },
+      d: { type: 'string', validate: async (value) => value !== 'bad' || 'd async' },
+      validate: () => 'root ran',
+    });
+  const values = [
+    { a: 'bad', b: 'bad', c: 'x', inner: { x: 'bad' }, d: 'bad' },
+    { a: 'ok', b: 'ok', c: 1, inner: { x: 'ok' }, d: 'ok' },
+    { a: 'ok', b: 'bad', c: 1, inner: { x: 'ok' }, d: 'bad' },
+  ];
+  const closures = build();
+  const compiled = build();
+  assert.deepStrictEqual(compile(compiled, JIT), { accelerated: canEval() });
+  for (const value of values) {
+    const expected = (await closures.checkAsync(value)).issues;
+    assert.deepStrictEqual((await compiled.checkAsync(value)).issues, expected);
+    assert.deepStrictEqual((await compiled.parseAsync(value)).issues, expected);
+  }
+  assert.deepStrictEqual((await compiled.checkAsync(values[0])).errors, [
+    'Field "Mix.b" b sync',
+    'Field "Mix.c" not of expected type: number',
+    'Field "Mix.a" a async',
+    'Field "Mix.inner.x" x async',
+    'Field "Mix.d" d async',
+  ]);
+  assert.deepStrictEqual((await compiled.checkAsync(values[2])).errors, [
+    'Field "Mix.b" b sync',
+    'Field "Mix.inner" inner ran',
+    'Field "Mix.d" d async',
+  ]);
+});
+
 test('Compile: the generated source is strict and named after the schema', () => {
   const user = new Schema('User', { name: 'string' });
   const source = sourceOf(user);
