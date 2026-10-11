@@ -17,7 +17,7 @@ It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
 `@alexify/migronaut`. The git remote `upstream` points at metarhia; `origin` at
 `Alexis-Technologies/metaschema`. The schema language is upstream's; 2.0 settled its semantics
-(ROADMAP.md §5.1–5.4, CHANGELOG "Upgrading from 1.x": issues as data, the first key, `min`/`max`,
+(CHANGELOG "Upgrading from 1.x": issues as data, the first key, `min`/`max`,
 references by kind, `union`, `nullable`, `Infer`, Standard Schema). The package around it (no
 loader, no dependencies, tooling, layout) is ours.
 
@@ -122,7 +122,7 @@ and the lint read them. Everything that reads a snapshot or builds on it (`fromJ
 `merge`, `infer`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an
 explicit `register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
 `Schema.merge`, `Schema.infer` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
-was planned for the core (ROADMAP §5.7 G1) and moved to the subpath on 2026-10-11 because the
+was planned for the core and moved to the subpath on 2026-10-11 because the
 restore is 0.8 KB that validation never needs and the core had 14 bytes of headroom left.
 `fromJSONSchema` is the other direction of `toJSONSchema` and lives beside it in
 `./generators`. Nothing in the core requires `model/` or `generators/`.
@@ -584,7 +584,7 @@ change, so the release is 3.0.0, planned as 2.1.0); Workstream E added 37 bytes 
 with a 4 KB gate; Workstream F added 3146 bytes to the core (`src/codec.js` is 2.7 KB of it,
 the rest is `parse`/`parseAsync`/`checkAsync`/`serialize` in `schema.js` and the async drain in
 `issues.js`), which took it to 15.1 KB with a 16 KB gate: parse is core behaviour, not a
-subpath, because `~standard.validate` is parse (Alex's instruction). ROADMAP.md §5.8 planned
+subpath, because `~standard.validate` is parse (Alex's instruction). The plan of 2.0 had been
 10 KB for 2.0 and 12 KB for the release after it.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
@@ -639,7 +639,7 @@ its rules against its type and a projection re-parses its parent's fields), `mod
 fifth on this machine). **The moltar schema carries `Struct: {}` since E**: its first key is
 `number`, so until then it was a number field with five unknown options, every check failed
 at the root, and the 14.1–14.7 M of the 2.0 baseline (and the "no strict/loose asymmetry")
-measured that. The roadmap's 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
+measured that. The 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
 25 M on flat valid is met at 30.9 M, the 8 M on flat invalid is not (5.6 M): the invalid path is
 bounded by the issue objects (a params object, a path array and a rendered message each, about
 40 ns an issue), which both backends build with the same constructors.
@@ -1008,7 +1008,7 @@ change. **This file wins** if they ever disagree.
   `null`.
 - **A reference to an Entity validates as an id by default.** `person.check({ employer: { name }
   })` fails with `not of expected type: string` when `Company` is a stored kind: that is the
-  storage view (ROADMAP W11, the references guide's ADR). Validate a graph with `check(value, {
+  storage view (the references guide's ADR). Validate a graph with `check(value, {
   references: 'embed' })` or mark the field `embed: true`; tests that embed use a `Struct` kind.
   Cycle detection therefore only happens where a record is embedded.
 - **`date`, `null`, `any`, `unknown`, `integer` and `union` are type names.** A nested struct

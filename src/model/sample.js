@@ -4,7 +4,7 @@
 // built and drawn again when it fails (a pattern a length rule contradicts,
 // a validate function), and a field no draw satisfies is an error: a
 // definition that no value can satisfy is found here, not in production
-// (witness generation as a satisfiability check, ROADMAP §3).
+// (witness generation as a satisfiability check).
 const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
