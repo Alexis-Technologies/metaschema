@@ -360,6 +360,169 @@ test('fromJSONSchema: a $ref is inlined, or kept as the name of an entity', () =
   );
 });
 
+// A document whose definitions refer twice to the next one: inlined, the
+// unfolded definition has 2^n leaves, so a walk per `$ref` is exponential.
+const diamond = (n) => {
+  const $defs = {};
+  for (let level = 0; level < n; level += 1) {
+    const next = { $ref: `#/$defs/D${level + 1}` };
+    $defs[`D${level}`] = { type: 'object', properties: { a: next, b: next }, required: ['a', 'b'] };
+  }
+  $defs[`D${n}`] = { type: 'string' };
+  return {
+    $defs,
+    type: 'object',
+    properties: { root: { $ref: '#/$defs/D0' } },
+    required: ['root'],
+    additionalProperties: false,
+  };
+};
+
+// The objects a definition is made of: the graph, not its unfolding.
+const objectsOf = (value, seen = new Set()) => {
+  if (value === null || typeof value !== 'object' || seen.has(value)) return seen.size;
+  seen.add(value);
+  for (const key of Object.keys(value)) objectsOf(value[key], seen);
+  return seen.size;
+};
+
+test('fromJSONSchema: a pointer is read in full through own keys', () => {
+  const code = 'ERR_UNSUPPORTED_SCHEMA';
+  // Two pointers that end alike are two targets, not a cycle.
+  const alike = {
+    $defs: {
+      One: { type: 'object', properties: { item: { $ref: '#/$defs/Two/properties/item' } } },
+      Two: { type: 'object', properties: { item: { type: 'number' } } },
+    },
+    type: 'object',
+    properties: { s: { $ref: '#/$defs/One/properties/item' } },
+    required: ['s'],
+    additionalProperties: false,
+  };
+  assert.deepStrictEqual(fromJSONSchema(alike), { Struct: {}, s: 'number' });
+  // A percent-escape decodes before the lookup: `%41` is `A`, for the cycle guard too.
+  const escaped = {
+    $defs: { A: { type: 'object', properties: { n: { $ref: '#/$defs/%41' } } } },
+    type: 'object',
+    properties: { a: { $ref: '#/$defs/A' } },
+  };
+  assert.throws(() => fromJSONSchema(escaped), {
+    code,
+    message:
+      'The recursive reference "#/$defs/%41" is not supported in a JSON Schema at "/properties/a/properties/n"',
+  });
+  // An own key named like a member of Object.prototype is found; the member is not.
+  const own = JSON.parse(
+    '{"$defs":{"__proto__":{"type":"string"}},"type":"object","properties":{"p":{"$ref":"#/$defs/__proto__"}}}',
+  );
+  assert.deepStrictEqual(fromJSONSchema(own), { Struct: { unknown: 'ignore' }, p: '?string' });
+  assert.throws(
+    () => fromJSONSchema({ type: 'object', properties: { p: { $ref: '#/toString' } } }),
+    {
+      code,
+      message:
+        'The reference "#/toString" (nothing there) is not supported in a JSON Schema at "/properties/p"',
+    },
+  );
+});
+
+test('fromJSONSchema: a $ref is converted once per pointer', () => {
+  const start = performance.now();
+  const twenty = fromJSONSchema(diamond(20));
+  const elapsed = performance.now() - start;
+  assert.ok(elapsed < 50, `a diamond of 20 took ${elapsed} ms`);
+  // One object per level: the places that inline a definition share it.
+  assert.strictEqual(objectsOf(twenty) - objectsOf(fromJSONSchema(diamond(10))), 10);
+  const schema = fromJSONSchema(diamond(3), { as: 'schema', name: 'D' });
+  const leaf = { a: 'x', b: 'y' };
+  const level = { a: leaf, b: leaf };
+  assert.strictEqual(schema.check({ root: { a: level, b: level } }).valid, true);
+  assert.deepStrictEqual(schema.check({ root: { a: level, b: { a: leaf, b: { a: 1 } } } }).errors, [
+    'Field "D.root.b.b.a" not of expected type: string',
+    'Field "D.root.b.b.b" is required',
+  ]);
+  // What a place writes around the definition it inlines (its annotations,
+  // nullable, required) stays with that place.
+  const twice = {
+    $defs: { T: { type: 'object', properties: { v: { type: 'string' } }, required: ['v'] } },
+    type: 'object',
+    properties: {
+      a: { $ref: '#/$defs/T', description: 'first', nullable: true },
+      b: { $ref: '#/$defs/T' },
+      c: { $ref: '#/$defs/T' },
+      d: { $ref: '#/$defs/T', title: 'last' },
+    },
+    required: ['a', 'b', 'd'],
+    additionalProperties: false,
+  };
+  assert.deepStrictEqual(fromJSONSchema(twice), {
+    Struct: {},
+    a: { type: 'schema', schema: { v: 'string' }, nullable: true, description: 'first' },
+    b: { v: 'string' },
+    c: { schema: { v: 'string' }, required: false },
+    d: { type: 'schema', schema: { v: 'string' }, title: 'last' },
+  });
+});
+
+test('fromJSONSchema: the nesting of a document is bounded, whatever the mode', () => {
+  const nested = (depth) => {
+    let node = { type: 'string' };
+    for (let level = 0; level < depth; level += 1) node = { type: 'array', items: node };
+    return node;
+  };
+  let def = fromJSONSchema(nested(128));
+  for (let level = 0; level < 128; level += 1) def = def.value;
+  assert.strictEqual(def, 'string');
+  const message = `Nesting deeper than 128 levels at "${'/items'.repeat(129)}"`;
+  const calls = [];
+  const lenient = { unsupported: 'ignore', onUnsupported: (...args) => calls.push(args) };
+  for (const options of [{}, lenient]) {
+    assert.throws(() => fromJSONSchema(nested(129), options), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_UNSUPPORTED_SCHEMA',
+      message,
+    });
+  }
+  assert.deepStrictEqual(calls, []);
+});
+
+test('fromJSONSchema: onUnsupported is told of every drop of the lenient mode', () => {
+  const document = {
+    type: 'object',
+    properties: {
+      n: { type: 'number', multipleOf: 2 },
+      s: { type: 'string', pattern: '\\:' },
+      t: { $ref: '#/$defs/T' },
+      u: { $ref: '#/$defs/T' },
+    },
+    $defs: { T: { not: {} } },
+  };
+  const dropped = [];
+  const onUnsupported = (reason, pointer) => dropped.push([reason, pointer]);
+  assert.deepStrictEqual(fromJSONSchema(document, { unsupported: 'ignore', onUnsupported }), {
+    Struct: { unknown: 'ignore' },
+    n: '?number',
+    s: '?string',
+    t: '?any',
+    u: '?any',
+  });
+  // One call per drop; a `$ref` converted once reports once.
+  assert.deepStrictEqual(dropped, [
+    ['The keyword "multipleOf"', '/properties/n'],
+    [
+      `The pattern ${JSON.stringify('\\:')} (not a valid pattern under the u flag)`,
+      '/properties/s',
+    ],
+    ['The keyword "not"', '/properties/t'],
+  ]);
+  // Not in the throw mode: the error carries the place.
+  const calls = [];
+  assert.throws(() => fromJSONSchema(document, { onUnsupported: () => calls.push(1) }), {
+    code: 'ERR_UNSUPPORTED_SCHEMA',
+  });
+  assert.deepStrictEqual(calls, []);
+});
+
 test('fromJSONSchema: a keyword outside the subset throws with its place, or is dropped', () => {
   const code = 'ERR_UNSUPPORTED_SCHEMA';
   const cases = [
@@ -427,6 +590,24 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
     ],
     [false, 'The schema false', '/properties/x'],
     [7, 'A schema that is 7', '/properties/x'],
+    // The dialect of a pattern, the names of a type list, the form of a
+    // pointer: the document is untrusted input.
+    [
+      { type: 'string', pattern: '\\:' },
+      `The pattern ${JSON.stringify('\\:')} (not a valid pattern under the u flag)`,
+      '/properties/x',
+    ],
+    [{ type: 'string', pattern: 7 }, 'A "pattern" that is not a string', '/properties/x'],
+    [{ type: ['string', 'Foo'] }, 'The type "Foo"', '/properties/x'],
+    [{ type: ['string', 'null', 'Foo'] }, 'The type "Foo"', '/properties/x'],
+    [{ $ref: '#foo' }, 'The reference "#foo"', '/properties/x'],
+    [{ $ref: '#/__proto__' }, 'The reference "#/__proto__" (nothing there)', '/properties/x'],
+    [{ $ref: '#/constructor' }, 'The reference "#/constructor" (nothing there)', '/properties/x'],
+    [
+      { $ref: '#/$defs/%E0%A4%A' },
+      'The reference "#/$defs/%E0%A4%A" (a bad escape)',
+      '/properties/x',
+    ],
   ];
   for (const [json, what, where] of cases) {
     assert.throws(() => fieldOf(json), {
@@ -441,6 +622,16 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
     'number',
   );
   assert.deepStrictEqual(fieldOf(false, true, { unsupported: 'ignore' }), 'any');
+  const lenient = { unsupported: 'ignore' };
+  assert.strictEqual(fieldOf({ type: 'string', pattern: '\\:' }, true, lenient), 'string');
+  assert.strictEqual(fieldOf({ type: ['string', 'Foo'] }, true, lenient), 'any');
+  assert.strictEqual(fieldOf({ $ref: '#/__proto__' }, true, lenient), 'any');
+  // A pattern the u flag rejects is reported here with its place, not as
+  // ERR_INVALID_RULE by the Schema built from the definition.
+  assert.throws(() => fromJSONSchema({ type: 'string', pattern: '\\:' }, { as: 'schema' }), {
+    code,
+    message: `The pattern ${JSON.stringify('\\:')} (not a valid pattern under the u flag) is not supported in a JSON Schema at ""`,
+  });
   // A key of the document that is not a JSON pointer segment as it is.
   assert.throws(() => fromJSONSchema({ type: 'object', properties: { 'a/b': { not: {} } } }), {
     message: 'The keyword "not" is not supported in a JSON Schema at "/properties/a~1b"',
@@ -451,6 +642,7 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
     [{ references: 'ref' }, 'Option "references" must be one of "inline", "name", got "ref"'],
     [{ unsupported: 'warn' }, 'Option "unsupported" must be one of "throw", "ignore", got "warn"'],
     [{ name: 1 }, 'Option "name" must be a string'],
+    [{ onUnsupported: 'log' }, 'Option "onUnsupported" must be a function'],
   ]) {
     assert.throws(() => fromJSONSchema({ type: 'string' }, options), {
       code: 'ERR_INVALID_OPTIONS',

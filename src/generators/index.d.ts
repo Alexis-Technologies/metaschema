@@ -27,7 +27,10 @@ export function saveTypes(
 // A definition from a JSON Schema document (a Schema with `as: 'schema'`),
 // for the subset a validation schema is made of; a keyword outside it is
 // `ERR_UNSUPPORTED_SCHEMA` with its place in the document, or dropped with
-// `unsupported: 'ignore'`.
+// `unsupported: 'ignore'` (and told to `onUnsupported`). The document is
+// untrusted input: a `$ref` is converted once per pointer, a pointer reads
+// own keys only, and a nesting deeper than 128 levels is refused in both
+// modes.
 export function fromJSONSchema(
   document: JSONSchema | true,
   options: FromJSONSchemaOptions & { as: 'schema' },

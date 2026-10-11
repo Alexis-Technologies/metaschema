@@ -6,6 +6,8 @@
 // annotations. A keyword outside it (`allOf` with several schemas, `not`,
 // `if`, `patternProperties`, `exclusiveMinimum`, ...) is ERR_UNSUPPORTED_SCHEMA
 // with its place in the document, or dropped with `unsupported: 'ignore'`.
+// The document is untrusted input: a pointer reads own keys only, a `$ref` is
+// converted once per pointer, and the nesting is bounded.
 const { isFirstUpper } = require('../metautil.js');
 const { define } = require('../util.js');
 const { Schema } = require('../schema.js');
@@ -38,6 +40,24 @@ const IGNORED = new Set([
 
 const ANNOTATIONS = ['title', 'description', 'default', 'examples', 'deprecated'];
 
+// The types a node may name: those of JSON Schema, and the two the keywords
+// of a node without a `type` are read as.
+const KNOWN = new Set([
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'null',
+  'object',
+  'array',
+  'any',
+  'json',
+]);
+
+// How deep a document may nest: past it the conversion stops whatever the
+// mode, since a lenient conversion must not recurse without end either.
+const MAX_DEPTH = 128;
+
 const option = (options, name, allowed) => {
   const value = options[name];
   if (value === undefined) return allowed[0];
@@ -55,18 +75,27 @@ const createContext = (document, options) => {
   if (options === null || typeof options !== 'object') {
     throw invalidOptions('Options must be an object');
   }
-  const { name = '' } = options;
+  const { name = '', onUnsupported } = options;
   if (typeof name !== 'string') throw invalidOptions('Option "name" must be a string');
+  if (onUnsupported !== undefined && typeof onUnsupported !== 'function') {
+    throw invalidOptions('Option "onUnsupported" must be a function');
+  }
   return {
     document,
     name,
     as: option(options, 'as', ['definition', 'schema']),
     references: option(options, 'references', ['inline', 'name']),
     lenient: option(options, 'unsupported', ['throw', 'ignore']) === 'ignore',
+    onUnsupported,
     // The place in the document, as the segments of a JSON pointer.
     path: [],
-    // The definitions being inlined, so that a cycle is found.
+    // How many nodes the conversion is inside.
+    depth: 0,
+    // The pointers of the definitions being inlined, so that a cycle is found.
     stack: new Set(),
+    // The definitions inlined so far, by pointer: a `$ref` met again is the
+    // same definition, not a second walk of the document.
+    cache: new Map(),
   };
 };
 
@@ -79,14 +108,31 @@ const pointerOf = (path) => {
   return pointer;
 };
 
+// A node outside the subset: the error with its place, or a drop that
+// `onUnsupported` is told of (in the throw mode the error carries both).
 const unsupported = (context, what) => {
-  if (context.lenient) return;
   const where = pointerOf(context.path);
+  if (context.lenient) {
+    if (context.onUnsupported !== undefined) context.onUnsupported(what, where);
+    return;
+  }
   const reason = `${what} is not supported in a JSON Schema at "${where}"`;
   throw new SchemaDefinitionError('ERR_UNSUPPORTED_SCHEMA', reason);
 };
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+// A JSON Schema pattern is ECMA-262 without the `u` flag, and the rule of a
+// field compiles with it, so a pattern that does not compile under the flag
+// has no form here.
+const compilesWithU = (pattern) => {
+  try {
+    RegExp(pattern, 'u');
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 // A struct key that the first-key rule reads as something else needs the
 // `schema` shorthand around the struct.
@@ -113,30 +159,48 @@ const annotate = (def, node) => {
   return def;
 };
 
-// A JSON pointer into the document: `#`, or `#/$defs/Name` and the like.
+// A JSON pointer into the document (RFC 6901 as a URI fragment): `#`, or
+// `#/$defs/Name` and the like, read through own keys only, so that
+// `#/__proto__` or `#/constructor` finds nothing. The target is known by its
+// decoded pointer, under which `A` and `%41` are one name, and two pointers
+// that end alike are two.
 const resolve = (context, ref) => {
-  if (typeof ref !== 'string' || !ref.startsWith('#')) {
+  if (typeof ref !== 'string' || (ref !== '#' && !ref.startsWith('#/'))) {
     unsupported(context, `The reference ${JSON.stringify(ref)}`);
     return null;
   }
-  if (ref === '#') return { name: context.name, node: context.document };
+  if (ref === '#') return { pointer: '', name: context.name, node: context.document };
   const segments = ref.slice(2).split('/');
+  const keys = [];
   let node = context.document;
   for (const segment of segments) {
-    const key = decodeURIComponent(segment).replace(/~1/g, '/').replace(/~0/g, '~');
-    node = isObject(node) ? node[key] : undefined;
+    let key;
+    try {
+      key = decodeURIComponent(segment);
+    } catch {
+      unsupported(context, `The reference ${JSON.stringify(ref)} (a bad escape)`);
+      return null;
+    }
+    key = key.replace(/~1/g, '/').replace(/~0/g, '~');
+    keys.push(key);
+    node = isObject(node) && Object.hasOwn(node, key) ? node[key] : undefined;
   }
   if (node === undefined) {
     unsupported(context, `The reference ${JSON.stringify(ref)} (nothing there)`);
     return null;
   }
-  return { name: segments[segments.length - 1], node };
+  return { pointer: pointerOf(keys), name: keys[keys.length - 1], node };
 };
 
+// A `$ref` inlined is converted once per pointer: the places that inline it
+// share the converted subtree and get a copy of its top-level object, which
+// is the one the annotations, `nullable` and `required` of the place are
+// written to. A copy of the subtree would be as large as the output, which a
+// diamond of definitions makes exponential.
 const reference = (context, node) => {
   const target = resolve(context, node.$ref);
   if (target === null) return 'any';
-  const { name } = target;
+  const { pointer, name } = target;
   if (context.references === 'name' || target.node === context.document) {
     if (!isFirstUpper(name)) {
       unsupported(context, `The reference ${JSON.stringify(node.$ref)} (not an entity name)`);
@@ -144,14 +208,18 @@ const reference = (context, node) => {
     }
     return name;
   }
-  if (context.stack.has(name)) {
-    unsupported(context, `The recursive reference ${JSON.stringify(node.$ref)}`);
-    return 'any';
+  let def = context.cache.get(pointer);
+  if (def === undefined) {
+    if (context.stack.has(pointer)) {
+      unsupported(context, `The recursive reference ${JSON.stringify(node.$ref)}`);
+      return 'any';
+    }
+    context.stack.add(pointer);
+    def = longOf(context, target.node);
+    context.stack.delete(pointer);
+    context.cache.set(pointer, def);
   }
-  context.stack.add(name);
-  const def = longOf(context, target.node);
-  context.stack.delete(name);
-  return def;
+  return { ...def };
 };
 
 const structOf = (context, node, used) => {
@@ -187,7 +255,14 @@ const typed = (context, node, type, used) => {
     const max = take('maxLength');
     if (min !== undefined || max !== undefined) def.length = { min, max };
     const pattern = take('pattern');
-    if (pattern !== undefined) def.pattern = pattern;
+    if (pattern !== undefined) {
+      if (typeof pattern !== 'string') unsupported(context, 'A "pattern" that is not a string');
+      else if (compilesWithU(pattern)) def.pattern = pattern;
+      else {
+        const shown = JSON.stringify(pattern);
+        unsupported(context, `The pattern ${shown} (not a valid pattern under the u flag)`);
+      }
+    }
     return def;
   }
   if (type === 'number' || type === 'integer') {
@@ -339,6 +414,12 @@ const nodeOf = (context, node, used) => {
     const rest = [];
     for (const name of type) if (name !== 'null') rest.push(name);
     nullable = rest.length !== type.length;
+    for (const name of rest) {
+      if (!KNOWN.has(name)) {
+        unsupported(context, `The type ${JSON.stringify(name)}`);
+        return { type: 'any' };
+      }
+    }
     if (rest.length === 2 && rest.includes('object') && rest.includes('array')) type = 'json';
     else if (rest.length === 1) type = rest[0];
     else if (rest.length === 0) type = 'null';
@@ -361,18 +442,7 @@ const nodeOf = (context, node, used) => {
     } else if (node.minimum !== undefined || node.maximum !== undefined) type = 'number';
     else type = 'any';
   }
-  const known = [
-    'string',
-    'number',
-    'integer',
-    'boolean',
-    'null',
-    'object',
-    'array',
-    'any',
-    'json',
-  ];
-  if (!known.includes(type)) {
+  if (!KNOWN.has(type)) {
     unsupported(context, `The type ${JSON.stringify(type)}`);
     return { type: 'any' };
   }
@@ -383,8 +453,14 @@ const nodeOf = (context, node, used) => {
 
 // A node as a definition in the long form `{ type, ... }`: the type and its
 // rules, null as `nullable`, the annotations, and the keywords left over
-// reported.
+// reported. Every nested node comes through here, so this is where the
+// nesting is counted.
 const longOf = (context, node) => {
+  if (context.depth > MAX_DEPTH) {
+    const where = pointerOf(context.path);
+    const reason = `Nesting deeper than ${MAX_DEPTH} levels at "${where}"`;
+    throw new SchemaDefinitionError('ERR_UNSUPPORTED_SCHEMA', reason);
+  }
   if (node === true || (isObject(node) && Object.keys(node).length === 0)) return { type: 'any' };
   if (node === false) {
     unsupported(context, 'The schema false');
@@ -396,7 +472,9 @@ const longOf = (context, node) => {
   }
   const used = new Set(ANNOTATIONS);
   used.add('example');
+  context.depth += 1;
   const def = nodeOf(context, node, used);
+  context.depth -= 1;
   for (const key of Object.keys(node)) {
     if (!used.has(key) && !IGNORED.has(key)) unsupported(context, `The keyword "${key}"`);
   }

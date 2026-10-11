@@ -568,6 +568,11 @@ export interface FromJSONSchemaOptions {
   // A keyword the subset has no form for: `ERR_UNSUPPORTED_SCHEMA` with its
   // place in the document ('throw', the default), or dropped ('ignore').
   unsupported?: 'throw' | 'ignore';
+  // Told of every drop of `unsupported: 'ignore'`: what was dropped, as the
+  // error of the throw mode names it (`The keyword "multipleOf"`), and its
+  // place in the document as a JSON pointer. Not called in the throw mode,
+  // where the error carries both.
+  onUnsupported?: (reason: string, pointer: string) => void;
 }
 
 // Standard JSON Schema (https://standardschema.dev/json-schema): the converter

@@ -102,7 +102,15 @@ expectType<Schema>(fromJSONSchema({ type: 'object' }, { as: 'schema', name: 'Use
 expectType<Schema>(Schema.fromJSONSchema({ type: 'object' }, { as: 'schema' }));
 expectType<object | string>(Schema.fromJSONSchema({ type: 'object' }));
 expectAssignable<FromJSONSchemaOptions>({ as: 'definition' });
+expectAssignable<FromJSONSchemaOptions>({
+  unsupported: 'ignore',
+  onUnsupported: (reason: string, pointer: string) => {
+    expectType<string>(reason);
+    expectType<string>(pointer);
+  },
+});
 expectError(fromJSONSchema({ type: 'string' }, { as: 'model' }));
+expectError(fromJSONSchema({ type: 'string' }, { onUnsupported: 'log' }));
 expectError(fromJSONSchema('string'));
 expectAssignable<DefinitionErrorCode>('ERR_UNSUPPORTED_SCHEMA');
 

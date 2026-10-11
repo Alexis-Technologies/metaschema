@@ -368,12 +368,13 @@ The result is a definition for `new Schema(name, definition)`, or the `Schema` i
 | `name` | a string | the name of the schema: what `$ref: '#'` refers to (an entity name), and the name of the `Schema` |
 | `references` | `'inline'` (default), `'name'` | a `$ref` into `$defs`, `definitions` or `components.schemas`: the definition in place, or a reference to an entity of that name (capitalized), to resolve through a [`Model`](/guide/references) |
 | `unsupported` | `'throw'` (default), `'ignore'` | a keyword the subset has no form for: `SchemaDefinitionError` with the code `ERR_UNSUPPORTED_SCHEMA` and the place in the document as a JSON pointer, or dropped |
+| `onUnsupported` | `(reason, pointer) => void` | told of every drop of `unsupported: 'ignore'`: what was dropped, as the error names it, and its place as a JSON pointer; not called in the throw mode, where the error carries both |
 
 The subset, the reverse of [the mapping](#the-mapping):
 
 | JSON Schema | Definition |
 | --- | --- |
-| `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }` |
+| `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }`; a pattern the `u` flag rejects is outside the subset (see below) |
 | `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }` |
 | `type: 'boolean'`, `'null'` | `'boolean'`, `'null'` |
 | `type: 'object'` with `properties` and `required` | a nested struct, a property outside `required` optional (`'?string'`, `required: false`); `{ schema }` when its first key would read as a type or a kind |
@@ -408,6 +409,53 @@ fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 
 
 fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 2 } } }, { unsupported: 'ignore' });
 // { Struct: { unknown: 'ignore' }, n: '?number' }
+```
+
+A lenient import keeps a trace of what it dropped through `onUnsupported`, called once per drop
+with what the error would have said and the place; in the throw mode it is never called, since
+the first drop is the error.
+
+```js
+const dropped = [];
+fromJSONSchema(
+  {
+    type: 'object',
+    properties: { n: { type: 'number', multipleOf: 2 }, s: { type: 'string', pattern: '\\:' } },
+  },
+  { unsupported: 'ignore', onUnsupported: (reason, pointer) => dropped.push(`${reason} at ${pointer}`) },
+);
+// { Struct: { unknown: 'ignore' }, n: '?number', s: '?string' }
+dropped;
+// [
+//   'The keyword "multipleOf" at /properties/n',
+//   'The pattern "\\:" (not a valid pattern under the u flag) at /properties/s'
+// ]
+```
+
+The document is read as untrusted input, and what it can make the import do is bounded:
+
+- **A `$ref` is `#` or a JSON pointer `#/...` into the document**, read through own keys only
+  (`#/__proto__` and `#/constructor` find nothing), with the percent-escapes and the `~0`/`~1`
+  of RFC 6901 decoded before the lookup, so `#/$defs/%41` and `#/$defs/A` are one target and a
+  bad escape is outside the subset, as are `#foo` and a `$ref` to another document.
+- **A `$ref` inlined is converted once per pointer.** The places that inline it share the
+  converted definition and write their own annotations, `nullable` and `required` on a copy of
+  its top-level object, so a document whose definitions refer to one another many times over
+  (a diamond: each definition referring twice to the next) is converted in linear time, while a
+  walk per `$ref` would be exponential; `new Schema` and `JSON.stringify` still unfold the
+  result. Through a `Model` with `references: 'name'` it stays a graph.
+- **A nesting deeper than 128 levels** is `ERR_UNSUPPORTED_SCHEMA` (`Nesting deeper than 128
+  levels at "<pointer>"`) in both modes: a lenient import does not recurse without end either.
+- **A `pattern` is checked under the `u` flag.** A JSON Schema pattern is ECMA-262 without the
+  flag, and the `pattern` rule of a field compiles with it, so a pattern the flag rejects (an
+  escape it does not know, such as `\:`) is outside the subset, reported with its place instead
+  of by the `Schema` built from the definition.
+- **A type list** (`type: ['string', 'Foo']`) is checked name by name, as a single `type` is.
+
+```js
+fromJSONSchema({ type: 'object', properties: { s: { type: 'string', pattern: '\\:' } } });
+// throws SchemaDefinitionError [ERR_UNSUPPORTED_SCHEMA]:
+//   The pattern "\\:" (not a valid pattern under the u flag) is not supported in a JSON Schema at "/properties/s"
 ```
 
 On the subset the two directions are inverse: `toJSONSchema(fromJSONSchema(document, { as:
