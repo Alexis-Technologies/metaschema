@@ -45,3 +45,16 @@ expectType<Model>(Model.fromJSON(snapshot, { types: {} }));
 expectType<SchemaChange[]>(Model.diff(snapshot, model));
 expectType<Compatibility>(Model.compatibility([]));
 expectType<ModelSnapshot>(Model.fromJSON(snapshot).toJSON());
+
+// sample: the type of a value the schema accepts, and its options.
+import { sample } from '../../src/model/index.js';
+import { Schema } from '../../index.js';
+import type { SampleOptions } from '../../index.js';
+const user = Schema.from({ name: 'string', age: '?number' });
+expectType<{ name: string; age?: number | null | undefined }>(sample(user));
+expectType<{ name: string; age?: number | null | undefined }>(user.sample({ seed: 2 }));
+expectAssignable<SampleOptions>({ seed: 1, locale: 'uk', references: 'embed', maxDepth: 2 });
+expectError(sample(user, { locale: 'fr' }));
+expectError(sample({ name: 'string' }));
+expectAssignable<DefinitionErrorCode>('ERR_UNSATISFIABLE');
+expectAssignable<DefinitionErrorCode>('ERR_SAMPLE_PATTERN');

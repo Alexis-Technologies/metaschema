@@ -1,8 +1,11 @@
 import type {
   Compatibility,
+  Infer,
   Model,
   ModelSnapshot,
   RestoreOptions,
+  SampleOptions,
+  Schema,
   SchemaChange,
 } from '../../index.js';
 
@@ -22,6 +25,16 @@ export function diff(prev: Model | ModelSnapshot, next: Model | ModelSnapshot): 
 // 'none' when neither.
 export function compatibility(changes: SchemaChange[]): Compatibility;
 
-// Installs `Model.fromJSON`, `Model.diff` and `Model.compatibility`. Once per
-// process; later calls do nothing.
+// A value the schema accepts, the same for a seed: every field is drawn
+// from its definition and verified with its own check. A definition no
+// value satisfies is `ERR_UNSATISFIABLE`, a pattern the sampler cannot read
+// `ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample`
+// `ERR_SAMPLE_TYPE`.
+export function sample<D extends string | object>(
+  schema: Schema<D>,
+  options?: SampleOptions,
+): Infer<D>;
+
+// Installs `Model.fromJSON`, `Model.diff`, `Model.compatibility` and
+// `schema.sample`. Once per process; later calls do nothing.
 export function register(): void;

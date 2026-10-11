@@ -88,7 +88,13 @@ test('Exports: the compile subpath is reachable through its subpath export', () 
 test('Exports: the model subpath is reachable through its subpath export', () => {
   const model = require('@alexify/metaschema/model');
   assert.strictEqual(model, require(path.join(ROOT, 'src/model/index.js')));
-  assert.deepStrictEqual(Object.keys(model), ['fromJSON', 'diff', 'compatibility', 'register']);
+  assert.deepStrictEqual(Object.keys(model), [
+    'fromJSON',
+    'diff',
+    'compatibility',
+    'sample',
+    'register',
+  ]);
   const source = [
     "import { fromJSON, diff, compatibility, register } from '@alexify/metaschema/model';",
     "import { Model } from '@alexify/metaschema';",

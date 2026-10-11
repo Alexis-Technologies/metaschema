@@ -324,6 +324,11 @@ export type DefinitionErrorCode =
   // Thrown by `fromJSON` and `diff` of the `@alexify/metaschema/model`
   // subpath for a value that is not a snapshot of a model.
   | 'ERR_INVALID_SNAPSHOT'
+  // Thrown by `sample` of the same subpath: a field no value satisfies, a
+  // pattern it cannot read, a custom type without `metadata.sample`.
+  | 'ERR_UNSATISFIABLE'
+  | 'ERR_SAMPLE_PATTERN'
+  | 'ERR_SAMPLE_TYPE'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -447,6 +452,21 @@ export interface SchemaChange {
 // one; 'forward': a reader with the old model reads data written with the
 // new one; 'full': both; 'none': neither.
 export type Compatibility = 'full' | 'backward' | 'forward' | 'none';
+
+// The options of `sample` of the `@alexify/metaschema/model` subpath.
+export interface SampleOptions {
+  // The seed of the generator (1): the same seed gives the same value.
+  seed?: number;
+  // The letters of free strings: 'en' (the default) or 'uk'.
+  locale?: 'en' | 'uk';
+  // How a reference is held, as in check: an id for a stored kind and the
+  // record for a memory kind ('kind', the default), always the record
+  // ('embed'), always an id ('id').
+  references?: 'kind' | 'embed' | 'id';
+  // How deep embedded records nest (3): an optional reference deeper than
+  // that is left out, a required one is an error.
+  maxDepth?: number;
+}
 
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
@@ -1069,6 +1089,10 @@ export class Schema<const D extends string | object = string | object> {
     options: SerializeOptions & { check: true },
   ): SerializeChecked<Infer<D>>;
   serialize(value: InferOutput<D>, options?: SerializeOptions): Serialized<Infer<D>>;
+  // A value the schema accepts, the same for a seed: exists once `register()`
+  // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
+  // options)` is the same without it.
+  sample(options?: SampleOptions): Infer<D>;
   // The two methods below exist once `register()` of the generators subpath
   // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
   // are the same without it.
