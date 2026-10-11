@@ -1219,20 +1219,56 @@ test('Compile: the generated source is strict and named after the schema', () =>
   }
 });
 
-test('Compile: a built-in by name and shape on both backends', () => {
+test('Compile: a built-in by name and shape, and the pattern bound, on both backends', () => {
   // A value parsed from JSON may carry `constructor: { name: 'Map' }`; both
   // backends read the shape as well and report a type issue instead of
-  // throwing out of the check.
+  // throwing out of the check. A string past length.max skips its pattern.
   const fake = (name) => JSON.parse(`{"constructor":{"name":"${name}"},"size":0}`);
   const schema = new Schema('Shapes', {
     when: 'date',
     table: { map: { string: 'number' } },
     bag: { set: 'number' },
     u: { union: [{ set: 'number' }, 'date', 'string'] },
+    slug: { type: 'string', length: { max: 4 }, pattern: /^[a-z]+$/ },
+    glyphs: { type: 'string', length: { max: 2 }, unicode: true, pattern: /^\p{L}+$/u },
+    free: { type: 'string', pattern: /^a+$/ },
   });
   equivalent(schema, [
-    { when: new Date(0), table: new Map(), bag: new Set([1]), u: 'x' },
-    { when: fake('Date'), table: fake('Map'), bag: fake('Set'), u: fake('Set') },
-    { when: new Date(0), table: new Map([['a', 1]]), bag: new Set(), u: 'x' },
+    {
+      when: new Date(0),
+      table: new Map(),
+      bag: new Set([1]),
+      u: 'x',
+      slug: 'ab',
+      glyphs: 'é',
+      free: 'a',
+    },
+    {
+      when: fake('Date'),
+      table: fake('Map'),
+      bag: fake('Set'),
+      u: fake('Set'),
+      slug: 'ab',
+      glyphs: 'é',
+      free: 'a',
+    },
+    {
+      when: new Date(0),
+      table: new Map([['a', 1]]),
+      bag: new Set(),
+      u: 'x',
+      slug: 'ABCDE',
+      glyphs: '\u{1F642}\u{1F642}\u{1F642}',
+      free: 'bbbbbbbb',
+    },
+    {
+      when: new Date(0),
+      table: new Map([['a', 1]]),
+      bag: new Set(),
+      u: 'x',
+      slug: 'ABCD',
+      glyphs: '\u{1F642}\u{1F642}',
+      free: 'b',
+    },
   ]);
 });

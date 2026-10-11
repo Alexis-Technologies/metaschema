@@ -58,8 +58,12 @@ test('Pattern: runs after the type and length checks', () => {
     },
   });
   assert.deepStrictEqual(schema.check({ s: 5 }).errors, ['Field "s" not of expected type: string']);
+  // A string past length.max is reported for its length; the pattern is not
+  // run over it (the bound is what keeps a pattern safe).
   assert.deepStrictEqual(schema.check({ s: 'bbbb' }).errors, [
     'Field "s" exceeds the maximum length',
+  ]);
+  assert.deepStrictEqual(schema.check({ s: 'bbb' }).errors, [
     'Field "s" does not match the pattern ^a',
   ]);
   assert.deepStrictEqual(schema.check({ s: 'bbbb' }, { maxErrors: 1 }).errors, [
@@ -94,4 +98,41 @@ test('Pattern: an invalid pattern, or one on another type, is a definition error
     code: 'ERR_INVALID_RULE',
     message: 'Rule "pattern" does not apply to type "array" in "tags"',
   });
+});
+
+test('Pattern: a string past length.max never reaches the pattern', () => {
+  // `^(a+)+$` backtracks exponentially on a string of `a`s that ends in
+  // something else; the bound is what the ReDoS note promises.
+  const bounded = Schema.from({ s: { type: 'string', length: { max: 10 }, pattern: /^(a+)+$/ } });
+  const hostile = `${'a'.repeat(28)}!`;
+  const started = performance.now();
+  const result = bounded.check({ s: hostile });
+  assert.ok(performance.now() - started < 50, 'the pattern was run past the bound');
+  assert.deepStrictEqual(result.errors, ['Field "s" exceeds the maximum length']);
+  assert.deepStrictEqual(bounded.check({ s: 'aaa!' }).errors, [
+    'Field "s" does not match the pattern ^(a+)+$',
+  ]);
+  assert.strictEqual(bounded.check({ s: 'aaa' }).valid, true);
+  // With `unicode: true` the length counts code points and the pattern is
+  // run over at most twice the bound in units: a string of 11 astral
+  // characters (22 units) fails the length and skips the pattern, one of 10
+  // (20 units) passes the length and is tested.
+  const glyphs = Schema.from({
+    s: { type: 'string', length: { max: 10 }, unicode: true, pattern: /^\p{L}+$/u },
+  });
+  assert.deepStrictEqual(glyphs.check({ s: '\u{1F642}'.repeat(11) }).errors, [
+    'Field "s" exceeds the maximum length',
+  ]);
+  assert.deepStrictEqual(glyphs.check({ s: '\u{1F642}'.repeat(10) }).errors, [
+    'Field "s" does not match the pattern ^\\p{L}+$',
+  ]);
+  assert.deepStrictEqual(glyphs.check({ s: 'é'.repeat(15) }).errors, [
+    'Field "s" exceeds the maximum length',
+  ]);
+  // Without length.max the pattern runs as before, on every string.
+  const unbounded = Schema.from({ s: { type: 'string', length: { min: 2 }, pattern: /^a+$/ } });
+  assert.deepStrictEqual(unbounded.check({ s: 'b' }).errors, [
+    'Field "s" value is too short',
+    'Field "s" does not match the pattern ^a+$',
+  ]);
 });

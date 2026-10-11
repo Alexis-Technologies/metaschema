@@ -145,11 +145,22 @@ const compileRange = (type) => {
   };
 };
 
+// The units a pattern may be run over: `length.max` (twice it when the
+// length counts code points, each at most two units), so that a string past
+// the bound, reported for its length already, never reaches a pattern that
+// backtracks over it; no limit without the bound.
+const patternLimit = (type) => {
+  const max = type.length?.max;
+  if (max === undefined) return Infinity;
+  return type.unicode === true ? 2 * max : max;
+};
+
 const compilePattern = (type) => {
   const { pattern } = type;
   const { source } = pattern;
+  const limit = patternLimit(type);
   return (value, context, key) => {
-    if (!pattern.test(value)) issues.pattern(context, source, key);
+    if (value.length <= limit && !pattern.test(value)) issues.pattern(context, source, key);
   };
 };
 
@@ -182,4 +193,12 @@ const compileRules = (type) => {
   return checks;
 };
 
-module.exports = { FORMAT, notApplicable, ruleNames, compileRules, codePoints, lengthOf };
+module.exports = {
+  FORMAT,
+  notApplicable,
+  ruleNames,
+  compileRules,
+  patternLimit,
+  codePoints,
+  lengthOf,
+};
