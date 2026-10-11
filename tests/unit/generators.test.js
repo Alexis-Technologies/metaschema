@@ -36,6 +36,7 @@ test('Generators: the functions take a Schema or a Model', () => {
     true,
   );
   assert.strictEqual(typeof saveTypes, 'function');
+  assert.strictEqual(typeof generators.fromJSONSchema, 'function');
   for (const target of [{}, null, 'User', { entities: new Map() }, Schema]) {
     assert.throws(() => toJSONSchema(target), {
       name: 'TypeError',
@@ -56,6 +57,7 @@ test('Generators: the core has no methods and no converter until register()', ()
   assert.strictEqual(model.toJSONSchema, undefined);
   assert.strictEqual(model.toTypeScript, undefined);
   assert.strictEqual(model.dts, undefined);
+  assert.strictEqual(Schema.fromJSONSchema, undefined);
   assert.deepStrictEqual(Object.keys(schema['~standard']), ['version', 'vendor', 'validate']);
   assert.strictEqual('saveTypes' in require('../../index.js'), false);
 });
@@ -80,6 +82,8 @@ test('Generators: register() installs the methods and the converter, once', () =
   );
   assert.strictEqual(model.toTypeScript({ named: true }), toTypeScript(model, { named: true }));
   assert.strictEqual(model.dts, toTypeScript(model));
+  assert.strictEqual(Schema.fromJSONSchema, generators.fromJSONSchema);
+  assert.strictEqual(Object.getOwnPropertyDescriptor(Schema, 'fromJSONSchema').enumerable, false);
   // The converter of Standard JSON Schema, built once per schema, on the
   // props the core built before registration too.
   assert.deepStrictEqual(Object.keys(schema['~standard']), [

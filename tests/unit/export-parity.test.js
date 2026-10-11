@@ -43,6 +43,7 @@ test('Exports: the generators are reachable through their subpath export', () =>
     'toJSONSchema',
     'toTypeScript',
     'saveTypes',
+    'fromJSONSchema',
     'register',
   ]);
   const source = [

@@ -321,6 +321,9 @@ export type DefinitionErrorCode =
   | 'ERR_UNKNOWN_JS_TYPE'
   | 'ERR_INVALID_OPTIONS'
   | 'ERR_UNREPRESENTABLE'
+  // Thrown by `fromJSONSchema` of the generators subpath for a keyword the
+  // subset has no form for.
+  | 'ERR_UNSUPPORTED_SCHEMA'
   // Thrown by `fromJSON` and `diff` of the `@alexify/metaschema/model`
   // subpath for a value that is not a snapshot of a model.
   | 'ERR_INVALID_SNAPSHOT'
@@ -535,6 +538,22 @@ export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
   // without it the document holds every entity as a definition, in
   // dependency order (one document per entity for the mongodb target).
   root?: string;
+}
+
+// The options of `fromJSONSchema` of the generators subpath.
+export interface FromJSONSchemaOptions {
+  // The name of the schema: what `$ref: '#'` refers to, and the name of the
+  // Schema built with `as: 'schema'`.
+  name?: string;
+  // What comes back: the definition (the default), or a Schema built from it.
+  as?: 'definition' | 'schema';
+  // A `$ref` into the definitions of the document: the definition in place
+  // ('inline', the default; a cycle has no form), or a reference to an
+  // entity of that name ('name'), to resolve through a Model.
+  references?: 'inline' | 'name';
+  // A keyword the subset has no form for: `ERR_UNSUPPORTED_SCHEMA` with its
+  // place in the document ('throw', the default), or dropped ('ignore').
+  unsupported?: 'throw' | 'ignore';
 }
 
 // Standard JSON Schema (https://standardschema.dev/json-schema): the converter
@@ -1043,6 +1062,14 @@ export class Schema<const D extends string | object = string | object> {
 
   static from<const D extends string | object>(raw: D, namespaces?: Array<Model>): Schema<D>;
   static extractSchema(def: object): Schema | null;
+  // A definition (or a Schema) from a JSON Schema document: exists once
+  // `register()` of the generators subpath has run; its `fromJSONSchema` is
+  // the same without it.
+  static fromJSONSchema(
+    document: JSONSchema | true,
+    options: FromJSONSchemaOptions & { as: 'schema' },
+  ): Schema;
+  static fromJSONSchema(document: JSONSchema | true, options?: FromJSONSchemaOptions): object | string;
 
   kind: Kind;
   scope: Scope;

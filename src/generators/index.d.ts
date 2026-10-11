@@ -1,4 +1,5 @@
 import type {
+  FromJSONSchemaOptions,
   InterfaceOptions,
   JSONSchema,
   JSONSchemaOptions,
@@ -23,7 +24,20 @@ export function saveTypes(
   options?: InterfaceOptions,
 ): Promise<void>;
 
+// A definition from a JSON Schema document (a Schema with `as: 'schema'`),
+// for the subset a validation schema is made of; a keyword outside it is
+// `ERR_UNSUPPORTED_SCHEMA` with its place in the document, or dropped with
+// `unsupported: 'ignore'`.
+export function fromJSONSchema(
+  document: JSONSchema | true,
+  options: FromJSONSchemaOptions & { as: 'schema' },
+): Schema;
+export function fromJSONSchema(
+  document: JSONSchema | true,
+  options?: FromJSONSchemaOptions,
+): object | string;
+
 // Installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`,
-// `model.toTypeScript`, `model.dts` and `schema['~standard'].jsonSchema`.
-// Once per process; later calls do nothing.
+// `model.toTypeScript`, `model.dts`, `Schema.fromJSONSchema` and
+// `schema['~standard'].jsonSchema`. Once per process; later calls do nothing.
 export function register(): void;

@@ -224,6 +224,15 @@ const checkBundle = async ({ core, generators, compile, model: tools }, browser)
   assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
   const mongo = model.toJSONSchema({ target: 'mongodb' });
   assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
+  // The import of a document, and the export of the import.
+  const imported = generators.fromJSONSchema(json, { as: 'schema' });
+  assert.strictEqual(imported.check({ name: 'x', age: 1 }).valid, true);
+  assert.strictEqual(imported.check({ name: 1 }).valid, false);
+  assert.strictEqual(
+    JSON.stringify(imported.toJSONSchema({ target: 'draft-07' })),
+    JSON.stringify(json),
+  );
+  assert.strictEqual(Schema.fromJSONSchema, generators.fromJSONSchema);
   assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
   const named = new Model({}, [['Doc', { Struct: {}, status: { enum: ['a'] } }]]);
   assert.strictEqual(named.toTypeScript({ named: true }).startsWith('type DocStatus = "a";'), true);
