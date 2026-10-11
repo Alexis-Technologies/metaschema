@@ -7,6 +7,7 @@
 // `options.types` brings the real custom types where the model should
 // validate as the original did.
 const { define } = require('../util.js');
+const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
 const { invalidSnapshot, isObject, isSnapshot, isFunctionMarker } = require('./data.js');
 
@@ -37,7 +38,9 @@ const revive = (value, key) => {
 const isField = (value) => isObject(value) && typeof value.type === 'string';
 
 // A field of a snapshot as a definition: `type` first, a pattern as a
-// RegExp, a nested struct, an element or the branches as definitions.
+// RegExp, a nested struct, an element or the branches as definitions, a
+// schema of one type held by a field as a Schema instance (the one form the
+// schema type takes it in).
 const fieldDef = (def) => {
   if (!isField(def)) throw invalidSnapshot('A field of a snapshot needs a type');
   const out = { type: def.type };
@@ -46,7 +49,7 @@ const fieldDef = (def) => {
     if (key === 'type') continue;
     if (key === 'pattern' && isObject(item)) out.pattern = new RegExp(item.source, item.flags);
     else if (key === 'schema' && isObject(item)) {
-      out.schema = isField(item) ? fieldDef(item) : structDef(item);
+      out.schema = isField(item) ? Schema.from(fieldDef(item)) : structDef(item);
     } else if (key === 'value' || key === 'union') {
       out[key] = Array.isArray(item) ? listDef(item) : fieldDef(item);
     } else out[key] = revive(item, key);

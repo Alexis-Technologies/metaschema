@@ -99,6 +99,61 @@ test('Evolution: fromJSON revives tags and stands placeholders in for functions'
   assert.strictEqual(doc.check({ ...value, name: '123' }).valid, false);
 });
 
+test('Evolution: fromJSON restores collections, tuples, unions and nested schemas', () => {
+  const id = Schema.from('string');
+  const original = new Model({}, [
+    ['Tag', { Struct: {}, label: 'string' }],
+    [
+      'Doc',
+      {
+        Struct: {},
+        tags: { array: { schema: { id: 'string', 'n?': 'integer' } } },
+        ids: { set: 'bigint', length: { min: 1 } },
+        byId: { map: { number: { x: 'boolean' } } },
+        point: [{ x: 'number' }, { 'label?': 'string' }, ['boolean']],
+        shape: {
+          union: [
+            { Struct: {}, kind: { enum: ['circle'] }, r: 'number' },
+            { Struct: {}, kind: { enum: ['square'] }, side: { type: 'integer', min: 0 } },
+          ],
+          discriminator: 'kind',
+        },
+        either: { union: ['string', { array: 'number' }] },
+        name: id,
+        'nick?': id,
+        owner: 'Tag',
+        all: { many: 'Tag' },
+      },
+    ],
+  ]);
+  const snapshot = json(original);
+  const restored = fromJSON(snapshot);
+  assert.deepStrictEqual(json(restored), snapshot);
+  const doc = restored.entities.get('Doc');
+  const value = {
+    tags: [{ id: 'a' }, { id: 'b', n: 2 }],
+    ids: new Set([1n]),
+    byId: new Map([[1, { x: true }]]),
+    point: [1, 'l', [true]],
+    shape: { kind: 'square', side: 2 },
+    either: [1, 2],
+    name: 'n',
+    owner: { label: 'x' },
+    all: [{ label: 'y' }],
+  };
+  assert.deepStrictEqual(doc.check(value).errors, []);
+  assert.deepStrictEqual(
+    doc.check({ ...value, shape: { kind: 'square', side: -1 }, either: true, nick: 1 }).errors,
+    [
+      'Field "Doc.shape.side" is less than 0',
+      'Field "Doc.either" does not match any of: string, array',
+      'Field "Doc.nick" not of expected type: string',
+    ],
+  );
+  assert.strictEqual(doc.fields.point.value[1].name, 'label');
+  assert.strictEqual(doc.fields.name.type, 'schema');
+});
+
 test('Evolution: fromJSON takes the real custom types and a registry', () => {
   const types = {
     hex: {
