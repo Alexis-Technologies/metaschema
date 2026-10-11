@@ -1,6 +1,6 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import { Model, Schema } from '../../index.js';
-import { canEval, compile, register } from '../../src/compile/index.js';
+import { canEval, compile, compiled, register } from '../../src/compile/index.js';
 import type { CompileOptions, Compiled } from '../../src/compile/index.js';
 import type { DefinitionErrorCode, SchemaDefinitionError } from '../../index.js';
 
@@ -24,6 +24,9 @@ expectType<void>(register({ jit: 'auto' }));
 expectType<void>(register({ jit: false }));
 expectError(register({ jit: 'never' }));
 expectType<boolean>(canEval());
+expectType<boolean>(compiled(user));
+expectType<boolean>(compiled(model));
+expectError(compiled({ name: 'string' }));
 
 const options: CompileOptions = { jit: true };
 expectType<'auto' | boolean | undefined>(options.jit);

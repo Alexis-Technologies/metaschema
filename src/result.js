@@ -104,6 +104,12 @@ class ValidationResult {
     return hasBrand(error, 'ValidationResult');
   }
 
+  // The result as data, for a log or a response: JSON.stringify(result) has
+  // the verdict beside the issues (`errors` is derived from them).
+  toJSON() {
+    return { valid: this.valid, issues: this.issues };
+  }
+
   [INSPECT](depth, options, inspect) {
     const { valid, errors, issues } = this;
     return `ValidationResult ${inspect({ valid, errors, issues }, options)}`;

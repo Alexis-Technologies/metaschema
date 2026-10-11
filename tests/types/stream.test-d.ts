@@ -23,7 +23,9 @@ const rows: unknown[] = [];
 declare const source: AsyncIterable<unknown>;
 
 // The sync pair yields entries with the result of check or parse.
-expectType<Generator<RecordEntry<ValidationResult>, void, undefined>>(checkEach(user, rows));
+expectType<Generator<RecordEntry<unknown, ValidationResult>, void, undefined>>(
+  checkEach(user, rows),
+);
 for (const entry of checkEach(user, rows, { maxInvalid: 1, unknown: 'ignore' })) {
   expectType<number>(entry.index);
   expectType<unknown>(entry.record);
@@ -38,11 +40,15 @@ expectError(checkEach(user, rows, { concurrency: 2 }));
 expectError(checkEach({ name: 'string' }, rows));
 
 // The async pair takes a sync or async source and a concurrency.
-expectType<AsyncGenerator<RecordEntry<ValidationResult>, void, undefined>>(
+expectType<AsyncGenerator<RecordEntry<unknown, ValidationResult>, void, undefined>>(
   checkEachAsync(user, source, { concurrency: 4 }),
 );
 expectType<
-  AsyncGenerator<RecordEntry<ParseResult<{ name: string; n: number | null }>>, void, undefined>
+  AsyncGenerator<
+    RecordEntry<unknown, ParseResult<{ name: string; n: number | null }>>,
+    void,
+    undefined
+  >
 >(parseEachAsync(user, rows, { maxInvalid: 2 }));
 expectError(checkEachAsync(user, rows, { concurrency: 'two' }));
 
@@ -63,10 +69,24 @@ expectError(transform(user, { onInvalid: 1 }));
 
 // register installs the methods, declared on the class.
 expectType<void>(register());
-expectType<Generator<RecordEntry<ValidationResult>, void, undefined>>(user.checkEach(rows));
+expectType<Generator<RecordEntry<unknown, ValidationResult>, void, undefined>>(
+  user.checkEach(rows),
+);
 expectType<TransformStream<unknown, { name: string; n: number | null }>>(user.transform());
 expectAssignable<EachOptions>({ maxErrors: 1, maxInvalid: 1 });
 expectAssignable<ParseEachOptions>({ unknown: 'strip' });
 expectAssignable<EachAsyncOptions>({ concurrency: 1 });
 expectAssignable<TransformOptions>({ mode: 'parse', async: false });
 expectAssignable<RuntimeErrorCode>('ERR_INVALID_RECORD');
+
+// The record of an entry is typed by the source.
+const typed = [{ name: 'a' }, { name: 'b' }];
+for (const entry of checkEach(user, typed)) expectType<{ name: string }>(entry.record);
+for (const entry of user.parseEach(typed)) expectType<{ name: string }>(entry.record);
+expectType<AsyncGenerator<RecordEntry<{ name: string }, ValidationResult>, void, undefined>>(
+  checkEachAsync(user, typed),
+);
+declare const typedSource: AsyncIterable<{ id: number }>;
+expectType<AsyncGenerator<RecordEntry<{ id: number }, ValidationResult>, void, undefined>>(
+  user.checkEachAsync(typedSource),
+);

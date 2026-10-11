@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 const { Schema, Model } = require('../../index.js');
-const { compile, register, canEval } = require('@alexify/metaschema/compile');
+const { compile, compiled: isCompiled, register, canEval } = require('@alexify/metaschema/compile');
 const uk = require('@alexify/metaschema/locales/uk');
 const { RUN } = require('../../src/util.js');
 const { Code, quote, prop, literal } = require('../../src/compile/code.js');
@@ -1306,4 +1306,33 @@ test('Compile: formats on both backends', () => {
     },
     { email: 7, site: null, id: 'ZZZZ', when: '2026-10-11', checked: '1.2.3.4' },
   ]);
+});
+
+test('Compile: compiled() says which backend a schema runs on', () => {
+  const schema = Schema.from({ name: 'string' });
+  assert.strictEqual(isCompiled(schema), false);
+  assert.deepStrictEqual(compile(schema, JIT), { accelerated: canEval() });
+  assert.strictEqual(isCompiled(schema), canEval());
+  assert.strictEqual(isCompiled(schema), schema[RUN].name === 'jit');
+  compile(schema, { jit: false });
+  assert.strictEqual(isCompiled(schema), false);
+  // A model is compiled when every entity is.
+  const model = new Model({}, [
+    ['A', { Struct: {}, a: 'string' }],
+    ['B', { Struct: {}, b: 'string' }],
+  ]);
+  assert.strictEqual(isCompiled(model), false);
+  compile(model.entities.get('A'), JIT);
+  assert.strictEqual(isCompiled(model), false);
+  compile(model, JIT);
+  assert.strictEqual(isCompiled(model), canEval());
+  // A schema built under register() is compiled from the start.
+  register(JIT);
+  try {
+    assert.strictEqual(isCompiled(Schema.from({ x: 'number' })), canEval());
+  } finally {
+    register({ jit: false });
+  }
+  assert.strictEqual(isCompiled(Schema.from({ x: 'number' })), false);
+  assert.throws(() => isCompiled({ name: 'string' }), { code: 'ERR_INVALID_TARGET' });
 });

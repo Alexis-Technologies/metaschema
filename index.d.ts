@@ -195,6 +195,8 @@ export class ValidationResult {
   add(error: ValidationReturn, code?: IssueCode): this;
   flatten(): FlatIssues;
   tree(): IssueTree;
+  // The result as data: what JSON.stringify(result) writes.
+  toJSON(): { valid: boolean; issues: ValidationIssue[] };
   static issuesOf(error: ValidationReturn, path?: PropertyKey[], code?: IssueCode): ValidationIssue[];
   static isInstance(error: unknown): boolean;
 }
@@ -586,10 +588,11 @@ export interface TransformOptions extends ParseOptions {
 }
 
 // What `checkEach` and its kin yield for a record: its position in the
-// sequence, the record as given, and the result of `check` or `parse`.
-export interface RecordEntry<R> {
+// sequence, the record as the source gave it, and the result of `check` or
+// `parse`.
+export interface RecordEntry<T, R> {
   index: number;
-  record: unknown;
+  record: T;
   result: R;
 }
 
@@ -1259,22 +1262,22 @@ export class Schema<const D extends string | object = string | object> {
   // The five members below exist once `register()` of the
   // `@alexify/metaschema/stream` subpath has run; its `checkEach(schema,
   // records, options)` and kin are the same without it.
-  checkEach(
-    records: Iterable<unknown>,
+  checkEach<T>(
+    records: Iterable<T>,
     options?: EachOptions,
-  ): Generator<RecordEntry<ValidationResult>, void, undefined>;
-  parseEach(
-    records: Iterable<unknown>,
+  ): Generator<RecordEntry<T, ValidationResult>, void, undefined>;
+  parseEach<T>(
+    records: Iterable<T>,
     options?: ParseEachOptions,
-  ): Generator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
-  checkEachAsync(
-    records: Iterable<unknown> | AsyncIterable<unknown>,
+  ): Generator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
+  checkEachAsync<T>(
+    records: Iterable<T> | AsyncIterable<T>,
     options?: EachOptions & EachAsyncOptions,
-  ): AsyncGenerator<RecordEntry<ValidationResult>, void, undefined>;
-  parseEachAsync(
-    records: Iterable<unknown> | AsyncIterable<unknown>,
+  ): AsyncGenerator<RecordEntry<T, ValidationResult>, void, undefined>;
+  parseEachAsync<T>(
+    records: Iterable<T> | AsyncIterable<T>,
     options?: ParseEachOptions & EachAsyncOptions,
-  ): AsyncGenerator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
+  ): AsyncGenerator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
   transform(options: TransformOptions & { mode: 'check' }): TransformStream<unknown, Infer<D>>;
   transform(options?: TransformOptions): TransformStream<unknown, InferOutput<D>>;
   // The two methods below exist once `register()` of the generators subpath

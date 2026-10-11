@@ -469,3 +469,12 @@ test('Model: a projection copies a many reference as a many reference', () => {
   assert.strictEqual(long.fields.refs.one, undefined);
   assert.strictEqual(long.check({ refs: ['a1'] }).valid, true);
 });
+
+test('Model: util.inspect prints the snapshot, as Schema prints its definition', () => {
+  const util = require('node:util');
+  const model = new Model({}, [['Item', { Entity: {}, name: 'string' }]]);
+  const text = util.inspect(model, { depth: 4 });
+  assert.ok(text.startsWith('Model {'), text);
+  assert.ok(text.includes("kind: 'entity'"), text);
+  assert.ok(!text.includes('Schema {'), text);
+});

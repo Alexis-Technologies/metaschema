@@ -1,6 +1,6 @@
 const { firstKey } = require('./metautil.js');
 
-const { BRAND } = require('./util.js');
+const { BRAND, INSPECT } = require('./util.js');
 const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
 const { SchemaDefinitionError } = require('./errors.js');
@@ -73,6 +73,10 @@ class Model {
   // relations, and the types they use. What JSON.stringify(model) writes.
   toJSON() {
     return snapshotOf(this);
+  }
+
+  [INSPECT](depth, options, inspect) {
+    return `Model ${inspect(this.toJSON(), options)}`;
   }
 
   #preprocess() {

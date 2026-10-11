@@ -153,6 +153,17 @@ const compile = (target, options = {}) => {
   return error === undefined ? { accelerated: true } : { accelerated: false, error };
 };
 
+// Whether the check of a schema (of every entity of a model) runs the
+// generated code now: what `compile` reported, asked later.
+const compiled = (target) => {
+  const schemas = schemasOf(target);
+  for (let index = 0; index < schemas.length; index += 1) {
+    const schema = schemas[index];
+    if (!ORIGINAL.has(schema) || schema[RUN] === ORIGINAL.get(schema)) return false;
+  }
+  return true;
+};
+
 // Compiles every schema built from now on, with these options; a later call
 // replaces them, and `{ jit: false }` stops it. A schema built before the
 // call is not touched. In the default mode `onFallback` is told of every
@@ -173,4 +184,4 @@ const register = (options = {}) => {
         };
 };
 
-module.exports = { compile, register, canEval };
+module.exports = { compile, compiled, register, canEval };

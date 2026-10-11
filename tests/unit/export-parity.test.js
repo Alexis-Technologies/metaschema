@@ -69,7 +69,7 @@ test('Exports: the generators are reachable through their subpath export', () =>
 test('Exports: the compile subpath is reachable through its subpath export', () => {
   const compile = require('@alexify/metaschema/compile');
   assert.strictEqual(compile, require(path.join(ROOT, 'src/compile/index.js')));
-  assert.deepStrictEqual(Object.keys(compile), ['compile', 'register', 'canEval']);
+  assert.deepStrictEqual(Object.keys(compile), ['compile', 'compiled', 'register', 'canEval']);
   const source = [
     "import { compile, register, canEval } from '@alexify/metaschema/compile';",
     "import { Schema } from '@alexify/metaschema';",

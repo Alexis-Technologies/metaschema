@@ -36,3 +36,9 @@ export function register(options?: CompileOptions): void;
 
 // Whether this environment allows code generation from strings; probed once.
 export function canEval(): boolean;
+
+// Whether the check of a schema (of every entity of a model) runs generated
+// code now: what `compile` reported, asked later. False for a schema built
+// before `register()` and after `{ jit: false }`; a target that is neither
+// a Schema nor a Model is a `TypeError`.
+export function compiled(target: Schema | Model): boolean;

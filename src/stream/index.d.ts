@@ -16,36 +16,36 @@ import type {
 // those of `check`, plus `maxInvalid`, the number of invalid records after
 // which the iteration ends. A target that is not a Schema, or a source that
 // is not iterable, is a `TypeError` with the code `ERR_INVALID_TARGET`.
-export function checkEach(
+export function checkEach<T>(
   schema: Schema,
-  records: Iterable<unknown>,
+  records: Iterable<T>,
   options?: EachOptions,
-): Generator<RecordEntry<ValidationResult>, void, undefined>;
+): Generator<RecordEntry<T, ValidationResult>, void, undefined>;
 
 // `parse` on every record of an iterable: the same, with the result of
 // `parse` in each entry.
-export function parseEach<D extends string | object>(
+export function parseEach<T, D extends string | object>(
   schema: Schema<D>,
-  records: Iterable<unknown>,
+  records: Iterable<T>,
   options?: ParseEachOptions,
-): Generator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
+): Generator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
 
 // `checkAsync` on every record of a sync or async iterable, as an async
 // generator in the order of the records, with up to `concurrency` records
 // in flight (one by default).
-export function checkEachAsync(
+export function checkEachAsync<T>(
   schema: Schema,
-  records: Iterable<unknown> | AsyncIterable<unknown>,
+  records: Iterable<T> | AsyncIterable<T>,
   options?: EachOptions & EachAsyncOptions,
-): AsyncGenerator<RecordEntry<ValidationResult>, void, undefined>;
+): AsyncGenerator<RecordEntry<T, ValidationResult>, void, undefined>;
 
 // `parseAsync` on every record of a sync or async iterable: the same, with
 // the result of `parseAsync` in each entry.
-export function parseEachAsync<D extends string | object>(
+export function parseEachAsync<T, D extends string | object>(
   schema: Schema<D>,
-  records: Iterable<unknown> | AsyncIterable<unknown>,
+  records: Iterable<T> | AsyncIterable<T>,
   options?: ParseEachOptions & EachAsyncOptions,
-): AsyncGenerator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
+): AsyncGenerator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
 
 // A TransformStream over the records of a stream: a valid record goes on as
 // its parsed value (`mode: 'parse'`, the default) or as it is
