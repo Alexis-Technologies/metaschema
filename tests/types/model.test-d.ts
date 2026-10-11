@@ -116,8 +116,10 @@ expectAssignable<InferOptions>({
   integer: false,
   map: 32,
   maxDepth: 8,
+  formats: false,
 });
 expectError(infer(1));
+expectError(infer([1], { formats: 'no' }));
 expectError(infer([1], { as: 'json' }));
 expectError(infer([1], { enum: 'many' }));
 expectAssignable<DefinitionErrorCode>('ERR_INFER_DEPTH');

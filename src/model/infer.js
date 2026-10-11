@@ -12,6 +12,7 @@ const { define, IDENTIFIER } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
+const { FORMATS } = require('../rules.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
 const { DEPTH, capitalize } = require('./data.js');
@@ -50,8 +51,9 @@ const NULLABLE = 2;
 // The summary of one place: one shape for every node. `strings` is the
 // distinct strings while there are few enough for an enum (undefined before
 // the first, null once there are too many), `texts` how many strings there
-// were, `records` how many of the values were records (the presence of a
-// key is counted against it).
+// were, `formats` the registered formats every string so far passed
+// (undefined before the first, null once none is left), `records` how many
+// of the values were records (the presence of a key is counted against it).
 const node = () => ({
   bits: 0,
   count: 0,
@@ -62,6 +64,7 @@ const node = () => ({
   names: null,
   entries: null,
   strings: undefined,
+  formats: undefined,
 });
 
 // A place in the samples, for the errors: the keys of records, `[]` for
@@ -85,12 +88,32 @@ const tooDeep = (state) =>
     `Sample ${state.index} nests deeper than ${state.maxDepth} levels at "${where(state)}" (a cycle?)`,
   );
 
-const addString = (target, value, cap) => {
+// The formats of a place narrow with every string: the candidates are the
+// registered formats that infer (a format every word passes says not to),
+// in the order they were registered, and a string drops the ones it fails.
+const addFormats = (target, value, state) => {
+  if (target.formats === null) return;
+  if (target.formats === undefined) target.formats = state.candidates.slice();
+  const list = target.formats;
+  let kept = 0;
+  for (let index = 0; index < list.length; index += 1) {
+    const name = list[index];
+    if (FORMATS[name].test(value)) {
+      list[kept] = name;
+      kept += 1;
+    }
+  }
+  list.length = kept;
+  if (kept === 0) target.formats = null;
+};
+
+const addString = (target, value, state) => {
   target.texts += 1;
+  if (state.candidates.length > 0) addFormats(target, value, state);
   if (target.strings === null) return;
   if (target.strings === undefined) target.strings = new Set();
   target.strings.add(value);
-  if (target.strings.size > cap) target.strings = null;
+  if (target.strings.size > state.enum) target.strings = null;
 };
 
 const childOf = (target, key) => {
@@ -123,7 +146,7 @@ const add = (target, value, state, depth) => {
   const type = typeof value;
   if (type === 'string') {
     target.bits |= STRING;
-    addString(target, value, state.enum);
+    addString(target, value, state);
     return;
   }
   if (type === 'number') {
@@ -208,6 +231,14 @@ const fuse = (into, from, cap) => {
     for (const text of from.strings) into.strings.add(text);
     if (into.strings.size > cap) into.strings = null;
   }
+  // The formats both kept, in the order of the target.
+  if (from.formats === null || into.formats === null) into.formats = null;
+  else if (into.formats === undefined) into.formats = from.formats?.slice();
+  else if (from.formats !== undefined) {
+    const kept = [];
+    for (const name of into.formats) if (from.formats.includes(name)) kept.push(name);
+    into.formats = kept.length === 0 ? null : kept;
+  }
   return into;
 };
 
@@ -271,11 +302,14 @@ const itemOf = (target, state) => {
   return written(formOf(target, state), bits & PRESENCE ? OPTIONAL : REQUIRED);
 };
 
+// An enum of few recurring values, else the first registered format every
+// string of the place passed, else a string.
 const stringOf = (target, state) => {
-  const { strings, texts } = target;
+  const { strings, texts, formats } = target;
   if (strings != null && texts >= 4 && texts >= 2 * strings.size) {
     return { def: { enum: Array.from(strings) } };
   }
+  if (formats != null && formats.length > 0) return { def: { type: 'string', format: formats[0] } };
   return { def: 'string' };
 };
 
@@ -371,6 +405,7 @@ const optionsOf = (options) => {
     integer = true,
     map = 16,
     maxDepth = DEPTH,
+    formats = true,
   } = options;
   if (as !== 'definition' && as !== 'schema') throw option('as', '"definition" or "schema"');
   if (typeof name !== 'string') throw option('name', 'a string');
@@ -385,9 +420,15 @@ const optionsOf = (options) => {
   if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > DEPTH) {
     throw option('maxDepth', `an integer from 1 to ${DEPTH}`);
   }
+  if (typeof formats !== 'boolean') throw option('formats', 'a boolean');
   const state = { as, name, kind, enum: cap === false ? 0 : cap, integer, map, maxDepth };
   state.path = [];
   state.index = 0;
+  // The formats a string place may be, in the order they were registered.
+  state.candidates = [];
+  if (formats) {
+    for (const key in FORMATS) if (FORMATS[key].infer !== false) state.candidates.push(key);
+  }
   return state;
 };
 

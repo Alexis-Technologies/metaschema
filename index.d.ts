@@ -37,6 +37,7 @@ export type IssueCode =
   | 'length'
   | 'range'
   | 'pattern'
+  | 'format'
   | 'union'
   | 'reference'
   | 'circular'
@@ -56,6 +57,8 @@ export interface IssueParams {
   range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
   // The source of the pattern the string did not match.
   pattern: { pattern: string };
+  // The name of the format the string is not of.
+  format: { format: string };
   // No branch of a union matched: the branch names, or the discriminator
   // values when the union has a discriminator (the path then ends with it).
   union: { expected: unknown[]; discriminator: string | undefined };
@@ -351,6 +354,11 @@ export type DefinitionErrorCode =
   // (a bug of the inference, to report).
   | 'ERR_INFER_DEPTH'
   | 'ERR_INFER_MISMATCH'
+  // Thrown by `register` of the `@alexify/metaschema/formats` subpath: an
+  // entry that is not a format, and a name registered again with another
+  // test.
+  | 'ERR_INVALID_FORMAT'
+  | 'ERR_FORMAT_REGISTERED'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -521,6 +529,10 @@ export interface InferOptions {
   map?: number | false;
   // How deep a sample may nest (128, the most); past it `ERR_INFER_DEPTH`.
   maxDepth?: number;
+  // Whether a place whose every string passes a registered format is that
+  // format (true); the formats subpath registers them, in the order `infer`
+  // tries them, and nothing is registered until its `register()` ran.
+  formats?: boolean;
 }
 
 // The options of `sample` of the `@alexify/metaschema/model` subpath.

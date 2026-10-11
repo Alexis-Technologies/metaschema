@@ -23,6 +23,7 @@ const bundle = async (entry, options) => {
     "compile: require('./src/compile/index.js'),",
     "model: require('./src/model/index.js'),",
     "stream: require('./src/stream/index.js'),",
+    "formats: require('./src/formats/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -73,7 +74,10 @@ const evaluates = (() => {
   }
 })();
 
-const checkBundle = async ({ core, generators, compile, model: tools, stream }, browser) => {
+const checkBundle = async (
+  { core, generators, compile, model: tools, stream, formats },
+  browser,
+) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
   // The stream subpath through the bundle: an entry per record, and a
@@ -101,6 +105,17 @@ const checkBundle = async ({ core, generators, compile, model: tools, stream }, 
   assert.strictEqual(streamed.checkEach, undefined);
   stream.register();
   assert.strictEqual(typeof streamed.checkEach, 'function');
+  // The formats subpath through the bundle: the rule is the core's, the
+  // table the subpath's, and a check reads the registered test.
+  assert.throws(() => Schema.from({ email: { type: 'string', format: 'email' } }), {
+    code: 'ERR_INVALID_RULE',
+  });
+  formats.register();
+  const formatted = Schema.from({ email: { type: 'string', format: 'email' } });
+  assert.strictEqual(formatted.check({ email: 'ann@example.com' }).valid, true);
+  assert.deepStrictEqual(errorsOf(formatted.check({ email: 'nope' })), [
+    'Field "email" is not a valid email',
+  ]);
   // The model subpath through the bundle: a snapshot of the bundled Model
   // class comes back as one, and the changes between two versions classify.
   const prev = new Model({}, [['Item', { Entity: {}, name: 'string', qty: 'integer' }]]);

@@ -53,11 +53,28 @@ const formatPattern = (value) => {
 
 // The formatter of each rule, by name; the names are the rules that exist. A
 // null-prototype dictionary: a definition key may be called `constructor`.
+// The formats a string may name (`format: 'email'`): a null-prototype table
+// of `{ test, examples }` entries, empty until `register()` of the formats
+// subpath fills it (the core knows the rule, the subpath the formats), read
+// when the field is built. A name the table lacks is a definition error with
+// the hint, never a check that passes everything.
+const FORMATS = Object.create(null);
+
+const formatName = (value) => {
+  if (typeof value !== 'string') throw invalidRule('Rule "format" needs the name of a format');
+  if (FORMATS[value] === undefined) {
+    const hint = 'register() of @alexify/metaschema/formats';
+    throw invalidRule(`Rule "format" names a format that is not registered: "${value}" (${hint})`);
+  }
+  return value;
+};
+
 const FORMAT = Object.assign(Object.create(null), {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
+  format: formatName,
 });
 
 const notApplicable = (rule, type, rules) => {
@@ -164,6 +181,17 @@ const compilePattern = (type) => {
   };
 };
 
+// A format is the test the subpath registered under its name, run after the
+// pattern and under the same bound.
+const compileFormat = (type) => {
+  const { format } = type;
+  const { test } = FORMATS[format];
+  const limit = patternLimit(type);
+  return (value, context, key) => {
+    if (value.length <= limit && !test(value)) issues.format(context, format, key);
+  };
+};
+
 // The rules a field carries, by name, in the order its type lists them, min
 // and max as the one `range`: the order the closures run them in and the JIT
 // emits them in.
@@ -182,6 +210,7 @@ const ruleNames = (type) => {
 const COMPILERS = Object.assign(Object.create(null), {
   length: compileLength,
   pattern: compilePattern,
+  format: compileFormat,
   range: compileRange,
 });
 
@@ -195,6 +224,7 @@ const compileRules = (type) => {
 
 module.exports = {
   FORMAT,
+  FORMATS,
   notApplicable,
   ruleNames,
   compileRules,

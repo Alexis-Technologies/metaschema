@@ -94,7 +94,7 @@ expectType<string>(schema.check({}).issues[0].message);
 const issue = schema.check({}).issues[0];
 // A validator may use a code of its own, so a known code narrows the params
 // only through IssueOf.
-if (issue.code === 'format') expectType<Record<string, unknown>>(issue.params);
+if (issue.code === 'taken') expectType<Record<string, unknown>>(issue.params);
 const typed = issue as IssueOf<'type'>;
 expectType<string>(typed.params.expected);
 expectType<string>(typed.params.received);

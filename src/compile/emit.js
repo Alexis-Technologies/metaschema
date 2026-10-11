@@ -9,7 +9,7 @@
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
-const { codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
+const { FORMATS, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
@@ -85,13 +85,27 @@ const emitLength = (type, x, key, state) => {
   code.push('}');
 };
 
+// The condition that keeps a pattern or a format off a string past
+// length.max, as the closures do.
+const withinLength = (type, x, code) => {
+  const limit = patternLimit(type);
+  return limit === Infinity ? '' : `${x}.length <= ${code.value(limit)} && `;
+};
+
 const emitPattern = (type, x, key, state) => {
   const { code } = state;
   const { pattern } = type;
-  const limit = patternLimit(type);
-  const bounded = limit === Infinity ? '' : `${x}.length <= ${code.value(limit)} && `;
-  code.push(`if (${bounded}!${code.ref(pattern)}.test(${x})) {`);
+  code.push(`if (${withinLength(type, x, code)}!${code.ref(pattern)}.test(${x})) {`);
   record(state, issue(state, 'pattern', `${quote(pattern.source)}, ${keyOf(key)}`));
+  code.push('}');
+};
+
+const emitFormat = (type, x, key, state) => {
+  const { code } = state;
+  const { format } = type;
+  const { test } = FORMATS[format];
+  code.push(`if (${withinLength(type, x, code)}!${code.ref(test)}(${x})) {`);
+  record(state, issue(state, 'format', `${quote(format)}, ${keyOf(key)}`));
   code.push('}');
 };
 
@@ -107,6 +121,7 @@ const emitRange = (type, x, key, state) => {
 const RULES = Object.assign(Object.create(null), {
   length: emitLength,
   pattern: emitPattern,
+  format: emitFormat,
   range: emitRange,
 });
 

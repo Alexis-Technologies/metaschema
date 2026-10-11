@@ -12,6 +12,7 @@ const { isFirstUpper } = require('../metautil.js');
 const { define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { readsAsStruct } = require('../types.js');
+const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
 const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
@@ -254,6 +255,10 @@ const typed = (context, node, type, used) => {
         unsupported(context, `The pattern ${shown} (not a valid pattern under the u flag)`);
       }
     }
+    // A format the formats subpath registered is the rule; any other stays
+    // the annotation JSON Schema says it is.
+    const format = take('format');
+    if (typeof format === 'string' && FORMATS[format] !== undefined) def.format = format;
     return def;
   }
   if (type === 'number' || type === 'integer') {

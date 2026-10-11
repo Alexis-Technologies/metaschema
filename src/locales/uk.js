@@ -32,6 +32,8 @@ const range = ({ min, max, actual }) =>
 
 const pattern = ({ pattern: source }) => `не відповідає шаблону ${source}`;
 
+const format = ({ format: name }) => `не є коректним ${name}`;
+
 const union = ({ expected, discriminator }) =>
   discriminator === undefined
     ? `не відповідає жодному з: ${expected.join(', ')}`
@@ -56,6 +58,7 @@ module.exports = {
   length,
   range,
   pattern,
+  format,
   union,
   reference,
   circular,

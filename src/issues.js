@@ -54,6 +54,7 @@ const issues = {
   length: (context, min, max, actual, key) => record(context, 'length', { min, max, actual }, key),
   range: (context, min, max, actual, key) => record(context, 'range', { min, max, actual }, key),
   pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
+  format: (context, format, key) => record(context, 'format', { format }, key),
   union: (context, expected, discriminator, key) =>
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),

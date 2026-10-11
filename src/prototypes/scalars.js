@@ -131,8 +131,8 @@ const unknown = { ...any, scalar: 'unknown' };
 const string = {
   ...scalar,
   scalar: 'string',
-  rules: ['length', 'pattern'],
-  options: ['length', 'unicode', 'pattern'],
+  rules: ['length', 'pattern', 'format'],
+  options: ['length', 'unicode', 'pattern', 'format'],
 };
 const number = { ...scalar, scalar: 'number', rules: ['min', 'max'], options: ['min', 'max'] };
 const bigint = { ...scalar, scalar: 'bigint', rules: ['min', 'max'], options: ['min', 'max'] };

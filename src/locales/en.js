@@ -34,6 +34,8 @@ const range = ({ min, max, actual }) =>
 
 const pattern = ({ pattern: source }) => `does not match the pattern ${source}`;
 
+const format = ({ format: name }) => `is not a valid ${name}`;
+
 const union = ({ expected, discriminator }) =>
   discriminator === undefined
     ? `does not match any of: ${expected.join(', ')}`
@@ -58,6 +60,7 @@ module.exports = {
   length,
   range,
   pattern,
+  format,
   union,
   reference,
   circular,

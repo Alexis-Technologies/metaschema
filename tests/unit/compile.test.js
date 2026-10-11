@@ -1272,3 +1272,38 @@ test('Compile: a built-in by name and shape, and the pattern bound, on both back
     },
   ]);
 });
+
+test('Compile: formats on both backends', () => {
+  // A format is a registered test the generated code reaches through the
+  // scope, under the bound of length.max as a pattern is.
+  require('../../src/formats/index.js').register();
+  const schema = new Schema('Formats', {
+    email: { type: 'string', format: 'email' },
+    'site?': { type: 'string', format: 'uri', length: { max: 32 } },
+    id: { type: 'string', format: 'uuid', pattern: /^[0-9a-f-]+$/, length: 36 },
+    when: { type: 'string', format: 'date-time', unicode: true, length: { max: 24 } },
+    checked: {
+      type: 'string',
+      format: 'ipv4',
+      validate: (value) => value !== '0.0.0.0' || 'is any',
+    },
+  });
+  equivalent(schema, [
+    {
+      email: 'ann@example.com',
+      site: 'https://example.com',
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      when: '2026-10-11T12:00:00Z',
+      checked: '10.0.0.1',
+    },
+    { email: 'nope', site: 'example.com', id: 'xyz', when: 'today', checked: '0.0.0.0' },
+    {
+      email: 'ann@example.com',
+      site: `https://${'x'.repeat(40)}.com`,
+      id: '550E8400-E29B-41D4-A716-446655440000',
+      when: `2026-10-11T12:00:00.${'0'.repeat(20)}Z`,
+      checked: '256.0.0.1',
+    },
+    { email: 7, site: null, id: 'ZZZZ', when: '2026-10-11', checked: '1.2.3.4' },
+  ]);
+});

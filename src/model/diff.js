@@ -327,6 +327,7 @@ const keyLevel = (key, from, to, field) => {
     case 'max':
       return boundLevel(from, to, false);
     case 'pattern':
+    case 'format':
       return from === undefined ? FORWARD : to === undefined ? BACKWARD : NONE;
     case 'enum':
       return Array.isArray(from) && Array.isArray(to) ? enumLevel(from, to) : NONE;

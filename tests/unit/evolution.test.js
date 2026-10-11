@@ -683,6 +683,9 @@ test('Evolution: diff tells a renamed field from a removed and an added one', ()
 
 // One row per rule of the compatibility table: what changed from the first
 // definition to the second, and the class.
+// The rows with a format need the formats registered.
+require('../../src/formats/index.js').register();
+
 const RULES = [
   ['nothing', { a: 'string' }, { a: 'string' }, 'full'],
   ['a field added, optional', { a: 'string' }, { a: 'string', 'b?': 'string' }, 'full'],
@@ -809,6 +812,14 @@ const RULES = [
     'a pattern changed',
     { a: { type: 'string', pattern: '^a', length: 8 } },
     { a: { type: 'string', pattern: '^b', length: 8 } },
+    'none',
+  ],
+  ['a format added', { a: 'string' }, { a: { type: 'string', format: 'email' } }, 'forward'],
+  ['a format removed', { a: { type: 'string', format: 'email' } }, { a: 'string' }, 'backward'],
+  [
+    'a format changed',
+    { a: { type: 'string', format: 'email' } },
+    { a: { type: 'string', format: 'uri' } },
     'none',
   ],
   ['enum values added', { a: { enum: ['x'] } }, { a: { enum: ['x', 'y'] } }, 'backward'],

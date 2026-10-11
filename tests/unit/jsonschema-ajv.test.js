@@ -11,6 +11,9 @@
 // - an `object` or `map` with number keys: the keys of a JSON object are
 //   strings, so `check` rejects every key where the pattern accepts a number;
 // - `validate` functions and custom `checkType`s, which are not exported;
+// - `format`: the formats subpath and ajv-formats draw the line between a
+//   valid and an invalid email or uri at different places (the subpath has
+//   its own table of values, cross-checked with ajv-formats);
 // - a value with inherited or non-enumerable keys, which JSON has none of.
 const { test } = require('node:test');
 const assert = require('node:assert');
