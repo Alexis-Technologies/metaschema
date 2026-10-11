@@ -9,7 +9,13 @@
 const { define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
-const { invalidSnapshot, isObject, isSnapshot, isFunctionMarker } = require('./data.js');
+const {
+  invalidSnapshot,
+  isObject,
+  isSnapshot,
+  isFunctionMarker,
+  capitalize,
+} = require('./data.js');
 
 const nothing = () => undefined;
 const identity = (value) => value;
@@ -73,8 +79,6 @@ const structDef = (fields) => {
   }
   return out;
 };
-
-const capitalize = (name) => name.charAt(0).toUpperCase() + name.slice(1);
 
 // An entity as a definition: its kind as the first key with the metadata,
 // then its fields and its indexes; a schema of one type is that type.

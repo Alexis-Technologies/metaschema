@@ -9,59 +9,13 @@ const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { isThenable } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
+const { same, capitalize, definitionOf, structDefinitionOf } = require('./data.js');
 
 // The keys a field definition settles by a rule of its own; every other key
 // (an annotation, an option of a custom type) comes from the first schema.
 const BOOLEANS = new Set(['unique', 'index', 'primary', 'deprecated']);
 
 const conflict = (reason) => new SchemaDefinitionError('ERR_MERGE_CONFLICT', reason);
-
-// The definition a built field was made from, with its nested fields as
-// definitions and its functions kept.
-const defOf = (field) => {
-  const def = { type: field.type };
-  for (const key of Object.keys(field)) {
-    if (key !== 'root' && key !== 'type' && field[key] !== undefined) def[key] = partOf(field[key]);
-  }
-  return def;
-};
-
-const partOf = (value) => {
-  if (hasBrand(value, 'Type')) return defOf(value);
-  if (isStruct(value)) return structDefOf(value);
-  if (Array.isArray(value)) {
-    const list = [];
-    for (const item of value) list.push(partOf(item));
-    return list;
-  }
-  return value;
-};
-
-const structDefOf = (fields) => {
-  const def = {};
-  for (const key in fields) def[key] = partOf(fields[key]);
-  return def;
-};
-
-// Whether two parts of a definition are the same: a RegExp by its text, a
-// Date by its time, a function by identity, an object by its keys.
-const equal = (a, b) => {
-  if (a === b) return true;
-  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  const name = a.constructor?.name;
-  if (name !== b.constructor?.name) return false;
-  if (name === 'RegExp') return a.source === b.source && a.flags === b.flags;
-  if (name === 'Date') return a.getTime() === b.getTime();
-  if (Array.isArray(a)) {
-    if (a.length !== b.length) return false;
-    for (let index = 0; index < a.length; index += 1) if (!equal(a[index], b[index])) return false;
-    return true;
-  }
-  const keys = Object.keys(a);
-  if (keys.length !== Object.keys(b).length) return false;
-  for (const key of keys) if (!Object.hasOwn(b, key) || !equal(a[key], b[key])) return false;
-  return true;
-};
 
 // Both validate functions, as one that returns what both returned (an
 // array of returns is one the check reads), awaited when either is async.
@@ -95,7 +49,7 @@ const mergeEnum = (a, b, path) => {
   const values = [];
   for (const value of a) {
     for (const other of b) {
-      if (equal(value, other)) {
+      if (same(value, other)) {
         values.push(value);
         break;
       }
@@ -121,7 +75,7 @@ const mergeKey = (key, a, b, path) => {
   if (key === 'nullable') return a === true && b === true ? true : undefined;
   if (a === undefined) return b;
   if (b === undefined) return a;
-  if (equal(a, b)) return a;
+  if (same(a, b)) return a;
   switch (key) {
     case 'required':
       return a || b;
@@ -215,8 +169,6 @@ const mergeStruct = (a, b, path) => {
   return fields;
 };
 
-const capitalize = (name) => name.charAt(0).toUpperCase() + name.slice(1);
-
 // The schema both schemas describe. The kind and its metadata are the first
 // schema's (`options.metadata` says otherwise), the name too unless
 // `options.name`; the indexes are the ones of either (the same under one
@@ -235,19 +187,23 @@ const merge = (a, b, options = {}) => {
   try {
     if (!structA || !structB) {
       if (structA !== structB) throw conflict('A struct and a schema of one type cannot be merged');
-      return new Schema(name, mergeFields(defOf(a.fields), defOf(b.fields), ''), namespaces);
+      return new Schema(
+        name,
+        mergeFields(definitionOf(a.fields), definitionOf(b.fields), ''),
+        namespaces,
+      );
     }
     const { kind, scope, store, allow, unknown, custom } = a;
     const meta = { scope, store, allow, unknown, ...custom, ...metadata };
     const { kind: given = kind, ...rest } = meta;
     const definition = { [capitalize(given)]: rest };
-    const fields = mergeStruct(structDefOf(a.fields), structDefOf(b.fields), '');
+    const fields = mergeStruct(structDefinitionOf(a.fields), structDefinitionOf(b.fields), '');
     for (const key of Object.keys(fields)) definition[key] = fields[key];
     for (const source of [a, b]) {
       for (const key in source.indexes) {
         const index = source.indexes[key];
         if (index.many !== undefined) continue;
-        if (definition[key] !== undefined && !equal(definition[key], index)) {
+        if (definition[key] !== undefined && !same(definition[key], index)) {
           throw conflict(`The index "${key}" differs between the schemas`);
         }
         definition[key] = index;
