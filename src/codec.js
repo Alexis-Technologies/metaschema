@@ -24,6 +24,9 @@ const DECODERS = 2;
 const ENCODERS = 4;
 const STRUCTS = 8;
 const ASYNC = 16;
+// A field with aliases below: the pass after the check visits it only when
+// the check read a field from an alias (`context.renamed`).
+const ALIASES = 32;
 
 // The shape of a node: a Schema, a struct (the dictionary of its fields), or
 // a field by the identity of its prototype's compile, as the JIT tells them
@@ -124,10 +127,12 @@ const infoOf = (node) => {
       const defaulted = type.default !== undefined;
       if (defaulted) bits |= DEFAULTS;
       if (defaulted || (sub.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
-      // A field with aliases is renamed by the pass that decodes.
+      // A field with aliases, or with one below, is visited by the pass
+      // that decodes, which renames; whether that pass enters the subtree
+      // is decided by the bits and the context at the field.
       const aliased = plan[index].aliases.length > 0;
-      if (aliased) bits |= DECODERS;
-      if (aliased || (sub.bits & DECODERS) !== 0) parts[DECODERS].push(index);
+      if (aliased) bits |= ALIASES;
+      if (aliased || (sub.bits & (DECODERS | ALIASES)) !== 0) parts[DECODERS].push(index);
       if ((sub.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
       parts[STRUCTS].push(index);
     }
@@ -293,12 +298,26 @@ const walkSchema = (info, node, value, context, key, phase) => {
   return out;
 };
 
+// The copy of a struct with every renamed field in the place of its alias:
+// `take` appended the field's key, and a key deleted from the copy would
+// leave the copy in dictionary mode. `renames` is alias, field, alias, ...
+const renameKeys = (out, renames) => {
+  const result = {};
+  for (const key in out) {
+    const found = renames.indexOf(key);
+    if (found === -1) putKey(result, key, out[key]);
+    else if (found % 2 === 0) putKey(result, renames[found + 1], out[renames[found + 1]]);
+  }
+  return result;
+};
+
 // The fields of a struct: a default fills a missing key before the check, a
 // decoder replaces the value after it. Stripping rebuilds the object from
 // the known keys; otherwise the object is copied when a field changed. A
 // value under an alias of a field is read from there (no default fills the
 // field, and the check sees it there), and the pass after the check writes
-// it under the field's own key.
+// it under the field's own key, where the alias was; serialize reads the
+// value of the program, which carries the field keys, and never looks.
 const walkFields = (info, fields, value, context, key, phase, want) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
   const { plan, infos, extra } = info;
@@ -306,13 +325,14 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   const parts = info.parts[strip ? STRUCTS : phase];
   const state = enter(context, key, value, copy, putKey);
   if (strip) state.out = {};
+  let renames = null;
   for (let position = 0; position < parts.length; position += 1) {
     const index = parts[position];
     const entry = plan[index];
     const name = entry.key;
     let from = name;
     let item = entry.own && !Object.hasOwn(value, name) ? undefined : value[name];
-    if (item === undefined) {
+    if (item === undefined && phase !== ENCODERS) {
       from = aliasOf(value, entry.aliases, name);
       if (from !== name) item = value[from];
     }
@@ -330,14 +350,17 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
     const result = apply(infos[index], entry.type, item, context, from, phase);
     const renamed = from !== name;
     if (strip ? result !== undefined : renamed || result !== item) take(state, name, result, phase);
-    if (renamed && !strip) delete state.out[from];
+    if (renamed && !strip) {
+      if (renames === null) renames = [];
+      renames.push(from, name);
+    }
   }
   if (strip) {
     for (let index = 0; index < extra.length; index += 1) {
       const name = extra[index];
       if (Object.hasOwn(value, name)) putKey(state.out, name, value[name]);
     }
-  }
+  } else if (renames !== null) state.out = renameKeys(state.out, renames);
   return leave(state);
 };
 
@@ -483,10 +506,15 @@ const WALKERS = [
 // One pass over a value from a node whose info is known, by the shape of
 // each node. A serializer runs before the parts of its value, a decoder
 // after them; stripping concerns every struct, so under `strip` the pass
-// enters any subtree with one.
+// enters any subtree with one, and a field read from an alias concerns the
+// structs with aliases, so after such a check the pass enters those too.
 const apply = (info, node, value, context, key, phase) => {
   if (value == null) return value;
-  const want = phase === DECODERS && context.unknown === 'strip' ? DECODERS | STRUCTS : phase;
+  let want = phase;
+  if (phase === DECODERS) {
+    if (context.unknown === 'strip') want |= STRUCTS;
+    if (context.renamed) want |= ALIASES;
+  }
   if ((info.bits & want) === 0) return value;
   let input = value;
   if (phase === ENCODERS && info.encode !== undefined) {

@@ -24,6 +24,7 @@ test('Context: a check runs in a context of its own, not in module globals', () 
     'messages',
     'async',
     'scratch',
+    'renamed',
   ]);
   assert.strictEqual(context.limit, 3);
   assert.strictEqual(context.root, 'User');

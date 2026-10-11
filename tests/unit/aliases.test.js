@@ -3,6 +3,15 @@ const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
 const { toJSONSchema, toTypeScript } = require('../../src/generators/index.js');
+const { compile, canEval } = require('../../src/compile/index.js');
+
+// The same definition on the closures and on the JIT.
+const backends = (definition) => {
+  const closures = Schema.from(definition);
+  const jit = Schema.from(definition);
+  compile(jit, { jit: canEval() ? true : 'auto' });
+  return [closures, jit];
+};
 
 const user = new Schema('User', {
   name: { type: 'string', aliases: ['title', 'label'] },
@@ -138,6 +147,51 @@ test('Aliases: parseAsync, a nested struct, a collection element and serialize',
   // an alias is a key of the input, and serialize leaves the value as it is.
   const program = { items: [{ key: 'a' }] };
   assert.strictEqual(schema.serialize(program).value, program);
+});
+
+test('Aliases: parse returns the value itself when no alias was used, serialize never renames', () => {
+  const definition = {
+    name: { type: 'string', aliases: ['title'] },
+    n: 'number',
+    items: { array: { schema: { id: { type: 'string', aliases: ['key'] } } } },
+    'when?': { type: 'string', aliases: ['at'], parse: Number, serialize: String },
+  };
+  for (const schema of backends(definition)) {
+    // Nothing applied: the same reference, as for a schema without aliases,
+    // whatever the fields of the value carry under their own keys.
+    const plain = { name: 'x', n: 1, items: [{ id: 'a' }, { id: 'b' }] };
+    assert.strictEqual(schema.parse(plain).value, plain);
+    assert.strictEqual(schema.parse(plain, { unknown: 'ignore' }).value, plain);
+    // A renamed field takes the place of its alias; the copy is a new object
+    // with the keys in that order, at every depth.
+    const parsed = schema.parse({ title: 'x', n: 1, items: [{ key: 'a' }, { id: 'b' }] }).value;
+    assert.deepStrictEqual(Object.keys(parsed), ['name', 'n', 'items']);
+    assert.deepStrictEqual(parsed, { name: 'x', n: 1, items: [{ id: 'a' }, { id: 'b' }] });
+    assert.deepStrictEqual(Object.keys(parsed.items[0]), ['id']);
+    assert.deepStrictEqual(Object.keys(schema.parse({ n: 1, title: 'x', items: [] }).value), [
+      'n',
+      'name',
+      'items',
+    ]);
+    // A decoder under an alias, with the key in place.
+    assert.deepStrictEqual(schema.parse({ at: '7', name: 'x', n: 1, items: [] }).value, {
+      when: 7,
+      name: 'x',
+      n: 1,
+      items: [],
+    });
+    // serialize reads the value of the program, which carries the field
+    // keys: an alias there is left as it is, with or without a serializer
+    // beside it, and the check of the result reads it as any check does.
+    const program = { title: 'x', n: 1, items: [{ key: 'a' }], when: 2 };
+    const expected = { title: 'x', n: 1, items: [{ key: 'a' }], when: '2' };
+    assert.deepStrictEqual(schema.serialize(program).value, expected);
+    const checked = schema.serialize(program, { check: true });
+    assert.strictEqual(checked.valid, true);
+    assert.deepStrictEqual(checked.value, expected);
+    const untouched = { title: 'x', n: 1, items: [{ key: 'a' }] };
+    assert.strictEqual(schema.serialize(untouched).value, untouched);
+  }
 });
 
 test('Aliases: a broken aliases option is a definition error', () => {

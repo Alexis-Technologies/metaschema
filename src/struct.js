@@ -72,7 +72,11 @@ const compileStruct = (plan, known) => (value, context, key) => {
     // the same for an optional field, a required one asks which (own and
     // undefined is a type error).
     const under = aliasOf(value, entry.aliases, name);
-    item = under === name ? undefined : value[under];
+    if (under === name) item = undefined;
+    else {
+      item = value[under];
+      context.renamed = true;
+    }
     if (item === undefined) {
       if (!entry.required) continue;
       if (!Object.hasOwn(value, under)) {

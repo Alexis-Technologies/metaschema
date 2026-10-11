@@ -27,7 +27,7 @@ Every key of a definition object is a field, and its value says what the field h
 | Tuple | `point: ['number', 'number']` | a fixed-length array, each element its own definition |
 | Union | `id: { union: ['string', 'number'] }` | one of several definitions |
 | Reference | `company: 'Company'` | a capitalized name is another schema |
-| Aliases | `login: { type: 'string', aliases: ['name'] }` | read from `name` as well; see [Model evolution](/guide/evolution#aliases-and-deprecated) |
+| Aliases | `login: { type: 'string', aliases: ['name'] }` | a field of a struct is read from `name` as well (elsewhere `warnings` says `dead-aliases`); see [Model evolution](/guide/evolution#aliases-and-deprecated) |
 | Function | `ratio: (file) => file.compressed / file.size` | a calculated field, never validated |
 
 Fields are required unless marked optional. A struct rejects keys it does not declare:

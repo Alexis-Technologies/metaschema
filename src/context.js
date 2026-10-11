@@ -133,6 +133,9 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     // The context parse tries the branches of a plain union in, made at the
     // first such union of a pass and reused for the rest; null in a check.
     scratch: null,
+    // Whether the check read a field from one of its aliases: the pass
+    // after it renames only when it did.
+    renamed: false,
   };
   if (options !== undefined) configure(context, options, parsing);
   return context;

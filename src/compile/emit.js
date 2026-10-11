@@ -318,9 +318,10 @@ const emitStruct = (fields, x, key, state) => {
       code.push(`let ${item} = ${prop(x, entry.key)}, ${alias} = ${name};`);
       code.push(`if (${item} === undefined${inherited}) { ${item} = undefined;`);
       // The first alias the value carries: once one is taken the rest are
-      // skipped, as the chain of the closure backend stops at it.
+      // skipped, as the chain of the closure backend stops at it, and the
+      // context learns that a field was read from an alias, as there.
       for (const other of entry.aliases) {
-        const taken = `${alias} = ${quote(other)}; ${item} = ${prop(x, other)};`;
+        const taken = `${alias} = ${quote(other)}; ${item} = ${prop(x, other)}; c.renamed = true;`;
         code.push(`if (${alias} === ${name} && Object.hasOwn(${x}, ${quote(other)})) { ${taken} }`);
       }
       code.push('}');

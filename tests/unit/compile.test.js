@@ -385,6 +385,8 @@ test('Compile: a field is read from its aliases on both backends', () => {
   const source = sourceOf(schema);
   assert.strictEqual(source.includes('Object.hasOwn(v, "title")'), true);
   assert.strictEqual(source.includes('Object.hasOwn(v, "label")'), true);
+  // The pass after the check learns of an alias read, as from the closures.
+  assert.strictEqual(source.includes('c.renamed = true;'), true);
 });
 
 test('Compile: nested structs, own keys, calculated fields and the unknown policy', () => {

@@ -108,6 +108,25 @@ test('Lint: a pattern without length.max and an index over a missing field', () 
   ]);
 });
 
+test('Lint: aliases anywhere but on a field of a struct are dead', () => {
+  const schema = new Schema('Dead', {
+    tags: { array: { type: 'string', aliases: ['tag'] } },
+    pair: [{ type: 'string', aliases: ['x'] }, 'number'],
+    id: { union: [{ type: 'string', aliases: ['key'] }, 'number'] },
+    name: { type: 'string', aliases: ['title'] },
+    addr: { schema: { city: { type: 'string', aliases: ['town'] } }, aliases: ['address'] },
+  });
+  const dead = (path) =>
+    `Warning [dead-aliases]: "${path}" has aliases, but only a field of a struct is read from them`;
+  assert.deepStrictEqual(schema.warnings, [
+    dead('Dead.tags[]'),
+    dead('Dead.pair[0]'),
+    dead('Dead.id|0'),
+  ]);
+  assert.deepStrictEqual(Schema.from({ type: 'string', aliases: ['x'] }).warnings, [dead('')]);
+  assert.deepStrictEqual(Schema.from({ name: { type: 'string', aliases: ['x'] } }).warnings, []);
+});
+
 test('Lint: a model collects the warnings of its entities and its own', () => {
   const model = new Model({}, [
     ['A', { Entity: {}, b: 'B', name: { type: 'string', typo: 1 } }],
