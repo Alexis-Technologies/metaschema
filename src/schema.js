@@ -10,7 +10,16 @@ const { finalize, runValidate, settle } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
-const { PREPARE, FINISH, SERIALIZE, infoOf, apply, looped, hasAsync } = require('./codec.js');
+const {
+  PREPARE,
+  FINISH,
+  SERIALIZE,
+  infoOf,
+  apply,
+  looped,
+  hasAsync,
+  wantOf,
+} = require('./codec.js');
 
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
@@ -208,7 +217,7 @@ class Schema extends SchemaMetadata {
 
   #pass(phase, source, context) {
     if (this.#codec === null) this.#codec = infoOf(this);
-    return apply(this.#codec, this, source, context, undefined, phase);
+    return apply(this.#codec, this, source, context, undefined, phase, wantOf(phase, context));
   }
 
   // The defaults of the schema over a value, before its check; the objects

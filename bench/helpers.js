@@ -90,9 +90,20 @@ const CODEC_SCHEMA = {
   since: { type: 'string', parse: (text) => new Date(text) },
 };
 
+// The flat schema with two optional fields the value leaves out: the path of
+// the struct check where nothing is under the field's own key (an alias may
+// be looked for there).
+const SPARSE_SCHEMA = { ...FLAT_SCHEMA, nick: '?string', since: '?string' };
+
+// The flat schema with an alias on a field: `parse` renames when the value
+// carries the alias and has nothing to do when it carries the field's key.
+const ALIAS_SCHEMA = { ...FLAT_SCHEMA, name: { type: 'string', aliases: ['title'] } };
+
 const FLAT_VALID = { name: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
 const CODEC_VALID = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
 const FLAT_INVALID = { name: 7, email: 'm@x', extra: true };
+const SPARSE_VALID = { name: 'Marcus', email: 'marcus@example.com', active: true };
+const ALIASED_VALID = { title: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
 
 const NESTED_VALID = {
   name: { first: 'Marcus', last: 'Aurelius' },
@@ -180,9 +191,13 @@ module.exports = {
   FLAT_SCHEMA,
   NESTED_SCHEMA,
   CODEC_SCHEMA,
+  SPARSE_SCHEMA,
+  ALIAS_SCHEMA,
   FLAT_VALID,
   CODEC_VALID,
   FLAT_INVALID,
+  SPARSE_VALID,
+  ALIASED_VALID,
   NESTED_VALID,
   NESTED_INVALID,
   MOLTAR_FLAT_SCHEMA,

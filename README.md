@@ -79,9 +79,15 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   million through the JIT backend of `@alexify/metaschema/compile`, which generates the same
   check where `new Function` is allowed and keeps the closures where it is not (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 16.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 4.5 KB and the JIT backend 3.9 KB
-  where they are imported.
+- **The model as data.** `model.toJSON()` is a snapshot other programs read the model through
+  (a migration tool, an introspecting service, a committed baseline), and
+  `@alexify/metaschema/model` tells two versions apart (`diff`), classifies the change by the
+  Confluent rules (`compatibility`), draws a value every schema accepts (`sample`) and unifies
+  two schemas (`merge`); `aliases` and `deprecated` let a model carry its history, and
+  `fromJSONSchema` of the generators reads a JSON Schema document back.
+- **Zero dependencies, 17.2 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB and
+  the model tools 9.5 KB where they are imported.
 
 ## Installation
 
@@ -298,8 +304,9 @@ const {
   getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
 
-const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
+const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
 const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
+const { fromJSON, diff, compatibility, sample, merge } = require('@alexify/metaschema/model'); // and its own register()
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })

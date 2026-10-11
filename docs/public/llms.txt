@@ -9,17 +9,48 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 16.1 KB min+gzip for the core entry (the generators subpath adds
-  4.5 KB, the compile subpath 3.9 KB); about 10 million checks a second of a flat struct on the
-  closures, about 30 million compiled
+- Zero runtime dependencies, 17.2 KB min+gzip for the core entry (the generators subpath adds
+  7.1 KB, the compile subpath 4.0 KB, the model subpath 9.5 KB); about 10 million checks a
+  second of a flat struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
   `Infer`, `InferOutput`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
-  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
+  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, the generators
   `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
-  options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods), and
-  the JIT backend `@alexify/metaschema/compile`: `compile(target, { jit })` →
-  `{ accelerated, error }`, `register({ jit, onFallback })`, `canEval()`
+  options)`, `saveTypes(file, target, options)`, `fromJSONSchema(document, options)`,
+  `register()` (installs them as methods), the JIT backend `@alexify/metaschema/compile`:
+  `compile(target, { jit })` → `{ accelerated, error }`, `register({ jit, onFallback })`,
+  `canEval()`, and the model tools `@alexify/metaschema/model`: `fromJSON(snapshot, options)`,
+  `diff(prev, next)`, `compatibility(changes)`, `sample(schema, options)`, `merge(a, b,
+  options)`, `register()` (installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
+  `Schema.merge`, `schema.sample`)
+- `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as data, format 1: the
+  entities in dependency order with kind, scope, store, allow, parent, unknown, custom, fields
+  (each `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities
+  use; a function is `{ $function: true }`, a bigint `{ $bigint }`, a Date `{ $date }`, a
+  RegExp its source; `fromJSON(snapshot)` restores a model with placeholders for the functions
+- `diff(prev, next)` (models or snapshots) lists changes `{ kind: entity | field | index |
+  relation | type, op: added | removed | changed | renamed, entity, name, from, to, detail }`,
+  a field renamed through `aliases` is `renamed`; `compatibility(changes)` is `full`,
+  `backward` (new readers read old data), `forward` (old readers read new data) or `none` by
+  the Confluent rules (an optional or defaulted field added or removed is full, a required one
+  added is forward and removed backward, `integer` → `number` is backward, a bound tightened is
+  forward, enum values added backward)
+- A field with `aliases: ['old']` is read from `old` by `check` when the value has nothing
+  under the field's key (reported under the key found), and `parse` writes it under the field's
+  key; `deprecated: true` is metadata (JSON Schema `deprecated`, dts `@deprecated`, an expected
+  removal in `diff`)
+- `sample(schema, { seed, locale, references, maxDepth })` is a value `check` accepts, the
+  same for a seed, drawn from the definition (lengths, bounds, enums, unions, nested structs,
+  collections, references by kind, a pattern from the subset alternatives/groups/classes/
+  escapes/quantifiers, a custom type through `metadata.sample`); a field no draw satisfies is
+  `ERR_UNSATISFIABLE`
+- `fromJSONSchema(document, { name, as, references, unsupported })` reads the subset of JSON
+  Schema a validation schema is made of (types, properties/required, enum/const, items and
+  tuples, anyOf/oneOf, `$ref` into the definitions, the rules, null, the annotations) into a
+  definition or a Schema; a keyword outside it is `ERR_UNSUPPORTED_SCHEMA` with a JSON pointer
+- `merge(a, b)` unifies two schemas CUE-style: the constraints of both per field, a conflict is
+  `ERR_MERGE_CONFLICT`
 - `compile(schema)` or `compile(model)` replaces the check with a function generated from the
   schema and built with `new Function` (the same issues, about three times faster on a flat
   struct, six on a nested one) and returns `{ accelerated }`; `register()` does it for every
@@ -79,6 +110,8 @@ Docs:
 - Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
+- Model evolution: https://metaschema.vercel.app/guide/evolution
+- Sample values: https://metaschema.vercel.app/guide/samples
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema
 - The JIT backend: https://metaschema.vercel.app/guide/compile
 - Performance: https://metaschema.vercel.app/guide/performance

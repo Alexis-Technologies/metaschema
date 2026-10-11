@@ -16,6 +16,8 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-compile',
     '100',
+    '--max-gzip-model',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -23,6 +25,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(ok.stdout, /\| Browser entry \(browser\.js\) \|/);
   assert.match(ok.stdout, /\| Generators \(\.\/generators\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Compile \(\.\/compile\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Model \(\.\/model\) on top of the Node entry \| [1-9]/);
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -40,6 +43,12 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.strictEqual(compile.status, 1);
   assert.match(compile.stderr, /Bundle budget exceeded: Compile \(\.\/compile\)/);
   assert.doesNotMatch(compile.stderr, /exceeded: Generators/);
+  assert.doesNotMatch(compile.stderr, /exceeded: Model/);
+
+  const model = run('scripts/size.js', ['--max-gzip-model', '1']);
+  assert.strictEqual(model.status, 1);
+  assert.match(model.stderr, /Bundle budget exceeded: Model \(\.\/model\)/);
+  assert.doesNotMatch(model.stderr, /exceeded: Compile/);
 
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
@@ -50,4 +59,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   const badCompile = run('scripts/size.js', ['--max-gzip-compile', '-2']);
   assert.strictEqual(badCompile.status, 1);
   assert.match(badCompile.stderr, /--max-gzip-compile needs a positive number/);
+  const badModel = run('scripts/size.js', ['--max-gzip-model', '0']);
+  assert.strictEqual(badModel.status, 1);
+  assert.match(badModel.stderr, /--max-gzip-model needs a positive number/);
 });

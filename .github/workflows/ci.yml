@@ -32,10 +32,10 @@ jobs:
       - run: pnpm format:check
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
       # ever reaches the browser bundle, and fails over the min+gzip budgets.
-      # 17 KB per core entry, 5 KB for the ./generators subpath and 4 KB for
-      # the ./compile subpath on top of it are the 3.0 budgets (CLAUDE.md
-      # "Budgets").
-      - run: pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4
+      # 17.5 KB per core entry, 7.5 KB for the ./generators subpath, 4.25 KB
+      # for the ./compile subpath and 10 KB for the ./model subpath on top of
+      # it are the 3.1 budgets (CLAUDE.md "Budgets").
+      - run: pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10
 
   types:
     runs-on: ubuntu-latest
@@ -110,7 +110,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # `shell: bash` runs the step with `-o pipefail`, so the c8 thresholds
+      # fail the job through the pipe; the default shell takes tee's status.
       - run: pnpm run test:coverage | tee coverage.txt
+        shell: bash
       - name: Coverage summary
         run: |
           { echo '### Coverage'; echo '```'; grep '|' coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

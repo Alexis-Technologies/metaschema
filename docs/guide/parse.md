@@ -175,6 +175,14 @@ A [calculated field](/guide/validation#calculated-fields) is a key the schema kn
 value is kept. With `strip` every struct of the output is a new object, whether or not it had
 keys to drop.
 
+A field with [`aliases`](/guide/evolution#aliases-and-deprecated) is read from an alias the
+value carries when it has nothing under the field's own key, and `parse` writes it under the
+field's own key, with or without `strip`: `Schema.from({ login: { type: 'string', aliases:
+['name'] } }).parse({ name: 'x' }).value` is `{ login: 'x' }`, the field in the place of the
+alias. A value that carries no alias comes back as it is, like any value nothing applied to.
+No `default` fills a field whose value is under an alias, and `serialize` never looks at one:
+it reads the value of the program, which carries the field keys.
+
 ## Serialize
 
 `schema.serialize(value, options?)` is the other direction: the schema's own `serialize` first,

@@ -76,7 +76,10 @@ class Preprocessor {
     const parsed = formatters.type(source.type, source.required);
     const { type, required } = parsed;
     if (isFirstUpper(type)) {
-      const defs = { one: type, required, ...source };
+      // A built `many` field re-parsed from its own definition keeps its end
+      // of the relation; anything else is a single reference.
+      const defs =
+        source.many === undefined ? { one: type, required, ...source } : { required, ...source };
       return { Type: types.reference, defs };
     }
     if (!types[type]) {

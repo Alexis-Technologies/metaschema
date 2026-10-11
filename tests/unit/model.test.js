@@ -448,3 +448,24 @@ test('Model: a reference checks its target with the value it gets', () => {
     'Field "Person.former[0].name" not of expected type: string',
   ]);
 });
+
+test('Model: a projection copies a many reference as a many reference', () => {
+  const entities = new Map([
+    ['Address', { Entity: {}, city: 'string' }],
+    ['Account', { Entity: {}, login: 'string', addresses: { many: 'Address' } }],
+    ['Signin', { Projection: { schema: 'Account', fields: ['login', 'addresses'] } }],
+  ]);
+  const model = new Model({}, entities);
+  const field = model.entities.get('Signin').fields.addresses;
+  assert.strictEqual(field.many, 'Address');
+  assert.strictEqual(field.one, undefined);
+  const signin = model.entities.get('Signin');
+  assert.strictEqual(signin.check({ login: 'x', addresses: ['a1', 'a2'] }).valid, true);
+  assert.deepStrictEqual(signin.check({ login: 'x', addresses: 'a1' }).errors, [
+    'Field "Signin.addresses" not of expected type: array of Address',
+  ]);
+  // The long form of a many reference says so too.
+  const long = Schema.from({ refs: { type: 'Address', many: 'Address' } }, [model]);
+  assert.strictEqual(long.fields.refs.one, undefined);
+  assert.strictEqual(long.check({ refs: ['a1'] }).valid, true);
+});

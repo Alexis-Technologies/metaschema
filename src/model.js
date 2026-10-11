@@ -5,6 +5,7 @@ const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { warning } = require('./lint.js');
+const { snapshotOf } = require('./snapshot.js');
 
 const registryFor = (options) => {
   const { registry = 'shared' } = options;
@@ -65,6 +66,13 @@ class Model {
     add(this.#cycles);
     this.#warnings = warnings;
     return warnings;
+  }
+
+  // The model as plain JSON: `{ format, database, types, entities }`, the
+  // entities in dependency order with their metadata, fields, indexes and
+  // relations, and the types they use. What JSON.stringify(model) writes.
+  toJSON() {
+    return snapshotOf(this);
   }
 
   #preprocess() {

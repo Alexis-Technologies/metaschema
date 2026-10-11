@@ -12,15 +12,16 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
-// One bundle of the core entry and the two subpaths, the way an application
-// that uses them gets them: a subpath shares the core's modules, and its
-// register() reaches the same Schema and Model classes.
+// One bundle of the core entry and the three subpaths, the way an
+// application that uses them gets them: a subpath shares the core's modules,
+// and its register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
   const contents = [
     'module.exports = {',
     `core: require('./${entry}'),`,
     "generators: require('./src/generators/index.js'),",
     "compile: require('./src/compile/index.js'),",
+    "model: require('./src/model/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -70,9 +71,48 @@ const evaluates = (() => {
   }
 })();
 
-const checkBundle = async ({ core, generators, compile }, browser) => {
+const checkBundle = async ({ core, generators, compile, model: tools }, browser) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The model subpath through the bundle: a snapshot of the bundled Model
+  // class comes back as one, and the changes between two versions classify.
+  const prev = new Model({}, [['Item', { Entity: {}, name: 'string', qty: 'integer' }]]);
+  const snapshot = JSON.parse(JSON.stringify(prev));
+  assert.strictEqual(snapshot.format, 1);
+  assert.deepStrictEqual(Array.from(Object.keys(snapshot.entities.Item.fields)), [
+    'name',
+    'qty',
+    'itemId',
+  ]);
+  const restored = tools.fromJSON(snapshot);
+  assert.strictEqual(JSON.stringify(restored), JSON.stringify(snapshot));
+  assert.strictEqual(restored.entities.get('Item').check({ name: 'x', qty: 1 }).valid, true);
+  const next = new Model({}, [
+    ['Item', { Entity: {}, name: 'string', qty: 'number', 'note?': 'string' }],
+  ]);
+  const changes = tools.diff(snapshot, next);
+  assert.deepStrictEqual(
+    Array.from(changes, (change) => `${change.op} ${change.name}`),
+    ['changed qty', 'added note'],
+  );
+  assert.strictEqual(tools.compatibility(changes), 'backward');
+  // A sample passes the check it was drawn for; a merge takes both fields.
+  const item = next.entities.get('Item');
+  assert.strictEqual(item.check(tools.sample(item, { seed: 3 })).valid, true);
+  const merged = tools.merge(item, Schema.from({ qty: { type: 'number', max: 9 }, tag: 'string' }));
+  assert.deepStrictEqual(Array.from(Object.keys(merged.fields)), [
+    'name',
+    'qty',
+    'note',
+    'itemId',
+    'tag',
+  ]);
+  assert.strictEqual(merged.check({ name: 'x', qty: 10, tag: 't' }).valid, false);
+  assert.strictEqual(Model.diff, undefined);
+  tools.register();
+  assert.strictEqual(Model.compatibility(Model.diff(prev, next)), 'backward');
+  assert.strictEqual(typeof item.sample, 'function');
+  assert.strictEqual(Schema.merge, tools.merge);
   // The compile subpath through the bundle: the generated check validates
   // like the closures, inside a vm context too, or the fallback does.
   const fast = Schema.from({ name: 'string', 'age?': 'number', tags: { array: 'string' } });
@@ -198,6 +238,15 @@ const checkBundle = async ({ core, generators, compile }, browser) => {
   assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
   const mongo = model.toJSONSchema({ target: 'mongodb' });
   assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
+  // The import of a document, and the export of the import.
+  const imported = generators.fromJSONSchema(json, { as: 'schema' });
+  assert.strictEqual(imported.check({ name: 'x', age: 1 }).valid, true);
+  assert.strictEqual(imported.check({ name: 1 }).valid, false);
+  assert.strictEqual(
+    JSON.stringify(imported.toJSONSchema({ target: 'draft-07' })),
+    JSON.stringify(json),
+  );
+  assert.strictEqual(Schema.fromJSONSchema, generators.fromJSONSchema);
   assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
   const named = new Model({}, [['Doc', { Struct: {}, status: { enum: ['a'] } }]]);
   assert.strictEqual(named.toTypeScript({ named: true }).startsWith('type DocStatus = "a";'), true);

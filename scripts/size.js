@@ -2,10 +2,11 @@
  * Bundle-size report, run with `pnpm size`. With `--max-gzip <KB>` it also fails
  * when either core entry exceeds that min+gzip budget, with
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
- * that on top of the core, and with `--max-gzip-compile <KB>` when the
- * `./compile` subpath does (CI uses the three as gates). The budgets for 3.0
- * are 17 KB per core entry, 5 KB for the generators and 4 KB for the compile
- * subpath (CLAUDE.md "Budgets").
+ * that on top of the core, with `--max-gzip-compile <KB>` when the `./compile`
+ * subpath does, and with `--max-gzip-model <KB>` when the `./model` subpath
+ * does (CI uses the four as gates). The budgets are 17.5 KB per core entry,
+ * 7.5 KB for the generators, 4.25 KB for the compile subpath and 10 KB for
+ * the model subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -49,6 +50,13 @@ const SUBPATHS = [
     platform: 'node',
     subpath: './src/compile/index.js',
     flag: '--max-gzip-compile',
+  },
+  {
+    label: 'Model (./model) on top of the Node entry',
+    entry: 'index.js',
+    platform: 'node',
+    subpath: './src/model/index.js',
+    flag: '--max-gzip-model',
   },
 ];
 

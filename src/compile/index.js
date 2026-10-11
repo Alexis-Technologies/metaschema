@@ -8,7 +8,7 @@
 // in the default mode. Nothing happens on import.
 const { hasBrand, RUN, HOOK } = require('../util.js');
 const { Schema } = require('../schema.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
@@ -119,7 +119,7 @@ const install = (target, onFallback) => {
 
 const schemasOf = (target) => {
   if (hasBrand(target, 'Schema')) return [target];
-  if (!hasBrand(target, 'Model')) throw new TypeError('A Schema or a Model is expected');
+  if (!hasBrand(target, 'Model')) throw invalidTarget('A Schema or a Model is expected');
   const schemas = [];
   for (const schema of target.entities.values()) schemas.push(schema);
   return schemas;

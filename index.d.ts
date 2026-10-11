@@ -245,6 +245,11 @@ export interface FieldType {
   serialize?: (value: any) => unknown;
   // What parse fills a missing key with: a value, or a function called for one.
   default?: unknown;
+  // The keys the field is also read from, in a struct: check accepts a value
+  // under an alias in place of the field's key, parse renames it. The keys
+  // of the value the schema accepts (`Infer`) and the generated documents
+  // name the field's own key only.
+  aliases?: string[];
   // Records the problems of a value into the context of the current check.
   check(value: unknown, context: CheckContext): void;
   toJSON(): object;
@@ -262,11 +267,23 @@ export interface TypeConstructor {
 
 export type TypeTable = Record<string, TypeConstructor>;
 
+// What `sample` of the `@alexify/metaschema/model` subpath draws for a
+// custom type: the value `metadata.sample` holds, or what the function it
+// holds returns for the field and the seeded generator of the draw.
+export type SampleHook = (field: FieldType, random: () => number) => unknown;
+
+// The metadata of a type: anything, read by the programs built on the
+// model; `sample` is the one key the package reads (see `SampleHook`).
+export interface TypeMetadata {
+  sample?: SampleHook | {} | null;
+  [key: string]: unknown;
+}
+
 // An entry of the table passed to Model: metadata for a built-in, an alias
 // (`js`), or a prototype with its own `construct` and `checkType`.
 export interface TypeEntry {
   js?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: TypeMetadata;
   kind?: 'scalar' | 'struct';
   // The rules the type accepts in a field definition (`length`, `min`, `max`).
   rules?: string[];
@@ -316,6 +333,19 @@ export type DefinitionErrorCode =
   | 'ERR_UNKNOWN_JS_TYPE'
   | 'ERR_INVALID_OPTIONS'
   | 'ERR_UNREPRESENTABLE'
+  // Thrown by `fromJSONSchema` of the generators subpath for a keyword the
+  // subset has no form for.
+  | 'ERR_UNSUPPORTED_SCHEMA'
+  // Thrown by `fromJSON` and `diff` of the `@alexify/metaschema/model`
+  // subpath for a value that is not a snapshot of a model.
+  | 'ERR_INVALID_SNAPSHOT'
+  // Thrown by `sample` of the same subpath: a field no value satisfies, a
+  // pattern it cannot read, a custom type without `metadata.sample`.
+  | 'ERR_UNSATISFIABLE'
+  | 'ERR_SAMPLE_PATTERN'
+  | 'ERR_SAMPLE_TYPE'
+  // Thrown by `merge` of the same subpath for what no value can satisfy.
+  | 'ERR_MERGE_CONFLICT'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -335,7 +365,147 @@ export class SchemaDefinitionError extends TypeError {
 // The code of the TypeError a synchronous check or parse throws when a
 // validator, a custom checkType or a decoder returns a promise: the call,
 // not the definition, is wrong, so it is a plain TypeError with `code`.
-export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR';
+// `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
+// given something other than what it takes (a Schema, a Model, a snapshot, a
+// list of changes).
+export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET';
+
+// ---------------------------------------------------------------------------
+// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
+// entities in dependency order with a fixed key order, the types the
+// entities use, and the `database` metadata as given. A function is
+// `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a Date
+// `{ $date }`, a RegExp its source (or `{ source, flags }` with flags beyond
+// `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads it back.
+// ---------------------------------------------------------------------------
+
+export interface FunctionSnapshot {
+  $function: true;
+}
+
+// A field of a snapshot: its type and whether it is required first, then
+// the other keys of its definition, sorted (a nested struct under `schema`,
+// an element under `value`, branches under `union`).
+export interface FieldSnapshot {
+  type: string;
+  required: boolean;
+  [key: string]: unknown;
+}
+
+// The fields of a struct in their order: a calculated field, the validate,
+// parse or serialize of the struct are `{ $function: true }`.
+export type FieldsSnapshot = Record<string, FieldSnapshot | FunctionSnapshot>;
+
+export interface EntitySnapshot {
+  kind: Kind;
+  scope: Scope;
+  store: Store;
+  allow: Allow;
+  // The parent of a projection, '' otherwise.
+  parent: string;
+  unknown: 'reject' | 'ignore';
+  // The other keys of the kind metadata, as given.
+  custom: Record<string, unknown>;
+  // A struct's fields, with the schema-level functions among them, or
+  fields?: FieldsSnapshot;
+  // the type of a schema of one type.
+  type?: FieldSnapshot;
+  // The index definitions (`index`, `primary`, `unique` lists), as given.
+  indexes: Record<string, object>;
+  relations: Relation[];
+}
+
+// A type the entities use: an alias of a built-in (`js`), a type with a
+// check of its own (`check: true`, its kind), or a built-in with metadata.
+export interface TypeSnapshot {
+  js?: string;
+  kind?: 'scalar' | 'struct';
+  check?: true;
+  metadata: Record<string, unknown>;
+}
+
+export interface ModelSnapshot {
+  format: 1;
+  database: Record<string, unknown> | null;
+  types: Record<string, TypeSnapshot>;
+  entities: Record<string, EntitySnapshot>;
+}
+
+// The options of `fromJSON` of the `@alexify/metaschema/model` subpath.
+export interface RestoreOptions {
+  // Entries of the table Model takes, over the types of the snapshot: the
+  // real custom types, where the restored model should validate as the
+  // original did.
+  types?: Record<string, TypeEntry>;
+  // 'isolated' (the default) gives the restored model its own registry, so
+  // the placeholders of its custom types never reach the shared one; a
+  // 'shared' registry takes no placeholder type (`ERR_INVALID_SNAPSHOT`
+  // unless `types` brings the real one).
+  registry?: 'shared' | 'isolated';
+}
+
+// A model restored by `fromJSON`: a Model that lists the paths of the
+// placeholders standing in for the functions of the snapshot (`Order.validate`,
+// `Order.total` for a calculated field, `Order.address.parse`, `Order.when.default`,
+// `types.hex.checkType`), invisibly to `toJSON`.
+export interface RestoredModel extends Model {
+  readonly placeholders: string[];
+}
+
+// ---------------------------------------------------------------------------
+// The evolution of a model: `diff` and `compatibility` of the
+// `@alexify/metaschema/model` subpath.
+// ---------------------------------------------------------------------------
+
+export type ChangeKind = 'entity' | 'field' | 'index' | 'relation' | 'type';
+
+export type ChangeOp = 'added' | 'removed' | 'changed' | 'renamed';
+
+// One change between two versions of a model: what changed (`kind`), how
+// (`op`), in which entity ('' for a type), under which name (the entity, the
+// field, the index, the target of a relation, the type), what it was
+// (`from`) and is (`to`), and the detail: the keys that differ for a
+// `changed` entity, field, index or type; the old key (`renamed`) and the
+// keys that differ beyond `aliases` for a field renamed through an alias;
+// `deprecated: true` for a removed field that was marked so.
+export interface SchemaChange {
+  kind: ChangeKind;
+  op: ChangeOp;
+  entity: string;
+  name: string;
+  from?: unknown;
+  to?: unknown;
+  detail?: { keys?: string[]; renamed?: string; deprecated?: true };
+}
+
+// 'backward': a reader with the new model reads data written with the old
+// one; 'forward': a reader with the old model reads data written with the
+// new one; 'full': both; 'none': neither.
+export type Compatibility = 'full' | 'backward' | 'forward' | 'none';
+
+// The options of `merge` of the `@alexify/metaschema/model` subpath.
+export interface MergeOptions {
+  // The name of the merged schema: the first schema's by default.
+  name?: string;
+  // The kind metadata of the merged schema, over the first schema's: `kind`,
+  // `scope`, `store`, `allow`, `unknown` and any other key.
+  metadata?: Partial<KindMetadata>;
+}
+
+// The options of `sample` of the `@alexify/metaschema/model` subpath.
+export interface SampleOptions {
+  // The seed of the generator (1): the same seed gives the same value.
+  seed?: number;
+  // The letters of free strings: 'en' (the default) or 'uk'.
+  locale?: 'en' | 'uk';
+  // How a reference is held, as in check: an id for a stored kind and the
+  // record for a memory kind ('kind', the default), always the record
+  // ('embed'), always an id ('id').
+  references?: 'kind' | 'embed' | 'id';
+  // How deep embedded records nest (3): an optional reference deeper than
+  // that is left out, a required one is an error.
+  maxDepth?: number;
+}
 
 export const KIND: Array<string>;
 export const KIND_STORED: Array<string>;
@@ -404,6 +574,27 @@ export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
   // without it the document holds every entity as a definition, in
   // dependency order (one document per entity for the mongodb target).
   root?: string;
+}
+
+// The options of `fromJSONSchema` of the generators subpath.
+export interface FromJSONSchemaOptions {
+  // The name of the schema: what `$ref: '#'` refers to, and the name of the
+  // Schema built with `as: 'schema'`.
+  name?: string;
+  // What comes back: the definition (the default), or a Schema built from it.
+  as?: 'definition' | 'schema';
+  // A `$ref` into the definitions of the document: the definition in place
+  // ('inline', the default; a cycle has no form), or a reference to an
+  // entity of that name ('name'), to resolve through a Model.
+  references?: 'inline' | 'name';
+  // A keyword the subset has no form for: `ERR_UNSUPPORTED_SCHEMA` with its
+  // place in the document ('throw', the default), or dropped ('ignore').
+  unsupported?: 'throw' | 'ignore';
+  // Told of every drop of `unsupported: 'ignore'`: what was dropped, as the
+  // error of the throw mode names it (`The keyword "multipleOf"`), and its
+  // place in the document as a JSON pointer. Not called in the throw mode,
+  // where the error carries both.
+  onUnsupported?: (reason: string, pointer: string) => void;
 }
 
 // Standard JSON Schema (https://standardschema.dev/json-schema): the converter
@@ -912,6 +1103,18 @@ export class Schema<const D extends string | object = string | object> {
 
   static from<const D extends string | object>(raw: D, namespaces?: Array<Model>): Schema<D>;
   static extractSchema(def: object): Schema | null;
+  // A definition (or a Schema) from a JSON Schema document: exists once
+  // `register()` of the generators subpath has run; its `fromJSONSchema` is
+  // the same without it.
+  static fromJSONSchema(
+    document: JSONSchema | true,
+    options: FromJSONSchemaOptions & { as: 'schema' },
+  ): Schema;
+  static fromJSONSchema(document: JSONSchema | true, options?: FromJSONSchemaOptions): object | string;
+  // The schema two schemas describe, by unification: exists once `register()`
+  // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
+  // the same without it.
+  static merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
 
   kind: Kind;
   scope: Scope;
@@ -958,6 +1161,10 @@ export class Schema<const D extends string | object = string | object> {
     options: SerializeOptions & { check: true },
   ): SerializeChecked<Infer<D>>;
   serialize(value: InferOutput<D>, options?: SerializeOptions): Serialized<Infer<D>>;
+  // A value the schema accepts, the same for a seed: exists once `register()`
+  // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
+  // options)` is the same without it.
+  sample(options?: SampleOptions): Infer<D>;
   // The two methods below exist once `register()` of the generators subpath
   // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
   // are the same without it.
@@ -988,6 +1195,16 @@ export class Model {
     database?: Record<string, unknown> | null,
     options?: ModelOptions,
   );
+  // The model as plain JSON, what JSON.stringify(model) writes; see
+  // `ModelSnapshot`.
+  toJSON(): ModelSnapshot;
+  // The four statics below exist once `register()` of the
+  // `@alexify/metaschema/model` subpath has run; its `fromJSON`, `diff`,
+  // `compatibility` and `compatibilityOf` are the same without it.
+  static fromJSON(snapshot: ModelSnapshot, options?: RestoreOptions): RestoredModel;
+  static diff(prev: Model | ModelSnapshot, next: Model | ModelSnapshot): SchemaChange[];
+  static compatibility(changes: SchemaChange[]): Compatibility;
+  static compatibilityOf(change: SchemaChange): Compatibility;
   // The members below exist once `register()` of the generators subpath has
   // run; the subpath's `toJSONSchema(model)` and `toTypeScript(model)` are the
   // same without it.

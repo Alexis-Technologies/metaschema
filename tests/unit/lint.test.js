@@ -45,6 +45,11 @@ test('Lint: an option a type does not know is a warning, an annotation is not', 
     'Warning [unknown-option]: option "lazy" of "Order.owner" is not known to type "Owner"',
   ]);
   assert.deepStrictEqual(Schema.from({ a: 'string', b: { array: 'number' } }).warnings, []);
+  // The name of a named tuple element is the tuple's, not an option.
+  assert.deepStrictEqual(Schema.from({ p: [{ x: 'number' }, { 'y?': 'string' }] }).warnings, []);
+  assert.deepStrictEqual(Schema.from({ p: [{ x: { type: 'number', step: 1 } }] }).warnings, [
+    'Warning [unknown-option]: option "step" of "p[0].x" is not known to type "number"',
+  ]);
   // A nested struct whose first field is named like a type is read as that
   // type, and the lint is what catches it.
   const birth = Schema.from({ birth: { date: '?string', place: '?string' } });
@@ -101,6 +106,25 @@ test('Lint: a pattern without length.max and an index over a missing field', () 
     'Warning [missing-index-field]: index "naturalKey" of "Address" names a field "building" it does not have',
     'Warning [missing-index-field]: index "alt" of "Address" names a field "nope" it does not have',
   ]);
+});
+
+test('Lint: aliases anywhere but on a field of a struct are dead', () => {
+  const schema = new Schema('Dead', {
+    tags: { array: { type: 'string', aliases: ['tag'] } },
+    pair: [{ type: 'string', aliases: ['x'] }, 'number'],
+    id: { union: [{ type: 'string', aliases: ['key'] }, 'number'] },
+    name: { type: 'string', aliases: ['title'] },
+    addr: { schema: { city: { type: 'string', aliases: ['town'] } }, aliases: ['address'] },
+  });
+  const dead = (path) =>
+    `Warning [dead-aliases]: "${path}" has aliases, but only a field of a struct is read from them`;
+  assert.deepStrictEqual(schema.warnings, [
+    dead('Dead.tags[]'),
+    dead('Dead.pair[0]'),
+    dead('Dead.id|0'),
+  ]);
+  assert.deepStrictEqual(Schema.from({ type: 'string', aliases: ['x'] }).warnings, [dead('')]);
+  assert.deepStrictEqual(Schema.from({ name: { type: 'string', aliases: ['x'] } }).warnings, []);
 });
 
 test('Lint: a model collects the warnings of its entities and its own', () => {

@@ -1,142 +1,166 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-10T20:01:35.536Z",
+  "date": "2026-10-11T12:10:56.524Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 263219
+      "opsPerSec": 257221
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 88391
+      "opsPerSec": 88780
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 10377471
+      "opsPerSec": 10457580
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 3395371
+      "opsPerSec": 3318162
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 2450459
+      "opsPerSec": 2655381
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 1439228
+      "opsPerSec": 1481526
     },
     {
       "name": "check (jit) — flat struct, valid",
-      "opsPerSec": 30029375
+      "opsPerSec": 29263662
     },
     {
       "name": "check (jit) — flat struct, invalid",
-      "opsPerSec": 5649841
+      "opsPerSec": 5655289
     },
     {
       "name": "check (jit) — nested struct, valid",
-      "opsPerSec": 17433848
+      "opsPerSec": 17360791
     },
     {
       "name": "check (jit) — nested struct, invalid",
-      "opsPerSec": 1983977
+      "opsPerSec": 2020834
+    },
+    {
+      "name": "check — sparse struct, two optional fields absent",
+      "opsPerSec": 7202299
+    },
+    {
+      "name": "check (jit) — sparse struct, two optional fields absent",
+      "opsPerSec": 31221261
     },
     {
       "name": "parse — flat struct, valid",
-      "opsPerSec": 9585769
+      "opsPerSec": 9006391
     },
     {
       "name": "parse — nested struct, valid",
-      "opsPerSec": 2462153
+      "opsPerSec": 2469284
     },
     {
       "name": "parse — flat struct, defaults and a decoder",
-      "opsPerSec": 2067251
+      "opsPerSec": 2024945
+    },
+    {
+      "name": "parse — flat struct with an alias, no alias in the input",
+      "opsPerSec": 7981690
+    },
+    {
+      "name": "parse — flat struct with an alias, the alias in the input",
+      "opsPerSec": 3082270
     },
     {
       "name": "parse (jit) — flat struct, valid",
-      "opsPerSec": 26817749
+      "opsPerSec": 26700032
     },
     {
       "name": "parse (jit) — nested struct, valid",
-      "opsPerSec": 14736315
+      "opsPerSec": 14528554
     },
     {
       "name": "parse (jit) — flat struct, defaults and a decoder",
-      "opsPerSec": 2878792
+      "opsPerSec": 2776605
+    },
+    {
+      "name": "parse (jit) — flat struct with an alias, no alias in the input",
+      "opsPerSec": 27632218
+    },
+    {
+      "name": "parse (jit) — flat struct with an alias, the alias in the input",
+      "opsPerSec": 4278865
     },
     {
       "name": "parseSafe — moltar flat (6 fields)",
-      "opsPerSec": 7375736
+      "opsPerSec": 7305431
     },
     {
       "name": "parseStrict — moltar flat (6 fields)",
-      "opsPerSec": 7090630
+      "opsPerSec": 6998259
     },
     {
       "name": "assertLoose — moltar flat (6 fields)",
-      "opsPerSec": 7256720
+      "opsPerSec": 7291815
     },
     {
       "name": "assertStrict — moltar flat (6 fields)",
-      "opsPerSec": 7100128
+      "opsPerSec": 6964011
     },
     {
       "name": "parseSafe — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4384177
+      "opsPerSec": 4317506
     },
     {
       "name": "parseStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4162263
+      "opsPerSec": 4087348
     },
     {
       "name": "assertLoose — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4348561
+      "opsPerSec": 4328164
     },
     {
       "name": "assertStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4157359
+      "opsPerSec": 4167032
     },
     {
       "name": "parseSafe (jit) — moltar flat (6 fields)",
-      "opsPerSec": 33045646
+      "opsPerSec": 32192140
     },
     {
       "name": "parseStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 30228029
+      "opsPerSec": 29088638
     },
     {
       "name": "assertLoose (jit) — moltar flat (6 fields)",
-      "opsPerSec": 32150334
+      "opsPerSec": 32310917
     },
     {
       "name": "assertStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 30187656
+      "opsPerSec": 29020769
     },
     {
       "name": "parseSafe (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 30211452
+      "opsPerSec": 29592827
     },
     {
       "name": "parseStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 24196911
+      "opsPerSec": 23249745
     },
     {
       "name": "assertLoose (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 29089968
+      "opsPerSec": 27627287
     },
     {
       "name": "assertStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 24072472
+      "opsPerSec": 22190550
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 16378
+      "opsPerSec": 16623
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 83189
+      "opsPerSec": 86008
     }
   ]
 }

@@ -66,26 +66,31 @@ closures stay.
 
 ## Numbers
 
-`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.0 branch (Node
-24, Apple silicon, 2026-10-10). The 1.0 column is the same scenarios on the same machine the day
-before 2.0; the closure column is what every `check` does, the JIT column the same schemas after
-`compile`.
+`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.1 branch (Node
+24, Apple silicon, 2026-10-11, after the review of 3.1). The 1.0 column is the same scenarios on
+the same machine the day before 2.0; the closure column is what every `check` does, the JIT
+column the same schemas after `compile`. A run of one scenario on its own comes out higher than
+the same scenario in the whole run (the call sites are warmer); the figures are from the whole
+run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
-| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 263 K ops/s | — |
-| `Schema.from`, nested struct, collections, tuple | 94 K | 88 K | — |
-| `check`, flat struct, valid | 2.1 M | 10.4 M | 30.0 M |
-| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.4 M | 5.6 M |
-| `check`, nested struct, valid | 0.33 M | 2.5 M | 17.4 M |
-| `check`, nested struct, invalid | 0.23 M | 1.4 M | 2.0 M |
-| `parse`, flat struct, valid | — | 9.6 M | 26.8 M |
-| `parse`, nested struct, valid | — | 2.5 M | 14.7 M |
-| `parse`, flat struct, a default and a `Date` decoder | — | 2.1 M | 2.9 M |
-| moltar flat (6 fields), four modes | — | 7.1–7.4 M | 30.2–33.0 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.2–4.4 M | 24.1–30.2 M |
-| `new Model`, fixture model (6 entities) | 18 K | 16 K | — |
-| `toTypeScript(model)`, fixture model | — | 83 K | — |
+| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 257 K ops/s | — |
+| `Schema.from`, nested struct, collections, tuple | 94 K | 89 K | — |
+| `check`, flat struct, valid | 2.1 M | 10.5 M | 29.3 M |
+| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.3 M | 5.7 M |
+| `check`, nested struct, valid | 0.33 M | 2.7 M | 17.4 M |
+| `check`, nested struct, invalid | 0.23 M | 1.5 M | 2.0 M |
+| `check`, sparse struct, two optional fields absent | — | 7.2 M | 31.2 M |
+| `parse`, flat struct, valid | — | 9.0 M | 26.7 M |
+| `parse`, nested struct, valid | — | 2.5 M | 14.5 M |
+| `parse`, flat struct, a default and a `Date` decoder | — | 2.0 M | 2.8 M |
+| `parse`, flat struct with an alias, no alias in the input | — | 8.0 M | 27.6 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.1 M | 4.3 M |
+| moltar flat (6 fields), four modes | — | 7.0–7.3 M | 29.0–32.3 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.1–4.3 M | 22.2–29.6 M |
+| `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
+| `toTypeScript(model)`, fixture model | — | 86 K | — |
 
 The moltar scenarios are the object of the
 [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
@@ -106,10 +111,14 @@ gains 1.6 times where the valid one gains 3. The `check` of 1.0 was slower than
 
 [`parse`](/guide/parse) is the same check between two passes over the built types, each of
 which returns after one bit test when the schema has nothing for it, so a schema without
-defaults and decoders parses at 90% of its check on the closures and 90% on the JIT (the
-difference is the result object and the strip test). With a default to fill and a `Date` to
-decode the flat struct parses at 2.1 M and 2.9 M: a copy of the object for the default, another
-for the decoded field, and `new Date(text)` itself, which is a third of the time.
+defaults and decoders parses at about 90% of its check on either backend (the difference is
+the result object). With a default to fill and a `Date` to decode the flat struct parses at
+2.0 M and 2.8 M: a copy of the object for the default, another for the decoded field, and
+`new Date(text)` itself, which is a third of the time. A schema with an
+[alias](/guide/evolution#aliases-and-deprecated) parses a value that carries none at the
+speed of a schema without (the pass that renames runs only after a check that read an alias),
+and a value under the alias at the speed of a decoded field: the copy that renames, and a
+second one that puts the field where the alias was.
 
 ## Other libraries
 

@@ -22,6 +22,7 @@ const entryPoints = [
   ['browser.js', 'index.d.ts'],
   ['src/generators/index.js', 'src/generators/index.d.ts'],
   ['src/compile/index.js', 'src/compile/index.d.ts'],
+  ['src/model/index.js', 'src/model/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -42,6 +43,7 @@ test('Exports: the generators are reachable through their subpath export', () =>
     'toJSONSchema',
     'toTypeScript',
     'saveTypes',
+    'fromJSONSchema',
     'register',
   ]);
   const source = [
@@ -82,6 +84,33 @@ test('Exports: the compile subpath is reachable through its subpath export', () 
     'function',
     ['Field "name" not of expected type: string'],
   ]);
+});
+
+test('Exports: the model subpath is reachable through its subpath export', () => {
+  const model = require('@alexify/metaschema/model');
+  assert.strictEqual(model, require(path.join(ROOT, 'src/model/index.js')));
+  assert.deepStrictEqual(Object.keys(model), [
+    'fromJSON',
+    'diff',
+    'compatibility',
+    'compatibilityOf',
+    'sample',
+    'merge',
+    'register',
+  ]);
+  const source = [
+    "import { fromJSON, diff, compatibility, register } from '@alexify/metaschema/model';",
+    "import { Model } from '@alexify/metaschema';",
+    "const prev = new Model({}, [['A', { Struct: {}, x: 'string' }]]);",
+    "const next = new Model({}, [['A', { Struct: {}, x: 'string', y: '?string' }]]);",
+    'const changes = diff(JSON.parse(JSON.stringify(prev)), next);',
+    'register();',
+    'const restored = Model.fromJSON(prev.toJSON());',
+    'process.stdout.write(JSON.stringify([changes.length, compatibility(changes), fromJSON === Model.fromJSON, [...restored.order]]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [1, 'full', true, ['A']]);
 });
 
 test('Exports: the locales are reachable through their subpath exports', () => {

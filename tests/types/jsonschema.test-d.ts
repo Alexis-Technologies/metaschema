@@ -1,9 +1,16 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { Model, Schema } from '../../index.js';
-import { register, saveTypes, toJSONSchema, toTypeScript } from '../../src/generators/index.js';
+import {
+  fromJSONSchema,
+  register,
+  saveTypes,
+  toJSONSchema,
+  toTypeScript,
+} from '../../src/generators/index.js';
 import type {
   DefinitionErrorCode,
+  FromJSONSchemaOptions,
   InferSchema,
   InterfaceOptions,
   JSONSchema,
@@ -87,6 +94,25 @@ const { input } = user['~standard'].jsonSchema;
 expectType<JSONSchema>(input({ target: 'draft-07' }));
 const account = model.entities.get('Account')!;
 expectAssignable<StandardJSONSchemaV1>(account);
+
+// The import of a JSON Schema document: a definition, or a Schema.
+expectType<object | string>(fromJSONSchema({ type: 'string' }));
+expectType<object | string>(fromJSONSchema(true, { references: 'name', unsupported: 'ignore' }));
+expectType<Schema>(fromJSONSchema({ type: 'object' }, { as: 'schema', name: 'User' }));
+expectType<Schema>(Schema.fromJSONSchema({ type: 'object' }, { as: 'schema' }));
+expectType<object | string>(Schema.fromJSONSchema({ type: 'object' }));
+expectAssignable<FromJSONSchemaOptions>({ as: 'definition' });
+expectAssignable<FromJSONSchemaOptions>({
+  unsupported: 'ignore',
+  onUnsupported: (reason: string, pointer: string) => {
+    expectType<string>(reason);
+    expectType<string>(pointer);
+  },
+});
+expectError(fromJSONSchema({ type: 'string' }, { as: 'model' }));
+expectError(fromJSONSchema({ type: 'string' }, { onUnsupported: 'log' }));
+expectError(fromJSONSchema('string'));
+expectAssignable<DefinitionErrorCode>('ERR_UNSUPPORTED_SCHEMA');
 
 // The dts options.
 expectType<string>(user.toInterface());

@@ -10,7 +10,7 @@
 const { hasBrand, define } = require('./util.js');
 const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
 const { createContext } = require('./context.js');
-const { STRUCT, isStruct } = require('./struct.js');
+const { STRUCT, isStruct, aliasOf } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
 const collections = require('./prototypes/collections.js');
 const { schema: struct } = require('./prototypes/schema.js');
@@ -24,6 +24,9 @@ const DECODERS = 2;
 const ENCODERS = 4;
 const STRUCTS = 8;
 const ASYNC = 16;
+// A field with aliases below: the pass after the check visits it only when
+// the check read a field from an alias (`context.renamed`).
+const ALIASES = 32;
 
 // The shape of a node: a Schema, a struct (the dictionary of its fields), or
 // a field by the identity of its prototype's compile, as the JIT tells them
@@ -124,7 +127,12 @@ const infoOf = (node) => {
       const defaulted = type.default !== undefined;
       if (defaulted) bits |= DEFAULTS;
       if (defaulted || (sub.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
-      if ((sub.bits & DECODERS) !== 0) parts[DECODERS].push(index);
+      // A field with aliases, or with one below, is visited by the pass
+      // that decodes, which renames; whether that pass enters the subtree
+      // is decided by the bits and the context at the field.
+      const aliased = plan[index].aliases.length > 0;
+      if (aliased) bits |= ALIASES;
+      if (aliased || (sub.bits & (DECODERS | ALIASES)) !== 0) parts[DECODERS].push(index);
       if ((sub.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
       parts[STRUCTS].push(index);
     }
@@ -261,8 +269,8 @@ const decode = (info, node, value, context, key) => {
 
 const walkLeaf = (info, node, value) => value;
 
-const walkInner = (info, node, value, context, key, phase) =>
-  apply(info.infos[0], info.children[0], value, context, key, phase);
+const walkInner = (info, node, value, context, key, phase, want) =>
+  apply(info.infos[0], info.children[0], value, context, key, phase, want);
 
 // Before the check (the defaults, a serialization) a graph may loop through
 // its references; the records on the way down are kept in `seen`, which the
@@ -274,9 +282,9 @@ const LOOP = Symbol('loop');
 
 const looped = (context) => context.seen !== null && context.seen.has(LOOP);
 
-const walkSchema = (info, node, value, context, key, phase) => {
+const walkSchema = (info, node, value, context, key, phase, want) => {
   if (phase === DECODERS || info.refs.length === 0 || typeof value !== 'object') {
-    return walkInner(info, node, value, context, key, phase);
+    return walkInner(info, node, value, context, key, phase, want);
   }
   if (context.seen === null) context.seen = new Set();
   const { seen } = context;
@@ -285,14 +293,31 @@ const walkSchema = (info, node, value, context, key, phase) => {
     return value;
   }
   seen.add(value);
-  const out = walkInner(info, node, value, context, key, phase);
+  const out = walkInner(info, node, value, context, key, phase, want);
   seen.delete(value);
   return out;
 };
 
+// The copy of a struct with every renamed field in the place of its alias:
+// `take` appended the field's key, and a key deleted from the copy would
+// leave the copy in dictionary mode. `renames` is alias, field, alias, ...
+const renameKeys = (out, renames) => {
+  const result = {};
+  for (const key in out) {
+    const found = renames.indexOf(key);
+    if (found === -1) putKey(result, key, out[key]);
+    else if (found % 2 === 0) putKey(result, renames[found + 1], out[renames[found + 1]]);
+  }
+  return result;
+};
+
 // The fields of a struct: a default fills a missing key before the check, a
 // decoder replaces the value after it. Stripping rebuilds the object from
-// the known keys; otherwise the object is copied when a field changed.
+// the known keys; otherwise the object is copied when a field changed. A
+// value under an alias of a field is read from there (no default fills the
+// field, and the check sees it there), and the pass after the check writes
+// it under the field's own key, where the alias was; serialize reads the
+// value of the program, which carries the field keys, and never looks.
 const walkFields = (info, fields, value, context, key, phase, want) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
   const { plan, infos, extra } = info;
@@ -300,32 +325,48 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   const parts = info.parts[strip ? STRUCTS : phase];
   const state = enter(context, key, value, copy, putKey);
   if (strip) state.out = {};
+  let renames = null;
   for (let position = 0; position < parts.length; position += 1) {
     const index = parts[position];
     const entry = plan[index];
     const name = entry.key;
+    let from = name;
     let item = entry.own && !Object.hasOwn(value, name) ? undefined : value[name];
-    if (item === undefined && phase === DEFAULTS) {
-      const fallback = entry.type.default;
-      if (fallback === undefined) continue;
-      item = typeof fallback === 'function' ? fallback() : fallback;
-      take(state, name, item, phase);
+    if (item === undefined && phase !== ENCODERS) {
+      from = aliasOf(value, entry.aliases, name);
+      if (from !== name) item = value[from];
     }
-    const result = apply(infos[index], entry.type, item, context, name, phase);
-    if (strip ? result !== undefined : result !== item) take(state, name, result, phase);
+    if (phase === DEFAULTS) {
+      if (item === undefined) {
+        const fallback = entry.type.default;
+        if (fallback === undefined) continue;
+        item = typeof fallback === 'function' ? fallback() : fallback;
+        take(state, from, item, phase);
+      }
+      const result = apply(infos[index], entry.type, item, context, from, phase, want);
+      if (result !== item) take(state, from, result, phase);
+      continue;
+    }
+    const result = apply(infos[index], entry.type, item, context, from, phase, want);
+    const renamed = from !== name;
+    if (strip ? result !== undefined : renamed || result !== item) take(state, name, result, phase);
+    if (renamed && !strip) {
+      if (renames === null) renames = [];
+      renames.push(from, name);
+    }
   }
   if (strip) {
     for (let index = 0; index < extra.length; index += 1) {
       const name = extra[index];
       if (Object.hasOwn(value, name)) putKey(state.out, name, value[name]);
     }
-  }
+  } else if (renames !== null) state.out = renameKeys(state.out, renames);
   return leave(state);
 };
 
 // The elements of an array, a Set or a tuple, by position; a Set comes back
 // as a Set.
-const walkItems = (children, infos, fixed, value, context, key, phase) => {
+const walkItems = (children, infos, fixed, value, context, key, phase, want) => {
   const set = !Array.isArray(value);
   if (set && (fixed || value.constructor?.name !== 'Set')) return value;
   const state = enter(context, key, value, Array.from, putIndex);
@@ -333,18 +374,18 @@ const walkItems = (children, infos, fixed, value, context, key, phase) => {
   for (const item of value) {
     const slot = fixed ? index : 0;
     if (slot >= children.length) break;
-    const result = apply(infos[slot], children[slot], item, context, index, phase);
+    const result = apply(infos[slot], children[slot], item, context, index, phase, want);
     if (result !== item) take(state, index, result, phase);
     index += 1;
   }
   return leave(state, set ? toSet : undefined);
 };
 
-const walkList = (info, node, value, context, key, phase) =>
-  walkItems(info.children, info.infos, info.shape === TUPLE, value, context, key, phase);
+const walkList = (info, node, value, context, key, phase, want) =>
+  walkItems(info.children, info.infos, info.shape === TUPLE, value, context, key, phase, want);
 
 // The values of an object or a Map, by key.
-const walkKeyed = (info, node, value, context, key, phase) => {
+const walkKeyed = (info, node, value, context, key, phase, want) => {
   const map = value.constructor?.name === 'Map';
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;
   const child = info.children[0];
@@ -354,7 +395,7 @@ const walkKeyed = (info, node, value, context, key, phase) => {
     for (const pair of value) {
       const name = pair[0];
       const item = pair[1];
-      const result = apply(sub, child, item, context, name, phase);
+      const result = apply(sub, child, item, context, name, phase, want);
       if (result !== item) take(state, name, result, phase);
     }
   } else {
@@ -362,7 +403,7 @@ const walkKeyed = (info, node, value, context, key, phase) => {
     for (const name in value) {
       if (!Object.hasOwn(value, name)) continue;
       const item = value[name];
-      const result = apply(sub, child, item, context, name, phase);
+      const result = apply(sub, child, item, context, name, phase, want);
       if (result !== item) take(state, name, result, phase);
     }
   }
@@ -406,21 +447,22 @@ const accepts = (branch, value, scratch, path, key) => {
 // first branch whose check records nothing, as the check picks it. Before
 // the check a branch is tried with its own defaults in place, and the value
 // with those defaults is what parse goes on with.
-const walkUnion = (info, node, value, context, key, phase) => {
+const walkUnion = (info, node, value, context, key, phase, want) => {
   const { children, infos, table } = info;
   if (table !== null) {
     if (typeof value !== 'object') return value;
     const index = table.get(value[node.discriminator]);
     if (index === undefined) return value;
-    return apply(infos[index], children[index], value, context, key, phase);
+    return apply(infos[index], children[index], value, context, key, phase, want);
   }
   const scratch = scratchOf(context);
   for (let index = 0; index < children.length; index += 1) {
     const branch = children[index];
     const sub = infos[index];
-    const prepared = phase === DEFAULTS ? apply(sub, branch, value, context, key, phase) : value;
+    const prepared =
+      phase === DEFAULTS ? apply(sub, branch, value, context, key, phase, want) : value;
     if (!accepts(branch, prepared, scratch, context.path, key)) continue;
-    return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase);
+    return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase, want);
   }
   return value;
 };
@@ -428,7 +470,7 @@ const walkUnion = (info, node, value, context, key, phase) => {
 // A reference resolved at parse time, as the check resolves it: an id stays
 // an id, a record goes through its entity, and a record deeper than the
 // check allows is left as it is for the check to report.
-const walkReference = (info, node, value, context, key, phase) => {
+const walkReference = (info, node, value, context, key, phase, want) => {
   const { one, many, root, embed } = node;
   const target = root.findReference(one || many);
   if (target === null || !embeds(target, embed, context.references)) return value;
@@ -436,7 +478,7 @@ const walkReference = (info, node, value, context, key, phase) => {
   const sub = infoOf(target);
   context.depth += 1;
   let out = value;
-  if (one) out = apply(sub, target, value, context, key, phase);
+  if (one) out = apply(sub, target, value, context, key, phase, want);
   else if (Array.isArray(value)) {
     // The target as the one child of the list, kept on the info from one
     // visit to the next (it changes only when the namespaces do).
@@ -444,7 +486,7 @@ const walkReference = (info, node, value, context, key, phase) => {
       info.children[0] = target;
       info.infos[0] = sub;
     }
-    out = walkItems(info.children, info.infos, false, value, context, key, phase);
+    out = walkItems(info.children, info.infos, false, value, context, key, phase, want);
   }
   context.depth -= 1;
   return out;
@@ -462,13 +504,24 @@ const WALKERS = [
   walkReference,
 ];
 
+// The bits a pass wants of a subtree, decided once per pass: its own, and
+// for the pass after the check the structs (under `strip`) and the fields
+// with aliases (after a check that read one).
+const wantOf = (phase, context) => {
+  let want = phase;
+  if (phase === DECODERS) {
+    if (context.unknown === 'strip') want |= STRUCTS;
+    if (context.renamed) want |= ALIASES;
+  }
+  return want;
+};
+
 // One pass over a value from a node whose info is known, by the shape of
 // each node. A serializer runs before the parts of its value, a decoder
-// after them; stripping concerns every struct, so under `strip` the pass
-// enters any subtree with one.
-const apply = (info, node, value, context, key, phase) => {
+// after them; a subtree without the bits the pass wants is returned as it
+// is, which is the one test a value nothing applies to costs.
+const apply = (info, node, value, context, key, phase, want) => {
   if (value == null) return value;
-  const want = phase === DECODERS && context.unknown === 'strip' ? DECODERS | STRUCTS : phase;
   if ((info.bits & want) === 0) return value;
   let input = value;
   if (phase === ENCODERS && info.encode !== undefined) {
@@ -485,6 +538,7 @@ module.exports = {
   SERIALIZE: ENCODERS,
   infoOf,
   apply,
+  wantOf,
   looped,
   hasAsync,
 };

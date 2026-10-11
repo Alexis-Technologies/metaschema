@@ -26,18 +26,27 @@ const KNOWN = new Set([
   'description',
   'examples',
   'deprecated',
+  'aliases',
 ]);
 
 const isCustom = (Type) => Type.source !== undefined && Type.source.js === undefined;
 
-const lintField = (field, path, warnings) => {
+// `element` says the field is an element of a tuple, whose `name` is the
+// name the tuple gave it (`[{ x: 'number' }]`), not an option; `member`
+// that it is a field of a struct, the one place aliases are read from.
+const lintField = (field, path, warnings, element = false, member = false) => {
   const Type = field.constructor;
   if (!isCustom(Type)) {
     for (const key of Object.keys(field)) {
       if (KNOWN.has(key) || Type.options.has(key)) continue;
+      if (element && key === 'name') continue;
       const text = `option "${key}" of "${path}" is not known to type "${field.type}"`;
       warnings.push(warning('unknown-option', text));
     }
+  }
+  if (field.aliases !== undefined && !member) {
+    const text = `"${path}" has aliases, but only a field of a struct is read from them`;
+    warnings.push(warning('dead-aliases', text));
   }
   if (field.pattern !== undefined && field.length?.max === undefined) {
     const text = `"${path}" has a pattern without length.max (see the note on ReDoS)`;
@@ -48,7 +57,7 @@ const lintField = (field, path, warnings) => {
   if (value !== undefined) {
     if (Array.isArray(value)) {
       for (let index = 0; index < value.length; index += 1) {
-        lintField(value[index], `${path}[${index}]`, warnings);
+        lintField(value[index], `${path}[${index}]`, warnings, true);
       }
     } else {
       lintField(value, `${path}[]`, warnings);
@@ -69,7 +78,7 @@ const lintStruct = (fields, prefix, warnings) => {
   for (const key of Object.keys(fields)) {
     const field = fields[key];
     if (!hasBrand(field, 'Type')) continue;
-    lintField(field, prefix ? `${prefix}.${key}` : key, warnings);
+    lintField(field, prefix ? `${prefix}.${key}` : key, warnings, false, true);
   }
 };
 
