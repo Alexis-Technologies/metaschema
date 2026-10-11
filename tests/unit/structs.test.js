@@ -479,3 +479,23 @@ test('Structs: the parse, serialize and validate of a nested struct are not keys
     { inner: { a: 'x', total: 2 } },
   );
 });
+
+test('Structs: the validate of a nested struct may be given on the field', () => {
+  const outer = Schema.from({
+    a: { type: 'schema', schema: { x: 'string' }, validate: (value) => value.x !== 'no' || 'no' },
+  });
+  assert.strictEqual(typeof outer.fields.a.validate, 'function');
+  assert.deepStrictEqual(outer.check({ a: { x: 'no' } }).errors, ['Field "a" no']);
+  assert.strictEqual(outer.check({ a: { x: 'yes' } }).valid, true);
+  // The field's own validate wins over the one of the definition it holds,
+  // as its own parse and serialize do.
+  const inner = Schema.from({ x: 'string', validate: () => 'inner' });
+  const own = Schema.from({ a: { type: 'schema', schema: inner, validate: () => 'own' } });
+  assert.deepStrictEqual(own.check({ a: { x: 'y' } }).errors, ['Field "a" own']);
+  const adopted = Schema.from({ a: { type: 'schema', schema: inner } });
+  assert.deepStrictEqual(adopted.check({ a: { x: 'y' } }).errors, ['Field "a" inner']);
+  const nested = Schema.from({
+    a: { type: 'schema', schema: { x: 'string', validate: () => 'in' } },
+  });
+  assert.deepStrictEqual(nested.check({ a: { x: 'y' } }).errors, ['Field "a" in']);
+});
