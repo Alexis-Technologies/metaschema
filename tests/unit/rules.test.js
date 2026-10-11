@@ -209,3 +209,21 @@ test('Rules: a type failure cancels the rules and validate of the field', () => 
   ]);
   assert.deepStrictEqual(text.check({ body: 'short' }).errors, ['Field "Note.body" never']);
 });
+
+test('Rules: the length of an object is the number of its own keys, whatever they are called', () => {
+  const sized = Schema.from({
+    dict: { object: { string: 'any' }, length: { max: 2 } },
+    list: { array: 'any', length: { max: 2 } },
+  });
+  // A key called `size` or `length` is a key like any other.
+  assert.strictEqual(sized.check({ dict: { size: 10, a: 1 }, list: [1] }).valid, true);
+  assert.strictEqual(sized.check({ dict: { length: 99 }, list: [1, 2] }).valid, true);
+  assert.deepStrictEqual(sized.check({ dict: { a: 1, b: 2, c: 3 }, list: [1, 2, 3] }).errors, [
+    'Field "dict" exceeds the maximum length',
+    'Field "list" exceeds the maximum length',
+  ]);
+  // An inherited key does not count, as it is not checked.
+  const inherited = Object.create({ hidden: 1 });
+  inherited.a = 1;
+  assert.strictEqual(sized.check({ dict: inherited, list: [] }).valid, true);
+});

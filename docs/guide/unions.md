@@ -49,6 +49,13 @@ post.check({ tag: { label: 'x' } }).valid; // true
 post.check({ tag: 5 }).errors; // [ 'Field "Post.tag" does not match any of: string, Tag' ]
 ```
 
+Inside `checkAsync` and `parseAsync` a plain union keeps the same rule with one consequence: a
+branch whose only objection would come from an async validator is taken, the validator settles
+after the walk and may still fail the value, and the next branch is not tried. Branches with
+async validators want a [discriminator](#discriminated-unions); the details are in
+[Parse and serialize](/guide/parse#async-validators-in-a-plain-union). A `default` on the
+discriminator field is `ERR_INVALID_UNION`: the branch is picked before any default applies.
+
 ### Discriminated unions
 
 With `discriminator: '<field>'` every branch must be a nested struct (inline or a `Schema`

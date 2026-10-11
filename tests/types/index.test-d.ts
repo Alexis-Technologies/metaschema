@@ -6,7 +6,6 @@ import {
   KIND_MEMORY,
   KIND_STORED,
   Model,
-  saveTypes,
   Schema,
   SchemaDefinitionError,
   SCOPE,
@@ -62,6 +61,9 @@ expectType<string[]>(schema.check({}).errors);
 expectType<ValidationIssue[]>(schema.check({}).issues);
 expectType<ValidationResult>(schema.check({}, { root: 'User', maxErrors: 3 }));
 expectError(schema.check({}, { root: 'User', maxErrors: '3' }));
+expectType<ValidationResult>(schema.check({}, { maxDepth: 2 }));
+expectError(schema.check({}, { maxDepth: '2' }));
+expectAssignable<IssueCode>('depth');
 expectType<ValidationResult>(schema.check({}, { unknown: 'ignore' }));
 expectType<ValidationResult>(schema.check({}, { references: 'embed' }));
 expectError(schema.check({}, { references: 'inline' }));
@@ -71,6 +73,12 @@ expectError(schema.check({}, 'User'));
 expectError(schema.check({}, 'User', { maxErrors: 3 }));
 expectType<ValidationResult>(schema.check({}, { root: 'User', messages: { required: () => 'x' } }));
 expectType<ValidationResult>(schema.check({}, { root: 'User', messages: (issue) => issue.code }));
+expectType<Promise<ValidationResult>>(schema.checkAsync({}, { maxErrors: 1 }));
+expectType<boolean>(schema.parse({}).valid);
+expectType<Promise<boolean>>(schema.parseAsync({}).then((parsed) => parsed.valid));
+expectType<{ name: string; age?: number | null | undefined }>(
+  schema.serialize({ name: 'x', age: null }).value,
+);
 expectError(schema.check({}, { root: 'User', messages: 'uk' }));
 expectAssignable<IssueCode>('required');
 expectAssignable<ValidationIssue['code']>('my-own-code');
@@ -109,6 +117,13 @@ expectType<ValidationResult>(schema.check({}, { root: 'User', messages: locale }
 expectError<Locale>({ required: () => 1 });
 const field = schema.fields.name as FieldType;
 expectType<void>(field.check('x', {} as CheckContext));
+declare const context: CheckContext;
+expectType<number>(context.depth);
+expectType<number>(context.maxDepth);
+expectType<unknown>(context.source);
+expectType<'reject' | 'ignore' | 'strip'>(context.unknown);
+expectType<unknown[] | null>(context.async);
+expectType<CheckContext | null>(context.scratch);
 expectType<ValidationResult | null>(schema.validate({}, 'User'));
 expectType<ValidationResult | null>(schema.validate({}));
 expectType<Schema | null>(schema.findReference('Company'));
@@ -150,8 +165,6 @@ expectType<string>(model.dts);
 schema.attach(model);
 schema.detach(model);
 expectError(schema.detouch(model));
-
-expectType<Promise<void>>(saveTypes('./model.d.ts', model));
 
 const result = new ValidationResult({ root: 'User' });
 expectType<ValidationResult>(new ValidationResult());

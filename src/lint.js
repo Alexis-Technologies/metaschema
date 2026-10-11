@@ -10,9 +10,14 @@ const warning = (code, text) => `Warning [${code}]: ${text}`;
 // annotations that any field may carry for code that reads the schema, and
 // the options of its own type. A custom type with its own construct owns
 // its vocabulary and is not linted.
-const COMMON = ['root', 'type', 'required', 'nullable', 'validate'];
-
-const ANNOTATIONS = [
+const KNOWN = new Set([
+  'root',
+  'type',
+  'required',
+  'nullable',
+  'validate',
+  'parse',
+  'serialize',
   'default',
   'unique',
   'index',
@@ -21,9 +26,7 @@ const ANNOTATIONS = [
   'description',
   'examples',
   'deprecated',
-];
-
-const KNOWN = new Set([...COMMON, ...ANNOTATIONS]);
+]);
 
 const isCustom = (Type) => Type.source !== undefined && Type.source.js === undefined;
 
@@ -41,15 +44,20 @@ const lintField = (field, path, warnings) => {
     warnings.push(warning('unbounded-pattern', text));
   }
   if (field.schema !== undefined) lintStruct(field.schema, path, warnings);
-  if (field.value !== undefined) {
-    if (Array.isArray(field.value)) {
-      field.value.forEach((element, index) => lintField(element, `${path}[${index}]`, warnings));
+  const { value, union } = field;
+  if (value !== undefined) {
+    if (Array.isArray(value)) {
+      for (let index = 0; index < value.length; index += 1) {
+        lintField(value[index], `${path}[${index}]`, warnings);
+      }
     } else {
-      lintField(field.value, `${path}[]`, warnings);
+      lintField(value, `${path}[]`, warnings);
     }
   }
-  if (field.union !== undefined) {
-    field.union.forEach((branch, index) => lintField(branch, `${path}|${index}`, warnings));
+  if (union !== undefined) {
+    for (let index = 0; index < union.length; index += 1) {
+      lintField(union[index], `${path}|${index}`, warnings);
+    }
   }
 };
 

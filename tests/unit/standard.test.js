@@ -11,10 +11,13 @@ const { database, types: customTypes, ...entities } = require('../fixtures/schem
 const types = { datetime: { js: 'string' }, ...customTypes };
 
 // The consumer of the specification's README: it knows nothing about
-// metaschema and reads `~standard` alone.
+// metaschema and reads `~standard` alone; a promise is awaited.
 const standardValidate = (schema, input) => {
   const result = schema['~standard'].validate(input);
-  assert.strictEqual(result instanceof Promise, false);
+  if (result instanceof Promise) return result.then((settled) => standardValidate.settle(settled));
+  return standardValidate.settle(result);
+};
+standardValidate.settle = (result) => {
   if (result.issues) throw new Error(JSON.stringify(result.issues));
   return result.value;
 };
@@ -31,6 +34,7 @@ test('Standard: the props of the interface, built once per schema', () => {
   assert.strictEqual(standard.version, 1);
   assert.strictEqual(standard.vendor, 'alexify.metaschema');
   assert.strictEqual(typeof standard.validate, 'function');
+  // The jsonSchema converter joins the props through the generators subpath.
   assert.deepStrictEqual(Object.keys(standard), ['version', 'vendor', 'validate']);
   assert.strictEqual(schema['~standard'], standard);
   assert.notStrictEqual(Schema.from({ name: 'string' })['~standard'], standard);
@@ -42,10 +46,85 @@ test('Standard: a valid value comes back as it is, without issues', () => {
   const schema = Schema.from({ name: 'string', 'tags?': { array: 'string' } });
   const value = { name: 'Marcus', tags: ['admin'] };
   const result = schema['~standard'].validate(value);
+  // The value of parse: the value itself when no default, decoder or strip
+  // touched it, as 2.0 returned it.
   assert.strictEqual(result.value, value);
   assert.strictEqual(result.issues, undefined);
   assert.strictEqual('issues' in result, false);
   assert.deepStrictEqual(Object.keys(result), ['value']);
+});
+
+test('Standard: validate is parse, with the policies of the schema', () => {
+  const schema = new Schema('Event', {
+    Form: { unknown: 'ignore' },
+    name: 'string',
+    'when?': { type: 'string', parse: (text) => new Date(text) },
+    'level?': { type: 'integer', default: 1 },
+  });
+  const value = { name: 'x', when: '2020-01-01T00:00:00.000Z', extra: true };
+  const result = schema['~standard'].validate(value);
+  assert.deepStrictEqual(result, {
+    value: { name: 'x', when: new Date('2020-01-01T00:00:00.000Z'), extra: true, level: 1 },
+  });
+  assert.notStrictEqual(result.value, value);
+  assert.deepStrictEqual(value, { name: 'x', when: '2020-01-01T00:00:00.000Z', extra: true });
+  // The policy of the schema, unless the call says otherwise.
+  const stripped = schema['~standard'].validate(value, { libraryOptions: { unknown: 'strip' } });
+  assert.deepStrictEqual(Object.keys(stripped.value), ['name', 'when', 'level']);
+  const strict = Schema.from({ name: 'string' });
+  assert.strictEqual('issues' in strict['~standard'].validate({ name: 'x', extra: 1 }), true);
+  // A decoder that fails is an issue, and check knows nothing of defaults.
+  const failing = Schema.from({
+    when: {
+      type: 'string',
+      parse: () => {
+        throw new Error('bad date');
+      },
+    },
+  });
+  assert.deepStrictEqual(summarize(failing['~standard'].validate({ when: 'x' }).issues), [
+    ['validation failed Error: bad date', ['when']],
+  ]);
+  assert.strictEqual(schema.check({ name: 'x' }).valid, true);
+});
+
+test('Standard: a schema with an async validator or decoder validates through a promise', async () => {
+  const schema = Schema.from({
+    login: { type: 'string', validate: async (value) => value !== 'admin' || 'is taken' },
+    'when?': { type: 'string', parse: async (text) => new Date(text) },
+  });
+  const pending = schema['~standard'].validate({ login: 'marcus', when: '2020-01-01' });
+  assert.strictEqual(pending instanceof Promise, true);
+  assert.deepStrictEqual(await pending, {
+    value: { login: 'marcus', when: new Date('2020-01-01') },
+  });
+  assert.deepStrictEqual(
+    summarize((await schema['~standard'].validate({ login: 'admin' })).issues),
+    [['is taken', ['login']]],
+  );
+  assert.strictEqual(await standardValidate(schema, { login: 'x' }).then((v) => v.login), 'x');
+  // Detected on the functions of the schema and of the entities it reaches:
+  // an async function anywhere makes the whole schema async.
+  const model = new Model({ taken: { construct() {}, checkType: async () => true } }, [
+    ['Tag', { Struct: {}, label: 'taken' }],
+    ['Doc', { Struct: {}, tags: { many: 'Tag' } }],
+    ['Note', { Struct: {}, text: 'string', validate: async () => true }],
+    ['Plain', { Struct: {}, text: 'string', validate: () => true }],
+  ]);
+  const built = model.entities;
+  assert.strictEqual(built.get('Doc')['~standard'].validate({ tags: [] }) instanceof Promise, true);
+  assert.strictEqual(
+    built.get('Note')['~standard'].validate({ text: 'x' }) instanceof Promise,
+    true,
+  );
+  assert.strictEqual(
+    built.get('Plain')['~standard'].validate({ text: 'x' }) instanceof Promise,
+    false,
+  );
+  // A validator that returns a promise without being an async function is
+  // what it is to parse: an error of a synchronous call.
+  const sneaky = Schema.from({ a: { type: 'string', validate: () => Promise.resolve(true) } });
+  assert.throws(() => sneaky['~standard'].validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
 });
 
 test('Standard: the issues of an invalid value carry a message and a path of keys', () => {
@@ -121,7 +200,7 @@ test('Standard: libraryOptions are the options of check', () => {
   assert.strictEqual(validate(value, { libraryOptions: { unknown: 'ignore' } }).value, value);
   assert.throws(() => validate({}, { libraryOptions: { maxErrors: 0 } }), {
     name: 'TypeError',
-    message: 'maxErrors must be a number of at least 1, got 0',
+    message: 'maxErrors must be an integer of at least 1, got 0',
   });
 });
 
@@ -179,5 +258,31 @@ test('Standard: a consumer that knows only the specification', () => {
       ]);
       return true;
     },
+  );
+});
+
+test('Standard Schema: attaching a namespace rebuilds the props, async included', async () => {
+  const model = new Model({}, [
+    [
+      'Company',
+      { Struct: {}, name: { type: 'string', validate: async (value) => value !== 'bad' || 'bad' } },
+    ],
+  ]);
+  const person = new Schema('Person', { Struct: {}, employer: { type: 'Company', embed: true } });
+  const before = person['~standard'];
+  // Unresolved: a synchronous result with a reference issue.
+  const sync = before.validate({ employer: { name: 'x' } });
+  assert.strictEqual(sync instanceof Promise, false);
+  assert.strictEqual(sync.issues[0].message, 'Entity "Company" is not found');
+  person.attach(model);
+  const after = person['~standard'];
+  assert.notStrictEqual(after, before);
+  const result = after.validate({ employer: { name: 'bad' } });
+  assert.strictEqual(result instanceof Promise, true);
+  assert.deepStrictEqual((await result).issues[0].message, 'bad');
+  person.detach(model);
+  assert.strictEqual(
+    person['~standard'].validate({ employer: { name: 'x' } }) instanceof Promise,
+    false,
   );
 });

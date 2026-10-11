@@ -31,10 +31,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
-      # ever reaches the browser bundle, and fails over the min+gzip budget.
-      # 13 KB per entry is the 2.0 budget (CLAUDE.md "Budgets"); the JIT entry
-      # of 2.1 gets a budget of its own.
-      - run: pnpm size --max-gzip 13
+      # ever reaches the browser bundle, and fails over the min+gzip budgets.
+      # 17 KB per core entry, 5 KB for the ./generators subpath and 4 KB for
+      # the ./compile subpath on top of it are the 3.0 budgets (CLAUDE.md
+      # "Budgets").
+      - run: pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4
 
   types:
     runs-on: ubuntu-latest
@@ -78,6 +79,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
+  # The same suite on the JIT backend (every schema compiled at construction
+  # through tests/helpers/jit.js), and once more where code generation from
+  # strings is not allowed, so the fallback to the closures is what runs.
+  backends:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [jit, nojit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:${{ matrix.backend }}
+
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -120,10 +141,10 @@ jobs:
   ci-success:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [lint, types, test, coverage, docs]
+    needs: [lint, types, test, backends, coverage, docs]
     if: always()
     steps:
-      - name: Fail when any needed job failed or was cancelled
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+      - name: Fail when any needed job failed, was cancelled or was skipped
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
         run: exit 1
       - run: echo "All CI jobs passed"

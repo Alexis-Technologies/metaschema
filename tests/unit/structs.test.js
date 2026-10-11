@@ -433,3 +433,49 @@ test('Structs: a value set to undefined and an inherited member', () => {
     'Field "meta" not of expected type: object',
   ]);
 });
+
+test('Structs: an array is not a struct, even when every field is optional', () => {
+  const schema = new Schema('Name', { 'given?': 'string', 'family?': 'string' });
+  assert.strictEqual(schema.check({}).valid, true);
+  for (const value of [[], ['x'], [{ given: 'a' }]]) {
+    assert.deepStrictEqual(schema.check(value).errors, [
+      'Field "Name" not of expected type: object',
+    ]);
+    assert.deepStrictEqual(schema.check(value).issues[0].params, {
+      expected: 'object',
+      received: 'array',
+    });
+  }
+  const nested = Schema.from({ name: { 'given?': 'string' } });
+  assert.deepStrictEqual(nested.check({ name: [] }).errors, [
+    'Field "name" not of expected type: object',
+  ]);
+});
+
+test('Structs: the parse, serialize and validate of a nested struct are not keys of the value', () => {
+  const schema = new Schema('Doc', {
+    inner: {
+      a: 'string',
+      validate: () => true,
+      parse: (value) => value,
+      serialize: (value) => value,
+      total: () => 1,
+    },
+  });
+  // The functions stay in the fields, as the calculated field does.
+  assert.strictEqual(typeof schema.fields.inner.schema.parse, 'function');
+  assert.strictEqual(typeof schema.fields.inner.schema.total, 'function');
+  // A calculated field may be in the value; the three options may not, as at
+  // the root, where they are options of the schema.
+  assert.strictEqual(schema.check({ inner: { a: 'x', total: 1 } }).valid, true);
+  for (const name of ['parse', 'serialize', 'validate']) {
+    const result = schema.check({ inner: { a: 'x', [name]: 'data' } });
+    assert.deepStrictEqual(result.errors, [`Field "Doc.inner" has unexpected keys: ${name}`]);
+    const stripped = schema.parse({ inner: { a: 'x', [name]: 'data' } }, { unknown: 'strip' });
+    assert.deepStrictEqual(stripped.value, { inner: { a: 'x' } });
+  }
+  assert.deepStrictEqual(
+    schema.parse({ inner: { a: 'x', total: 2, extra: 1 } }, { unknown: 'strip' }).value,
+    { inner: { a: 'x', total: 2 } },
+  );
+});

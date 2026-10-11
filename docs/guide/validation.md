@@ -91,7 +91,8 @@ result.tree().properties.tags.items[1];
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `root` | the schema name | the label the error lines start with; `''` for none. Issue paths never include it |
-| `maxErrors` | unlimited | stop collecting after that many issues (at least 1), and stop walking fields, elements and records as soon as the limit is reached |
+| `maxErrors` | unlimited | stop collecting after that many issues (a whole number of at least 1), and stop walking fields, elements and records as soon as the limit is reached |
+| `maxDepth` | 128 | how deep a value may nest through embedded references; a record past that depth is a `depth` issue (`is nested deeper than 128 references`) instead of a stack overflow; see [References](/guide/references#validation) |
 | `unknown` | the schema's [`unknown` metadata](/guide/kinds-and-metadata#metadata-fields), `'reject'` unless set | what to do with keys the schema does not have: report them as one `unexpected` issue per struct, or `'ignore'` them at every depth |
 | `references` | `'kind'` | how a reference is checked: by the [kind of its target](/guide/references#storage-view-and-graph-view) and the field's `embed`, every reference as the record (`'embed'`), or every reference as an id (`'id'`) |
 | `messages` | English | the [locale](#messages-and-locales) of the messages, or a function that renders every message |
@@ -102,6 +103,10 @@ user.check({}, { maxErrors: 1 }).errors; // [ 'Field "User.name" is required' ]
 user.check({ name: 'Marcus', extra: true }, { unknown: 'ignore' }).valid; // true
 person.check(payload, { references: 'embed' }); // the whole graph, stored records included
 ```
+
+`check` answers with a verdict and never changes the value: no defaults, no decoding, no
+stripping. [`parse`](/guide/parse) does those over the same check and returns the value of the
+program, and `checkAsync` is `check` for validators that return a promise.
 
 `check` collects every problem it finds instead of stopping at the first one, and it never throws
 because of the value. An exception means the **definition** is broken (for example, an unknown
@@ -116,7 +121,9 @@ new Schema('Order', { total: 'strng' });
 ```
 
 An option with a value it does not accept also throws a `TypeError`, as does a string in place of
-the options (the second argument of `check` was the root path in 1.x).
+the options (the second argument of `check` was the root path in 1.x), and so does a `validate`
+function or a custom type's `checkType` that returns a promise: the code of that error is
+`ERR_ASYNC_VALIDATOR`, and [`checkAsync`](/guide/parse#async) is the call that awaits them.
 
 ## Messages and locales
 
@@ -199,7 +206,8 @@ schema.check({ range: '0123456789' }).errors;
 ```
 
 If the function throws, the error becomes an `exception` issue (`validation failed Error: ...`)
-instead of propagating.
+instead of propagating. A function that returns a promise of one of these is awaited by
+[`checkAsync`](/guide/parse#async); `check` throws for it.
 
 ### On a schema
 

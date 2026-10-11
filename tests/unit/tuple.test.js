@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Tuple: basic implementation', () => {
   const short1 = ['string', 'number', '?number'];

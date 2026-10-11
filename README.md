@@ -36,6 +36,14 @@ result.issues;
 //   { code: 'length', path: ['email'], message: 'value is too short', params: { min: 5, max: 64, actual: 3 } },
 //   { code: 'enum', path: ['roles', 0], message: 'value is not of enum: admin, editor, viewer', params: { values: ['admin', 'editor', 'viewer'] } }
 // ]
+
+const event = Schema.from({
+  name: 'string',
+  'level?': { type: 'integer', default: 1 },
+  when: { type: 'string', parse: (text) => new Date(text) },
+});
+event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
+// { name: 'deploy', when: 2026-10-10T12:00:00.000Z, level: 1 }
 ```
 
 ### 📖 [Read the documentation →](https://metaschema.vercel.app/)
@@ -49,19 +57,31 @@ result.issues;
   a code, the path as an array of keys, the params it was made from, and a message rendered through
   a locale (English built in, `@alexify/metaschema/locales/uk` shipped). Only a broken definition
   throws.
+- **Parse, not only a verdict.** `parse` runs the same check and gives the value of the program:
+  defaults filled in, unknown keys stripped on request, a field's `parse` function decoding its
+  value (a date-time string into a `Date`) and `serialize` the way back; `checkAsync` and
+  `parseAsync` await validators and decoders that return promises.
 - **Domain models.** Entities, registries, dictionaries and projections, with references,
   relations and indexes, ordered by dependency and checked for missing references.
 - **TypeScript.** `InferSchema<typeof schema>` is the type of a value the schema accepts,
   computed from the definition with nothing generated, and a model renders its entities as
   interfaces. The package ships hand-written typings for its own API.
 - **Standard Schema.** Every schema implements [Standard Schema v1](https://standardschema.dev)
-  (`schema['~standard']`), so tRPC, TanStack Form, Hono and any other consumer of the interface
-  take it as they take a zod or valibot schema.
+  (`schema['~standard']`, which is `parse`), so tRPC, TanStack Form, Hono and any other consumer
+  of the interface take it as they take a zod or valibot schema.
+- **JSON Schema.** `toJSONSchema` renders a schema or a whole model as JSON Schema draft 2020-12
+  or draft-07, an OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`, with a strict profile for
+  LLM structured outputs; `~standard.jsonSchema` is the Standard JSON Schema converter. The
+  generators live in the `@alexify/metaschema/generators` subpath, so a program that only
+  validates does not carry them.
 - **Fast.** Every check is compiled into a closure when the schema is built and runs in a context
-  of its own: about 10 million validations a second of a flat struct on Node 24 (`pnpm bench`,
+  of its own: about 10 million validations a second of a flat struct on Node 24, and about 30
+  million through the JIT backend of `@alexify/metaschema/compile`, which generates the same
+  check where `new Function` is allowed and keeps the closures where it is not (`pnpm bench`,
   see [Performance](https://metaschema.vercel.app/guide/performance)).
-- **Zero dependencies, 12.6 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers.
+- **Zero dependencies, 16.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 4.5 KB and the JIT backend 3.9 KB
+  where they are imported.
 
 ## Installation
 
@@ -131,7 +151,9 @@ model.order; // Set { 'Address', 'Company', 'User' }
 model.warnings; // [] (lint and consistency warnings, `Warning [code]: text`, end up here)
 model.entities.get('User').check({ login: 'ab', company: 'c1', active: true }).errors;
 // [ 'Field "User.login" value is too short' ]
-console.log(model.dts);
+
+const { toTypeScript } = require('@alexify/metaschema/generators');
+console.log(toTypeScript(model));
 ```
 
 ```ts
@@ -156,7 +178,10 @@ interface User {
 }
 ```
 
-`saveTypes(outputFile, model)` writes `model.dts` to a file. The first key of a definition sets
+`saveTypes(outputFile, model, options?)` of the same subpath writes the interfaces to a file
+(`{ named: true }` names enums and nested structs, and a field's `description` is its JSDoc); its
+`register()` adds `model.dts`, `model.toTypeScript` and `schema.toInterface` as methods. The first
+key of a definition sets
 its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
 `View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
 `scope: 'application'` and `store: 'persistent'`, and they get an id field; a reference to a
@@ -198,7 +223,7 @@ type User = InferSchema<typeof user>;
 Every form of the language is covered: optional and nullable fields, collections, enums,
 tuples, unions, nested structs, references (an id, or the record through an entity map with
 `Infer<D, E>` and `InferEntity<E, 'Name'>`) and custom types declared through module
-augmentation of `CustomTypes`. A model renders its entities as interfaces with `model.dts`. See
+augmentation of `CustomTypes`. A model renders its entities as interfaces with `toTypeScript`. See
 [TypeScript](https://metaschema.vercel.app/guide/typescript).
 
 A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-schema/spec`:
@@ -206,13 +231,75 @@ A `Schema<D>` is also a `StandardSchemaV1<Infer<D>, Infer<D>>` of `@standard-sch
 `StandardOptions` beside it. See
 [Standard Schema](https://metaschema.vercel.app/guide/standard-schema).
 
+## JSON Schema
+
+`toJSONSchema(schema, options)` of `@alexify/metaschema/generators` renders the rules of `check`
+as a JSON Schema document, and `toJSONSchema(model, options)` every entity of a model as a
+definition:
+
+```js
+const { toJSONSchema } = require('@alexify/metaschema/generators');
+
+toJSONSchema(user, { target: 'draft-07' });
+// {
+//   $schema: 'http://json-schema.org/draft-07/schema#',
+//   type: 'object',
+//   properties: {
+//     name: { type: 'object', properties: { first: { type: 'string' }, last: { type: 'string' } }, required: ['first', 'last'], additionalProperties: false },
+//     email: { type: 'string', minLength: 5, maxLength: 64 },
+//     age: { type: ['number', 'null'] },
+//     roles: { type: 'array', items: { enum: ['admin', 'editor', 'viewer'] } }
+//   },
+//   required: ['name', 'email', 'roles'],
+//   additionalProperties: false
+// }
+
+toJSONSchema(answer, { profile: 'strict' }); // the dialect of OpenAI and Anthropic structured outputs
+toJSONSchema(model, { target: 'mongodb' }); // one $jsonSchema validator per entity
+```
+
+The targets are `draft-2020-12` (the default), `draft-07`, `openapi-3.0` and `mongodb`; an
+optional field accepts `null`, a reference to a stored kind is its id and a reference to a memory
+kind a `$ref`, `validate` functions are not exported, and a type with no form in the target
+(`bigint`, a `Date` on the way out) throws unless the call says `unrepresentable: 'any'`. The
+export is checked against ajv for every form of the language. `register()` of the subpath turns
+the functions into methods (`schema.toJSONSchema`, `model.toJSONSchema`) and adds the Standard
+JSON Schema converter to `schema['~standard']`. See
+[JSON Schema](https://metaschema.vercel.app/guide/json-schema).
+
+## Compiled checks
+
+`compile(schema)` of `@alexify/metaschema/compile` replaces the check of a schema, or of every
+entity of a model, with one function generated from the same plan the closures walk and built
+with `new Function`; `register()` does it for every schema built from then on. The issues are
+the ones the closures record, only sooner: about three times faster on a flat struct, six on a
+nested one. Where code generation from strings is not allowed (a Content Security Policy,
+Cloudflare Workers, `node --disallow-code-generation-from-strings`) nothing changes: the
+closures stay, silently unless `{ jit: true }` asks for an error.
+
+```js
+const { compile, register, canEval } = require('@alexify/metaschema/compile');
+
+compile(user); // { accelerated: true }: user.check runs generated code now
+compile(model); // every entity; { accelerated: false } where there is no eval
+register(); // every schema built from here on is compiled as it is built
+canEval(); // whether this environment builds functions from source
+```
+
+The generated source holds identifiers, numbers and JSON strings only; regular expressions, enum
+sets, validate functions and nested schemas reach it through a scope, never through the source
+text. See [The JIT backend](https://metaschema.vercel.app/guide/compile).
+
 ## Exports
 
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
+  getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
+
+const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
+const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })
@@ -223,11 +310,29 @@ import { Schema, Model } from '@alexify/metaschema';
 import type { Infer, InferSchema, InferEntity, CustomTypes, ValidationIssue } from '@alexify/metaschema';
 ```
 
-In the browser every export works the same, except `saveTypes`, which rejects because there is no
-file system. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
+In the browser every export works the same, except `saveTypes` of the generators, which rejects
+because there is no file system, and `compile`, which keeps the closures where a Content
+Security Policy forbids `new Function`. The [API reference](https://metaschema.vercel.app/api/exports) lists every member
 and every exported type.
 
 ## Migrating
+
+### From 2.x
+
+3.0 has two breaking changes. The generators left the core entry: `model.dts`,
+`schema.toInterface()` and `saveTypes` are `toTypeScript(target, options)` and
+`saveTypes(file, target, options)` of `@alexify/metaschema/generators`, whose `register()` puts
+the methods back on the classes once per process. And `schema['~standard'].validate` is `parse`
+rather than `check`: a consumer of Standard Schema gets the defaults filled in and the `parse`
+functions applied, and a promise for a schema with an `async function`. The smaller changes: a
+struct rejects an array, the synchronous `check` and `parse` throw `ERR_ASYNC_VALIDATOR` for a
+promise, a graph deeper than 128 embedded records is a `depth` issue (`maxDepth` raises it),
+`Infer` makes a defaulted key optional, and a few definitions that could never work throw when
+the schema is built. Everything else is additive: `parse`, `serialize`, `checkAsync` and
+`parseAsync`, the JSON Schema export, the JIT backend of `@alexify/metaschema/compile`, JSDoc
+and named types. The step-by-step guide with before-and-after examples is
+[Migrating from 2.x](https://metaschema.vercel.app/guide/migrating-from-2); the full list is
+under "Upgrading from 2.0" in the [CHANGELOG](./CHANGELOG.md).
 
 ### From 1.x
 
@@ -259,7 +364,7 @@ the same schema language. What changed in 1.0:
 - **`browser.js`** replaces `dist.js`, and an `exports` map closes deep imports.
 
 The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia),
-and the 2.0 changes above apply on top of it.
+and the 2.0 and 3.0 changes above apply on top of it.
 
 ## Changelog
 

@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Union: the first branch without issues matches', () => {
   const schema = Schema.from({
@@ -161,4 +164,23 @@ test('Union: a definition that cannot discriminate is an error', () => {
     assert.throws(() => Schema.from({ u: definition }), { name: 'SchemaDefinitionError', message });
   }
   assert.throws(() => Schema.from({ u: { union: [] } }), { code: 'ERR_INVALID_UNION' });
+});
+
+test('Union: a discriminator field cannot have a default', () => {
+  assert.throws(
+    () =>
+      Schema.from({
+        u: {
+          union: [
+            { Struct: {}, kind: { enum: ['a'], default: 'a' }, x: 'number' },
+            { Struct: {}, kind: { enum: ['b'] }, y: 'number' },
+          ],
+          discriminator: 'kind',
+        },
+      }),
+    {
+      code: 'ERR_INVALID_UNION',
+      message: 'Union discriminator "kind" of branch 0 cannot have a default in "u"',
+    },
+  );
 });

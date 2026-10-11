@@ -1,25 +1,35 @@
 /**
  * Zero-dependency ops/sec benchmark for metaschema's hot paths.
  *
- * Run: pnpm bench [filter] [--json] [--save] [--compare]
+ * Run: pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]
  *
  * An optional filter runs only the scenarios whose name contains it, e.g.
  * `pnpm bench check`. `--json` prints the results as JSON, `--save` writes
  * them to bench/baseline.json, and `--compare` prints the change against
  * that baseline (numbers are machine-specific: compare on one machine, before
- * and after a change). Manual only, not part of CI.
+ * and after a change). `--compare-libs` runs the moltar scenarios through
+ * zod, valibot, ajv and typebox instead (bench/libs.js). Manual only, not
+ * part of CI.
+ *
+ * The `check` and `parse` scenarios run twice: on the closure backend and,
+ * as `(jit)`, on a second schema compiled by the ./compile subpath.
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 
 const { Schema, Model } = require('../index.js');
+const { toTypeScript } = require('../src/generators/index.js');
+const { compile } = require('../src/compile/index.js');
 const {
   bench,
   callCheck,
+  callParse,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
+  CODEC_SCHEMA,
   FLAT_VALID,
+  CODEC_VALID,
   FLAT_INVALID,
   NESTED_VALID,
   NESTED_INVALID,
@@ -39,6 +49,19 @@ const flags = new Set(args.filter((arg) => arg.startsWith('--')));
 const filter = args.find((arg) => !arg.startsWith('--')) || '';
 const json = flags.has('--json');
 
+// `--fail-under=<percent>` with `--compare`: a scenario slower than the
+// baseline by more than that fails the run (a non-zero exit code).
+const failUnder = (() => {
+  const flag = args.find((arg) => arg.startsWith('--fail-under='));
+  if (flag === undefined) return null;
+  const value = Number(flag.slice('--fail-under='.length));
+  if (!(value >= 0)) {
+    console.error(`--fail-under needs a percentage, got ${JSON.stringify(flag)}`);
+    process.exit(1);
+  }
+  return value;
+})();
+
 const percent = (current, base) => {
   const delta = ((current - base) / base) * 100;
   const sign = delta >= 0 ? '+' : '';
@@ -54,10 +77,20 @@ const compare = (results) => {
   const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
   const base = new Map(baseline.results.map((row) => [row.name, row.opsPerSec]));
   console.log(`\nAgainst baseline from ${baseline.date} (${baseline.node}):`);
+  const regressions = [];
   for (const { name, opsPerSec } of results) {
     const before = base.get(name);
     const change = before ? percent(opsPerSec, before) : 'no baseline';
     console.log(`${name.padEnd(52)} ${change.padStart(12)}`);
+    if (before && failUnder !== null && ((opsPerSec - before) / before) * 100 < -failUnder) {
+      regressions.push(name);
+    }
+  }
+  if (regressions.length > 0) {
+    console.error(
+      `\n${regressions.length} scenario(s) slower than the baseline by more than ${failUnder}%`,
+    );
+    process.exitCode = 1;
   }
 };
 
@@ -65,19 +98,36 @@ const LOOSE = { unknown: 'ignore' };
 
 // The four modes of the moltar suite over one schema and its values; check
 // is called through the harness so that it is measured as a callee.
-const modes = (label, schema, value, loose) => [
-  [`parseSafe — ${label}`, () => (callCheck(value, LOOSE).valid ? value : null), schema],
-  [`parseStrict — ${label}`, () => (callCheck(value).valid ? value : null), schema],
-  [`assertLoose — ${label}`, () => callCheck(loose, LOOSE).valid, schema],
-  [`assertStrict — ${label}`, () => callCheck(value).valid, schema],
+const modes = (label, schema, value, loose, tag = '') => [
+  [`parseSafe${tag} — ${label}`, () => (callCheck(value, LOOSE).valid ? value : null), schema],
+  [`parseStrict${tag} — ${label}`, () => (callCheck(value).valid ? value : null), schema],
+  [`assertLoose${tag} — ${label}`, () => callCheck(loose, LOOSE).valid, schema],
+  [`assertStrict${tag} — ${label}`, () => callCheck(value).valid, schema],
 ];
 
+// A second schema of the same definition, compiled by the JIT backend.
+const jit = (definition) => {
+  const schema = Schema.from(definition);
+  compile(schema, { jit: true });
+  return schema;
+};
+
 const main = () => {
+  if (flags.has('--compare-libs')) {
+    require('./libs.js').compareLibraries({ json });
+    return;
+  }
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
   const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
+  const codec = Schema.from(CODEC_SCHEMA);
+  const flatJit = jit(FLAT_SCHEMA);
+  const nestedJit = jit(NESTED_SCHEMA);
+  const codecJit = jit(CODEC_SCHEMA);
+  const moltarFlatJit = jit(MOLTAR_FLAT_SCHEMA);
+  const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
   const { types, entities, database } = loadModelFixture();
   const model = new Model(types, entities, database);
 
@@ -88,6 +138,16 @@ const main = () => {
     ['check — flat struct, invalid', () => callCheck(FLAT_INVALID), flat],
     ['check — nested struct, valid', () => callCheck(NESTED_VALID), nested],
     ['check — nested struct, invalid', () => callCheck(NESTED_INVALID), nested],
+    ['check (jit) — flat struct, valid', () => callCheck(FLAT_VALID), flatJit],
+    ['check (jit) — flat struct, invalid', () => callCheck(FLAT_INVALID), flatJit],
+    ['check (jit) — nested struct, valid', () => callCheck(NESTED_VALID), nestedJit],
+    ['check (jit) — nested struct, invalid', () => callCheck(NESTED_INVALID), nestedJit],
+    ['parse — flat struct, valid', () => callParse(FLAT_VALID), flat],
+    ['parse — nested struct, valid', () => callParse(NESTED_VALID), nested],
+    ['parse — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codec],
+    ['parse (jit) — flat struct, valid', () => callParse(FLAT_VALID), flatJit],
+    ['parse (jit) — nested struct, valid', () => callParse(NESTED_VALID), nestedJit],
+    ['parse (jit) — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codecJit],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',
@@ -95,8 +155,24 @@ const main = () => {
       MOLTAR_NESTED_VALUE,
       MOLTAR_NESTED_LOOSE,
     ),
+    ...modes(
+      'moltar flat (6 fields)',
+      moltarFlatJit,
+      MOLTAR_FLAT_VALUE,
+      MOLTAR_FLAT_LOOSE,
+      ' (jit)',
+    ),
+    ...modes(
+      'moltar nested (6 + 3 fields)',
+      moltarNestedJit,
+      MOLTAR_NESTED_VALUE,
+      MOLTAR_NESTED_LOOSE,
+      ' (jit)',
+    ),
     ['new Model — fixture model (6 entities)', () => new Model(types, entities, database)],
-    ['model.dts — fixture model (6 entities)', () => model.dts],
+    // The scenario keeps its name from the baseline; the rendering is the
+    // generators subpath's now.
+    ['model.dts — fixture model (6 entities)', () => toTypeScript(model)],
   ];
 
   const results = [];

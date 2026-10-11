@@ -10,6 +10,16 @@ const missingSchema = (type) => {
 const isDefinition = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
+// The decoder and the serializer of a nested struct: the functions of its
+// definition (the options of a Schema it reuses), as its validate is, unless
+// the field's own definition gave them.
+const adopt = (type, source) => {
+  if (type.parse === undefined && typeof source.parse === 'function') type.parse = source.parse;
+  if (type.serialize === undefined && typeof source.serialize === 'function') {
+    type.serialize = source.serialize;
+  }
+};
+
 // A nested struct: built from a definition object, or borrowed from a Schema
 // instance, whose fields, references and schema-level validate are reused.
 const schema = {
@@ -24,11 +34,13 @@ const schema = {
       prep.root.updateFromSchema(definition);
       this.schema = definition.fields;
       this.validate = definition.options.validate || undefined;
+      adopt(this, definition.options);
       return;
     }
     if (isStruct(definition)) this.schema = definition;
     else this.schema = createStruct(definition, prep);
     this.validate = definition.validate || undefined;
+    adopt(this, definition);
   },
 
   compile() {

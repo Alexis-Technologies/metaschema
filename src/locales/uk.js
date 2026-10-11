@@ -1,6 +1,6 @@
 // Ukrainian messages, with the same table as ./en.js. Pass the table to a
 // check as `messages`: `schema.check(value, { messages: uk })`.
-const { shorten } = require('../util.js');
+const { shorten, safeString } = require('../util.js');
 
 const field = (path) => `Поле "${path}"`;
 
@@ -36,7 +36,9 @@ const reference = ({ entity }) => `сутність "${entity}" не знайд�
 
 const circular = () => 'є циклічним посиланням';
 
-const exception = ({ error }) => `перевірка завершилась помилкою ${error}`;
+const depth = ({ max }) => `вкладене глибше ніж ${max} посилань`;
+
+const exception = ({ error }) => `перевірка завершилась помилкою ${safeString(error)}`;
 
 const custom = () => 'помилка перевірки';
 
@@ -52,6 +54,9 @@ module.exports = {
   union,
   reference,
   circular,
+  depth,
   exception,
   custom,
 };
+
+Object.setPrototypeOf(module.exports, null);

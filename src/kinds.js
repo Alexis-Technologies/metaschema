@@ -33,21 +33,18 @@ const projection = (kind, meta, root) => {
   return { defs, metadata };
 };
 
-const kindStored = (kind, meta, root) => {
-  const { scope = 'application', store = 'persistent', allow = 'write' } = meta;
-  const metadata = { ...meta, kind, scope, store, allow };
-  const id = root.name ? `${toLowerCamel(root.name)}Id` : 'id';
+// The metadata of a kind over the defaults of its scope and store; a stored
+// kind adds the optional id field named after the entity.
+const kindOf = (defaultScope, defaultStore, stored) => (kind, meta, root) => {
+  const { scope = defaultScope, store = defaultStore, allow = 'write' } = meta;
   const defs = Object.create(null);
-  defs[id] = '?string';
-  return { defs, metadata };
+  if (stored) defs[root.name ? `${toLowerCamel(root.name)}Id` : 'id'] = '?string';
+  return { defs, metadata: { ...meta, kind, scope, store, allow } };
 };
 
-const kindMemory = (kind, meta) => {
-  const { scope = 'local', store = 'memory', allow = 'write' } = meta;
-  const metadata = { ...meta, kind, scope, store, allow };
-  const defs = Object.create(null);
-  return { defs, metadata };
-};
+const kindStored = kindOf('application', 'persistent', true);
+
+const kindMemory = kindOf('local', 'memory', false);
 
 const KIND_METADATA = Object.create(null);
 for (const kind of KIND_MEMORY) {

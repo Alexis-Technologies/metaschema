@@ -1,80 +1,16 @@
 const { isFirstUpper } = require('./metautil.js');
 
-const { BRAND, INSPECT, RUN, hasBrand } = require('./util.js');
+const { BRAND, INSPECT, RUN, HOOK, hasBrand } = require('./util.js');
 const { createContext } = require('./context.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata } = require('./metadata.js');
 const { ValidationResult } = require('./result.js');
-const { finalize, runValidate } = require('./issues.js');
+const { finalize, runValidate, settle } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
-const { embeds } = require('./prototypes/reference.js');
 const { warning, lintSchema } = require('./lint.js');
-
-const TS_SCALARS = {
-  string: 'string',
-  number: 'number',
-  boolean: 'boolean',
-  bigint: 'bigint',
-  date: 'Date',
-  null: 'null',
-  any: 'any',
-  unknown: 'unknown',
-};
-
-const listOf = (element) => (element.includes(' | ') ? `(${element})[]` : `${element}[]`);
-
-// Whether a reference field renders as its id (`companyId: string`) or as
-// the referenced type (`company: Company`): the same rule as `check`, with
-// a target that cannot be resolved taken as stored.
-const asId = (def) => {
-  const target = def.root.findReference(def.type);
-  if (target === null) return def.embed !== true;
-  return !embeds(target, def.embed, 'kind');
-};
-
-const tsStruct = (fields) => `{ ${tsFields(fields).join('; ')} }`;
-
-// The referenced type: its interface by name, inline when it has none, the
-// name of the reference when it cannot be resolved.
-const tsReference = (def) => {
-  const target = def.root.findReference(def.type);
-  if (target === null || target.name) return def.type;
-  const { fields } = target;
-  return hasBrand(fields, 'Struct') ? tsStruct(fields) : tsType(fields);
-};
-
-// The TypeScript type of a field. A reference to a stored kind is held as
-// an id, so it renders as a string (an array of them for `many`), a
-// reference to a memory kind as the type itself; a custom scalar with its
-// own check has no known shape and renders as a string.
-const tsType = (def) => {
-  const type = tsBase(def);
-  return def.nullable === true ? `${type} | null` : type;
-};
-
-const tsBase = (def) => {
-  if (isFirstUpper(def.type)) {
-    const element = asId(def) ? 'string' : tsReference(def);
-    return def.many ? listOf(element) : element;
-  }
-  if (def.enum) return def.enum.map((value) => JSON.stringify(value)).join(' | ');
-  if (def.union) return def.union.map(tsType).join(' | ');
-  if (def.scalar) return TS_SCALARS[def.scalar] || 'string';
-  if (def.schema) return tsStruct(def.schema);
-  if (Array.isArray(def.value)) return `[${def.value.map(tsType).join(', ')}]`;
-  if (def.key !== undefined && def.value) {
-    const entries = `${def.key}, ${tsType(def.value)}`;
-    return def.isInstance({}) ? `Record<${entries}>` : `Map<${entries}>`;
-  }
-  if (def.value) {
-    const element = tsType(def.value);
-    return def.isInstance([]) ? listOf(element) : `Set<${element}>`;
-  }
-  if (def.kind === 'struct') return 'unknown';
-  return 'string';
-};
+const { PREPARE, FINISH, SERIALIZE, infoOf, apply, looped, hasAsync } = require('./codec.js');
 
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
@@ -98,26 +34,29 @@ const compileSchema = (schema) => {
   };
 };
 
-const tsFields = (fields) => {
-  const lines = [];
-  for (const pair of Object.entries(fields)) {
-    const key = pair[0];
-    const def = pair[1];
-    if (!hasBrand(def, 'Type')) continue;
-    const optional = def.required ? '' : '?';
-    const name = isFirstUpper(def.type) && asId(def) ? `${key}Id` : key;
-    lines.push(`${name}${optional}: ${tsType(def)}`);
-  }
-  return lines;
+const resultOf = (context) => {
+  finalize(context.issues, context.messages);
+  return new ValidationResult(context);
 };
+
+// What parse returns: the output only for a valid value, the issues always.
+const parsed = (context, output) => {
+  finalize(context.issues, context.messages);
+  const valid = context.count === 0;
+  return { valid, value: valid ? output : undefined, issues: context.issues };
+};
+
+// The result of parse read as Standard Schema does.
+const standardize = (result) =>
+  result.valid ? { value: result.value } : { issues: result.issues };
 
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
   // change.
   #types = null;
 
-  // Whether the root value joins the cycle detection: only a struct with
-  // references can reach it again.
+  // Whether the root value joins the cycle detection (`context.source`):
+  // only a struct with references can reach it again.
   #tracked = false;
 
   // The lint of the definition, run on first use: a schema built in a hot
@@ -126,6 +65,9 @@ class Schema extends SchemaMetadata {
 
   // The Standard Schema props, built on first use.
   #standard = null;
+
+  // What the passes of parse and serialize know about the schema, on first use.
+  #codec = null;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -167,6 +109,8 @@ class Schema extends SchemaMetadata {
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
     this[RUN] = compileSchema(this);
+    const hook = Schema[HOOK];
+    if (hook !== undefined) hook(this);
   }
 
   // What is not wrong enough to throw: `Warning [code]: text` strings.
@@ -177,17 +121,23 @@ class Schema extends SchemaMetadata {
 
   // Standard Schema v1 (https://standardschema.dev): the interface tRPC,
   // TanStack Form, Hono and the other consumers of the specification validate
-  // through. A verdict only: a valid value comes back as it is, and the
-  // issues of an invalid one are the result's own (a message and a path of
-  // keys each). The vendor-specific `libraryOptions` of a call are the
-  // options of `check`. An accessor of the prototype stays out of toJSON,
+  // through. `validate` is `parse` with the policies of the schema: the value
+  // that comes back has the defaults and the decoders applied (the value
+  // itself when there was nothing to apply), and the issues of an invalid one
+  // are the result's own (a message and a path of keys each). A schema with
+  // an async validator or decoder validates through parseAsync, as the
+  // specification allows. The vendor-specific `libraryOptions` of a call are
+  // the options of `parse`. An accessor of the prototype stays out of toJSON,
   // inspect and Object.keys, and `validate` closes over the schema because a
-  // consumer calls it unbound.
+  // consumer calls it unbound. The `./generators` subpath adds the
+  // `jsonSchema` converter of Standard JSON Schema to the props.
   get '~standard'() {
     if (this.#standard === null) {
+      const async = hasAsync(this);
       const validate = (value, options) => {
-        const result = this.check(value, options == null ? undefined : options.libraryOptions);
-        return result.valid ? { value } : { issues: result.issues };
+        const libraryOptions = options == null ? undefined : options.libraryOptions;
+        if (async) return this.parseAsync(value, libraryOptions).then(standardize);
+        return standardize(this.parse(value, libraryOptions));
       };
       this.#standard = { version: 1, vendor: 'alexify.metaschema', validate };
     }
@@ -197,8 +147,9 @@ class Schema extends SchemaMetadata {
   get types() {
     if (this.namespaces.size === 0) return TYPES;
     if (this.#types === null) {
-      const types = Array.from(this.namespaces).map((ns) => ns.types);
-      this.#types = Object.assign(Object.create(null), ...types);
+      const types = Object.create(null);
+      for (const ns of this.namespaces) Object.assign(types, ns.types);
+      this.#types = types;
     }
     return this.#types;
   }
@@ -232,33 +183,101 @@ class Schema extends SchemaMetadata {
   // Validates a value: every problem is collected as an issue, and the result
   // never throws because of the value. `options`: root (the label of the
   // error lines, the schema name by default), maxErrors, unknown ('reject'
-  // or 'ignore' keys the schema does not have), messages (a locale).
+  // or 'ignore' keys the schema does not have), references, messages (a
+  // locale). A validator that returns a promise is an error here.
+  // `createContext` is called directly in every method here, never through a
+  // helper: V8 inlines the allocation into `check` that way (the context is
+  // the one allocation of a valid check), and a method in between cost 7%.
   check(source, options) {
     const context = createContext(options, this.name, this.unknown);
-    if (this.#tracked && source !== null && typeof source === 'object') {
-      context.seen = new Set();
-      context.seen.add(source);
-    }
+    if (this.#tracked) context.source = source;
     this[RUN](source, context);
+    return resultOf(context);
+  }
+
+  // The same check, with the validators that return a promise settled after
+  // the walk, in field order.
+  async checkAsync(source, options) {
+    const context = createContext(options, this.name, this.unknown);
+    context.async = [];
+    if (this.#tracked) context.source = source;
+    this[RUN](source, context);
+    if (context.async.length > 0) await settle(context);
+    return resultOf(context);
+  }
+
+  #pass(phase, source, context) {
+    if (this.#codec === null) this.#codec = infoOf(this);
+    return apply(this.#codec, this, source, context, undefined, phase);
+  }
+
+  // The defaults of the schema over a value, before its check; the objects
+  // met on the way down are not the check's, and a value that loops through
+  // its references is checked as it was given.
+  #prepare(source, context) {
+    const prepared = this.#pass(PREPARE, source, context);
+    const value = looped(context) ? source : prepared;
+    context.seen = null;
+    if (this.#tracked) context.source = value;
+    return value;
+  }
+
+  // Validates a value and builds the value of the program from it: the
+  // defaults fill the missing keys, the check runs, and a valid value goes
+  // through `unknown: 'strip'`, the decoders of its fields (the parts of a
+  // value before the value) and the schema's own `parse`. `{ valid, value,
+  // issues }`: the value is undefined when invalid, and the value given when
+  // there was nothing to apply; the value given is never written to.
+  parse(source, options) {
+    const context = createContext(options, this.name, this.unknown, true);
+    const value = this.#prepare(source, context);
+    this[RUN](value, context);
+    const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
+    return parsed(context, output);
+  }
+
+  async parseAsync(source, options) {
+    const context = createContext(options, this.name, this.unknown, true);
+    context.async = [];
+    const value = this.#prepare(source, context);
+    this[RUN](value, context);
+    if (context.async.length > 0) await settle(context);
+    let output;
+    if (context.count === 0) {
+      // Only a promise of the pass is awaited: a thenable in the value is data.
+      output = this.#pass(FINISH, value, context);
+      if (output instanceof Promise) output = (await output).value;
+    }
+    return parsed(context, output);
+  }
+
+  // The other direction: the schema's own `serialize`, then the serializers
+  // of the fields, from the value down to its parts. `{ value }`, or with
+  // `options.check` the verdict of `check` over the result as well.
+  serialize(source, options) {
+    const context = createContext(options, this.name, this.unknown);
+    const value = this.#pass(SERIALIZE, source, context);
+    if (options === undefined || options.check !== true) return { value };
+    context.seen = null;
+    if (this.#tracked) context.source = value;
+    this[RUN](value, context);
     finalize(context.issues, context.messages);
-    return new ValidationResult(context);
+    return { valid: context.count === 0, value, issues: context.issues };
   }
 
-  toInterface() {
-    const { name, fields } = this;
-    if (!hasBrand(fields, 'Struct')) return `type ${name} = ${tsType(fields)};`;
-    const lines = tsFields(fields).map((line) => `  ${line};`);
-    return [`interface ${name} {`, ...lines, '}'].join('\n');
-  }
-
+  // The types and the Standard Schema props depend on the namespaces (the
+  // latter through the entities an async validator may be in), so both are
+  // rebuilt on the next use.
   attach(...namespaces) {
     for (const ns of namespaces) this.namespaces.add(ns);
     this.#types = null;
+    this.#standard = null;
   }
 
   detach(...namespaces) {
     for (const ns of namespaces) this.namespaces.delete(ns);
     this.#types = null;
+    this.#standard = null;
   }
 
   toString() {

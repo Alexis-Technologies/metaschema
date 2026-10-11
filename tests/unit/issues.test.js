@@ -221,3 +221,55 @@ test('Issues: maxErrors stops collecting and walking', () => {
     assert.throws(() => schema.check({}, { maxErrors }), { name: 'TypeError' });
   }
 });
+
+test('Issues: a code a validator made up renders its own message, whatever the code', () => {
+  const schema = Schema.from({
+    a: { type: 'string', validate: () => ({ code: 'constructor', message: 'made up' }) },
+    b: { type: 'string', validate: () => ({ code: '__proto__', message: 'also made up' }) },
+    c: { type: 'string', validate: () => ({ code: 'toString', message: 'and again' }) },
+  });
+  assert.deepStrictEqual(schema.check({ a: 'x', b: 'y', c: 'z' }).errors, [
+    'Field "a" made up',
+    'Field "b" also made up',
+    'Field "c" and again',
+  ]);
+  // A caller's table has a prototype; it is looked up by code all the same.
+  const custom = { custom: () => 'own text', field: (path) => `At ${path}` };
+  const result = schema.check({ a: 'x', b: 'y', c: 'z' }, { messages: custom });
+  assert.deepStrictEqual(result.errors, ['At a made up', 'At b also made up', 'At c and again']);
+  assert.deepStrictEqual(
+    Schema.from({ d: { type: 'string', validate: () => false } }).check(
+      { d: 'd' },
+      { messages: custom },
+    ).errors,
+    ['At d own text'],
+  );
+});
+
+test('Issues: what a validator throws or returns is rendered whatever it is', () => {
+  const bare = Object.create(null);
+  const schema = Schema.from({
+    a: {
+      type: 'string',
+      validate: () => {
+        throw Symbol('sym');
+      },
+    },
+    b: {
+      type: 'string',
+      validate: () => {
+        throw bare;
+      },
+    },
+    c: { type: 'string', validate: () => bare },
+    d: { type: 'string', validate: () => Symbol('out') },
+  });
+  const result = schema.check({ a: 'a', b: 'b', c: 'c', d: 'd' });
+  assert.deepStrictEqual(result.errors, [
+    'Field "a" validation failed Symbol(sym)',
+    'Field "b" validation failed [object Object]',
+    'Field "c" [object Object]',
+    'Field "d" Symbol(out)',
+  ]);
+  assert.strictEqual(result.issues[0].params.error.toString(), 'Symbol(sym)');
+});

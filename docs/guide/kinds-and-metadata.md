@@ -128,6 +128,8 @@ field the schema does not have is reported in [`schema.warnings`](/guide/model#w
 ## Options
 
 Top-level `validate`, `format`, `parse` and `serialize` functions are schema options, stored in
-`schema.options`. metaschema itself calls only `validate`; see
-[Validation](/guide/validation#custom-validation). The others are kept for code that builds on the
-schema.
+`schema.options`. `validate` is run by every check (see
+[Validation](/guide/validation#custom-validation)), `parse` and `serialize` by
+[`parse` and `serialize`](/guide/parse#codecs-parse-and-serialize-on-a-field) as the decoder and
+encoder of the whole record; `format` is kept for code that builds on the schema and never
+called.

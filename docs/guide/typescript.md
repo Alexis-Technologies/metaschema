@@ -2,8 +2,8 @@
 
 ## Inferring types from a schema
 
-`Infer<D>` is the TypeScript type of a value `check` accepts for the definition `D`, computed
-from the definition's type alone, with nothing generated. `Schema.from` and `new Schema` keep
+`Infer<D>` is the TypeScript type of a value `check` and `parse` accept for the definition `D`,
+computed from the definition's type alone, with nothing generated. `Schema.from` and `new Schema` keep
 the definition as a type parameter (`Schema<D>`), and `InferSchema<typeof schema>` reads it:
 
 ```ts
@@ -50,6 +50,8 @@ type User = Infer<typeof definition>; // { name: string; role: 'admin' | 'user' 
 | `'key?': 'T'` | an optional property: `key?: T \| null \| undefined` |
 | `{ type: 'T', nullable: true }` | `T \| null` |
 | `{ type: 'T', ...options }` | `T`; the options do not change the type |
+| `{ type: 'T', default: x }` | `T`; in a struct, an optional property (`parse` fills it in) |
+| `{ type: 'T', parse: (value) => R }` | `T` on the input side; `R` in [`InferOutput`](#the-output-of-parse) |
 | `{ enum: ['open', 'done'] }` | `'open' \| 'done'` |
 | `{ array: T }`, `{ set: T }` | `T[]`, `Set<T>` |
 | `{ object: { string: T } }`, `{ map: { number: T } }` | `Record<string, T>`, `Map<number, T>` |
@@ -135,12 +137,43 @@ const model = new Model({}, new Map(Object.entries(entities)));
 The entities of a model are plain `Schema` instances (`model.entities.get('Person')` is a
 `Schema | undefined` and infers nothing); the entity map is the typed source.
 
-### `Infer` and `model.dts`
+### The output of `parse`
 
-Both follow the same rules, with two differences. The dts names a stored reference after its
+`InferOutput<D>` is the type of the value [`parse`](/guide/parse) gives: `Infer<D>` with the
+result of every `parse` function (a field's decoder, a nested struct's, the schema's own) in place
+of the value it decodes (`Awaited`, for an async decoder), and every key with a `default`
+present. `parse` returns `ParseResult<InferOutput<D>>`, which narrows on `valid`, and `serialize`
+takes an `InferOutput<D>` and gives an `Infer<D>`:
+
+```ts
+import { Schema, type Infer, type InferOutput } from '@alexify/metaschema';
+
+const event = Schema.from({
+  name: 'string',
+  'level?': { type: 'integer', default: 1 },
+  when: { type: 'string', parse: (text: string) => new Date(text) },
+});
+
+type EventInput = Infer<typeof event>;
+// { name: string; level?: number | null | undefined; when: string }
+type Event = InferOutput<typeof event>;
+// { name: string; level: number | null; when: Date }
+
+const result = event.parse(body);
+if (result.valid) result.value.when.getTime(); // result.value is Event
+```
+
+A defaulted key is optional on the input side, because `parse` fills it, and present on the
+output side; where the key was declared optional, `null` stays in its type (a given `null` is not
+defaulted) and `undefined` goes. `InferOutput<D, E>` takes an entity map like `Infer`.
+
+### `Infer` and the generated interfaces
+
+Both follow the same rules, with three differences. The dts names a stored reference after its
 column (`employerId: string`), where `check` reads the field (`employer`) and `Infer` types it as
 such. The dts renders an optional field as `street?: string`, where `check` also accepts `null`
-and `Infer` says `string | null | undefined`.
+and `Infer` says `string | null | undefined`. And the dts has every field with a `default`, which
+`Infer` lets a value leave out (the output side, `InferOutput`, has it too).
 
 The typings need TypeScript 5.0 or later (const type parameters). The examples of this page are
 compiled by `tests/types/infer.test-d.ts`. A `Schema<D>` is also a Standard Schema whose input
@@ -148,11 +181,15 @@ and output types are `Infer<D>`; see [Standard Schema](/guide/standard-schema#ty
 
 ## Generating interfaces from a model
 
-`model.dts` renders every entity as a TypeScript interface, in dependency order:
+`toTypeScript(model)` of the `@alexify/metaschema/generators` subpath renders every entity as a
+TypeScript interface, in dependency order (the subpath keeps the generators out of the core
+entry; see [The generators subpath](/guide/json-schema#the-generators-subpath)):
 
 ```js
+const { toTypeScript } = require('@alexify/metaschema/generators');
+
 const model = new Model(types, entities);
-console.log(model.dts);
+console.log(toTypeScript(model));
 ```
 
 For the model in [Domain Models](/guide/model) this prints:
@@ -201,33 +238,108 @@ Rules of the conversion:
 | `addresses: { many: 'Address' }`, a stored kind | ids: `addressesId: string[]` |
 | `label: 'Tag'`, a memory kind | the interface: `label: Tag` (`tags: Tag[]` for `many`) |
 | `{ type: 'Company', embed: true }` / `{ type: 'Tag', embed: false }` | the record / the id, whatever the kind |
+| `{ type: T, description: 'text' }` | a JSDoc comment above the member: `/** text */` |
+| `{ type: T, deprecated: true }` | a `@deprecated` tag in the JSDoc |
 
 Optional fields get `?`, and stored kinds include their own id field (`userId?: string`). Whether a
 reference is an id or the interface follows the [storage view and graph view](/guide/references#storage-view-and-graph-view)
-rule of `check`; a reference `toInterface()` cannot resolve (outside a model) renders as an id.
+rule of `check`; a reference `toTypeScript` cannot resolve (outside a model) renders as an id.
 
-`schema.toInterface()` renders a single schema the same way; a schema whose definition is a single
-type renders as a type alias (`type Pair = [number, string];`).
+`toTypeScript(schema)` renders a single schema the same way; a schema whose definition is a single
+type renders as a type alias (`type Pair = [number, string];`). After `register()` of the subpath
+the same renderings are `model.toTypeScript(options)`, `model.dts` and
+`schema.toInterface(options)`.
+
+### JSDoc and named types
+
+The `description` of a field is the JSDoc of its member, and `deprecated: true` adds the
+`@deprecated` tag, so an editor shows both where the type is used. By default an enum renders as
+a union of literals and a nested struct as an inline object type; `toTypeScript(model, { named:
+true })` gives each a type of its own, named after the entity and the field and rendered before
+the interface that uses it (`toTypeScript(schema, options)` takes the same option):
+
+```js
+const entities = new Map([
+  ['Company', { Dictionary: {}, name: { type: 'string', unique: true }, addresses: { many: 'Address' } }],
+  ['Address', { Entity: {}, city: 'string', street: 'string', building: '?string' }],
+  ['User', {
+    Registry: {},
+    login: { type: 'string', length: { min: 3, max: 32 }, description: 'The login name' },
+    role: { enum: ['admin', 'editor'] },
+    name: { first: 'string', 'last?': 'string' },
+    legacyId: { type: 'string', deprecated: true, required: false },
+    company: 'Company',
+    active: 'boolean',
+  }],
+]);
+
+console.log(toTypeScript(new Model(types, entities), { named: true }));
+```
+
+```ts
+interface Address {
+  city: string;
+  street: string;
+  building?: string;
+  addressId?: string;
+}
+
+interface Company {
+  name: string;
+  addressesId: string[];
+  companyId?: string;
+}
+
+type UserRole = "admin" | "editor";
+
+interface UserName {
+  first: string;
+  last?: string;
+}
+
+interface User {
+  /** The login name */
+  login: string;
+  role: UserRole;
+  name: UserName;
+  /** @deprecated */
+  legacyId?: string;
+  companyId: string;
+  active: boolean;
+  userId?: string;
+}
+```
+
+Without the option `role` is `"admin" | "editor"` and `name` is `{ first: string; last?: string }`
+inline. A name is the entity, then every key on the way to the field, capitalized
+(`UserName`, `UserAddressGeo` for a struct inside a struct); the element of a collection takes
+the name of its field (`levels: { array: { enum: [1, 2] } }` renders `type DocLevels = 1 | 2`
+and `levels: DocLevels[]`), and the elements of a tuple or the branches of a union take an index
+(`DocPair0`, `DocEither1`). An inline object type has no room for JSDoc, so the description of a
+field of a nested struct appears only with named types.
 
 ### Writing the file
 
-`saveTypes(outputFile, model)` writes `model.dts` to a file and returns a promise:
+`saveTypes(outputFile, target, options?)` of the generators subpath writes
+`toTypeScript(target, options)` to a file and returns a promise:
 
 ```js
-const { saveTypes } = require('@alexify/metaschema');
+const { saveTypes } = require('@alexify/metaschema/generators');
 
 await saveTypes('./types/model.d.ts', model);
+await saveTypes('./types/model.d.ts', model, { named: true });
 ```
 
-It is a thin wrapper over `fs.promises.writeFile(outputFile, model.dts)`, and the only API that
-touches the file system. In the browser it rejects.
+It is a thin wrapper over `fs.promises.writeFile`, and the only API that touches the file
+system. In the browser it rejects.
 
 ## Typings for the package
 
 `@alexify/metaschema` ships hand-written declarations in `index.d.ts`. Besides the classes and
-functions, it exports a type for everything public: `Infer`, `InferSchema`, `InferEntity`,
-`CustomTypes`, `Kind`, `Scope`, `Fields`, `FieldType`, `TypeEntry`, `ValidationIssue`,
-`DefinitionErrorCode` and the rest listed in the [API reference](/api/exports#types):
+functions, it exports a type for everything public: `Infer`, `InferOutput`, `InferSchema`,
+`InferEntity`, `CustomTypes`, `Kind`, `Scope`, `Fields`, `FieldType`, `TypeEntry`,
+`ValidationIssue`, `ParseResult`, `DefinitionErrorCode` and the rest listed in the
+[API reference](/api/exports#types):
 
 ```ts
 import { Schema, type Kind, type ValidationResult } from '@alexify/metaschema';

@@ -5,8 +5,11 @@ Everything is exported from the package root, in Node.js and in the browser.
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, saveTypes, Schema, Model, SchemaDefinitionError, ValidationResult,
+  getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
 } = require('@alexify/metaschema');
+
+const { toJSONSchema, toTypeScript, saveTypes, register } = require('@alexify/metaschema/generators');
+const jit = require('@alexify/metaschema/compile'); // compile, register, canEval
 ```
 
 ## Constants
@@ -28,10 +31,7 @@ Returns `{ defs, metadata }` for a kind: the default `scope`, `store` and `allow
 `meta`, and the fields the kind adds (the id field of stored kinds). Used internally when a
 definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadata).
 
-### `saveTypes(outputFile, model)`
-
-Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the browser. See
-[TypeScript](/guide/typescript#writing-the-file).
+`saveTypes` moved to the [generators subpath](#alexify-metaschema-generators) in 3.0.
 
 ## `Schema`
 
@@ -40,10 +40,15 @@ Writes `model.dts` to `outputFile`. Returns `Promise<void>`. Rejects in the brow
 | `Schema.from(definition, namespaces?)` | an anonymous schema, a `Schema<D>` whose `D` is the definition's type |
 | `new Schema(name, definition, namespaces?)` | a named schema, a `Schema<D>` as well; a `definition` that is already a `Schema` is returned as is (keeping its own name) with `namespaces` attached |
 | `Schema.extractSchema(def)` | `def` or `def.schema` when it is a `Schema`, else `null` |
-| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors`, `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options) |
+| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors` (a whole number), `maxDepth` (embedded records, 128 by default), `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `TypeError` with the code `ERR_ASYNC_VALIDATOR` |
+| `schema.checkAsync(value, options?)` | the same check as a promise, with the validators and custom `checkType`s that return a promise settled after the walk, in field order; see [Async](/guide/parse#async) |
+| `schema.parse(value, options?)` | validates a value and returns `{ valid, value, issues }`: the `default` of every missing key filled in, the check, `unknown: 'strip'`, the `parse` function of every field (the parts of a value before the value) and the schema's own `parse`; `value` is `undefined` when invalid and the value given when there was nothing to apply. `options`: those of `check`, with `unknown` also `'strip'`; see [Parse and serialize](/guide/parse) |
+| `schema.parseAsync(value, options?)` | the same as a promise; validators and decoders may return promises |
+| `schema.serialize(value, options?)` | the other direction, `{ value }`: the schema's own `serialize`, then the `serialize` function of every field from the value down to its parts; with `options.check` the result is validated and `{ valid, value, issues }` comes back, the other options being those of `check` |
 | `schema.validate(value, path?)` | runs only the schema-level `validate`; `null` without one |
-| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `check(value, options?.libraryOptions)` read as `{ value }` or `{ issues }` |
-| `schema.toInterface()` | the schema as a TypeScript interface |
+| `schema['~standard']` | the [Standard Schema v1](/guide/standard-schema) props `{ version: 1, vendor: 'alexify.metaschema', validate }`, built on first use; `validate(value, options?)` is `parse(value, options?.libraryOptions)` read as `{ value }` or `{ issues }`, or a promise of one when the schema has an `async function` among its validators, decoders and custom types. After `register()` of the generators subpath the props carry `jsonSchema` too: `input(options)` and `output(options)` are `toJSONSchema` for `options.target` (`draft-2020-12`, `draft-07` or `openapi-3.0`) with `options.libraryOptions` |
+| `schema.toJSONSchema(options?)` | after `register()` of the generators subpath: `toJSONSchema(schema, options)`, the schema as a [JSON Schema](/guide/json-schema) document |
+| `schema.toInterface(options?)` | after `register()`: `toTypeScript(schema, options)`, the schema as a TypeScript interface |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
@@ -64,7 +69,46 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
 | `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
-| `model.dts` | TypeScript interfaces for every entity |
+| `model.dts`, `model.toTypeScript(options?)` | after `register()` of the generators subpath: `toTypeScript(model, options)`, the interfaces of every entity in dependency order |
+| `model.toJSONSchema(options?)` | after `register()`: `toJSONSchema(model, options)`, every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of the entity `options.root` |
+
+## `@alexify/metaschema/generators`
+
+The generators of JSON Schema and TypeScript, in a subpath so that the core entry (16.1 KB
+min+gzip) does not carry them (4.5 KB more); see
+[The generators subpath](/guide/json-schema#the-generators-subpath).
+
+| Export | Description |
+| --- | --- |
+| `toJSONSchema(target, options?)` | the [JSON Schema](/guide/json-schema) document of a `Schema`, or of a `Model` (every entity as a definition, or `options.root`); `options`: `target` (`'draft-2020-12'`, `'draft-07'`, `'openapi-3.0'`, `'mongodb'`), `profile` (`'strict'`), `io` (`'input'`, `'output'`), `unrepresentable` (`'throw'`, `'any'`), `references` (`'kind'`, `'embed'`, `'id'`), `definitions` (a pointer), `root` (a model) |
+| `toTypeScript(target, options?)` | the TypeScript interface of a `Schema`, or the interfaces of every entity of a `Model` in dependency order; the `description` of a field as JSDoc, `deprecated: true` as `@deprecated`; `options.named` gives enums and nested structs types of their own; see [TypeScript](/guide/typescript#generating-interfaces-from-a-model) |
+| `saveTypes(outputFile, target, options?)` | writes `toTypeScript(target, options)` to `outputFile`; returns `Promise<void>`; rejects in the browser |
+| `register()` | installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`, `model.toTypeScript`, `model.dts` and `schema['~standard'].jsonSchema` on the classes, once per process |
+
+A target that is neither a `Schema` nor a `Model` is a `TypeError`.
+
+## `@alexify/metaschema/compile`
+
+The JIT backend, in a subpath of its own (3.9 KB min+gzip on top of the core); see
+[The JIT backend](/guide/compile).
+
+| Export | Description |
+| --- | --- |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated, error }`: `accelerated` is `false` where code generation from strings is not allowed (the closures stay, no `error`) and where a check could not be generated (`error` is the `ERR_JIT_BUILD` error with the generator's error as `cause`); `options.jit`: `'auto'` (the default: fall back), `true` (throw `ERR_NO_EVAL` or `ERR_JIT_BUILD` instead; a model all or nothing), `false` (never generate code; restores the closures of a compiled schema) |
+| `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched; `options.onFallback(schema, error)` is told of every schema whose check could not be generated |
+| `canEval()` | whether this environment allows code generation from strings, probed once |
+
+A target that is neither a `Schema` nor a `Model` is a `TypeError`; an option with a value it
+does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
+(`{ jit?: 'auto' | boolean; onFallback?: (schema, error) => void }`) and `Compiled`
+(`{ accelerated: boolean; error?: SchemaDefinitionError }`).
+
+## Runtime errors
+
+Validation of data never throws because of the value. A synchronous `check` or `parse` throws a
+`TypeError` with `code: 'ERR_ASYNC_VALIDATOR'` when a `validate` function, a custom type's
+`checkType` or a field's `parse` function returns a promise; `checkAsync` and `parseAsync` await
+them. The type of the code is `RuntimeErrorCode`.
 
 ## `ValidationResult`
 
@@ -87,7 +131,7 @@ What `schema.check` returns, and what a `validate` function may build and return
 
 `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk` export a locale each: a
 table with one renderer per issue code (`required`, `type`, `unexpected`, `enum`, `length`,
-`range`, `pattern`, `union`, `reference`, `circular`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
+`range`, `pattern`, `union`, `reference`, `circular`, `depth`, `exception`, `custom`) and `field(path)` for the location prefix. Pass one
 to `check` as `messages`; see [Messages and locales](/guide/validation#messages-and-locales).
 
 ## `SchemaDefinitionError`
@@ -117,7 +161,10 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option, or the `unknown` metadata of a schema, with a value it does not accept |
+| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have) or the `jit` option of `compile`/`register` with a value it does not accept |
+| `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
+| `ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
+| `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
 | `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
@@ -127,19 +174,28 @@ it; see [Validation](/guide/validation#the-result).
 
 | Type | Meaning |
 | --- | --- |
-| `Infer<D, E?>` | the type of a value `check` accepts for the definition type `D`; `E` is an optional entity map (an object of definitions by name) that resolves references to memory kinds and projections |
+| `Infer<D, E?>` | the type of a value `check` and `parse` accept for the definition type `D` (a key with a `default` may be left out); `E` is an optional entity map (an object of definitions by name) that resolves references to memory kinds and projections |
+| `InferOutput<D, E?>` | the type of the value `parse` gives: `Infer` with the result of every `parse` function in place of the value it decodes and every defaulted key present; see [TypeScript](/guide/typescript#the-output-of-parse) |
+| `ParseResult<T>` | what `parse` returns: `{ valid: true, value: T, issues: [] }` or `{ valid: false, value: undefined, issues }` |
+| `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'` |
+| `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
+| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'`, the code of the error a synchronous call throws for a promise |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
 | `Schema<D>` | the class, generic over its definition; `Schema` on its own is any schema |
-| `StandardProps<D>` | the type of `schema['~standard']` of a `Schema<D>`: `version`, `vendor`, `validate` and the type-level `types` (`input` and `output`, both `Infer<D>`); see [Standard Schema](/guide/standard-schema#typescript) |
-| `StandardResult<T>` | what `validate` returns: `{ value: T }` or `{ issues: ReadonlyArray<ValidationIssue> }` |
-| `StandardOptions` | the options of `validate`: `libraryOptions`, the `CheckOptions` of the call |
+| `StandardProps<D>` | the type of `schema['~standard']` of a `Schema<D>`: `version`, `vendor`, `validate` and the type-level `types` (`input: Infer<D>`, `output: InferOutput<D>`); see [Standard Schema](/guide/standard-schema#typescript) |
+| `StandardResult<T>` | what `validate` returns, or a promise of: `{ value: T }` or `{ issues: ReadonlyArray<ValidationIssue> }` |
+| `StandardOptions` | the options of `validate`: `libraryOptions`, the `ParseOptions` of the call |
+| `StandardConverter` | the type of `schema['~standard'].jsonSchema`: `input` and `output`, from `StandardJSONSchemaOptions` (`target` and `libraryOptions`) to `JSONSchema` |
+| `JSONSchema` | what `toJSONSchema` returns: `Record<string, unknown>` |
+| `JSONSchemaOptions`, `ModelJSONSchemaOptions`, `JSONSchemaTarget` | the options of `schema.toJSONSchema`, those of `model.toJSONSchema` (plus `root`), and the four targets |
+| `InterfaceOptions` | the options of `toTypeScript`, `toInterface` and `saveTypes`: `named` |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
 `TypeTable`, `TypeConstructor`, `TypeEntry` (an entry of the table passed to `Model`),
-`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`,
+`KindMetadata`, `SchemaOptions`, `ModelOptions`, `CheckOptions`, `CheckContext`, `ResultOptions`, `StandardJSONSchemaOptions`,
 `Validator`, `ValidationReturn`, `ValidationIssue` (a union by code), `IssueOf<Code>`,
 `IssueParams`, `IssueInput`, `IssueCode`, `Locale`, `Messages`, `FlatIssues`, `IssueTree` and
 `DefinitionErrorCode`.

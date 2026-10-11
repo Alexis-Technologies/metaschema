@@ -11,7 +11,14 @@ const isFirstLetter = (s) => isFirstUpper(s) || isFirstLower(s);
 
 const toLowerCamel = (s) => s.charAt(0).toLowerCase() + s.slice(1);
 
-const firstKey = (obj) => Object.keys(obj).find(isFirstLetter);
+// The first own key that starts with a letter, without a list of the keys:
+// this runs once for every object of a definition.
+const firstKey = (obj) => {
+  for (const key in obj) {
+    if (Object.hasOwn(obj, key) && isFirstLetter(key)) return key;
+  }
+  return undefined;
+};
 
 module.exports = {
   inRange,

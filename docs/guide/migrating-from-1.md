@@ -5,7 +5,8 @@ name, the exports and most definitions stay as they are; what changes is the sha
 the signature of `check`, and a few rules of the language that 1.x left ambiguous. This page
 goes through them with the 1.x behaviour on the left and the 2.0 behaviour on the right; the
 condensed list is under "Upgrading from 1.x" in the
-[CHANGELOG](https://github.com/Alexis-Technologies/metaschema/blob/main/CHANGELOG.md).
+[CHANGELOG](https://github.com/Alexis-Technologies/metaschema/blob/main/CHANGELOG.md). The
+changes of 3.0 are on [Migrating from 2.x](/guide/migrating-from-2), the page to read next.
 
 Everything not listed here is additive: `integer`, `date`, `null`, `any`, `union`, `nullable`,
 `pattern`, `min`/`max`, locales, the lint, `Infer` and Standard Schema work on a 1.x schema as it

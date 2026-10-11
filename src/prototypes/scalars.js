@@ -1,5 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
 const { issues } = require('../issues.js');
+const { ENUM_SET_SIZE } = require('../util.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
@@ -25,9 +26,6 @@ const scalar = {
     return scalarCheck(this.scalar, this.required);
   },
 };
-
-// Past this many values a Set lookup beats a linear scan.
-const ENUM_SET_SIZE = 8;
 
 const enumerable = {
   kind: 'scalar',

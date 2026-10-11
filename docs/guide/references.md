@@ -73,11 +73,13 @@ person.check({ name: 'Ann', employer: { name: 'Acme', addresses: [] }, home: { c
   === category`) against stored kinds is a plain type error, not a `circular` issue; `circular` is
   reported where a record is embedded and met again.
 - A reference to an entity the model does not have is a `reference` issue in every mode.
-- `schema.toInterface()` outside a model cannot resolve the target and renders the id form; inside a
-  model the memory-kind target renders by its interface name, which `model.dts` emits.
+- `toTypeScript(schema)` outside a model cannot resolve the target and renders the id form; inside
+  a model the memory-kind target renders by its interface name, which `toTypeScript(model)` emits.
 - `Infer` applies the same rule through an [entity map](/guide/typescript#references-and-entity-maps):
-  a stored reference is a string, a memory reference is the record. The JSON Schema export planned
-  for 2.1 will follow it too.
+  a stored reference is a string, a memory reference is the record. The
+  [JSON Schema export](/guide/json-schema#references) follows it too: a stored reference is
+  `{ type: 'string' }`, a memory reference a `$ref` to the definition of the entity, and the
+  `references` option of `toJSONSchema` switches every reference as the option of `check` does.
 
 ## Validation
 
@@ -105,12 +107,28 @@ A reference to an entity that is not in the model fails validation with
 `Entity "<Name>" is not found`, and the model reports it as a warning when it is built (see
 [Domain Models](/guide/model#warnings)).
 
+### Depth
+
+A graph may be deeper than the stack: a linked list of a few thousand records embedded through
+`next` would overflow it. `check`, `parse` and `serialize({ check: true })` count the embedded
+records they are inside and record a `depth` issue at the first one past `maxDepth` (128 by
+default), with `{ max }` as params:
+
+```js
+node.check(deepChain).errors; // [ 'Field "Node.next.next…" is nested deeper than 128 references' ]
+node.check(deepChain, { maxDepth: 4096 }); // a program that validates deeper graphs says so
+```
+
+The passes of `parse` leave such a record as it is, and the check reports it. An id never
+counts: the storage view has no depth.
+
 ## Relations and references
 
 Each schema records what it points at:
 
 - `schema.references` is a `Set` of every type and entity name the schema uses.
-- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field, read from
+- `schema.relations` is a `Set` of `{ to, type }` entries, one per reference field (a list: two
+  fields referencing the same entity are two entries), read from
   the referencing side: a `many` field is `'one-to-many'` (one record holds many of the target),
   any other reference is `'many-to-one'` (many records point at one target).
 

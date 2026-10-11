@@ -1,5 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const esbuild = require('esbuild');
@@ -10,9 +12,19 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
+// One bundle of the core entry and the two subpaths, the way an application
+// that uses them gets them: a subpath shares the core's modules, and its
+// register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
+  const contents = [
+    'module.exports = {',
+    `core: require('./${entry}'),`,
+    "generators: require('./src/generators/index.js'),",
+    "compile: require('./src/compile/index.js'),",
+    '};',
+  ].join(' ');
   const result = await esbuild.build({
-    entryPoints: [path.join(ROOT, entry)],
+    stdin: { contents, resolveDir: ROOT },
     bundle: true,
     write: false,
     logLevel: 'silent',
@@ -45,7 +57,34 @@ const loadNode = async (minify) => {
 // which deepStrictEqual rejects, so results are copied into this realm first.
 const errorsOf = (result) => Array.from(result.errors);
 
-const checkBundle = ({ Schema, Model }) => {
+// Whether this process may build a function from source: not under
+// --disallow-code-generation-from-strings (pnpm run test:nojit), which binds
+// the main context; a vm context of its own, where the browser bundle runs,
+// is not bound by it, so that bundle is held to its own probe.
+const evaluates = (() => {
+  try {
+    // oxlint-disable-next-line no-new-func
+    return typeof new Function('') === 'function';
+  } catch {
+    return false;
+  }
+})();
+
+const checkBundle = async ({ core, generators, compile }, browser) => {
+  const { Schema, Model } = core;
+  assert.strictEqual('saveTypes' in core, false);
+  // The compile subpath through the bundle: the generated check validates
+  // like the closures, inside a vm context too, or the fallback does.
+  const fast = Schema.from({ name: 'string', 'age?': 'number', tags: { array: 'string' } });
+  const accelerated = browser ? compile.canEval() : evaluates;
+  assert.strictEqual(compile.canEval(), accelerated);
+  // The result is an object of the bundle's realm, so its fields are read.
+  assert.strictEqual(compile.compile(fast).accelerated, accelerated);
+  assert.deepStrictEqual(errorsOf(fast.check({ name: 1, tags: ['a', 2], age: null })), [
+    'Field "name" not of expected type: string',
+    'Field "tags[1]" not of expected type: string',
+  ]);
+  assert.strictEqual(fast.check({ name: 'x', tags: [] }).valid, true);
   const flat = Schema.from({ name: 'string', age: 'number' });
   assert.deepStrictEqual(errorsOf(flat.check({ name: 1, age: 'x' })), [
     'Field "name" not of expected type: string',
@@ -80,6 +119,56 @@ const checkBundle = ({ Schema, Model }) => {
   assert.deepStrictEqual(errorsOf(person.check({ employer: { name: 1 } })), [
     'Field "Person.employer.name" not of expected type: string',
   ]);
+  assert.strictEqual(compile.compile(model).accelerated, accelerated);
+  assert.deepStrictEqual(errorsOf(person.check({ employer: { name: 1 } })), [
+    'Field "Person.employer.name" not of expected type: string',
+  ]);
+
+  // parse, parseAsync, checkAsync and serialize through the bundle, over the
+  // compiled check where there is one.
+  const event = Schema.from({
+    name: 'string',
+    'level?': { type: 'integer', default: 1 },
+    when: {
+      type: 'string',
+      parse: (text) => new Date(text).getTime(),
+      serialize: (time) => new Date(time).toISOString(),
+    },
+    'note?': { type: 'string', validate: async (text) => text !== 'bad' || 'is bad' },
+  });
+  assert.strictEqual(compile.compile(event).accelerated, accelerated);
+  const parsed = event.parse(
+    { name: 'x', when: '1970-01-01T00:00:01.000Z', extra: 1 },
+    { unknown: 'strip' },
+  );
+  assert.strictEqual(parsed.valid, true);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(parsed.value)), {
+    name: 'x',
+    when: 1000,
+    level: 1,
+  });
+  assert.strictEqual(parsed.issues.length, 0);
+  assert.strictEqual(event.parse({ name: 1 }).valid, false);
+  const settled = await event.parseAsync({
+    name: 'x',
+    when: '1970-01-01T00:00:01.000Z',
+    note: 'bad',
+  });
+  assert.strictEqual(settled.valid, false);
+  assert.deepStrictEqual(errorsOf({ errors: settled.issues.map((issue) => issue.message) }), [
+    'is bad',
+  ]);
+  const checked = await event.checkAsync({ name: 'x', when: 'w', note: 'ok' });
+  assert.strictEqual(checked.valid, true);
+  assert.throws(() => event.check({ name: 'x', when: 'w', note: 'ok' }), {
+    code: 'ERR_ASYNC_VALIDATOR',
+  });
+  assert.strictEqual(
+    event.serialize({ name: 'x', when: 1000, level: 1 }).value.when,
+    '1970-01-01T00:00:01.000Z',
+  );
+  // A promise of the bundle's realm.
+  assert.strictEqual(typeof event['~standard'].validate({ name: 'x', when: 'w' }).then, 'function');
 
   // The Standard Schema accessor survives the bundler: a computed key on the
   // class and a private field behind it.
@@ -93,10 +182,40 @@ const checkBundle = ({ Schema, Model }) => {
   const issues = Array.from(failed.issues, (issue) => [issue.message, Array.from(issue.path)]);
   assert.deepStrictEqual(issues, [['not of expected type: string', ['name']]]);
   assert.strictEqual(JSON.stringify(flat).includes('~standard'), false);
+
+  // The generators through the bundle: the functions, then the methods
+  // register() installs on the bundled classes.
+  assert.strictEqual(typeof flat.toJSONSchema, 'undefined');
+  assert.strictEqual(generators.toJSONSchema(flat, { target: 'draft-07' }).type, 'object');
+  assert.strictEqual(generators.toTypeScript(person).startsWith('interface Person {'), true);
+  generators.register();
+  const json = flat.toJSONSchema({ target: 'draft-07' });
+  assert.strictEqual(json.$schema, 'http://json-schema.org/draft-07/schema#');
+  assert.deepStrictEqual(Array.from(json.required), ['name', 'age']);
+  // The converter joins the props the core built before registration.
+  assert.strictEqual(flat['~standard'], standard);
+  assert.strictEqual(standard.jsonSchema.input({ target: 'draft-2020-12' }).type, 'object');
+  assert.deepStrictEqual(Object.keys(standard.jsonSchema), ['input', 'output']);
+  const mongo = model.toJSONSchema({ target: 'mongodb' });
+  assert.strictEqual(mongo.Person.properties.employer.bsonType, 'object');
+  assert.strictEqual(JSON.stringify(person.toJSONSchema().$defs.Company.required), '["name"]');
+  const named = new Model({}, [['Doc', { Struct: {}, status: { enum: ['a'] } }]]);
+  assert.strictEqual(named.toTypeScript({ named: true }).startsWith('type DocStatus = "a";'), true);
+  // The browser map swaps the runtime behind saveTypes; the Node runtime writes.
+  if (browser) {
+    const written = generators.saveTypes('model.d.ts', named);
+    await assert.rejects(written, { message: 'saveTypes is not available in the browser' });
+    return;
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metaschema-'));
+  const file = path.join(dir, 'model.d.ts');
+  await generators.saveTypes(file, named);
+  assert.strictEqual(fs.readFileSync(file, 'utf8'), generators.toTypeScript(named));
+  fs.rmSync(dir, { recursive: true, force: true });
 };
 
 for (const minify of [false, true]) {
   const label = minify ? 'minified' : 'unminified';
-  test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify)));
-  test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify)));
+  test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify), true));
+  test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify), false));
 }

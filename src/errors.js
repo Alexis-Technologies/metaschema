@@ -25,4 +25,13 @@ class SchemaDefinitionError extends TypeError {
 
 SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
 
-module.exports = { SchemaDefinitionError };
+// A validator, a custom checkType or a decoder returned a promise to a
+// synchronous check or parse: a programming error of the call, not of the
+// value, so it throws with a code of its own and names the method to use.
+const asyncReturn = (what, where, method) => {
+  const error = new TypeError(`The ${what} of "${where}" returned a promise; use ${method}`);
+  error.code = 'ERR_ASYNC_VALIDATOR';
+  return error;
+};
+
+module.exports = { SchemaDefinitionError, asyncReturn };

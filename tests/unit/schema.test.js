@@ -3,6 +3,9 @@ const assert = require('node:assert');
 const util = require('node:util');
 
 const { Schema, Model, ValidationResult } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Schema: constructor', () => {
   const definition = { field1: 'string' };
@@ -544,4 +547,37 @@ test('Schema: validate(value, path) runs only the schema-level function', () => 
   assert.strictEqual(thrown.issues[0].code, 'exception');
   assert.ok(thrown.issues[0].params.error instanceof Error);
   assert.strictEqual(Schema.from({ field: 'string' }).validate({}), null);
+});
+
+test('Schema: an index or an option may be called like a method, a metadata key like anything', () => {
+  // `indexes` and `options` are dictionaries, not instances with methods.
+  const schema = new Schema('Table', {
+    Entity: {},
+    a: 'string',
+    extract: { index: ['a'] },
+    constructor: { unique: ['a'] },
+  });
+  assert.deepStrictEqual(Object.keys(schema.indexes), ['extract', 'constructor']);
+  assert.strictEqual(schema.check({ a: 'x' }).valid, true);
+  assert.strictEqual(Object.getPrototypeOf(schema.indexes), null);
+  assert.deepStrictEqual(Object.keys(schema.options), ['validate', 'format', 'parse', 'serialize']);
+  // The metadata of a type is a dictionary: `__proto__` is a key of it.
+  const PROTO = '__proto__';
+  const model = new Model({ string: { metadata: { [PROTO]: { polluted: true } } } }, []);
+  assert.strictEqual(Object.hasOwn(model.types.string.metadata, PROTO), true);
+  assert.strictEqual({}.polluted, undefined);
+});
+
+test('Schema: the schema-level validate runs on the schema, and never returns a promise', () => {
+  const schema = new Schema('Doc', {
+    Struct: {},
+    a: 'string',
+    validate(value, path) {
+      return this.name === 'Doc' && path === 'body' ? null : 'wrong this or path';
+    },
+  });
+  assert.strictEqual(schema.validate({ a: 'x' }, 'body').valid, true);
+  assert.strictEqual(schema.check({ a: 'x' }).valid, false);
+  const async = Schema.from({ a: 'string', validate: async () => true });
+  assert.throws(() => async.validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
 });

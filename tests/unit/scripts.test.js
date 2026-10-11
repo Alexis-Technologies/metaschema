@@ -8,18 +8,46 @@ const ROOT = path.join(__dirname, '../..');
 const run = (script, args) =>
   spawnSync(process.execPath, [path.join(ROOT, script), ...args], { cwd: ROOT, encoding: 'utf8' });
 
-test('Scripts: size reports both entries and enforces the gzip budget', () => {
-  const ok = run('scripts/size.js', ['--max-gzip', '100']);
+test('Scripts: size reports the entries and the subpaths and enforces the budgets', () => {
+  const budgets = [
+    '--max-gzip',
+    '100',
+    '--max-gzip-generators',
+    '100',
+    '--max-gzip-compile',
+    '100',
+  ];
+  const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /\| Node entry \(index\.js\) \|/);
   assert.match(ok.stdout, /\| Browser entry \(browser\.js\) \|/);
+  assert.match(ok.stdout, /\| Generators \(\.\/generators\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Compile \(\.\/compile\) on top of the Node entry \| [1-9]/);
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
   assert.match(over.stderr, /Bundle budget exceeded: Node entry/);
   assert.match(over.stderr, /Bundle budget exceeded: Browser entry/);
+  assert.doesNotMatch(over.stderr, /Generators/);
+
+  const generators = run('scripts/size.js', ['--max-gzip-generators', '1']);
+  assert.strictEqual(generators.status, 1);
+  assert.match(generators.stderr, /Bundle budget exceeded: Generators/);
+  assert.doesNotMatch(generators.stderr, /exceeded: Node entry/);
+  assert.doesNotMatch(generators.stderr, /exceeded: Compile/);
+
+  const compile = run('scripts/size.js', ['--max-gzip-compile', '1']);
+  assert.strictEqual(compile.status, 1);
+  assert.match(compile.stderr, /Bundle budget exceeded: Compile \(\.\/compile\)/);
+  assert.doesNotMatch(compile.stderr, /exceeded: Generators/);
 
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
-  assert.match(bad.stderr, /positive number of kilobytes/);
+  assert.match(bad.stderr, /--max-gzip needs a positive number of kilobytes/);
+  const badGenerators = run('scripts/size.js', ['--max-gzip-generators', 'x']);
+  assert.strictEqual(badGenerators.status, 1);
+  assert.match(badGenerators.stderr, /--max-gzip-generators needs a positive number/);
+  const badCompile = run('scripts/size.js', ['--max-gzip-compile', '-2']);
+  assert.strictEqual(badCompile.status, 1);
+  assert.match(badCompile.stderr, /--max-gzip-compile needs a positive number/);
 });

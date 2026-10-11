@@ -2,6 +2,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Schema } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
+
+register();
 
 test('Values: date is a Date instance with a valid time', () => {
   const schema = Schema.from({ at: 'date', 'until?': 'date' });

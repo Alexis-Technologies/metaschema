@@ -450,3 +450,23 @@ test('Collections: elements are reported by index or key, with the limit respect
   ]);
   assert.strictEqual(many.check({ byKey: { a: 1 } }).valid, true);
 });
+
+test('Collections: the key type is "string" or "number", settled when the field is built', () => {
+  const invalid = { name: 'SchemaDefinitionError', code: 'ERR_INVALID_DEFINITION' };
+  assert.throws(() => Schema.from({ f: { type: 'map', value: 'string' } }), {
+    ...invalid,
+    message: /Type "map" needs a key type of "string" or "number".* in "f"$/,
+  });
+  assert.throws(() => Schema.from({ f: { object: 'string' } }), invalid);
+  assert.throws(() => Schema.from({ f: { type: 'object', key: 'boolean', value: 'string' } }), {
+    ...invalid,
+    message: /Type "object" needs a key type/,
+  });
+  assert.throws(() => Schema.from({ f: { map: { 1: 'string' } } }), invalid);
+  const numbered = Schema.from({ f: { object: { number: 'string' } } });
+  assert.strictEqual(numbered.fields.f.key, 'number');
+  assert.strictEqual(
+    Schema.from({ f: { type: 'map', key: 'string', value: 'number' } }).fields.f.key,
+    'string',
+  );
+});

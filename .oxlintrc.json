@@ -36,10 +36,21 @@
     ".DS_Store"
   ],
   "rules": {
-    "no-var": "warn",
+    "no-var": "error",
     "object-shorthand": [
-      "warn",
+      "error",
       "properties"
+    ],
+    "no-restricted-properties": [
+      "error",
+      {
+        "property": "forEach",
+        "message": "Use an index loop (CLAUDE.md: loops, not forEach)."
+      },
+      {
+        "property": "reduce",
+        "message": "Use a loop that does the work in one pass (CLAUDE.md)."
+      }
     ],
     "accessor-pairs": [
       "error",

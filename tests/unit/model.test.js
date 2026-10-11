@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { Model, Schema } = require('../../index.js');
+const { register } = require('../../src/generators/index.js');
 
 const database = {
   name: 'example',
@@ -18,6 +19,8 @@ const types = {
   text: { js: 'string', metadata: { pg: 'text' } },
   customObject: { js: 'object', metadata: { pg: 'jsonb' } },
 };
+
+register();
 
 test('Model: from struct', () => {
   const entities = new Map();

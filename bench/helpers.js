@@ -17,17 +17,21 @@ const subject = { schema: null };
 
 const callCheck = (value, options) => subject.schema.check(value, options);
 
+// parse is measured the same way.
+const callParse = (value, options) => subject.schema.parse(value, options);
+
 const DECOYS = [
-  { check: () => 0 },
-  { a: 1, check: () => 1 },
-  { a: 1, b: 1, check: () => 2 },
-  { a: 1, b: 1, c: 1, check: () => 3 },
-  { a: 1, b: 1, c: 1, d: 1, check: () => 4 },
+  { check: () => 0, parse: () => 0 },
+  { a: 1, check: () => 1, parse: () => 1 },
+  { a: 1, b: 1, check: () => 2, parse: () => 2 },
+  { a: 1, b: 1, c: 1, check: () => 3, parse: () => 3 },
+  { a: 1, b: 1, c: 1, d: 1, check: () => 4, parse: () => 4 },
 ];
 for (let round = 0; round < 2_000; round++) {
   for (const decoy of DECOYS) {
     subject.schema = decoy;
     callCheck(null, undefined);
+    callParse(null, undefined);
   }
 }
 
@@ -78,7 +82,16 @@ const NESTED_SCHEMA = {
   point: ['number', 'number'],
 };
 
+// The flat schema with a default to fill and a decoder to run: what parse
+// does beyond the check.
+const CODEC_SCHEMA = {
+  ...FLAT_SCHEMA,
+  'role?': { type: 'string', default: 'viewer' },
+  since: { type: 'string', parse: (text) => new Date(text) },
+};
+
 const FLAT_VALID = { name: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
+const CODEC_VALID = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
 const FLAT_INVALID = { name: 7, email: 'm@x', extra: true };
 
 const NESTED_VALID = {
@@ -106,9 +119,14 @@ const NESTED_INVALID = {
 // flat schema and with its nested part, so the numbers line up with that
 // suite's four modes: parseSafe (unknown keys ignored, the value returned),
 // parseStrict (unknown keys rejected, the value returned), assertLoose and
-// assertStrict (the verdict only). metaschema has no parse step yet, so the
-// parse modes return the value when it is valid.
+// assertStrict (the verdict only). The parse modes return the value when it
+// is valid, which is what `parse` gives for a schema with nothing to apply;
+// the `parse — …` scenarios measure `parse` itself. The first field is called
+// `number`, a type name, so the kind marker says the definition is a struct
+// (without it the schema is a number field with five unknown options, and
+// every check fails at once).
 const MOLTAR_FLAT_SCHEMA = {
+  Struct: {},
   number: 'number',
   negNumber: 'number',
   maxNumber: 'number',
@@ -158,9 +176,12 @@ const loadModelFixture = () => {
 module.exports = {
   bench,
   callCheck,
+  callParse,
   FLAT_SCHEMA,
   NESTED_SCHEMA,
+  CODEC_SCHEMA,
   FLAT_VALID,
+  CODEC_VALID,
   FLAT_INVALID,
   NESTED_VALID,
   NESTED_INVALID,

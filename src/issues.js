@@ -4,7 +4,8 @@
 // are rendered once, at the end of the check, through the locale of that check.
 // Every issue has the same keys in the same order, so loops over them see one
 // shape.
-const { hasBrand, shorten } = require('./util.js');
+const { hasBrand, shorten, safeString } = require('./util.js');
+const { asyncReturn } = require('./errors.js');
 const en = require('./locales/en.js');
 
 // Shared by the issues that carry no params, so none of them is ever undefined.
@@ -57,7 +58,8 @@ const issues = {
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
   circular: (context, key) => record(context, 'circular', EMPTY, key),
-  exception: (context, error) => record(context, 'exception', { error }),
+  depth: (context, max, key) => record(context, 'depth', { max }, key),
+  exception: (context, error, key) => record(context, 'exception', { error }, key),
 };
 
 // A key of the value that is not an identifier is bracketed and quoted, so
@@ -82,13 +84,8 @@ const toDotPath = (path, root = '') => {
 
 // The path of an issue returned by a validator is relative to the field the
 // validator belongs to: an array of keys, or a single key.
-const relative = (context, path) => {
-  if (path === undefined) return context.path.slice();
-  if (Array.isArray(path)) return context.path.concat(path);
-  const keys = context.path.slice();
-  keys.push(path);
-  return keys;
-};
+const relative = (context, path) =>
+  Array.isArray(path) ? context.path.concat(path) : pathOf(context, path);
 
 const isIssue = (output) =>
   output !== null && typeof output === 'object' && typeof output.message === 'string';
@@ -131,13 +128,17 @@ const absorb = (context, output, code, fallback) => {
     push(context, { code: output.code || code, path, message: output.message, params });
     return;
   }
-  record(context, code, EMPTY, undefined, String(output));
+  record(context, code, EMPTY, undefined, safeString(output));
 };
 
+// The renderer of a code: the locale's own, else the built-in one. The tables
+// have no prototype (the built-in ones by construction, a caller's through
+// `messagesOf` in context.js), so a code a validator made up (`constructor`
+// included) finds no renderer and keeps the validator's message.
 const render = (messages, issue) => {
   if (typeof messages === 'function') return messages(issue);
   const detail = messages[issue.code] || en[issue.code];
-  return detail === undefined ? issue.message : detail(issue.params, issue);
+  return typeof detail === 'function' ? detail(issue.params, issue) : issue.message;
 };
 
 // Messages are produced once, after the walk, for the issues that have none
@@ -160,37 +161,131 @@ const describe = (messages, root, issue) => {
   return `${field(toDotPath(issue.path, root))} ${message}`;
 };
 
-// The two places where user code runs, and the only ones with a try/catch:
-// an exception from a validator or a custom checkType is reported as an
-// issue, not thrown. Both get the dotted path of the field.
-const guarded = (context, code, fallback, call) => {
+const isThenable = (value) =>
+  value !== null && typeof value === 'object' && typeof value.then === 'function';
+
+// A promise nothing waits for any more (a synchronous call that throws for
+// it, a settle stopped by the error limit, the trial of a union branch) is
+// still observed, so that its rejection is never an unhandled one.
+const swallow = () => {};
+
+const abandon = (thenable) => {
+  Promise.resolve(thenable).then(undefined, swallow);
+};
+
+// The params of a bare `false`: for a checkType the type it expected and what
+// it got, built only now that there is something to record.
+const fallbackOf = (code, owner, value) =>
+  code === 'type' ? { expected: owner.type, received: typeOf(value) } : EMPTY;
+
+// What a validator or a checkType returned, into the context.
+const conclude = (context, output, code, owner, value) => {
+  if (output === true || output == null) return;
+  const bare = output === false || Array.isArray(output);
+  absorb(context, output, code, bare ? fallbackOf(code, owner, value) : EMPTY);
+};
+
+// Where user code runs (a validator, a custom checkType; the decoders have
+// their own place in codec.js): an exception is reported as an issue, not
+// thrown, and the function gets the value and the dotted path of the field,
+// called on its owner here rather than through a closure made per call. In
+// an async check (`context.async` is a list) a promise is kept with the path
+// it was met at, and every validator after it is kept too, with what it needs
+// to be called, so that the rule "a validator runs only when nothing before
+// it failed" holds over the promises as well; `settle` runs the list after
+// the walk, in field order. In a synchronous check a promise is an error of
+// the call.
+const guarded = (context, code, owner, fn, value) => {
+  const pending = context.async;
+  const { path, count } = context;
+  if (pending !== null && pending.length > 0) {
+    pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
+    return;
+  }
   let output;
   try {
-    output = call(toDotPath(context.path, context.root));
+    output = fn.call(owner, value, toDotPath(path, context.root));
   } catch (error) {
     issues.exception(context, error);
     return;
   }
-  absorb(context, output, code, fallback);
+  if (isThenable(output)) {
+    if (pending === null) {
+      abandon(output);
+      throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
+    }
+    pending.push({ owner, fn: null, value, promise: output, path: path.slice(), code, count });
+    return;
+  }
+  conclude(context, output, code, owner, value);
+};
+
+// Whether an issue recorded since the validator was deferred lies under its
+// path: the fields of the value it validates were checked before it.
+const failedUnder = (context, entry) => {
+  const { issues: list } = context;
+  const { path } = entry;
+  for (let index = entry.count; index < list.length; index += 1) {
+    const recorded = list[index].path;
+    if (recorded.length < path.length) continue;
+    let under = true;
+    for (let depth = 0; depth < path.length && under; depth += 1) {
+      under = recorded[depth] === path[depth];
+    }
+    if (under) return true;
+  }
+  return false;
+};
+
+// Runs the validators an async check kept, one after the other in the order
+// they were met, each recording under the path it was met at; the error
+// limit stops the list as it stops the walk.
+const settle = async (context) => {
+  const pending = context.async;
+  for (let index = 0; index < pending.length; index += 1) {
+    if (context.count >= context.limit) {
+      for (; index < pending.length; index += 1) {
+        if (pending[index].promise !== null) abandon(pending[index].promise);
+      }
+      break;
+    }
+    const entry = pending[index];
+    if (entry.fn !== null && failedUnder(context, entry)) continue;
+    context.path = entry.path;
+    let output;
+    try {
+      output =
+        entry.fn === null
+          ? await entry.promise
+          : await entry.fn.call(entry.owner, entry.value, toDotPath(entry.path, context.root));
+    } catch (error) {
+      issues.exception(context, error);
+      continue;
+    }
+    conclude(context, output, entry.code, entry.owner, entry.value);
+  }
+  context.path = [];
 };
 
 const runValidate = (owner, validate, value, context) =>
-  guarded(context, 'custom', EMPTY, (path) => validate.call(owner, value, path));
+  guarded(context, 'custom', owner, validate, value);
 
-const runCheckType = (type, value, context) => {
-  const fallback = { expected: type.type, received: typeOf(value) };
-  guarded(context, 'type', fallback, (path) => type.checkType(value, path));
-};
+const runCheckType = (type, value, context) =>
+  guarded(context, 'type', type, type.checkType, value);
 
 module.exports = {
   EMPTY,
   NONE,
   issues,
   typeOf,
+  pathOf,
   toDotPath,
   absorb,
   finalize,
   describe,
+  isThenable,
+  abandon,
   runValidate,
   runCheckType,
+  settle,
 };

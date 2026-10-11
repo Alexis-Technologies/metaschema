@@ -50,13 +50,14 @@ const formatPattern = (value) => {
   }
 };
 
-// The formatter of each rule, by name; the names are the rules that exist.
-const FORMAT = {
+// The formatter of each rule, by name; the names are the rules that exist. A
+// null-prototype dictionary: a definition key may be called `constructor`.
+const FORMAT = Object.assign(Object.create(null), {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
-};
+});
 
 const notApplicable = (rule, type, rules) => {
   const hint = rule === 'length' && rules.has('min') ? '; use min and max' : '';
@@ -79,25 +80,39 @@ const codePoints = (text) => {
   return count;
 };
 
-// The length of a value: the size of a Map or Set, the length of a string or
-// an array, the number of keys of an object. A string is UTF-16 units unless
-// the field asks for code points.
-const lengthOf = (value) => {
-  if (typeof value === 'string') return value.length;
-  const { size, length } = value;
-  if (typeof size === 'number') return size;
-  if (typeof length === 'number') return length;
-  return Object.keys(value).length;
+// The own keys of an object, counted without a list of them.
+const keyCount = (value) => {
+  let count = 0;
+  for (const name in value) if (Object.hasOwn(value, name)) count += 1;
+  return count;
 };
 
-const lengthOfUnicode = (value) =>
-  typeof value === 'string' ? codePoints(value) : lengthOf(value);
+// The length of a value, by what the value is rather than by what it carries
+// (an object with a `size` key is an object): the units of a string, the
+// length of an array, the size of a Set or a Map, the own keys of an object.
+const lengthOf = (value) => {
+  if (typeof value === 'string' || Array.isArray(value)) return value.length;
+  const name = value.constructor?.name;
+  return name === 'Set' || name === 'Map' ? value.size : keyCount(value);
+};
 
+// A string field measures its units, or its code points when it asks for
+// them; anything else is measured by what it is. One closure per case, each
+// calling its measure directly: a measure held in a variable is a call site
+// shared by every length rule of the process, which V8 then cannot inline.
 const compileLength = (type) => {
   const { min, max } = type.length;
-  if (type.unicode === true) {
+  if (type.scalar === 'string') {
+    if (type.unicode === true) {
+      return (value, context, key) => {
+        const actual = codePoints(value);
+        const short = min !== undefined && actual < min;
+        const long = max !== undefined && actual > max;
+        if (short || long) issues.length(context, min, max, actual, key);
+      };
+    }
     return (value, context, key) => {
-      const actual = lengthOfUnicode(value);
+      const actual = value.length;
       const short = min !== undefined && actual < min;
       const long = max !== undefined && actual > max;
       if (short || long) issues.length(context, min, max, actual, key);
@@ -138,19 +153,33 @@ const compilePattern = (type) => {
   };
 };
 
-// The checks of the rules a field carries, in the order the type lists them.
-const compileRules = (type, rules) => {
-  const checks = [];
-  if (rules.size === 0) return checks;
+// The rules a field carries, by name, in the order its type lists them, min
+// and max as the one `range`: the order the closures run them in and the JIT
+// emits them in.
+const ruleNames = (type) => {
+  const names = [];
   let range = false;
-  for (const name of rules) {
+  for (const name of type.constructor.rules) {
     if (type[name] === undefined) continue;
-    if (name === 'length') checks.push(compileLength(type));
-    else if (name === 'pattern') checks.push(compilePattern(type));
-    else if (name === 'min' || name === 'max') range = true;
+    if (name === 'min' || name === 'max') range = true;
+    else names.push(name);
   }
-  if (range) checks.push(compileRange(type));
+  if (range) names.push('range');
+  return names;
+};
+
+const COMPILERS = Object.assign(Object.create(null), {
+  length: compileLength,
+  pattern: compilePattern,
+  range: compileRange,
+});
+
+// The checks of the rules a field carries.
+const compileRules = (type) => {
+  const names = ruleNames(type);
+  const checks = [];
+  for (let index = 0; index < names.length; index += 1) checks.push(COMPILERS[names[index]](type));
   return checks;
 };
 
-module.exports = { FORMAT, notApplicable, compileRules, codePoints };
+module.exports = { FORMAT, notApplicable, ruleNames, compileRules, codePoints, lengthOf };

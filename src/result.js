@@ -1,23 +1,12 @@
-const { BRAND, INSPECT, hasBrand } = require('./util.js');
+const { BRAND, INSPECT, hasBrand, define } = require('./util.js');
 const { EMPTY, NONE, absorb, finalize, describe, toDotPath } = require('./issues.js');
 const en = require('./locales/en.js');
-
-// Defines an own data property, so a key such as `__proto__` taken from a
-// path lands on the object instead of changing its prototype.
-const define = (target, key, value) => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    writable: true,
-    configurable: true,
-  });
-  return value;
-};
 
 class ValidationResult {
   #root;
   #messages;
   #errors = null;
+  #summary = null;
 
   // A check builds its result from its context, which carries the root label,
   // the locale of the call and the issues under these names; a validator that
@@ -45,7 +34,8 @@ class ValidationResult {
   }
 
   get summary() {
-    return this.errors.join('\n');
+    if (this.#summary === null) this.#summary = this.errors.join('\n');
+    return this.#summary;
   }
 
   add(error, code = 'custom') {
@@ -54,6 +44,7 @@ class ValidationResult {
     this.issues = context.issues;
     finalize(this.issues, this.#messages);
     this.#errors = null;
+    this.#summary = null;
     return this;
   }
 

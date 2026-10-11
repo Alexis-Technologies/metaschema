@@ -9,17 +9,49 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 12.6 KB min+gzip; about 10 million checks a second of a flat struct
-- Exports: `Schema`, `Model`, `saveTypes`, `getKindMetadata`, `SchemaDefinitionError`,
-  `ValidationResult`, the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`,
-  `ALLOW`, the types `Infer`, `InferSchema`, `InferEntity`, `CustomTypes`, and the locales
-  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`
+- Zero runtime dependencies, 16.1 KB min+gzip for the core entry (the generators subpath adds
+  4.5 KB, the compile subpath 3.9 KB); about 10 million checks a second of a flat struct on the
+  closures, about 30 million compiled
+- Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
+  the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
+  `Infer`, `InferOutput`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
+  `@alexify/metaschema/locales/en` and `@alexify/metaschema/locales/uk`, and the generators
+  `@alexify/metaschema/generators`: `toJSONSchema(target, options)`, `toTypeScript(target,
+  options)`, `saveTypes(file, target, options)`, `register()` (installs them as methods), and
+  the JIT backend `@alexify/metaschema/compile`: `compile(target, { jit })` →
+  `{ accelerated, error }`, `register({ jit, onFallback })`, `canEval()`
+- `compile(schema)` or `compile(model)` replaces the check with a function generated from the
+  schema and built with `new Function` (the same issues, about three times faster on a flat
+  struct, six on a nested one) and returns `{ accelerated }`; `register()` does it for every
+  schema built afterwards; where code generation from strings is not allowed (CSP, Cloudflare
+  Workers, `--disallow-code-generation-from-strings`) the closures stay (`jit: 'auto'`), or
+  `jit: true` throws `ERR_NO_EVAL`; the generated source holds no value of the schema, only
+  identifiers, numbers and JSON strings (the rest goes through a scope)
 - `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
-  with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `unknown`,
-  `references`, `messages`; a `validate` function may build and return a result
-- Every schema is a Standard Schema v1 (`schema['~standard']`); `InferSchema<typeof schema>` is
-  the TypeScript type of a value it accepts
+  with the location), `summary`, `flatten()`, `tree()`; options `root`, `maxErrors`, `maxDepth`
+  (embedded records, 128 by default: deeper is a `depth` issue, not a stack overflow),
+  `unknown`, `references`, `messages`; a `validate` function may build and return a result
+- `schema.parse(value, options)` runs the same check and returns `{ valid, value, issues }`: the
+  value of the program with every `default` of a missing key filled in (a function is a
+  factory), unknown keys stripped with `unknown: 'strip'`, the `parse` function of every field
+  decoding its validated value (parts before the whole: a date string into a `Date`) and
+  the schema's own `parse` last; `value` is `undefined` when invalid and the value given when
+  nothing applied (the input is never written to). `schema.serialize(value, { check })` is the
+  way back through the `serialize` functions, top down. `checkAsync` and `parseAsync` await
+  validators, custom `checkType`s and decoders that return promises (settled after the walk, in
+  field order); the synchronous calls throw `ERR_ASYNC_VALIDATOR` for a promise
+- Every schema is a Standard Schema v1 (`schema['~standard']`, whose `validate` is `parse` with
+  the schema's policies, a promise for a schema with async functions; the Standard JSON Schema
+  converter `jsonSchema` joins it after `register()` of the generators); `InferSchema<typeof
+  schema>` is the TypeScript type of a value it accepts, `InferOutput<typeof schema>` of the
+  value `parse` gives
+- `toJSONSchema(schema, { target, profile, io, unrepresentable, references, definitions })` and
+  `toJSONSchema(model, { root, ... })` render JSON Schema draft 2020-12 (default), draft-07, an
+  OpenAPI 3.0 schema object or a MongoDB `$jsonSchema`; `profile: 'strict'` is the dialect of LLM
+  structured outputs (root object, every property required, optional as `[T, 'null']`,
+  `additionalProperties: false`, no value constraints); a stored reference is an id, a memory
+  reference a `$ref`; `validate` functions are not exported
 - A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
   `field`, when the schema is built, never during `check`
 - Safe to bundle and minify: identity checks use a global symbol brand, not class names
@@ -34,14 +66,20 @@ Key facts:
 - Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
   kind
-- `new Model(types, entities, database)` resolves references, orders entities and renders
-  `model.dts`
+- `new Model(types, entities, database)` resolves references and orders entities;
+  `toTypeScript(model)` renders the interfaces (`{ named: true }` names enums and nested structs,
+  a field's `description` is its JSDoc and `deprecated: true` adds `@deprecated`)
 - Does not load schemas from files or evaluate source strings; pass schema objects directly
 
 Docs:
 - Getting started: https://metaschema.vercel.app/guide/getting-started
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
+- Parse and serialize: https://metaschema.vercel.app/guide/parse
+- Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
+- JSON Schema: https://metaschema.vercel.app/guide/json-schema
+- The JIT backend: https://metaschema.vercel.app/guide/compile
+- Performance: https://metaschema.vercel.app/guide/performance
 - API: https://metaschema.vercel.app/api/exports

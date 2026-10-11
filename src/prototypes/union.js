@@ -18,6 +18,25 @@ const valuesOf = (branch, discriminator, index) => {
   return field.enum;
 };
 
+// The branch of a discriminated union by the value of its discriminator, as
+// a Map of value to branch index: built once per field, on first use, and
+// shared by the check, the passes of parse and the JIT.
+const TABLES = new WeakMap();
+
+const tableOf = (field) => {
+  let table = TABLES.get(field);
+  if (table === undefined) {
+    table = new Map();
+    const { union: branches, discriminator } = field;
+    for (let index = 0; index < branches.length; index += 1) {
+      const values = branches[index].schema[discriminator].enum;
+      for (let at = 0; at < values.length; at += 1) table.set(values[at], index);
+    }
+    TABLES.set(field, table);
+  }
+  return table;
+};
+
 // A value of one of several definitions. Without a discriminator the
 // branches are tried in order and the first one that records nothing wins;
 // what a failed branch recorded is dropped. With one, the branch is picked
@@ -31,45 +50,56 @@ const union = {
     if (!Array.isArray(branches) || branches.length === 0) {
       throw invalidUnion('needs a list of branches: { union: [...] }');
     }
-    this.union = branches.map((branch, index) => {
-      const { Type, defs } = prep.parse(branch);
+    const built = [];
+    for (let index = 0; index < branches.length; index += 1) {
+      const { Type, defs } = prep.parse(branches[index]);
       if (!Type) throw invalidUnion(`branch ${index} cannot be a function`);
-      return new Type(defs, prep);
-    });
+      built.push(new Type(defs, prep));
+    }
+    this.union = built;
     const { discriminator } = this;
     if (discriminator === undefined) return;
     if (typeof discriminator !== 'string' || discriminator === '') {
       throw invalidUnion('discriminator needs a field name');
     }
     const seen = new Set();
-    this.union.forEach((branch, index) => {
-      for (const value of valuesOf(branch, discriminator, index)) {
+    for (let index = 0; index < built.length; index += 1) {
+      const values = valuesOf(built[index], discriminator, index);
+      // The branch is picked by the value before any default is applied, so
+      // a default on the discriminator could never decide anything.
+      if (built[index].schema[discriminator].default !== undefined) {
+        throw invalidUnion(
+          `discriminator "${discriminator}" of branch ${index} cannot have a default`,
+        );
+      }
+      for (let at = 0; at < values.length; at += 1) {
+        const value = values[at];
         if (seen.has(value)) {
           const shown = JSON.stringify(value);
           throw invalidUnion(`discriminator value ${shown} is in two branches`);
         }
         seen.add(value);
       }
-    });
+    }
   },
 
   compile() {
     const { required, discriminator } = this;
     if (discriminator === undefined) return this.compilePlain(required);
-    const table = new Map();
-    for (const branch of this.union) {
-      for (const value of branch.schema[discriminator].enum) table.set(value, branch.check);
-    }
-    const expected = Array.from(table.keys());
+    const checks = [];
+    for (let index = 0; index < this.union.length; index += 1) checks.push(this.union[index].check);
+    const table = tableOf(this);
+    const expected = [];
+    for (const value of table.keys()) expected.push(value);
     return (value, context, key) => {
       if (value === null || typeof value !== 'object') {
         if (!required && value == null) return;
         issues.type(context, 'object', value, key);
         return;
       }
-      const check = table.get(value[discriminator]);
-      if (check !== undefined) {
-        check(value, context, key);
+      const index = table.get(value[discriminator]);
+      if (index !== undefined) {
+        checks[index](value, context, key);
         return;
       }
       const nested = key !== undefined;
@@ -80,21 +110,30 @@ const union = {
   },
 
   compilePlain(required) {
-    const checks = this.union.map((branch) => branch.check);
-    const expected = this.union.map(nameOf);
+    const checks = [];
+    const expected = [];
+    for (let index = 0; index < this.union.length; index += 1) {
+      const branch = this.union[index];
+      checks.push(branch.check);
+      expected.push(nameOf(branch));
+    }
     const { length } = checks;
     return (value, context, key) => {
       if (!required && value == null) return;
       const { count } = context;
+      // The validators a failed branch set aside in an async check go with
+      // its issues: they belong to a branch the value does not match.
+      const pending = context.async === null ? 0 : context.async.length;
       for (let index = 0; index < length; index += 1) {
         checks[index](value, context, key);
         if (context.count === count) return;
         context.issues.length = count;
         context.count = count;
+        if (context.async !== null) context.async.length = pending;
       }
       issues.union(context, expected, undefined, key);
     };
   },
 };
 
-module.exports = { union };
+module.exports = { union, nameOf, tableOf };

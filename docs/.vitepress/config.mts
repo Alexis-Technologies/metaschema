@@ -129,9 +129,12 @@ export default defineConfig({
           text: 'Using Schemas',
           items: [
             { text: 'Validation', link: '/guide/validation' },
+            { text: 'Parse and serialize', link: '/guide/parse' },
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },
+            { text: 'JSON Schema', link: '/guide/json-schema' },
+            { text: 'The JIT backend', link: '/guide/compile' },
             { text: 'Browser', link: '/guide/browser' },
           ],
         },
@@ -139,6 +142,7 @@ export default defineConfig({
           text: 'Going Further',
           items: [
             { text: 'Performance', link: '/guide/performance' },
+            { text: 'Migrating from 2.x', link: '/guide/migrating-from-2' },
             { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
             { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
           ],
