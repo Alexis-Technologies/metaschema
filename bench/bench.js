@@ -24,6 +24,7 @@ const path = require('node:path');
 const { Schema, Model } = require('../index.js');
 const { toTypeScript } = require('../src/generators/index.js');
 const { compile } = require('../src/compile/index.js');
+const { checkEach } = require('../src/stream/index.js');
 const {
   bench,
   benchAsync,
@@ -202,6 +203,19 @@ const main = async () => {
   const moltarNestedJit = jit(MOLTAR_NESTED_SCHEMA);
   const records = Schema.from(RECORDS_SCHEMA);
   const recordsJit = jit(RECORDS_SCHEMA);
+  // A thousand records through the stream subpath, and through a loop of
+  // check: what the generator and its entries cost per record.
+  const thousand = Array.from({ length: 1_000 }, (_, i) => ({ ...FLAT_VALID, age: i }));
+  const loop = () => {
+    let valid = 0;
+    for (let i = 0; i < thousand.length; i += 1) if (callCheck(thousand[i]).valid) valid += 1;
+    return valid;
+  };
+  const eachOf = (schema) => () => {
+    let valid = 0;
+    for (const entry of checkEach(schema, thousand)) if (entry.result.valid) valid += 1;
+    return valid;
+  };
   const { types, entities, database } = loadModelFixture();
   const model = new Model(types, entities, database);
 
@@ -266,6 +280,10 @@ const main = async () => {
     ],
     ...asyncRows(asyncSchemas(Schema.from)),
     ...asyncRows(asyncSchemas(jit), ' (jit)'),
+    ['check — 1 000 flat records in a loop', loop, flat],
+    ['checkEach — 1 000 flat records', eachOf(flat), flat],
+    ['check (jit) — 1 000 flat records in a loop', loop, flatJit],
+    ['checkEach (jit) — 1 000 flat records', eachOf(flatJit), flatJit],
     ...modes('moltar flat (6 fields)', moltarFlat, MOLTAR_FLAT_VALUE, MOLTAR_FLAT_LOOSE),
     ...modes(
       'moltar nested (6 + 3 fields)',

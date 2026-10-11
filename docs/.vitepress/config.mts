@@ -130,6 +130,7 @@ export default defineConfig({
           items: [
             { text: 'Validation', link: '/guide/validation' },
             { text: 'Parse and serialize', link: '/guide/parse' },
+            { text: 'Records and streams', link: '/guide/streaming' },
             { text: 'Domain Models', link: '/guide/model' },
             { text: 'Model evolution', link: '/guide/evolution' },
             { text: 'Sample values', link: '/guide/samples' },

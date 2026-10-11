@@ -30,6 +30,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The `@alexify/metaschema/stream` subpath: a schema over a sequence of records.**
+  `checkEach(schema, records, options)` and `parseEach` run `check` or `parse` on every record
+  of an iterable, lazily, and yield `{ index, record, result }` in the order of the records;
+  `checkEachAsync` and `parseEachAsync` do the same over a sync or async iterable with the
+  async methods, keeping `options.concurrency` records in flight (one by default), still in
+  order, and observing the promises in flight when the iteration ends early; `maxInvalid` ends
+  an iteration after that many invalid records. `transform(schema, options)` is a
+  `TransformStream` (a global since Node.js 18, and in browsers) that passes every valid record
+  on as its parsed value (or as it is with `mode: 'check'`), hands an invalid one to
+  `onInvalid(record, result, index)`, or ends the stream with a `TypeError` of the new runtime
+  code `ERR_INVALID_RECORD` (with `index`, `record` and `result` on it). `register()` installs
+  the five as methods of `Schema`. The subpath is 1.0 KB min+gzip on top of the core, gated at
+  1.5 KB; the typings add `EachOptions`, `ParseEachOptions`, `EachAsyncOptions`,
+  `TransformOptions` and `RecordEntry<R>`.
 - **Bench scenarios for the async path and for `strip`** (`pnpm bench`): `checkAsync` with
   sync, resolved and event-loop-bound validators, `parseAsync` with an async decoder, and
   `parse` under `unknown: 'strip'` over a nested value and a list of 100 records, each on both

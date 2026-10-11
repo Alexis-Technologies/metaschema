@@ -368,7 +368,7 @@ export class SchemaDefinitionError extends TypeError {
 // `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
 // given something other than what it takes (a Schema, a Model, a snapshot, a
 // list of changes).
-export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET';
+export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET' | 'ERR_INVALID_RECORD';
 
 // ---------------------------------------------------------------------------
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
@@ -505,6 +505,49 @@ export interface SampleOptions {
   // How deep embedded records nest (3): an optional reference deeper than
   // that is left out, a required one is an error.
   maxDepth?: number;
+}
+
+// The options of `checkEach` and `checkEachAsync` of the
+// `@alexify/metaschema/stream` subpath: those of `check`, and how many invalid
+// records end the iteration (no limit by default).
+export interface EachOptions extends CheckOptions {
+  maxInvalid?: number;
+}
+
+// The options of `parseEach` and `parseEachAsync`: those of `parse`, and
+// `maxInvalid`.
+export interface ParseEachOptions extends ParseOptions {
+  maxInvalid?: number;
+}
+
+// The option of the async pair: how many records are in flight at once (1).
+export interface EachAsyncOptions {
+  concurrency?: number;
+}
+
+// The options of `transform`: those of `parse` (or of `check`, with
+// `mode: 'check'`), `maxInvalid`, and what the stream does with an invalid
+// record.
+export interface TransformOptions extends ParseOptions {
+  // What goes on down the stream: the parsed value ('parse', the default) or
+  // the record as it is ('check').
+  mode?: 'parse' | 'check';
+  // Whether the stream runs `parseAsync`/`checkAsync` (false).
+  async?: boolean;
+  // Told of every invalid record, which is then dropped; without it the
+  // stream ends with the error at the first one.
+  onInvalid?: (record: unknown, result: ValidationResult | ParseResult<unknown>, index: number) => void;
+  // After that many invalid records the stream ends with the error even with
+  // `onInvalid` (no limit by default).
+  maxInvalid?: number;
+}
+
+// What `checkEach` and its kin yield for a record: its position in the
+// sequence, the record as given, and the result of `check` or `parse`.
+export interface RecordEntry<R> {
+  index: number;
+  record: unknown;
+  result: R;
 }
 
 export const KIND: Array<string>;
@@ -1165,6 +1208,27 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
   // options)` is the same without it.
   sample(options?: SampleOptions): Infer<D>;
+  // The five members below exist once `register()` of the
+  // `@alexify/metaschema/stream` subpath has run; its `checkEach(schema,
+  // records, options)` and kin are the same without it.
+  checkEach(
+    records: Iterable<unknown>,
+    options?: EachOptions,
+  ): Generator<RecordEntry<ValidationResult>, void, undefined>;
+  parseEach(
+    records: Iterable<unknown>,
+    options?: ParseEachOptions,
+  ): Generator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
+  checkEachAsync(
+    records: Iterable<unknown> | AsyncIterable<unknown>,
+    options?: EachOptions & EachAsyncOptions,
+  ): AsyncGenerator<RecordEntry<ValidationResult>, void, undefined>;
+  parseEachAsync(
+    records: Iterable<unknown> | AsyncIterable<unknown>,
+    options?: ParseEachOptions & EachAsyncOptions,
+  ): AsyncGenerator<RecordEntry<ParseResult<InferOutput<D>>>, void, undefined>;
+  transform(options: TransformOptions & { mode: 'check' }): TransformStream<unknown, Infer<D>>;
+  transform(options?: TransformOptions): TransformStream<unknown, InferOutput<D>>;
   // The two methods below exist once `register()` of the generators subpath
   // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
   // are the same without it.

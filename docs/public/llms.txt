@@ -9,9 +9,9 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 17.2 KB min+gzip for the core entry (the generators subpath adds
-  7.1 KB, the compile subpath 4.0 KB, the model subpath 9.5 KB); about 10 million checks a
-  second of a flat struct on the closures, about 30 million compiled
+- Zero runtime dependencies, 17.3 KB min+gzip for the core entry (the generators subpath adds
+  7.1 KB, the compile subpath 4.0 KB, the model subpath 9.4 KB, the stream subpath 1.0 KB);
+  about 10 million checks a second of a flat struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
   `Infer`, `InferOutput`, `InferSchema`, `InferEntity`, `CustomTypes`, the locales
@@ -23,7 +23,17 @@ Key facts:
   `canEval()`, and the model tools `@alexify/metaschema/model`: `fromJSON(snapshot, options)`,
   `diff(prev, next)`, `compatibility(changes)`, `sample(schema, options)`, `merge(a, b,
   options)`, `register()` (installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
-  `Schema.merge`, `schema.sample`)
+  `Schema.merge`, `schema.sample`), and the record tools `@alexify/metaschema/stream`:
+  `checkEach(schema, records, options)`, `parseEach(schema, records, options)` (generators of
+  `{ index, record, result }`), `checkEachAsync`/`parseEachAsync(schema, records, options)`
+  (async generators, `options.concurrency` records in flight), `transform(schema, options)` (a
+  `TransformStream`), `register()` (installs them as methods of `Schema`)
+- `checkEach(schema, rows)` checks every record of an iterable and yields `{ index, record,
+  result }` in order, lazily; `parseEach` does it with `parse`; `maxInvalid: n` ends the
+  iteration after the n-th invalid record; the async pair takes a sync or async iterable and
+  keeps `concurrency` records in flight, in order; `transform(schema, { onInvalid, mode, async,
+  maxInvalid })` is a `TransformStream` that passes the parsed values of valid records on and
+  ends with `ERR_INVALID_RECORD` for an invalid one it was not told to drop
 - `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as data, format 1: the
   entities in dependency order with kind, scope, store, allow, parent, unknown, custom, fields
   (each `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities

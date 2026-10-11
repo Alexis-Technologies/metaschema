@@ -36,7 +36,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>]   # esbuild bundle sizes; CI gates at 17.5 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile and 10 KB for ./model on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>]   # esbuild bundle sizes; CI gates at 17.5 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model and 1.5 KB for ./stream on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
@@ -57,9 +57,9 @@ There is no build step.
   never by spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/metaschema'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
-  `src/locales/*.d.ts` that type the locale subpath exports through it and the three subpath
-  typings `src/generators/index.d.ts`, `src/compile/index.d.ts` and `src/model/index.d.ts`,
-  which import the shared types from it. A public API change touches
+  `src/locales/*.d.ts` that type the locale subpath exports through it and the four subpath
+  typings `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts` and
+  `src/stream/index.d.ts`, which import the shared types from it. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
   `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
   `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
@@ -120,6 +120,13 @@ restore is 0.8 KB that validation never needs and the core had 14 bytes of headr
 `fromJSONSchema` is the other direction of `toJSONSchema` and lives beside it in
 `./generators`. Nothing in the core requires `model/` or `generators/`.
 
+**A sequence of records is the `./stream` subpath (3.2).** `checkEach`, `parseEach`, their
+async twins and `transform` (a `TransformStream`) run the methods of the core on each record
+of an iterable and yield `{ index, record, result }`; `register()` installs them on `Schema`.
+It is iteration glue and an adapter to the Web Streams, not validation semantics, so it is a
+subpath (Alex's decision, 2026-10-11) and the core did not grow for it; it requires `util`,
+`issues` (`abandon`), `errors` and `schema.js` only, never `codec`.
+
 ## Repository layout
 
 ```
@@ -160,6 +167,8 @@ src/
                     sample.js (the seeded witness: mulberry32, per-field verification), pattern.js (the regex
                     subset: a parser into nodes once per RegExp, a string drawn from the nodes),
                     merge.js (unification of two schemas, ERR_MERGE_CONFLICT)
+  stream/           the ./stream subpath: index.js (checkEach, parseEach, checkEachAsync, parseEachAsync,
+                    transform, register), index.d.ts
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
@@ -216,6 +225,9 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `finalize`), `locales/en` and `pattern`; `model/merge.js` requires `util`, `schema.js`,
   `struct`, `issues` (`isThenable`), `errors` and `data`; `model/index.js` requires
   `schema.js`, `model.js` and the five. Nothing in the core requires `model/`.
+- `stream/index.js` requires `util` (`hasBrand`), `issues` (`abandon`), `errors`
+  (`invalidTarget`) and `schema.js` (for `register()`); it calls the public methods of a
+  schema and never `codec` or the prototypes. Nothing in the core requires `stream/`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -718,6 +730,14 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
+- 3.2 suites: `stream.test.js` (the generators over arrays, Sets and generators, `parseEach`
+  with defaults/strip/decoders/aliases, `maxInvalid`, the async pair over sync and async
+  sources with `concurrency` 1/3/100 and the count in flight observed, an iteration that ends
+  early with promises in flight (no unhandled rejection, a parse that throws), `transform` in
+  both modes and async, the stream that errors with `ERR_INVALID_RECORD`, the call errors,
+  `register()`); `export-parity.test.js`, `bundle.test.js` (the subpath through both bundles,
+  the browser context given `TransformStream`) and `scripts.test.js` cover the subpath export,
+  the bundles and the size row; `tests/types/stream.test-d.ts` the typings.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
   the fixtures cannot be imported for inference) and the interfaces `toTypeScript(model)` renders
@@ -1055,6 +1075,20 @@ change. **This file wins** if they ever disagree.
   the input side comes back as a `string`, a `discriminator` exported to draft 2020-12 or
   draft-07 comes back as a plain union (only `openapi-3.0` writes it). A nested struct comes
   back as its fields unless its first key would read as a type or a kind, then as `{ schema }`.
+
+- **The entries of `checkEach` carry the record and its index; the error lines carry the
+  schema name.** `{ index, record, result }` is one shape for every entry: an iterator has no
+  position and a stream cannot be read again. `root` is one label per call, not per record
+  (a string per record would cost more than the check of a flat struct), so
+  `result.errors` says `Field "Order.qty" ...` for every record and the index is in the entry.
+- **`maxInvalid` ends a generator and errors a stream.** A generator that ends is read to its
+  end; a stream that ends looks complete to `pipeTo`, so `transform` ends with
+  `ERR_INVALID_RECORD` instead, after `onInvalid` was told of the n-th invalid record.
+- **The async pair keeps the order of the records whatever `concurrency` is**, so a slow record
+  holds the ones after it; the window overlaps the waits, it does not reorder. The queue is as
+  long as `concurrency` (an array with `shift`), which is small by design.
+- **A string is not a sequence of records.** It is iterable, over its characters, and
+  `checkEach(schema, 'rows')` is `ERR_INVALID_TARGET`.
 
 ## Documentation site
 

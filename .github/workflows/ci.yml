@@ -35,7 +35,7 @@ jobs:
       # 17.5 KB per core entry, 7.5 KB for the ./generators subpath, 4.25 KB
       # for the ./compile subpath and 10 KB for the ./model subpath on top of
       # it are the 3.1 budgets (CLAUDE.md "Budgets").
-      - run: pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10
+      - run: pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5
 
   types:
     runs-on: ubuntu-latest

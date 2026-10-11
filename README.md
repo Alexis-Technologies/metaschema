@@ -61,6 +61,11 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   defaults filled in, unknown keys stripped on request, a field's `parse` function decoding its
   value (a date-time string into a `Date`) and `serialize` the way back; `checkAsync` and
   `parseAsync` await validators and decoders that return promises.
+- **Records and streams.** `checkEach` and `parseEach` of `@alexify/metaschema/stream` run a
+  schema over an iterable of records, lazily and in order, yielding `{ index, record, result }`
+  for each; the async pair keeps `concurrency` records in flight over a sync or async source,
+  and `transform` is a `TransformStream` that lets the valid records through and reports the
+  others.
 - **Domain models.** Entities, registries, dictionaries and projections, with references,
   relations and indexes, ordered by dependency and checked for missing references.
 - **TypeScript.** `InferSchema<typeof schema>` is the type of a value the schema accepts,
@@ -85,9 +90,9 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   Confluent rules (`compatibility`), draws a value every schema accepts (`sample`) and unifies
   two schemas (`merge`); `aliases` and `deprecated` let a model carry its history, and
   `fromJSONSchema` of the generators reads a JSON Schema document back.
-- **Zero dependencies, 17.2 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB and
-  the model tools 9.5 KB where they are imported.
+- **Zero dependencies, 17.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.1 KB, the JIT backend 4.0 KB, the
+  model tools 9.4 KB and the record tools 1.0 KB where they are imported.
 
 ## Installation
 
@@ -307,6 +312,7 @@ const {
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
 const { compile, canEval } = require('@alexify/metaschema/compile'); // and its own register()
 const { fromJSON, diff, compatibility, sample, merge } = require('@alexify/metaschema/model'); // and its own register()
+const { checkEach, parseEach, checkEachAsync, parseEachAsync, transform } = require('@alexify/metaschema/stream'); // and its own register()
 
 const en = require('@alexify/metaschema/locales/en'); // the built-in messages
 const uk = require('@alexify/metaschema/locales/uk'); // schema.check(value, { messages: uk })

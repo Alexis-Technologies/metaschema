@@ -11,6 +11,7 @@ const {
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
 const jit = require('@alexify/metaschema/compile'); // compile, register, canEval
 const tools = require('@alexify/metaschema/model'); // fromJSON, diff, compatibility, sample, merge, register
+const records = require('@alexify/metaschema/stream'); // checkEach, parseEach, checkEachAsync, parseEachAsync, transform, register
 ```
 
 ## Constants
@@ -53,6 +54,11 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `schema.toJSONSchema(options?)` | after `register()` of the generators subpath: `toJSONSchema(schema, options)`, the schema as a [JSON Schema](/guide/json-schema) document |
 | `schema.toInterface(options?)` | after `register()`: `toTypeScript(schema, options)`, the schema as a TypeScript interface |
 | `schema.sample(options?)` | after `register()` of the model subpath: `sample(schema, options)`, a [value the schema accepts](/guide/samples), the same for `options.seed` |
+| `schema.checkEach(records, options?)` | after `register()` of the stream subpath: `checkEach(schema, records, options)`, a generator of `{ index, record, result }` over an iterable of [records](/guide/streaming); `options`: those of `check` and `maxInvalid` |
+| `schema.parseEach(records, options?)` | after `register()`: `parseEach(schema, records, options)`, the same with `parse` |
+| `schema.checkEachAsync(records, options?)` | after `register()`: `checkEachAsync(schema, records, options)`, an async generator over a sync or async iterable, `checkAsync` on each record, up to `options.concurrency` in flight |
+| `schema.parseEachAsync(records, options?)` | after `register()`: `parseEachAsync(schema, records, options)`, the same with `parseAsync` |
+| `schema.transform(options?)` | after `register()`: `transform(schema, options)`, a `TransformStream` that passes the valid records on as their parsed values (or as they are with `mode: 'check'`) and hands the others to `options.onInvalid`, or ends with `ERR_INVALID_RECORD` |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
@@ -128,12 +134,32 @@ does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileO
 (`{ jit?: 'auto' | boolean; onFallback?: (schema, error) => void }`) and `Compiled`
 (`{ accelerated: boolean; error?: SchemaDefinitionError }`).
 
+## `@alexify/metaschema/stream`
+
+A schema over a sequence of records, in a subpath of its own (1.0 KB min+gzip on top of the
+core); see [Records and streams](/guide/streaming).
+
+| Export | Description |
+| --- | --- |
+| `checkEach(schema, records, options?)` | a generator over an iterable of records: `check` on each, yielding `{ index, record, result }` in order; `options`: those of `check`, and `maxInvalid` (the number of invalid records after which the iteration ends) |
+| `parseEach(schema, records, options?)` | the same with `parse`; `result` is `{ valid, value, issues }`; `options`: those of `parse`, and `maxInvalid` |
+| `checkEachAsync(schema, records, options?)` | an async generator over a sync or async iterable: `checkAsync` on each record, up to `options.concurrency` records in flight (1), the entries in the order of the records; the promises in flight when the iteration ends early are observed, never awaited |
+| `parseEachAsync(schema, records, options?)` | the same with `parseAsync` |
+| `transform(schema, options?)` | a `TransformStream` (a global since Node.js 18, and in browsers) that passes every valid record on as its parsed value (`mode: 'parse'`) or as it is (`mode: 'check'`), hands an invalid one to `options.onInvalid(record, result, index)` and drops it, or ends the stream with a `TypeError` of `code: 'ERR_INVALID_RECORD'` (carrying `index`, `record` and `result`) when there is no `onInvalid` or `maxInvalid` is reached; `async: true` runs the async methods, one record at a time |
+| `register()` | installs `schema.checkEach`, `schema.parseEach`, `schema.checkEachAsync`, `schema.parseEachAsync` and `schema.transform` on the class, once per process |
+
+A target that is not a `Schema`, or a source that is not iterable (a string included), is a
+`TypeError` with `code: 'ERR_INVALID_TARGET'`; a wrong option of the subpath is a `TypeError`
+like a wrong option of `check` (`maxInvalid must be an integer of at least 1, got 0`).
+
 ## Runtime errors
 
 Validation of data never throws because of the value. A synchronous `check` or `parse` throws a
 `TypeError` with `code: 'ERR_ASYNC_VALIDATOR'` when a `validate` function, a custom type's
 `checkType` or a field's `parse` function returns a promise; `checkAsync` and `parseAsync` await
-them. The type of the code is `RuntimeErrorCode`.
+them. A `transform` of the stream subpath ends its stream with a `TypeError` with
+`code: 'ERR_INVALID_RECORD'` for an invalid record it was not told to drop. The type of the
+codes is `RuntimeErrorCode`.
 
 ## `ValidationResult`
 
@@ -210,7 +236,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ParseResult<T>` | what `parse` returns: `{ valid: true, value: T, issues: [] }` or `{ valid: false, value: undefined, issues }` |
 | `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'` |
 | `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
-| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'`, the code of the error a synchronous call throws for a promise |
+| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_RECORD'` (a stream met an invalid record) |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
@@ -227,6 +253,9 @@ it; see [Validation](/guide/validation#the-result).
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
 | `SampleOptions`, `MergeOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`) and of `merge` (`name`, `metadata`) |
+| `EachOptions`, `ParseEachOptions`, `EachAsyncOptions` | the options of `checkEach` (`CheckOptions` and `maxInvalid`), of `parseEach` (`ParseOptions` and `maxInvalid`) and the one the async pair adds (`concurrency`) |
+| `TransformOptions` | the options of `transform`: `ParseOptions`, `mode`, `async`, `onInvalid`, `maxInvalid` |
+| `RecordEntry<R>` | what the generators of the stream subpath yield: `{ index, record, result: R }` |
 
 It also exports `Kind` (the known kinds plus any custom name), `KnownKind`, `Scope`,
 `Store`, `Allow`, `Cardinality`, `Relation`, `Fields`, `FieldType`, `CalculatedField`,
