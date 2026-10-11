@@ -556,3 +556,18 @@ test('Infer: register() installs Schema.infer, once', () => {
   assert.deepStrictEqual(Schema.infer([{ a: 1 }]), { Struct: {}, a: 'integer' });
   assert.strictEqual(Schema.infer([{ a: 1 }], { as: 'schema' }) instanceof Schema, true);
 });
+
+test('Infer: a long key of a sample is shortened in the place of an error', () => {
+  const long = 'k'.repeat(150);
+  const cycle = {};
+  cycle[long] = cycle;
+  assert.throws(() => infer([cycle], { maxDepth: 2 }), {
+    code: 'ERR_INFER_DEPTH',
+    message: `Sample 0 nests deeper than 2 levels at "${'k'.repeat(100)}....${'k'.repeat(100)}..." (a cycle?)`,
+  });
+  const odd = {};
+  odd[`${long} x`] = cycle;
+  assert.throws(() => infer([odd], { maxDepth: 2 }), {
+    message: `Sample 0 nests deeper than 2 levels at "["${'k'.repeat(100)}..."].${'k'.repeat(100)}..." (a cycle?)`,
+  });
+});

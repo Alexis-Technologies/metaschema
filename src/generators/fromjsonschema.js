@@ -9,7 +9,7 @@
 // The document is untrusted input: a pointer reads own keys only, a `$ref` is
 // converted once per pointer, and the nesting is bounded.
 const { isFirstUpper } = require('../metautil.js');
-const { define } = require('../util.js');
+const { define, shorten } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
@@ -100,11 +100,12 @@ const createContext = (document, options) => {
   };
 };
 
-// The place in the document as a JSON pointer (RFC 6901).
+// The place in the document as a JSON pointer (RFC 6901); a key of the
+// document may be huge, a message must not be.
 const pointerOf = (path) => {
   let pointer = '';
   for (const segment of path) {
-    pointer += `/${String(segment).replace(/~/g, '~0').replace(/\//g, '~1')}`;
+    pointer += `/${shorten(segment).replace(/~/g, '~0').replace(/\//g, '~1')}`;
   }
   return pointer;
 };

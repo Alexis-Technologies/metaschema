@@ -871,3 +871,12 @@ test('fromJSONSchema: register() installs Schema.fromJSONSchema', () => {
     true,
   );
 });
+
+test('fromJSONSchema: a long property name is shortened in the pointer of an error', () => {
+  const long = 'p'.repeat(150);
+  const document = { type: 'object', properties: { [long]: { type: 'string', not: {} } } };
+  assert.throws(() => fromJSONSchema(document), {
+    code: 'ERR_UNSUPPORTED_SCHEMA',
+    message: `The keyword "not" is not supported in a JSON Schema at "/properties/${'p'.repeat(100)}..."`,
+  });
+});

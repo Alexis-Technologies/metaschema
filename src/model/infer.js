@@ -8,7 +8,7 @@
 // against every sample, so that what comes back is a schema the samples
 // pass. The samples are input: the walk is bounded, no key is trusted, and
 // what no type describes is `any` rather than an error.
-const { define, IDENTIFIER } = require('../util.js');
+const { define, IDENTIFIER, shorten } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
@@ -76,8 +76,8 @@ const where = (state) => {
   for (let index = 0; index < state.path.length; index += 1) {
     const key = state.path[index];
     if (key === ITEM) text += '[]';
-    else if (IDENTIFIER.test(key)) text += text === '' ? key : `.${key}`;
-    else text += `[${JSON.stringify(key)}]`;
+    else if (IDENTIFIER.test(key)) text += text === '' ? shorten(key) : `.${shorten(key)}`;
+    else text += `[${JSON.stringify(shorten(key))}]`;
   }
   return text;
 };
