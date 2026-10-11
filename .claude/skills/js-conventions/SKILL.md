@@ -4,7 +4,8 @@ description: Apply the Alexis JavaScript style (Metarhia-derived, linted by oxli
 ---
 
 <!-- Adapted from metaskills v1.0.5 (skills/js-conventions) for the Alexis toolchain:
-     oxlint + oxfmt instead of ESLint + Prettier, pnpm instead of npm, 100 columns instead of 80. -->
+     oxlint + oxfmt instead of ESLint + Prettier, pnpm instead of npm, 100 columns instead of 80,
+     and the loop rule of CLAUDE.md (forEach and reduce are lint errors). -->
 
 # JavaScript Code Style
 
@@ -58,8 +59,7 @@ Use following conventions for JavaScript and TypeScript code.
 - Do not mutate input parameters; avoid `arguments`
 - Keep functions small and single-purpose
 - Decompose long expressions into intermediate variables
-- Prefer explicit loops (`for`, `for..of`) in hot paths
-- Use array methods when they improve readability
+- Prefer explicit loops (`for`, `for..of`); index loops in hot paths
 - Use `===` and `!==`; the one loose comparison is `value == null` for "null or undefined"
   (`eqeqeq` ignores `null`)
 - Keep return types consistent
@@ -68,8 +68,10 @@ Use following conventions for JavaScript and TypeScript code.
   obvious comments, code should be clear without comments
 - Validators return messages; `throw` only for a broken definition, always a
   `SchemaDefinitionError` with a code, never a bare `Error`
-- Use iteration methods like `.map`, `.filter`, `.reduce` if it is good for code semantic
-- Try to avoid `.forEach` if callback operates with outer context
+- `forEach` and `reduce` are lint errors (`no-restricted-properties`): write an index loop, or a
+  loop that does the work in one pass
+- `map`, `filter` and `find` stay in `tests/` and `bench/`, where they render or set up; in
+  `src/` they are loops
 
 ## Optimizations
 

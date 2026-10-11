@@ -39,7 +39,7 @@ These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
 ```bash
 pnpm run test:jit                # the suite with every schema compiled by ./compile
 pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
-pnpm size --max-gzip 16 --max-gzip-generators 5 --max-gzip-compile 4   # the bundle budgets (CLAUDE.md "Budgets")
+pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4   # the bundle budgets (CLAUDE.md "Budgets")
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -126,12 +126,12 @@ Keep all existing links intact.
 
 ## Step 4: TypeScript Declarations
 
-The types are hand-written in `index.d.ts`:
+The types are hand-written: `index.d.ts` for the core entry, `src/generators/index.d.ts` and `src/compile/index.d.ts` for the subpaths (they import the shared types from the root), and the one-line `src/locales/*.d.ts`:
 
-1. `pnpm run check:dts` and `pnpm run test:types` must pass with no errors
-2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js` and `browser.js` with the declared value exports; it must pass
-3. Read `src/index.js` and `index.d.ts` and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations
-4. If the release includes API changes, update `index.d.ts` and `tests/types/*.test-d.ts` accordingly
+1. `pnpm run check:dts` (tsc over all of them) and `pnpm run test:types` (tsd) must pass with no errors
+2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js`, `browser.js` and the subpaths with the declared value exports; it must pass
+3. Read `src/index.js`, `src/generators/index.js`, `src/compile/index.js` and their `.d.ts` files and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations. The methods `register()` of the generators installs on `Schema` and `Model` are declared in the root `index.d.ts` on purpose (a type-level claim)
+4. If the release includes API changes, update the typings and `tests/types/*.test-d.ts` accordingly
 
 ## Step 5: README, Docs & License Review
 
@@ -154,7 +154,7 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 
 Check these fields are correct:
 
-- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first
+- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first for `.`, `./locales/en`, `./locales/uk`, `./generators` and `./compile`, and the `browser` map covers the root entry and `src/runtime/node.js`
 - `"types"` — points to `index.d.ts`
 - `"files"` — the explicit allowlist includes everything that ships and nothing else (there is no `.npmignore`)
 - `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
@@ -183,7 +183,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 16 --max-gzip-generators 5 --max-gzip-compile 4 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

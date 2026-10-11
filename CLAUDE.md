@@ -529,7 +529,8 @@ skills: `js-conventions`, `js-data-structures`, `data-structures`, `metautil-dat
 
 - **`js-conventions` is adapted to this toolchain:** oxlint/oxfmt instead of ESLint/Prettier,
   pnpm, 100 columns, plus a Modules section (CommonJS, no `'use strict'`, `node:` prefix, `.js` in
-  relative requires). Its naming, best-practice and optimization rules are upstream's.
+  relative requires) and the loop rule (`forEach` and `reduce` are lint errors; `map`, `filter`
+  and `find` outside `src/` only). Its naming and optimization rules are upstream's.
 - **`npm-publish` is adapted to the release process below:** pnpm commands, the `prepublishOnly`
   gates, this CHANGELOG's format (including the upstream-history section), docs and `pnpm pack`
   checks, and `pnpm run release`.
