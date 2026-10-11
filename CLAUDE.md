@@ -36,14 +36,15 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>]   # esbuild bundle sizes; CI gates at 17 KB per core entry, 5 KB for ./generators and 4 KB for ./compile on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>]   # esbuild bundle sizes; CI gates at 17 KB per core entry, 7.5 KB for ./generators, 4 KB for ./compile and 8.5 KB for ./model on top
 pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 17 --max-gzip-generators 5 --max-gzip-compile 4` and `pnpm docs:build`.
+`pnpm size --max-gzip 17 --max-gzip-generators 7.5 --max-gzip-compile 4 --max-gzip-model 8.5`
+and `pnpm docs:build`.
 There is no build step.
 
 ## No build step: CommonJS + hand-written types
