@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="668" viewBox="0 0 760 668" role="img" aria-label="Cold start. Load the library, build the strict nested schema, check one value: a fresh process, median of 20 runs. Lower is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">Cold start</text>
+<text class="subtitle" x="20" y="56">Load the library, build the strict nested schema, check one value: a fresh process, median of 20 runs. Lower is</text>
+<text class="subtitle" x="20" y="73">better.</text>
+<line class="grid" x1="265" y1="88" x2="265" y2="608"/>
+<text class="tick" x="265" y="624" text-anchor="middle">0 ms</text>
+<line class="grid" x1="402" y1="88" x2="402" y2="608"/>
+<text class="tick" x="402" y="624" text-anchor="middle">50 ms</text>
+<line class="grid" x1="539" y1="88" x2="539" y2="608"/>
+<text class="tick" x="539" y="624" text-anchor="middle">100 ms</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="608"/>
+<text class="tick" x="676" y="624" text-anchor="middle">150 ms</text>
+<line class="axis" x1="265" y1="88" x2="265" y2="608"/>
+<g><title>Superstruct · validate() · is()
+1.3 ms in total
+load 0.8 ms · build 0.2 ms · first check 0.3 ms
+superstruct@2.0.2</title>
+<text class="label" x="20" y="105">Superstruct</text>
+<text class="sublabel" x="20" y="120">validate() · is()</text>
+<path class="bar" d="M265,101H265A3.449831328392029,3.449831328392029 0 0 1 268.449831328392,104.44983132839202V111.55016867160798A3.449831328392029,3.449831328392029 0 0 1 265,115H265Z"/>
+<text class="value" x="274.449831328392" y="114">1.3 ms</text>
+</g>
+<g><title>Valibot · safeParse() · is()
+4.0 ms in total
+load 3.7 ms · build 0.1 ms · first check 0.1 ms
+valibot@1.5.0</title>
+<text class="label" x="20" y="145">Valibot</text>
+<text class="sublabel" x="20" y="160">safeParse() · is()</text>
+<path class="bar" d="M265,141H271.865356323719A4,4 0 0 1 275.865356323719,145V151A4,4 0 0 1 271.865356323719,155H265Z"/>
+<text class="value" x="281.865356323719" y="154">4.0 ms</text>
+</g>
+<g><title>Yup · validateSync() · isValidSync(), strict
+4.2 ms in total
+load 2.5 ms · build 1.1 ms · first check 0.7 ms
+yup@1.7.1</title>
+<text class="label" x="20" y="185">Yup</text>
+<text class="sublabel" x="20" y="200">validateSync() · isValidSync(), strict</text>
+<path class="bar" d="M265,181H272.58568989753724A4,4 0 0 1 276.58568989753724,185V191A4,4 0 0 1 272.58568989753724,195H265Z"/>
+<text class="value" x="282.58568989753724" y="194">4.2 ms</text>
+</g>
+<g><title>metaschema · check() · closures
+5.7 ms in total
+load 4.7 ms · build 0.9 ms · first check 0.1 ms
+@alexify/metaschema@3.2.0</title>
+<text class="label secondary" x="20" y="225">metaschema</text>
+<text class="sublabel" x="20" y="240">check() · closures</text>
+<path class="bar secondary" d="M265,221H276.64768261909484A4,4 0 0 1 280.64768261909484,225V231A4,4 0 0 1 276.64768261909484,235H265Z"/>
+<text class="value" x="286.64768261909484" y="234">5.7 ms</text>
+</g>
+<g><title>metaschema · check() · compile(), JIT
+7.6 ms in total
+load 5.7 ms · build 1.6 ms · first check 0.2 ms
+@alexify/metaschema@3.2.0</title>
+<text class="label primary" x="20" y="265">metaschema</text>
+<text class="sublabel" x="20" y="280">check() · compile(), JIT</text>
+<path class="bar primary" d="M265,261H281.73078083753586A4,4 0 0 1 285.73078083753586,265V271A4,4 0 0 1 281.73078083753586,275H265Z"/>
+<text class="value" x="291.73078083753586" y="274">7.6 ms</text>
+</g>
+<g><title>Metarhia metaschema · check() · strict only
+21.5 ms in total
+load 20.7 ms · build 0.6 ms · first check 0.2 ms
+metaschema@2.2.2</title>
+<text class="label" x="20" y="305">Metarhia metaschema</text>
+<text class="sublabel" x="20" y="320">check() · strict only</text>
+<path class="bar" d="M265,301H319.9415100026131A4,4 0 0 1 323.9415100026131,305V311A4,4 0 0 1 319.9415100026131,315H265Z"/>
+<text class="value" x="329.9415100026131" y="314">22 ms</text>
+</g>
+<g><title>Joi · validate(), convert: false
+25.1 ms in total
+load 23.3 ms · build 1.2 ms · first check 0.6 ms
+joi@18.2.9</title>
+<text class="label" x="20" y="345">Joi</text>
+<text class="sublabel" x="20" y="360">validate(), convert: false</text>
+<path class="bar" d="M265,341H329.88925137281416A4,4 0 0 1 333.88925137281416,345V351A4,4 0 0 1 329.88925137281416,355H265Z"/>
+<text class="value" x="339.88925137281416" y="354">25 ms</text>
+</g>
+<g><title>Zod · safeParse()
+30.3 ms in total
+load 27.7 ms · build 1.4 ms · first check 1.2 ms
+zod@4.6.6</title>
+<text class="label" x="20" y="385">Zod</text>
+<text class="sublabel" x="20" y="400">safeParse()</text>
+<path class="bar" d="M265,381H343.96525873899463A4,4 0 0 1 347.96525873899463,385V391A4,4 0 0 1 343.96525873899463,395H265Z"/>
+<text class="value" x="353.96525873899463" y="394">30 ms</text>
+</g>
+<g><title>Ajv · compile(…)(value), draft 2020-12
+38.7 ms in total
+load 14.7 ms · build 23.9 ms · first check 0.2 ms
+ajv@8.20.0</title>
+<text class="label" x="20" y="425">Ajv</text>
+<text class="sublabel" x="20" y="440">compile(…)(value), draft 2020-12</text>
+<path class="bar" d="M265,421H367.1669514250755A4,4 0 0 1 371.1669514250755,425V431A4,4 0 0 1 367.1669514250755,435H265Z"/>
+<text class="value" x="377.1669514250755" y="434">39 ms</text>
+</g>
+<g><title>Effect Schema · decodeUnknownResult() · is()
+72.0 ms in total
+load 71.0 ms · build 0.2 ms · first check 0.8 ms
+effect@4.0.3</title>
+<text class="label" x="20" y="465">Effect Schema</text>
+<text class="sublabel" x="20" y="480">decodeUnknownResult() · is()</text>
+<path class="bar" d="M265,461H458.15801416397096A4,4 0 0 1 462.15801416397096,465V471A4,4 0 0 1 458.15801416397096,475H265Z"/>
+<text class="value" x="468.15801416397096" y="474">72 ms</text>
+</g>
+<g><title>TypeBox · Value.Check()
+95.9 ms in total
+load 94.7 ms · build 0.1 ms · first check 1.0 ms
+typebox@1.3.36</title>
+<text class="label" x="20" y="505">TypeBox</text>
+<text class="sublabel" x="20" y="520">Value.Check()</text>
+<path class="bar" d="M265,501H523.6674751996993A4,4 0 0 1 527.6674751996993,505V511A4,4 0 0 1 523.6674751996993,515H265Z"/>
+<text class="value" x="533.6674751996993" y="514">96 ms</text>
+</g>
+<g><title>TypeBox · Compile(…).Check()
+96.7 ms in total
+load 94.8 ms · build 1.9 ms · first check 0.0 ms
+typebox@1.3.36</title>
+<text class="label" x="20" y="545">TypeBox</text>
+<text class="sublabel" x="20" y="560">Compile(…).Check()</text>
+<path class="bar" d="M265,541H526.0539000391959A4,4 0 0 1 530.0539000391959,545V551A4,4 0 0 1 526.0539000391959,555H265Z"/>
+<text class="value" x="536.0539000391959" y="554">97 ms</text>
+</g>
+<g><title>ArkType · type(value) · allows()
+107.3 ms in total
+load 105.9 ms · build 1.4 ms · first check 0.1 ms
+arktype@2.2.8</title>
+<text class="label" x="20" y="585">ArkType</text>
+<text class="sublabel" x="20" y="600">type(value) · allows()</text>
+<path class="bar" d="M265,581H555.1361459422112A4,4 0 0 1 559.1361459422112,585V591A4,4 0 0 1 555.1361459422112,595H265Z"/>
+<text class="value" x="565.1361459422112" y="594">107 ms</text>
+</g>
+<text class="caption" x="20" y="649">Apple M3 Max · 16 cores · Node v24.14.1</text>
+</svg>

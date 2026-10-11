@@ -1,0 +1,370 @@
+{
+  "generatedAt": "2026-10-11T20:54:17.275Z",
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 16,
+    "memoryGb": 64,
+    "os": "darwin 25.6.0 (arm64)",
+    "node": "v24.14.1"
+  },
+  "method": {
+    "warmupMs": 1000,
+    "sampleMs": 1000,
+    "samples": 5
+  },
+  "scenarios": [
+    {
+      "id": "from-flat",
+      "title": "Schema.from — flat struct",
+      "unit": "schemas/s"
+    },
+    {
+      "id": "from-nested",
+      "title": "Schema.from — nested struct",
+      "unit": "schemas/s"
+    },
+    {
+      "id": "flat-valid",
+      "title": "check — flat struct, valid",
+      "unit": "ops/s"
+    },
+    {
+      "id": "flat-invalid",
+      "title": "check — flat struct, invalid",
+      "unit": "ops/s"
+    },
+    {
+      "id": "nested-valid",
+      "title": "check — nested struct, valid",
+      "unit": "ops/s"
+    },
+    {
+      "id": "nested-invalid",
+      "title": "check — nested struct, invalid",
+      "unit": "ops/s"
+    }
+  ],
+  "releases": [
+    {
+      "id": "metarhia-2.2.2",
+      "name": "Metarhia metaschema",
+      "version": "2.2.2",
+      "backend": "closures",
+      "current": false,
+      "results": {
+        "from-flat": {
+          "median": 581307.1463834654,
+          "min": 569255.2439993765,
+          "max": 593105.8382778434
+        },
+        "from-nested": {
+          "median": 155967.9125703329,
+          "min": 155541.7973051344,
+          "max": 156649.36416687784
+        },
+        "flat-valid": {
+          "median": 1442666.4499922558,
+          "min": 1428278.7753333193,
+          "max": 1448460.522258833
+        },
+        "flat-invalid": {
+          "median": 1013229.8700261635,
+          "min": 1011776.4971665305,
+          "max": 1015646.0471126194
+        },
+        "nested-valid": {
+          "median": 237702.26672665268,
+          "min": 237078.2607494749,
+          "max": 238209.95715641958
+        },
+        "nested-invalid": {
+          "median": 221871.53451619175,
+          "min": 221287.25647122072,
+          "max": 223196.45596438763
+        }
+      }
+    },
+    {
+      "id": "1.0.0",
+      "name": "@alexify/metaschema",
+      "version": "1.0.0",
+      "backend": "closures",
+      "current": false,
+      "results": {
+        "from-flat": {
+          "median": 320791.7201688849,
+          "min": 318888.51835609385,
+          "max": 322327.105128806
+        },
+        "from-nested": {
+          "median": 95600.08258624941,
+          "min": 93459.53245544428,
+          "max": 97058.5003436884
+        },
+        "flat-valid": {
+          "median": 2176789.183768668,
+          "min": 2160209.0715218564,
+          "max": 2181313.791661908
+        },
+        "flat-invalid": {
+          "median": 1112679.240772751,
+          "min": 1098451.9073971412,
+          "max": 1146594.6412586565
+        },
+        "nested-valid": {
+          "median": 367853.5507193187,
+          "min": 365522.7058883771,
+          "max": 377598.54085409397
+        },
+        "nested-invalid": {
+          "median": 299619.0000767712,
+          "min": 294319.6015973905,
+          "max": 300678.72337184916
+        }
+      }
+    },
+    {
+      "id": "2.0.0",
+      "name": "@alexify/metaschema",
+      "version": "2.0.0",
+      "backend": "closures",
+      "current": false,
+      "results": {
+        "from-flat": {
+          "median": 361561.95162636216,
+          "min": 359235.77518247114,
+          "max": 363794.9268514035
+        },
+        "from-nested": {
+          "median": 103577.16082644445,
+          "min": 103152.97401573404,
+          "max": 103900.16306745527
+        },
+        "flat-valid": {
+          "median": 10803219.247121803,
+          "min": 10735600.11121774,
+          "max": 10889684.20947255
+        },
+        "flat-invalid": {
+          "median": 4020873.905955034,
+          "min": 3873813.1666164924,
+          "max": 4027103.8851957917
+        },
+        "nested-valid": {
+          "median": 2951886.912917459,
+          "min": 2949098.126539196,
+          "max": 2961999.214429526
+        },
+        "nested-invalid": {
+          "median": 1569974.8216203488,
+          "min": 1560131.7524834804,
+          "max": 1586955.8738170627
+        }
+      }
+    },
+    {
+      "id": "3.0.0",
+      "name": "@alexify/metaschema",
+      "version": "3.0.0",
+      "backend": "closures",
+      "current": false,
+      "results": {
+        "from-flat": {
+          "median": 372388.1116745806,
+          "min": 366177.71568691474,
+          "max": 375591.4245947931
+        },
+        "from-nested": {
+          "median": 98954.42146582452,
+          "min": 98490.15413135527,
+          "max": 99264.8675442419
+        },
+        "flat-valid": {
+          "median": 10675826.835491277,
+          "min": 10599558.082302528,
+          "max": 10742734.059233991
+        },
+        "flat-invalid": {
+          "median": 3935603.3431551913,
+          "min": 3851843.3758553998,
+          "max": 4004689.2603449426
+        },
+        "nested-valid": {
+          "median": 2926721.534034441,
+          "min": 2903928.7262881454,
+          "max": 2951698.57898772
+        },
+        "nested-invalid": {
+          "median": 1579813.543000599,
+          "min": 1577825.6831473701,
+          "max": 1599656.4708323444
+        }
+      }
+    },
+    {
+      "id": "3.0.0-jit",
+      "name": "@alexify/metaschema",
+      "version": "3.0.0",
+      "backend": "jit",
+      "current": false,
+      "results": {
+        "flat-valid": {
+          "median": 38624477.28393675,
+          "min": 38499009.38389556,
+          "max": 38658068.650738955
+        },
+        "flat-invalid": {
+          "median": 6129881.936637755,
+          "min": 5985704.822042451,
+          "max": 6207455.465773905
+        },
+        "nested-valid": {
+          "median": 19692470.144789424,
+          "min": 19663819.099679563,
+          "max": 19813240.788737297
+        },
+        "nested-invalid": {
+          "median": 2144985.99619475,
+          "min": 2103240.6730940384,
+          "max": 2161344.18425344
+        }
+      }
+    },
+    {
+      "id": "3.1.0",
+      "name": "@alexify/metaschema",
+      "version": "3.1.0",
+      "backend": "closures",
+      "current": false,
+      "results": {
+        "from-flat": {
+          "median": 367381.6105324803,
+          "min": 357414.2027974167,
+          "max": 369240.1278413233
+        },
+        "from-nested": {
+          "median": 98351.2127402358,
+          "min": 97927.45942542642,
+          "max": 98672.9647070028
+        },
+        "flat-valid": {
+          "median": 11655445.507952077,
+          "min": 11569164.899518635,
+          "max": 11664580.782924617
+        },
+        "flat-invalid": {
+          "median": 3881046.9380305894,
+          "min": 3766782.994333426,
+          "max": 3909656.4282968715
+        },
+        "nested-valid": {
+          "median": 2923170.2327637514,
+          "min": 2918226.1355760256,
+          "max": 2936617.506520707
+        },
+        "nested-invalid": {
+          "median": 1565784.7692835843,
+          "min": 1564793.152831432,
+          "max": 1569465.344805172
+        }
+      }
+    },
+    {
+      "id": "3.1.0-jit",
+      "name": "@alexify/metaschema",
+      "version": "3.1.0",
+      "backend": "jit",
+      "current": false,
+      "results": {
+        "flat-valid": {
+          "median": 37865363.953996845,
+          "min": 37703549.8790191,
+          "max": 37949108.33890135
+        },
+        "flat-invalid": {
+          "median": 6169574.787872049,
+          "min": 6051700.564417386,
+          "max": 6248214.102224156
+        },
+        "nested-valid": {
+          "median": 19574585.075558234,
+          "min": 19473977.454449523,
+          "max": 19618348.716585424
+        },
+        "nested-invalid": {
+          "median": 2105632.5783268088,
+          "min": 2052992.155102254,
+          "max": 2130863.0322896
+        }
+      }
+    },
+    {
+      "id": "3.2.0",
+      "name": "@alexify/metaschema",
+      "version": "3.2.0",
+      "backend": "closures",
+      "current": true,
+      "results": {
+        "from-flat": {
+          "median": 355915.38080659555,
+          "min": 352925.03082739393,
+          "max": 358662.29608150735
+        },
+        "from-nested": {
+          "median": 98595.75135014304,
+          "min": 97951.4524856828,
+          "max": 99370.7357351683
+        },
+        "flat-valid": {
+          "median": 11633216.401657283,
+          "min": 11608406.778413858,
+          "max": 11638942.255107095
+        },
+        "flat-invalid": {
+          "median": 3902498.3927500723,
+          "min": 3767717.4779240834,
+          "max": 3922242.0526848934
+        },
+        "nested-valid": {
+          "median": 2913539.9473895975,
+          "min": 2907238.042135888,
+          "max": 2929592.30137487
+        },
+        "nested-invalid": {
+          "median": 1573928.0337068797,
+          "min": 1572861.2515957481,
+          "max": 1580656.620233735
+        }
+      }
+    },
+    {
+      "id": "3.2.0-jit",
+      "name": "@alexify/metaschema",
+      "version": "3.2.0",
+      "backend": "jit",
+      "current": true,
+      "results": {
+        "flat-valid": {
+          "median": 37916069.64719858,
+          "min": 37831147.68628851,
+          "max": 38013054.58618495
+        },
+        "flat-invalid": {
+          "median": 6163118.817138413,
+          "min": 6010529.546268798,
+          "max": 6170959.07258333
+        },
+        "nested-valid": {
+          "median": 19692293.75105596,
+          "min": 19546204.238766976,
+          "max": 19734385.025067765
+        },
+        "nested-invalid": {
+          "median": 2110172.210352405,
+          "min": 2075666.4267942084,
+          "max": 2133470.808602629
+        }
+      }
+    }
+  ]
+}

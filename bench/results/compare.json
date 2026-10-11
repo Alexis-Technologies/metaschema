@@ -1,0 +1,931 @@
+{
+  "generatedAt": "2026-10-11T20:55:33.698Z",
+  "machine": {
+    "cpu": "Apple M3 Max",
+    "cores": 16,
+    "memoryGb": 64,
+    "os": "darwin 25.6.0 (arm64)",
+    "node": "v24.14.1"
+  },
+  "method": {
+    "warmupMs": 1000,
+    "sampleMs": 1000,
+    "samples": 5,
+    "coldStartRuns": 20
+  },
+  "libraries": [
+    {
+      "id": "metaschema-jit",
+      "name": "metaschema",
+      "package": "@alexify/metaschema",
+      "version": "3.2.0",
+      "variant": "check() · compile(), JIT"
+    },
+    {
+      "id": "metaschema",
+      "name": "metaschema",
+      "package": "@alexify/metaschema",
+      "version": "3.2.0",
+      "variant": "check() · closures"
+    },
+    {
+      "id": "metarhia",
+      "name": "Metarhia metaschema",
+      "package": "metaschema",
+      "version": "2.2.2",
+      "variant": "check() · strict only"
+    },
+    {
+      "id": "zod",
+      "name": "Zod",
+      "package": "zod",
+      "version": "4.6.6",
+      "variant": "safeParse()"
+    },
+    {
+      "id": "valibot",
+      "name": "Valibot",
+      "package": "valibot",
+      "version": "1.5.0",
+      "variant": "safeParse() · is()"
+    },
+    {
+      "id": "arktype",
+      "name": "ArkType",
+      "package": "arktype",
+      "version": "2.2.8",
+      "variant": "type(value) · allows()"
+    },
+    {
+      "id": "effect",
+      "name": "Effect Schema",
+      "package": "effect",
+      "version": "4.0.3",
+      "variant": "decodeUnknownResult() · is()"
+    },
+    {
+      "id": "typebox",
+      "name": "TypeBox",
+      "package": "typebox",
+      "version": "1.3.36",
+      "variant": "Compile(…).Check()"
+    },
+    {
+      "id": "typebox-value",
+      "name": "TypeBox",
+      "package": "typebox",
+      "version": "1.3.36",
+      "variant": "Value.Check()"
+    },
+    {
+      "id": "ajv",
+      "name": "Ajv",
+      "package": "ajv",
+      "version": "8.20.0",
+      "variant": "compile(…)(value), draft 2020-12"
+    },
+    {
+      "id": "yup",
+      "name": "Yup",
+      "package": "yup",
+      "version": "1.7.1",
+      "variant": "validateSync() · isValidSync(), strict"
+    },
+    {
+      "id": "joi",
+      "name": "Joi",
+      "package": "joi",
+      "version": "18.2.9",
+      "variant": "validate(), convert: false"
+    },
+    {
+      "id": "superstruct",
+      "name": "Superstruct",
+      "package": "superstruct",
+      "version": "2.0.2",
+      "variant": "validate() · is()"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "flat-parseSafe",
+      "group": "flat",
+      "groupTitle": "Flat object",
+      "mode": "parseSafe",
+      "title": "Flat object, parseSafe",
+      "description": "A valid object of 6 fields. parseSafe: unknown keys allowed, the value returned.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 47388506.50413365,
+          "min": 47302249.44982073,
+          "max": 47438250.211987406
+        },
+        "metaschema": {
+          "median": 9687471.339141015,
+          "min": 9632777.34103156,
+          "max": 9744204.730174635
+        },
+        "zod": {
+          "median": 26808011.41372529,
+          "min": 26721796.4843973,
+          "max": 26935004.64866933
+        },
+        "valibot": {
+          "median": 3442517.4420943037,
+          "min": 3427322.802381027,
+          "max": 3467620.9556914014
+        },
+        "arktype": {
+          "median": 49665467.136347674,
+          "min": 49473942.60143983,
+          "max": 49801446.07827818
+        },
+        "effect": {
+          "median": 4038193.79641445,
+          "min": 3926026.0750110545,
+          "max": 4059575.507863463
+        },
+        "typebox": {
+          "median": 163714885.37006083,
+          "min": 152525628.25771034,
+          "max": 170758278.02278543
+        },
+        "typebox-value": {
+          "median": 257758.8054461592,
+          "min": 256257.79227006802,
+          "max": 260138.52566149188
+        },
+        "ajv": {
+          "median": 64606339.21896817,
+          "min": 64231519.58076319,
+          "max": 64857183.361922234
+        },
+        "yup": {
+          "median": 301414.11543467775,
+          "min": 295926.07404762425,
+          "max": 303940.62060739566
+        },
+        "joi": {
+          "median": 819190.1009068207,
+          "min": 805425.7862769,
+          "max": 826401.832595445
+        },
+        "superstruct": {
+          "median": 480474.3100779649,
+          "min": 463405.8910623751,
+          "max": 493155.4754447905
+        }
+      }
+    },
+    {
+      "id": "flat-parseStrict",
+      "group": "flat",
+      "groupTitle": "Flat object",
+      "mode": "parseStrict",
+      "title": "Flat object, parseStrict",
+      "description": "A valid object of 6 fields. parseStrict: unknown keys rejected, the value returned.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 38835019.48523222,
+          "min": 38117548.840292044,
+          "max": 39079166.79204048
+        },
+        "metaschema": {
+          "median": 8665060.36277564,
+          "min": 8574829.737480476,
+          "max": 8715098.746340178
+        },
+        "metarhia": {
+          "median": 925467.6797196716,
+          "min": 913099.410749342,
+          "max": 934278.8317614844
+        },
+        "zod": {
+          "median": 12307061.52712075,
+          "min": 12253903.983155822,
+          "max": 12403422.490213297
+        },
+        "valibot": {
+          "median": 2938936.870270391,
+          "min": 2866407.320853085,
+          "max": 2951389.706612055
+        },
+        "arktype": {
+          "median": 7272761.1482829265,
+          "min": 7243690.129497338,
+          "max": 7279589.624666003
+        },
+        "effect": {
+          "median": 1925642.7311285988,
+          "min": 1897105.2643814713,
+          "max": 1935546.1652393714
+        },
+        "typebox": {
+          "median": 78175698.81031623,
+          "min": 78127232.84918585,
+          "max": 78424218.27634375
+        },
+        "typebox-value": {
+          "median": 189824.0743293002,
+          "min": 187720.8782832346,
+          "max": 190213.63928626227
+        },
+        "ajv": {
+          "median": 34081704.688607045,
+          "min": 33792103.488316946,
+          "max": 34278638.26219174
+        },
+        "yup": {
+          "median": 291261.02190666343,
+          "min": 287925.59357642167,
+          "max": 293041.57860616205
+        },
+        "joi": {
+          "median": 834171.1369436043,
+          "min": 820981.5570035271,
+          "max": 837794.2590676253
+        },
+        "superstruct": {
+          "median": 435909.9996422276,
+          "min": 427699.695300139,
+          "max": 442752.9666470684
+        }
+      }
+    },
+    {
+      "id": "flat-assertLoose",
+      "group": "flat",
+      "groupTitle": "Flat object",
+      "mode": "assertLoose",
+      "title": "Flat object, assertLoose",
+      "description": "A valid object of 6 fields. assertLoose: unknown keys allowed, the verdict only.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 48429737.893953495,
+          "min": 48318475.605712764,
+          "max": 48522585.59752705
+        },
+        "metaschema": {
+          "median": 9824628.443423884,
+          "min": 9738513.040920168,
+          "max": 9877494.182127059
+        },
+        "zod": {
+          "median": 27064543.389678303,
+          "min": 25831686.145641595,
+          "max": 27206730.8494356
+        },
+        "valibot": {
+          "median": 3566967.9996244125,
+          "min": 3543512.464393623,
+          "max": 3585865.1436475087
+        },
+        "arktype": {
+          "median": 168612114.38684994,
+          "min": 162100314.23459846,
+          "max": 173286495.63691205
+        },
+        "effect": {
+          "median": 4083561.9490374518,
+          "min": 4014081.102932142,
+          "max": 4092711.3345488156
+        },
+        "typebox": {
+          "median": 185519993.95224497,
+          "min": 184244686.76966515,
+          "max": 186605039.54174346
+        },
+        "typebox-value": {
+          "median": 260732.4644731497,
+          "min": 259038.8647845722,
+          "max": 261280.77332046392
+        },
+        "ajv": {
+          "median": 69910253.01589857,
+          "min": 69671518.65613389,
+          "max": 69950113.63162924
+        },
+        "yup": {
+          "median": 304728.2248185046,
+          "min": 302276.15919815784,
+          "max": 306416.59150407533
+        },
+        "joi": {
+          "median": 795505.4056560363,
+          "min": 788890.0786407914,
+          "max": 798577.120977246
+        },
+        "superstruct": {
+          "median": 486183.6278658872,
+          "min": 477825.4214311245,
+          "max": 489510.82659724046
+        }
+      }
+    },
+    {
+      "id": "flat-assertStrict",
+      "group": "flat",
+      "groupTitle": "Flat object",
+      "mode": "assertStrict",
+      "title": "Flat object, assertStrict",
+      "description": "A valid object of 6 fields. assertStrict: unknown keys rejected, the verdict only.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 40158262.68213526,
+          "min": 40090066.63888744,
+          "max": 40294635.16444577
+        },
+        "metaschema": {
+          "median": 8977251.49142888,
+          "min": 8908430.649137117,
+          "max": 9043783.35307528
+        },
+        "metarhia": {
+          "median": 931496.277873465,
+          "min": 929022.1500020244,
+          "max": 932923.4346012672
+        },
+        "zod": {
+          "median": 12756355.474054968,
+          "min": 12688163.178635893,
+          "max": 12785152.211181635
+        },
+        "valibot": {
+          "median": 2907967.9519805154,
+          "min": 2863731.662989662,
+          "max": 2935975.6757185683
+        },
+        "arktype": {
+          "median": 8563999.052722586,
+          "min": 8515776.223410994,
+          "max": 8578145.103616253
+        },
+        "effect": {
+          "median": 1914873.857084668,
+          "min": 1892832.1822461027,
+          "max": 1915809.088943884
+        },
+        "typebox": {
+          "median": 81679091.30285463,
+          "min": 81546840.59307967,
+          "max": 81819826.88540529
+        },
+        "typebox-value": {
+          "median": 187846.69116791838,
+          "min": 183490.5229682036,
+          "max": 189369.5781881113
+        },
+        "ajv": {
+          "median": 35085387.977647,
+          "min": 34743165.582506865,
+          "max": 35168485.13908608
+        },
+        "yup": {
+          "median": 290933.91778913006,
+          "min": 289755.0081371312,
+          "max": 291307.1593032092
+        },
+        "joi": {
+          "median": 830335.9904217008,
+          "min": 818846.2927930576,
+          "max": 833534.9239064131
+        },
+        "superstruct": {
+          "median": 431305.8910643247,
+          "min": 422466.22757804516,
+          "max": 432295.53265382914
+        }
+      }
+    },
+    {
+      "id": "nested-parseSafe",
+      "group": "nested",
+      "groupTitle": "Nested object",
+      "mode": "parseSafe",
+      "title": "Nested object, parseSafe",
+      "description": "A valid object of 6 fields and a nested object of 3. parseSafe: unknown keys allowed, the value returned.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 41469322.758149646,
+          "min": 41399946.074495666,
+          "max": 41568892.8781984
+        },
+        "metaschema": {
+          "median": 4952880.573949973,
+          "min": 4951343.372777708,
+          "max": 4954513.451681063
+        },
+        "zod": {
+          "median": 16662908.675901126,
+          "min": 16654526.991178904,
+          "max": 16706408.426472306
+        },
+        "valibot": {
+          "median": 2066913.709326382,
+          "min": 2052968.1543063752,
+          "max": 2079975.0095276167
+        },
+        "arktype": {
+          "median": 37566684.43142579,
+          "min": 37504069.647584416,
+          "max": 37689834.62796211
+        },
+        "effect": {
+          "median": 2266936.332626201,
+          "min": 2252203.539927708,
+          "max": 2289502.017732246
+        },
+        "typebox": {
+          "median": 118509417.63456792,
+          "min": 115820234.09166881,
+          "max": 118753180.65939051
+        },
+        "typebox-value": {
+          "median": 166363.12278566152,
+          "min": 165256.77401307732,
+          "max": 166910.57441678393
+        },
+        "ajv": {
+          "median": 50679081.784492925,
+          "min": 50604386.362287015,
+          "max": 50801468.342092074
+        },
+        "yup": {
+          "median": 180736.38615568756,
+          "min": 179417.82885691067,
+          "max": 182304.9118386389
+        },
+        "joi": {
+          "median": 527595.0918075759,
+          "min": 521353.3734193288,
+          "max": 530255.1599041718
+        },
+        "superstruct": {
+          "median": 293243.6861028809,
+          "min": 288137.5515508958,
+          "max": 293661.6115650588
+        }
+      }
+    },
+    {
+      "id": "nested-parseStrict",
+      "group": "nested",
+      "groupTitle": "Nested object",
+      "mode": "parseStrict",
+      "title": "Nested object, parseStrict",
+      "description": "A valid object of 6 fields and a nested object of 3. parseStrict: unknown keys rejected, the value returned.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 29497142.796889078,
+          "min": 29426303.390889816,
+          "max": 29660950.00976616
+        },
+        "metaschema": {
+          "median": 4664947.268589727,
+          "min": 4648388.241924272,
+          "max": 4692017.589944146
+        },
+        "metarhia": {
+          "median": 533927.8874794443,
+          "min": 532352.4568689733,
+          "max": 536564.6650714503
+        },
+        "zod": {
+          "median": 7200769.729297585,
+          "min": 7186031.321973513,
+          "max": 7235504.865268968
+        },
+        "valibot": {
+          "median": 1735620.394911983,
+          "min": 1717932.5657298653,
+          "max": 1762978.783873555
+        },
+        "arktype": {
+          "median": 4216363.004157402,
+          "min": 4166946.0426482763,
+          "max": 4268479.377729029
+        },
+        "effect": {
+          "median": 993184.6949898533,
+          "min": 983199.8060668404,
+          "max": 997707.735172295
+        },
+        "typebox": {
+          "median": 42744597.8424481,
+          "min": 41542372.336962074,
+          "max": 42853069.73898841
+        },
+        "typebox-value": {
+          "median": 116116.12811697931,
+          "min": 115216.50406728215,
+          "max": 116290.26917125474
+        },
+        "ajv": {
+          "median": 23171700.449530948,
+          "min": 23150466.823346607,
+          "max": 23222227.456015415
+        },
+        "yup": {
+          "median": 172401.2732958702,
+          "min": 171531.97432502583,
+          "max": 173162.13544458235
+        },
+        "joi": {
+          "median": 529461.1889647543,
+          "min": 523002.4553631144,
+          "max": 532228.9651606897
+        },
+        "superstruct": {
+          "median": 259548.3014670679,
+          "min": 256690.366695887,
+          "max": 261648.03542128947
+        }
+      }
+    },
+    {
+      "id": "nested-assertLoose",
+      "group": "nested",
+      "groupTitle": "Nested object",
+      "mode": "assertLoose",
+      "title": "Nested object, assertLoose",
+      "description": "A valid object of 6 fields and a nested object of 3. assertLoose: unknown keys allowed, the verdict only.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 43708084.72068248,
+          "min": 43690541.11913471,
+          "max": 43744377.55889352
+        },
+        "metaschema": {
+          "median": 4977523.008897756,
+          "min": 4942608.566425343,
+          "max": 5010016.40233193
+        },
+        "zod": {
+          "median": 16642128.387557106,
+          "min": 16591781.100043485,
+          "max": 16675376.820114132
+        },
+        "valibot": {
+          "median": 2031838.4686022026,
+          "min": 2016337.938193707,
+          "max": 2036298.947838137
+        },
+        "arktype": {
+          "median": 130554971.52458571,
+          "min": 126650929.24747284,
+          "max": 131130624.23592708
+        },
+        "effect": {
+          "median": 2242556.9954953883,
+          "min": 2225942.1310728835,
+          "max": 2247926.498422358
+        },
+        "typebox": {
+          "median": 136141218.39808363,
+          "min": 130256054.19247295,
+          "max": 137113282.5023779
+        },
+        "typebox-value": {
+          "median": 165683.42934432114,
+          "min": 165195.3382482083,
+          "max": 166257.89804447824
+        },
+        "ajv": {
+          "median": 54807527.4694325,
+          "min": 54665209.36222786,
+          "max": 54951678.04149706
+        },
+        "yup": {
+          "median": 182075.21474657886,
+          "min": 181100.80271635856,
+          "max": 182328.13044478142
+        },
+        "joi": {
+          "median": 519870.8497825471,
+          "min": 507938.66247017373,
+          "max": 521584.04286808823
+        },
+        "superstruct": {
+          "median": 297980.5484913069,
+          "min": 292715.5686186026,
+          "max": 298827.62017777015
+        }
+      }
+    },
+    {
+      "id": "nested-assertStrict",
+      "group": "nested",
+      "groupTitle": "Nested object",
+      "mode": "assertStrict",
+      "title": "Nested object, assertStrict",
+      "description": "A valid object of 6 fields and a nested object of 3. assertStrict: unknown keys rejected, the verdict only.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 30246024.903975345,
+          "min": 30211900.891544048,
+          "max": 30458571.592976876
+        },
+        "metaschema": {
+          "median": 4641424.509498632,
+          "min": 4610167.027742751,
+          "max": 4643340.21361546
+        },
+        "metarhia": {
+          "median": 537822.6217051093,
+          "min": 534607.4822307687,
+          "max": 539089.07675793
+        },
+        "zod": {
+          "median": 7171807.04242535,
+          "min": 7107201.011908085,
+          "max": 7192064.464414969
+        },
+        "valibot": {
+          "median": 1768398.509600334,
+          "min": 1748992.2938143406,
+          "max": 1774472.2780889361
+        },
+        "arktype": {
+          "median": 4726705.617040752,
+          "min": 4711868.361746259,
+          "max": 4743739.3771838695
+        },
+        "effect": {
+          "median": 1002786.4617032642,
+          "min": 992275.4857883699,
+          "max": 1007507.4410732242
+        },
+        "typebox": {
+          "median": 43620456.594449766,
+          "min": 43600702.96634814,
+          "max": 43695059.49411709
+        },
+        "typebox-value": {
+          "median": 117255.04661196281,
+          "min": 115666.12392359876,
+          "max": 117734.81946548678
+        },
+        "ajv": {
+          "median": 23943360.76723805,
+          "min": 23721027.352349386,
+          "max": 24002158.498490773
+        },
+        "yup": {
+          "median": 172598.25421560375,
+          "min": 171834.905363548,
+          "max": 173500.1470419943
+        },
+        "joi": {
+          "median": 531683.8921626962,
+          "min": 520527.1037198379,
+          "max": 533015.1361066625
+        },
+        "superstruct": {
+          "median": 259750.45630573062,
+          "min": 257846.39634885473,
+          "max": 260270.92754634048
+        }
+      }
+    },
+    {
+      "id": "invalid",
+      "group": "invalid",
+      "groupTitle": "Every issue",
+      "mode": null,
+      "title": "Every issue of an invalid value",
+      "description": "The nested object with four wrong fields, unknown keys rejected; every issue collected with its path.",
+      "unit": "ops/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 6600074.574147806,
+          "min": 6384875.040649274,
+          "max": 6737304.939521039
+        },
+        "metaschema": {
+          "median": 3118374.0494903703,
+          "min": 3059481.2631015806,
+          "max": 3182090.556623818
+        },
+        "metarhia": {
+          "median": 419781.9303062349,
+          "min": 418030.7646414611,
+          "max": 424588.0078316382
+        },
+        "zod": {
+          "median": 446719.49371322175,
+          "min": 445054.3977489201,
+          "max": 449112.95445964293
+        },
+        "valibot": {
+          "median": 1129937.8581554613,
+          "min": 1128639.0129868453,
+          "max": 1140939.4340893917
+        },
+        "arktype": {
+          "median": 67065.35496343416,
+          "min": 66245.6955072417,
+          "max": 67433.70190009379
+        },
+        "effect": {
+          "median": 367382.2684617466,
+          "min": 364880.37067166314,
+          "max": 369305.9578738412
+        },
+        "typebox": {
+          "median": 90929.49374833504,
+          "min": 89482.06264143856,
+          "max": 91236.18053753908
+        },
+        "typebox-value": {
+          "median": 90586.71976017648,
+          "min": 90030.33123577776,
+          "max": 90977.80301153561
+        },
+        "ajv": {
+          "median": 14825642.702992734,
+          "min": 14362045.959285123,
+          "max": 14929360.04654307
+        },
+        "yup": {
+          "median": 11485.615781419247,
+          "min": 11469.050068569963,
+          "max": 11576.793446079815
+        },
+        "joi": {
+          "median": 258076.33269299168,
+          "min": 253475.0337477216,
+          "max": 259527.07714758787
+        },
+        "superstruct": {
+          "median": 101727.78199761908,
+          "min": 100835.34592225534,
+          "max": 101868.35214158063
+        }
+      }
+    },
+    {
+      "id": "build",
+      "group": "build",
+      "groupTitle": "Build a schema",
+      "mode": null,
+      "title": "Build a schema",
+      "description": "The strict nested schema built from its definition, ready to check.",
+      "unit": "schemas/s",
+      "results": {
+        "metaschema-jit": {
+          "median": 32317.269190753384,
+          "min": 31944.303764725468,
+          "max": 32456.230718406394
+        },
+        "metaschema": {
+          "median": 200582.29669148248,
+          "min": 198484.682908065,
+          "max": 202347.30852023824
+        },
+        "metarhia": {
+          "median": 283356.9450967758,
+          "min": 282496.80581318267,
+          "max": 287278.0350271858
+        },
+        "zod": {
+          "median": 80564.43394466609,
+          "min": 80152.11956680451,
+          "max": 80927.33230156577
+        },
+        "valibot": {
+          "median": 2074487.0465182548,
+          "min": 2067542.4563328365,
+          "max": 2140115.59186491
+        },
+        "arktype": {
+          "median": 14658.92119324002,
+          "min": 14510.056261883266,
+          "max": 15088.938719305364
+        },
+        "effect": {
+          "median": 675341.7389430838,
+          "min": 670048.6949637331,
+          "max": 678356.6240050738
+        },
+        "typebox": {
+          "median": 36305.32043425166,
+          "min": 36200.38073578552,
+          "max": 36581.74195486048
+        },
+        "typebox-value": {
+          "median": 429042.1994286132,
+          "min": 428290.6305439108,
+          "max": 431488.8907081088
+        },
+        "ajv": {
+          "median": 1818.3542366740542,
+          "min": 1549.1593576082128,
+          "max": 1841.6419613337403
+        },
+        "yup": {
+          "median": 54642.735475963214,
+          "min": 53772.21509842719,
+          "max": 55934.68788409163
+        },
+        "joi": {
+          "median": 38646.1516852276,
+          "min": 38394.9510639351,
+          "max": 38774.58425138247
+        },
+        "superstruct": {
+          "median": 1809591.3706151042,
+          "min": 1808720.6500174555,
+          "max": 1812203.1859633445
+        }
+      }
+    }
+  ],
+  "coldStart": {
+    "metaschema-jit": {
+      "load": 5.737333536148071,
+      "build": 1.6001460552215576,
+      "firstCheck": 0.19406235218048096,
+      "total": 7.565978407859802
+    },
+    "metaschema": {
+      "load": 4.652687430381775,
+      "build": 0.9226044416427612,
+      "firstCheck": 0.13254141807556152,
+      "total": 5.7108330726623535
+    },
+    "metarhia": {
+      "load": 20.706082940101624,
+      "build": 0.6076874732971191,
+      "firstCheck": 0.19710397720336914,
+      "total": 21.511500000953674
+    },
+    "zod": {
+      "load": 27.6976455450058,
+      "build": 1.425853967666626,
+      "firstCheck": 1.1637500524520874,
+      "total": 30.27929151058197
+    },
+    "valibot": {
+      "load": 3.702854037284851,
+      "build": 0.12820839881896973,
+      "firstCheck": 0.13254153728485107,
+      "total": 3.9654585123062134
+    },
+    "arktype": {
+      "load": 105.87458336353302,
+      "build": 1.3751460313796997,
+      "firstCheck": 0.12662482261657715,
+      "total": 107.34895837306976
+    },
+    "effect": {
+      "load": 70.9571670293808,
+      "build": 0.1906670331954956,
+      "firstCheck": 0.8095624446868896,
+      "total": 71.9554796218872
+    },
+    "typebox": {
+      "load": 94.84683310985565,
+      "build": 1.8649165630340576,
+      "firstCheck": 0.018770456314086914,
+      "total": 96.73500001430511
+    },
+    "typebox-value": {
+      "load": 94.70439648628235,
+      "build": 0.12849998474121094,
+      "firstCheck": 1.0297915935516357,
+      "total": 95.86404204368591
+    },
+    "ajv": {
+      "load": 14.74747896194458,
+      "build": 23.885083436965942,
+      "firstCheck": 0.15977060794830322,
+      "total": 38.74706256389618
+    },
+    "yup": {
+      "load": 2.498250126838684,
+      "build": 1.0689795017242432,
+      "firstCheck": 0.6502914428710938,
+      "total": 4.228353977203369
+    },
+    "joi": {
+      "load": 23.314812541007996,
+      "build": 1.1779168844223022,
+      "firstCheck": 0.6305421590805054,
+      "total": 25.142062544822693
+    },
+    "superstruct": {
+      "load": 0.775937557220459,
+      "build": 0.15243744850158691,
+      "firstCheck": 0.3227919340133667,
+      "total": 1.2590625286102295
+    }
+  }
+}

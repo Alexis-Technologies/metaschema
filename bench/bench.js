@@ -1,15 +1,15 @@
 /**
  * Zero-dependency ops/sec benchmark for metaschema's hot paths.
  *
- * Run: pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]
+ * Run: pnpm bench [filter] [--json] [--save] [--compare]
  *
  * An optional filter runs only the scenarios whose name contains it, e.g.
  * `pnpm bench check`. `--json` prints the results as JSON, `--save` writes
  * them to bench/baseline.json, and `--compare` prints the change against
  * that baseline (numbers are machine-specific: compare on one machine, before
- * and after a change). `--compare-libs` runs the moltar scenarios through
- * zod, valibot, ajv and typebox instead (bench/libs.js). Manual only, not
- * part of CI.
+ * and after a change). Manual only, not part of CI. The comparison with
+ * other libraries is bench/compare.js (pnpm bench:compare), and
+ * bench/report.js charts the baseline with the rest (pnpm bench:report).
  *
  * The `check` and `parse` scenarios run twice: on the closure backend and,
  * as `(jit)`, on a second schema compiled by the ./compile subpath. The
@@ -182,10 +182,6 @@ const asyncSchemas = (build) => ({
 });
 
 const main = async () => {
-  if (flags.has('--compare-libs')) {
-    require('./libs.js').compareLibraries({ json });
-    return;
-  }
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);

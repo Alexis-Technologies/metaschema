@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="399" viewBox="0 0 760 399" role="img" aria-label="Schema.from — nested struct, release over release. schemas/s, linear scale, higher is better. The same harness and machine for every release.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">Schema.from — nested struct, release over release</text>
+<text class="subtitle" x="20" y="56">schemas/s, linear scale, higher is better. The same harness and machine for every release.</text>
+<line class="grid" x1="202" y1="71" x2="202" y2="339"/>
+<text class="tick" x="202" y="355" text-anchor="middle">0</text>
+<line class="grid" x1="320.5" y1="71" x2="320.5" y2="339"/>
+<text class="tick" x="320.5" y="355" text-anchor="middle">50k</text>
+<line class="grid" x1="439" y1="71" x2="439" y2="339"/>
+<text class="tick" x="439" y="355" text-anchor="middle">100k</text>
+<line class="grid" x1="557.5" y1="71" x2="557.5" y2="339"/>
+<text class="tick" x="557.5" y="355" text-anchor="middle">150k</text>
+<line class="grid" x1="676" y1="71" x2="676" y2="339"/>
+<text class="tick" x="676" y="355" text-anchor="middle">200k</text>
+<line class="axis" x1="202" y1="71" x2="202" y2="339"/>
+<text class="group" x="20" y="89">CLOSURES, EVERY SCHEMA</text>
+<g><title>Metarhia 2.2.2 · Metarhia metaschema
+155,968 schemas/s
+6.41 µs per schema
+samples 156k – 157k</title>
+<text class="label" x="20" y="116">Metarhia 2.2.2</text>
+<text class="sublabel" x="20" y="131">Metarhia metaschema</text>
+<path class="bar" d="M202,112H567.643952791689A4,4 0 0 1 571.643952791689,116V122A4,4 0 0 1 567.643952791689,126H202Z"/>
+<text class="value" x="577.643952791689" y="125">156k</text>
+</g>
+<g><title>1.0.0 · ×0.6 vs Metarhia 2.2.2
+95,600 schemas/s
+10.5 µs per schema
+samples 93.5k – 97.1k</title>
+<text class="label" x="20" y="156">1.0.0</text>
+<text class="sublabel" x="20" y="171">×0.6 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,152H424.5721957294111A4,4 0 0 1 428.5721957294111,156V162A4,4 0 0 1 424.5721957294111,166H202Z"/>
+<text class="value" x="434.5721957294111" y="165">95.6k</text>
+</g>
+<g><title>2.0.0 · ×0.7 vs Metarhia 2.2.2
+103,577 schemas/s
+9.65 µs per schema
+samples 103k – 104k</title>
+<text class="label" x="20" y="196">2.0.0</text>
+<text class="sublabel" x="20" y="211">×0.7 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,192H443.47787115867334A4,4 0 0 1 447.47787115867334,196V202A4,4 0 0 1 443.47787115867334,206H202Z"/>
+<text class="value" x="453.47787115867334" y="205">104k</text>
+</g>
+<g><title>3.0.0 · ×0.6 vs Metarhia 2.2.2
+98,954 schemas/s
+10.1 µs per schema
+samples 98.5k – 99.3k</title>
+<text class="label" x="20" y="236">3.0.0</text>
+<text class="sublabel" x="20" y="251">×0.6 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,232H432.5219788740041A4,4 0 0 1 436.5219788740041,236V242A4,4 0 0 1 432.5219788740041,246H202Z"/>
+<text class="value" x="442.5219788740041" y="245">99k</text>
+</g>
+<g><title>3.1.0 · ×0.6 vs Metarhia 2.2.2
+98,351 schemas/s
+10.2 µs per schema
+samples 97.9k – 98.7k</title>
+<text class="label" x="20" y="276">3.1.0</text>
+<text class="sublabel" x="20" y="291">×0.6 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,272H431.09237419435885A4,4 0 0 1 435.09237419435885,276V282A4,4 0 0 1 431.09237419435885,286H202Z"/>
+<text class="value" x="441.09237419435885" y="285">98.4k</text>
+</g>
+<g><title>3.2.0 · ×0.6 vs Metarhia 2.2.2
+98,596 schemas/s
+10.1 µs per schema
+samples 98k – 99.4k</title>
+<text class="label secondary" x="20" y="316">3.2.0</text>
+<text class="sublabel" x="20" y="331">×0.6 vs Metarhia 2.2.2</text>
+<path class="bar secondary" d="M202,312H431.671930699839A4,4 0 0 1 435.671930699839,316V322A4,4 0 0 1 431.671930699839,326H202Z"/>
+<text class="value" x="441.671930699839" y="325">98.6k</text>
+</g>
+<text class="caption" x="20" y="380">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each release in a fresh process · 2026-10-11</text>
+</svg>

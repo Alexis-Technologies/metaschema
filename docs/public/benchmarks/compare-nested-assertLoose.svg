@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="628" viewBox="0 0 760 628" role="img" aria-label="Nested object, assertLoose. A valid object of 6 fields and a nested object of 3. assertLoose: unknown keys allowed, the verdict only. ops/s, log scale, higher is better. Not shown, the mode cannot be expressed: Metarhia metaschema.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">Nested object, assertLoose</text>
+<text class="subtitle" x="20" y="56">A valid object of 6 fields and a nested object of 3. assertLoose: unknown keys allowed, the verdict only. ops/s,</text>
+<text class="subtitle" x="20" y="73">log scale, higher is better. Not shown, the mode cannot be expressed: Metarhia metaschema.</text>
+<line class="grid" x1="265" y1="88" x2="265" y2="568"/>
+<text class="tick" x="265" y="584" text-anchor="middle">100k</text>
+<line class="grid" x1="367.75" y1="88" x2="367.75" y2="568"/>
+<text class="tick" x="367.75" y="584" text-anchor="middle">1M</text>
+<line class="grid" x1="470.5" y1="88" x2="470.5" y2="568"/>
+<text class="tick" x="470.5" y="584" text-anchor="middle">10M</text>
+<line class="grid" x1="573.25" y1="88" x2="573.25" y2="568"/>
+<text class="tick" x="573.25" y="584" text-anchor="middle">100M</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="568"/>
+<text class="tick" x="676" y="584" text-anchor="middle">1000M</text>
+<line class="axis" x1="265" y1="88" x2="265" y2="568"/>
+<g><title>TypeBox · Compile(…).Check()
+136,141,218 ops/s
+7.35 ns per call
+samples 130M – 137M
+typebox@1.3.36</title>
+<text class="label" x="20" y="105">TypeBox</text>
+<text class="sublabel" x="20" y="120">Compile(…).Check()</text>
+<path class="bar" d="M265,101H583.0174347919434A4,4 0 0 1 587.0174347919434,105V111A4,4 0 0 1 583.0174347919434,115H265Z"/>
+<text class="value" x="593.0174347919434" y="114">136M</text>
+</g>
+<g><title>ArkType · type(value) · allows()
+130,554,972 ops/s
+7.66 ns per call
+samples 127M – 131M
+arktype@2.2.8</title>
+<text class="label" x="20" y="145">ArkType</text>
+<text class="sublabel" x="20" y="160">type(value) · allows()</text>
+<path class="bar" d="M265,141H581.1477733274096A4,4 0 0 1 585.1477733274096,145V151A4,4 0 0 1 581.1477733274096,155H265Z"/>
+<text class="value" x="591.1477733274096" y="154">131M</text>
+</g>
+<g><title>Ajv · compile(…)(value), draft 2020-12
+54,807,527 ops/s
+18.2 ns per call
+samples 54.7M – 55M
+ajv@8.20.0</title>
+<text class="label" x="20" y="185">Ajv</text>
+<text class="sublabel" x="20" y="200">compile(…)(value), draft 2020-12</text>
+<path class="bar" d="M265,181H542.415831597886A4,4 0 0 1 546.415831597886,185V191A4,4 0 0 1 542.415831597886,195H265Z"/>
+<text class="value" x="552.415831597886" y="194">54.8M</text>
+</g>
+<g><title>metaschema · check() · compile(), JIT
+43,708,085 ops/s
+22.9 ns per call
+samples 43.7M – 43.7M
+@alexify/metaschema@3.2.0</title>
+<text class="label primary" x="20" y="225">metaschema</text>
+<text class="sublabel" x="20" y="240">check() · compile(), JIT</text>
+<path class="bar primary" d="M265,221H532.3177225057195A4,4 0 0 1 536.3177225057195,225V231A4,4 0 0 1 532.3177225057195,235H265Z"/>
+<text class="value" x="542.3177225057195" y="234">43.7M</text>
+</g>
+<g><title>Zod · safeParse()
+16,642,128 ops/s
+60.1 ns per call
+samples 16.6M – 16.7M
+zod@4.6.6</title>
+<text class="label" x="20" y="265">Zod</text>
+<text class="sublabel" x="20" y="280">safeParse()</text>
+<path class="bar" d="M265,261H489.22921119729415A4,4 0 0 1 493.22921119729415,265V271A4,4 0 0 1 489.22921119729415,275H265Z"/>
+<text class="value" x="499.22921119729415" y="274">16.6M</text>
+</g>
+<g><title>metaschema · check() · closures
+4,977,523 ops/s
+201 ns per call
+samples 4.94M – 5.01M
+@alexify/metaschema@3.2.0</title>
+<text class="label secondary" x="20" y="305">metaschema</text>
+<text class="sublabel" x="20" y="320">check() · closures</text>
+<path class="bar secondary" d="M265,301H435.3681141353348A4,4 0 0 1 439.3681141353348,305V311A4,4 0 0 1 435.3681141353348,315H265Z"/>
+<text class="value" x="445.3681141353348" y="314">4.98M</text>
+</g>
+<g><title>Effect Schema · decodeUnknownResult() · is()
+2,242,557 ops/s
+446 ns per call
+samples 2.23M – 2.25M
+effect@4.0.3</title>
+<text class="label" x="20" y="345">Effect Schema</text>
+<text class="sublabel" x="20" y="360">decodeUnknownResult() · is()</text>
+<path class="bar" d="M265,341H399.7888935591495A4,4 0 0 1 403.7888935591495,345V351A4,4 0 0 1 399.7888935591495,355H265Z"/>
+<text class="value" x="409.7888935591495" y="354">2.24M</text>
+</g>
+<g><title>Valibot · safeParse() · is()
+2,031,838 ops/s
+492 ns per call
+samples 2.02M – 2.04M
+valibot@1.5.0</title>
+<text class="label" x="20" y="385">Valibot</text>
+<text class="sublabel" x="20" y="400">safeParse() · is()</text>
+<path class="bar" d="M265,381H395.3856130931073A4,4 0 0 1 399.3856130931073,385V391A4,4 0 0 1 395.3856130931073,395H265Z"/>
+<text class="value" x="405.3856130931073" y="394">2.03M</text>
+</g>
+<g><title>Joi · validate(), convert: false
+519,871 ops/s
+1.92 µs per call
+samples 508k – 522k
+joi@18.2.9</title>
+<text class="label" x="20" y="425">Joi</text>
+<text class="sublabel" x="20" y="440">validate(), convert: false</text>
+<path class="bar" d="M265,421H334.5582591664434A4,4 0 0 1 338.5582591664434,425V431A4,4 0 0 1 334.5582591664434,435H265Z"/>
+<text class="value" x="344.5582591664434" y="434">520k</text>
+</g>
+<g><title>Superstruct · validate() · is()
+297,981 ops/s
+3.36 µs per call
+samples 293k – 299k
+superstruct@2.0.2</title>
+<text class="label" x="20" y="465">Superstruct</text>
+<text class="sublabel" x="20" y="480">validate() · is()</text>
+<path class="bar" d="M265,461H309.722808289047A4,4 0 0 1 313.722808289047,465V471A4,4 0 0 1 309.722808289047,475H265Z"/>
+<text class="value" x="319.722808289047" y="474">298k</text>
+</g>
+<g><title>Yup · validateSync() · isValidSync(), strict
+182,075 ops/s
+5.49 µs per call
+samples 181k – 182k
+yup@1.7.1</title>
+<text class="label" x="20" y="505">Yup</text>
+<text class="sublabel" x="20" y="520">validateSync() · isValidSync(), strict</text>
+<path class="bar" d="M265,501H287.7407728698772A4,4 0 0 1 291.7407728698772,505V511A4,4 0 0 1 287.7407728698772,515H265Z"/>
+<text class="value" x="297.7407728698772" y="514">182k</text>
+</g>
+<g><title>TypeBox · Value.Check()
+165,683 ops/s
+6.04 µs per call
+samples 165k – 166k
+typebox@1.3.36</title>
+<text class="label" x="20" y="545">TypeBox</text>
+<text class="sublabel" x="20" y="560">Value.Check()</text>
+<path class="bar" d="M265,541H283.53092496455673A4,4 0 0 1 287.53092496455673,545V551A4,4 0 0 1 283.53092496455673,555H265Z"/>
+<text class="value" x="293.53092496455673" y="554">166k</text>
+</g>
+<text class="caption" x="20" y="609">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each library in a fresh process · 2026-10-11</text>
+</svg>
