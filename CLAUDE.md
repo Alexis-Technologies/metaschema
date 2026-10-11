@@ -378,12 +378,14 @@ nothing),
 **Standard Schema.** `Schema.prototype['~standard']` is a class accessor in `schema.js` (so
 non-enumerable: `toJSON`, `inspect` and `Object.keys` never see it) that builds
 `{ version: 1, vendor: 'alexify.metaschema', validate }` once per instance (`#standard`).
-`validate(value, options)` is `check(value, options?.libraryOptions)` read as the specification
-does: `{ value }` (the same reference) when valid, else `{ issues: result.issues }`, the issue
-objects themselves (each has `message` and `path: PropertyKey[]`, which is all the specification
-reads), no copies. It closes over the schema because consumers call it unbound. The shape is
-typed inline in `index.d.ts` (`StandardOptions`, `StandardResult<T>`, `StandardProps<D>`, with
-`types.input` = `types.output` = `Infer<D>` since nothing is transformed) because `index.d.ts`
+`validate(value, options)` is `parse(value, options?.libraryOptions)` read as the specification
+does: `{ value }` (the output of `parse`: the same reference when nothing applied) when valid,
+else `{ issues }`, the issue objects themselves (each has `message` and `path: PropertyKey[]`,
+which is all the specification reads), no copies; a promise of that, through `parseAsync`, for
+a schema `hasAsync` finds an `async function` in (decided on the first use of the props). It
+closes over the schema because consumers call it unbound. The shape is typed inline in
+`index.d.ts` (`StandardOptions`, `StandardResult<T>`, `StandardProps<D>`, with `types.input` =
+`Infer<D>` and `types.output` = `InferOutput<D>`) because `index.d.ts`
 cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assignability to
 `StandardSchemaV1` of `@standard-schema/spec`. `~standard.jsonSchema` is D2 (3.0, the generators subpath).
 
@@ -397,8 +399,8 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 4. `model.warnings` (a getter, computed on first use) is every entity's `warnings`, its
    `checkConsistency()` (missing references and types) and the recursive dependencies.
 
-`model.dts` joins `toInterface()` of each entity in that order. `entities` is any iterable of
-`[name, definition]`.
+`toTypeScript(model)` of the generators subpath (`model.dts` once its `register()` ran) joins the
+interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
 
@@ -620,7 +622,8 @@ change. **This file wins** if they ever disagree.
   locale.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
-  the fixtures cannot be imported for inference) and the interfaces `model.dts` renders for it.
+  the fixtures cannot be imported for inference) and the interfaces `toTypeScript(model)` renders
+  for it.
 - Workstream D2/D3 suites: `generators.test.js`, `jsonschema.test.js`, `jsonschema-ajv.test.js`,
   `dts.test.js` (see above) and `tests/types/jsonschema.test-d.ts`, which pins the assignability
   to `StandardJSONSchemaV1` of `@standard-schema/spec`, the option types and the subpath's
