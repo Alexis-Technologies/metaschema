@@ -131,6 +131,7 @@ expectType<unknown>(context.source);
 expectType<'reject' | 'ignore' | 'strip'>(context.unknown);
 expectType<unknown[] | null>(context.async);
 expectType<CheckContext | null>(context.scratch);
+expectType<boolean>(context.renamed);
 expectType<ValidationResult | null>(schema.validate({}, 'User'));
 expectType<ValidationResult | null>(schema.validate({}));
 expectType<Schema | null>(schema.findReference('Company'));

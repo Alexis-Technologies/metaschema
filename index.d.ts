@@ -225,6 +225,9 @@ export interface CheckContext {
   async: unknown[] | null;
   // The context parse tries the branches of a plain union in; null in a check.
   scratch: CheckContext | null;
+  // Whether the check read a field from one of its aliases: the pass after it
+  // renames only when it did.
+  renamed: boolean;
 }
 
 // A validator may return a promise of its result to checkAsync and parseAsync;
@@ -1149,7 +1152,7 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
 // consumers of the specification accept it without an adapter. The shape is
 // written out here because this file cannot import `@standard-schema/spec` (a
 // devDependency); tests/types/standard.test-d.ts pins that a `Schema<D>` is a
-// `StandardSchemaV1<Infer<D>, Infer<D>>` of that package.
+// `StandardSchemaV1<Infer<D>, InferOutput<D>>` of that package.
 
 // The vendor-specific options of a `validate` call are the options of `parse`.
 export interface StandardOptions {
