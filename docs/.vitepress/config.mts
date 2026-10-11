@@ -131,6 +131,8 @@ export default defineConfig({
             { text: 'Validation', link: '/guide/validation' },
             { text: 'Parse and serialize', link: '/guide/parse' },
             { text: 'Domain Models', link: '/guide/model' },
+            { text: 'Model evolution', link: '/guide/evolution' },
+            { text: 'Sample values', link: '/guide/samples' },
             { text: 'TypeScript', link: '/guide/typescript' },
             { text: 'Standard Schema', link: '/guide/standard-schema' },
             { text: 'JSON Schema', link: '/guide/json-schema' },

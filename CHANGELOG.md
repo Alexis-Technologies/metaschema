@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The snapshot.** `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as
+  data, format 1: the entities in dependency order with their metadata, fields (each
+  `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities use;
+  a function is `{ $function: true }` wherever it stands, a bigint and a Date are tagged, a
+  RegExp is its source. `tests/fixtures/snapshot.json` pins the format.
+- **`aliases` on a field.** `check` reads a field from an alias the value carries when it has
+  nothing under the field's own key, reporting under the key it found the value under; `parse`
+  fills no default over it and writes the value under the field's own key. The JIT emits the
+  same lookup. An alias is a key of the struct (not a field, a calculated field or another
+  alias: `ERR_INVALID_DEFINITION`); the generators and `Infer` name the field's own key only.
+- **`@alexify/metaschema/model`**, a subpath of 7.8 KB min+gzip on top of the core:
+  `fromJSON(snapshot, options)` restores a model from its snapshot (placeholders for the
+  functions, the real custom types through `options.types`, an isolated registry unless
+  `options.registry` says otherwise); `diff(prev, next)` lists the changes between two models or
+  snapshots as `{ kind, op, entity, name, from, to, detail }` (a field renamed through its
+  aliases is `renamed`, a removed `deprecated` field carries `detail.deprecated`);
+  `compatibility(changes)` classifies them as `full`, `backward`, `forward` or `none` by the
+  rules of the Confluent Schema Registry (the table is in the Model evolution guide);
+  `sample(schema, { seed, locale, references, maxDepth })` is a value the schema accepts, the
+  same for a seed, drawn from the definition and verified field by field (a pattern from the
+  subset of alternatives, groups, classes, escapes and quantifiers; a custom type through
+  `metadata.sample`), with `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN` and `ERR_SAMPLE_TYPE` for
+  what cannot be drawn; `merge(a, b, { name, metadata })` is the schema both schemas describe,
+  by unification, with `ERR_MERGE_CONFLICT` for what no value can satisfy; `register()`
+  installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Schema.merge` and
+  `schema.sample`.
+- **`fromJSONSchema(document, { name, as, references, unsupported })`** of the generators
+  subpath: a definition (or a Schema) from the subset of JSON Schema a validation schema is
+  made of, the other direction of `toJSONSchema` (types and type lists, properties and
+  required, enum and const, items, tuples and uniqueItems, anyOf/oneOf with OpenAPI's
+  discriminator, `$ref` into the definitions, the rules, null, the annotations, the root's
+  `additionalProperties` as the unknown-keys policy); a keyword outside the subset is
+  `ERR_UNSUPPORTED_SCHEMA` with its place as a JSON pointer. `register()` adds
+  `Schema.fromJSONSchema`. The subpath is 6.8 KB on top of the core now.
+- The types `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`,
+  `FunctionSnapshot`, `TypeSnapshot`, `RestoreOptions`, `SchemaChange`, `ChangeKind`,
+  `ChangeOp`, `Compatibility`, `SampleOptions`, `MergeOptions` and `FromJSONSchemaOptions`;
+  `aliases` on `FieldType`; the codes `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`,
+  `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`, `ERR_MERGE_CONFLICT` and `ERR_UNSUPPORTED_SCHEMA`.
+
+### Fixed
+
+- A `many` reference re-parsed from its built field (a projection copies its parent's fields
+  that way, and the long form `{ type: 'Address', many: 'Address' }` reads the same) came back
+  with both ends and validated as a single reference.
+- The name of a named tuple element (`[{ x: 'number' }]`) was an `unknown-option` warning.
+- A `validate` given on a `schema` field (`{ type: 'schema', schema, validate }`) was replaced
+  by the one of the definition it holds; the field's own wins now, as its `parse` and
+  `serialize` did.
+
+### Tooling
+
+- `pnpm size` has a fourth row and gate, `--max-gzip-model`; the CI gates are 17 KB per core
+  entry, 7.5 KB for `./generators`, 4 KB for `./compile` and 8.5 KB for `./model`.
+- New suites: `snapshot`, `aliases`, `evolution`, `sample`, `fromjsonschema` and `merge`, on
+  all three backends; the bundle test bundles the model subpath with the core.
+- New guides: Model evolution (`diff`, `compatibility`, `aliases`, `deprecated`, the rules
+  table), Sample values; the snapshot and `fromJSON` in Domain Models, the import in JSON
+  Schema, merging in Schema Syntax.
+
 ## [3.0.0] - 2026-10-11
 
 3.0 moves the generators of JSON Schema and TypeScript from the core entry to the

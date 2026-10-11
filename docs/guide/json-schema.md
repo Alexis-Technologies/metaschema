@@ -51,15 +51,16 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 16.1 KB min+gzip, `@alexify/metaschema/generators` adds
-4.5 KB on top. The subpath exports four functions:
+carry them: `@alexify/metaschema` is 17.0 KB min+gzip, `@alexify/metaschema/generators` adds
+6.8 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
 | --- | --- |
 | `toJSONSchema(target, options?)` | the JSON Schema document of a `Schema`, or of a `Model` |
 | `toTypeScript(target, options?)` | the TypeScript interface of a `Schema`, or the interfaces of every entity of a `Model`; see [TypeScript](/guide/typescript#generating-interfaces-from-a-model) |
 | `saveTypes(outputFile, target, options?)` | writes `toTypeScript(target, options)` to a file |
-| `register()` | installs the methods: `schema.toJSONSchema(options)`, `schema.toInterface(options)`, `model.toJSONSchema(options)`, `model.toTypeScript(options)`, `model.dts`, and the [`jsonSchema` converter](/guide/standard-schema#json-schema) on `schema['~standard']` |
+| `fromJSONSchema(document, options?)` | a definition, or a `Schema`, from a JSON Schema document; see [Importing a document](#importing-a-document) |
+| `register()` | installs the methods: `schema.toJSONSchema(options)`, `schema.toInterface(options)`, `model.toJSONSchema(options)`, `model.toTypeScript(options)`, `model.dts`, `Schema.fromJSONSchema(document, options)`, and the [`jsonSchema` converter](/guide/standard-schema#json-schema) on `schema['~standard']` |
 
 `register()` runs once per process (later calls do nothing) and installs the members on the
 `Schema` and `Model` classes like class members, invisible to `Object.keys`, `JSON.stringify`
@@ -327,6 +328,96 @@ for the mongodb target. An alias (`{ js: 'string' }`) without metadata renders a
 aliases, with the rules of the field. A type with its own `checkType` and no metadata has no
 form and throws, since nothing knows what it accepts. See
 [Custom Types](/guide/custom-types#reading-metadata).
+
+## Importing a document
+
+`fromJSONSchema(document, options)` is the other direction: a definition from a JSON Schema
+document, for the subset a validation schema is made of. A program that kept its schemas as
+JSON Schema (for ajv, for an OpenAPI document) moves them to metaschema with it and keeps
+`toJSONSchema` for the documents it still has to produce.
+
+```js
+const { fromJSONSchema } = require('@alexify/metaschema/generators');
+
+fromJSONSchema({
+  type: 'object',
+  properties: {
+    login: { type: 'string', minLength: 3 },
+    age: { type: ['integer', 'null'], minimum: 0 },
+    role: { enum: ['admin', 'user'] },
+    tags: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['login', 'role'],
+  additionalProperties: false,
+});
+// {
+//   Struct: {},
+//   login: { type: 'string', length: { min: 3 } },
+//   age: { type: 'integer', min: 0, required: false },
+//   role: { type: 'enum', enum: ['admin', 'user'] },
+//   tags: { type: 'array', value: 'string', required: false }
+// }
+```
+
+The result is a definition for `new Schema(name, definition)`, or the `Schema` itself with
+`as: 'schema'`. The options:
+
+| Option | Values | Meaning |
+| --- | --- | --- |
+| `as` | `'definition'` (default), `'schema'` | what comes back: the definition, or a `Schema` built from it |
+| `name` | a string | the name of the schema: what `$ref: '#'` refers to (an entity name), and the name of the `Schema` |
+| `references` | `'inline'` (default), `'name'` | a `$ref` into `$defs`, `definitions` or `components.schemas`: the definition in place, or a reference to an entity of that name (capitalized), to resolve through a [`Model`](/guide/references) |
+| `unsupported` | `'throw'` (default), `'ignore'` | a keyword the subset has no form for: `SchemaDefinitionError` with the code `ERR_UNSUPPORTED_SCHEMA` and the place in the document as a JSON pointer, or dropped |
+
+The subset, the reverse of [the mapping](#the-mapping):
+
+| JSON Schema | Definition |
+| --- | --- |
+| `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }` |
+| `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }` |
+| `type: 'boolean'`, `'null'` | `'boolean'`, `'null'` |
+| `type: 'object'` with `properties` and `required` | a nested struct, a property outside `required` optional (`'?string'`, `required: false`); `{ schema }` when its first key would read as a type or a kind |
+| `type: 'object'` with `additionalProperties: T`, `minProperties`, `maxProperties` | `{ object: { string: T }, length }`; a `propertyNames` with the number-key pattern gives a `number` key |
+| `type: 'object'` alone, `type: ['object', 'array']` | `'json'` |
+| `type: 'array'` with `items: T`, `minItems`, `maxItems` | `{ array: T, length }`; `uniqueItems: true` gives a `set` |
+| `prefixItems` (2020-12) or an `items` list (draft-07) with `minItems` | a tuple, the elements past `minItems` optional |
+| `enum`, `const` | `{ enum: [...] }`; `null` among the values makes the field nullable |
+| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` |
+| `type: ['T', 'null']`, `nullable: true` | `nullable: true` on a required property; an optional one accepts null anyway |
+| a `type` list | a `union` of the types |
+| `allOf` of one schema | that schema (`{ allOf: [{ $ref }], nullable: true }` is how OpenAPI 3.0 writes a nullable reference) |
+| `$ref: '#'` | a reference to `options.name` |
+| `$ref` into the definitions | the definition in place, or the entity name with `references: 'name'` |
+| `title`, `description`, `default`, `examples`, `example`, `deprecated` | the same annotations; at the root they go into the kind metadata |
+| `additionalProperties: false` at the root | a closed struct (`{ Struct: {} }`); anything else at the root `{ Struct: { unknown: 'ignore' } }` |
+| `{}`, `true` | `'any'` |
+
+`$schema`, `$id`, `$comment`, `readOnly`, `writeOnly`, `contentMediaType`, `contentEncoding`
+and `format` say nothing a check applies (`format` is an annotation in JSON Schema unless a
+dialect asserts it) and are dropped. `additionalProperties` inside the document is dropped too:
+whether a struct is closed is a policy of the whole check, which the root decides. Everything
+else is outside the subset: `allOf` of several schemas, `not`, `if`/`then`/`else`,
+`patternProperties`, `unevaluatedProperties`, `dependentRequired`, `exclusiveMinimum`,
+`multipleOf`, `contains`, a `$ref` to another document, a recursive `$ref` inlined, a
+`propertyNames` beyond the number-key pattern, a struct with `minProperties`.
+
+```js
+fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 2 } } });
+// throws SchemaDefinitionError [ERR_UNSUPPORTED_SCHEMA]:
+//   The keyword "multipleOf" is not supported in a JSON Schema at "/properties/n"
+
+fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 2 } } }, { unsupported: 'ignore' });
+// { Struct: { unknown: 'ignore' }, n: '?number' }
+```
+
+On the subset the two directions are inverse: `toJSONSchema(fromJSONSchema(document, { as:
+'schema' }))` is the document for every document the export writes, and the schema imported
+from an export checks a value as the exported schema does, on both backends; the repository
+holds both. What the import cannot bring back: a `date`, `set` or `map` field (the input side
+describes the JSON they are parsed from, and the import reads a string, an array of unique
+items, an object), the `discriminator` of a union exported to draft 2020-12 or draft-07 (only
+the `openapi-3.0` target writes it; the union comes back plain), and a `$ref` into the
+definitions exported from a model (inlined, or kept as a name).
 
 ## What is not exported
 

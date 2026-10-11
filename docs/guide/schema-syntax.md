@@ -27,6 +27,7 @@ Every key of a definition object is a field, and its value says what the field h
 | Tuple | `point: ['number', 'number']` | a fixed-length array, each element its own definition |
 | Union | `id: { union: ['string', 'number'] }` | one of several definitions |
 | Reference | `company: 'Company'` | a capitalized name is another schema |
+| Aliases | `login: { type: 'string', aliases: ['name'] }` | read from `name` as well; see [Model evolution](/guide/evolution#aliases-and-deprecated) |
 | Function | `ratio: (file) => file.compressed / file.size` | a calculated field, never validated |
 
 Fields are required unless marked optional. A struct rejects keys it does not declare:
@@ -78,9 +79,10 @@ const schema = Schema.from({
 
 Keys a type does not understand (`unique` above) are kept on the field as metadata. They do not
 affect validation, but they are there for code that reads the schema, such as a database layer.
-The annotations `default`, `unique`, `index`, `primary`, `title`, `description`, `examples` and
-`deprecated` are expected, and so are `parse` and `serialize`, the [codec functions](/guide/parse)
-of a field (`default` is applied by `parse`); any other key the type does not read is reported in
+The annotations `default`, `unique`, `index`, `primary`, `title`, `description`, `examples`,
+`deprecated` and `aliases` are expected, and so are `parse` and `serialize`, the
+[codec functions](/guide/parse) of a field (`default` is applied by `parse`); any other key the
+type does not read is reported in
 [`schema.warnings`](/guide/model#warnings) as `unknown-option`, which catches a mistyped option
 (`lenght`) before it is silently ignored.
 
@@ -149,3 +151,53 @@ Schema.from('string').kind; // 'scalar'
 Schema.from('?number').check(null).valid; // true
 Schema.from(['string', 'number']).check(['x', 1]).valid; // true
 ```
+
+## Merging schemas
+
+`merge(a, b, options)` of [`@alexify/metaschema/model`](/guide/evolution#the-model-subpath)
+(`Schema.merge` after its `register()`) is the schema both schemas describe, by unification, the
+way CUE composes definitions instead of inheriting them: a field in both takes the constraints
+of both, a field in one comes as it is, and what no value can satisfy is an error.
+
+```js
+const { merge } = require('@alexify/metaschema/model');
+
+const base = new Schema('Contact', { name: { type: 'string', length: { min: 1 } }, email: 'string', 'phone?': 'string' });
+const strict = Schema.from({
+  name: { type: 'string', length: { max: 64 } },
+  email: { type: 'string', pattern: '@', length: 254 },
+  phone: { type: 'string', length: { min: 7 } },
+});
+
+const contact = merge(base, strict);
+contact.fields.name.length; // { min: 1, max: 64 }
+contact.fields.phone.required; // true: required in one is required
+contact.check({ name: 'Ann', email: 'ann@example.com' }).errors; // [ 'Field "Contact.phone" is required' ]
+
+merge(base, Schema.from({ email: 'number' }));
+// throws SchemaDefinitionError [ERR_MERGE_CONFLICT]: "email" is a string in one schema and a number in the other in "Contact"
+```
+
+The rules, per key of a field in both schemas:
+
+| Key | Merged as |
+| --- | --- |
+| `type` | the same type; `any` or `unknown` and a type is that type; `integer` and `number` is `integer`; anything else is a conflict |
+| `required` | required where either requires it |
+| `nullable` | null allowed only where both allow it |
+| `length`, `min`, `max` | the greater of the minimums and the lesser of the maximums; nothing in common is a conflict |
+| `enum` | the values both hold; none is a conflict |
+| `pattern`, `default`, `parse`, `serialize`, `union`, `discriminator`, the key type of an `object` or `map`, the target and `embed` of a reference | the same, or one side only; two different ones are a conflict |
+| `validate` | both, composed: the check gets what each returned, awaited when either is async |
+| `aliases` | the aliases of both |
+| `unique`, `index`, `primary`, `deprecated` | set where either sets it |
+| a nested struct (`schema`) | its fields merged the same way; a struct and a schema of one type are a conflict |
+| the element of a collection, the elements of a tuple | merged the same way; tuples of another length are a conflict |
+| any other key (`title`, `description`, `examples`, an option of a custom type) | the first schema's |
+
+A calculated field or a `parse`/`serialize` of the schema itself must be the same function on
+both sides; the schemas' own `validate` functions compose. The indexes are the ones of either,
+the same under one key. The kind and its metadata are the first schema's, and so is the name,
+unless `options.name` or `options.metadata` (`{ kind, scope, store, allow, unknown, ...custom }`
+over the first schema's) say otherwise. The inputs are not changed; the result is a new `Schema`
+with the namespaces of both.

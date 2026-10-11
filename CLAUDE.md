@@ -106,6 +106,20 @@ stays in the core because consumers detect a schema with `'~standard' in schema`
 function; the only thing the core knows about it is the `Schema[HOOK]` slot (`util.js`), read
 once per construction, that `register()` fills. A new backend goes there too.
 
+**The model as data lives in `./model`; the core writes the snapshot and reads the aliases.**
+`model.toJSON()` (`src/snapshot.js`) is in the core because `JSON.stringify(model)` must work
+without an import and the snapshot is the contract other programs read the model through
+(migronaut, Alioth, wrpc); `aliases` and `deprecated` are in the core because `check`, `parse`
+and the lint read them. Everything that reads a snapshot or builds on it (`fromJSON`, `diff`,
+`compatibility`), and everything that builds values or schemas from schemas (`sample`,
+`merge`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an explicit
+`register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
+`Schema.merge` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
+was planned for the core (ROADMAP §5.7 G1) and moved to the subpath on 2026-10-11 because the
+restore is 0.8 KB that validation never needs and the core had 14 bytes of headroom left.
+`fromJSONSchema` is the other direction of `toJSONSchema` and lives beside it in
+`./generators`. Nothing in the core requires `model/` or `generators/`.
+
 ## Repository layout
 
 ```
@@ -122,6 +136,7 @@ src/
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
   rules.js          rules per type: FORMAT (length, min, max, pattern), compileRules, code points
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field)
+  snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true })
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
   types.js          TYPES registry, createType (static rules/options per type), typeFactory
@@ -132,16 +147,23 @@ src/
   prototypes/       type prototypes: abstract, scalars (string, number, integer, bigint, boolean, date,
                     null, any/unknown, enum), collections, reference, schema, tuple, union, json
   runtime/          node.js (writeFile via node:fs) and browser.js (same interface, rejects)
-  generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, register),
-                    index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard converter),
-                    typescript.js (toInterface, modelToTypeScript: JSDoc, named types)
+  generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, fromJSONSchema,
+                    register), index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard
+                    converter), typescript.js (toInterface, modelToTypeScript: JSDoc, named types),
+                    fromjsonschema.js (the subset of JSON Schema read back into a definition)
   compile/          the ./compile subpath: index.js (compile, register, canEval), index.d.ts,
                     code.js (the source builder: quote, prop, literal, the scope), emit.js (an emitter per prototype)
+  model/            the ./model subpath: index.js (fromJSON, diff, compatibility, sample, merge, register),
+                    index.d.ts, data.js (snapshotOf, same), restore.js (fromJSON: definitions from a snapshot,
+                    placeholders for functions), diff.js (diff, compatibility: the Confluent rules as bits),
+                    sample.js (the seeded witness: mulberry32, a regex subset generator, per-field verification),
+                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT)
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
   helpers/jit.js    --require'd by test:jit and test:nojit: register({ jit }) of ./compile before the suites
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
+  fixtures/snapshot.json  the committed snapshot of the fixture model (the format 1 contract, pinned by snapshot.test.js)
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 bench/              zero-dependency ops/sec harness (closures and JIT); libs.js compares with zod, valibot,
                     ajv and typebox (--compare-libs); baseline.json is a snapshot for --compare
@@ -167,8 +189,9 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   identity of its `compile`, as `compile/emit.js` does) and never `schema.js`: a reference is
   followed through `root.findReference` at parse time.
 - `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct`, `lint` and `codec`; `model.js` requires `schema`, `types`, `lint`, `util`;
-  `src/index.js` requires nothing else (no runtime).
+  `struct`, `lint` and `codec`; `snapshot.js` requires only `util`; `model.js` requires
+  `schema`, `types`, `lint`, `util`, `snapshot`; `src/index.js` requires nothing else (no
+  runtime).
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
   `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
   generators), never `schema.js` or `model.js`: they take the instances and read `fields`,
@@ -180,6 +203,15 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   (`STRUCT`, `isStruct`), the prototypes (for the identity of their `compile` methods; `union`
   also for `nameOf` and `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
   `schema.js`, `errors` and the two. Nothing in the core requires `compile/`.
+- `generators/fromjsonschema.js` requires `metautil`, `util` (`define`), `schema.js` (for `as:
+  'schema'`), `types` (`TYPES`, to tell a struct key that reads as a type) and `errors`.
+- `model/data.js` requires `util`, `snapshot` (`FORMAT`) and `errors`; `model/restore.js`
+  requires `util`, `schema.js`, `model.js` and `data`; `model/diff.js` requires `data` only;
+  `model/sample.js` requires `util`, `context` (`createContext`, for the verification of a
+  draw), `errors`, `struct`, `prototypes/reference` (`embeds`), `issues` (`toDotPath`,
+  `finalize`) and `locales/en`; `model/merge.js` requires `util`, `schema.js`, `struct`,
+  `issues` (`isThenable`) and `errors`; `model/index.js` requires `schema.js`, `model.js` and
+  the five. Nothing in the core requires `model/`.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -246,16 +278,20 @@ metadata to built-ins, aliases (`{ js: 'string' }`) or new prototypes with
 
 **Structs.** `createStruct` settles `required` from the key (`'tags?'`) and the definition
 (`'?string'`, `required: false`) *before* building the field (the closure captures it), then
-records a frozen **plan** entry `{ key, type, required, own, check }` per validated field and the
+records a frozen **plan** entry `{ key, type, required, own, aliases, check }` per validated
+field (`aliases` the list of the field's `aliases`, `[]` without; an alias is a known key, and
+one that is a field, a calculated field or another alias is `ERR_INVALID_DEFINITION`) and the
 key in a null-prototype `known` dictionary; `fields[STRUCT]` (a global symbol) holds
 `{ plan, known, calculated, check }` (`calculated`: the keys of the calculated fields, read by the
 strip pass; a nested struct's `validate`, `parse` and `serialize` functions stay in `fields` but
 are neither known keys nor calculated). The struct check is an index loop over the plan: a keyed
 load per field,
 `Object.hasOwn` only when the value is `undefined` and the field is required, or when the field
-name is a member of `Object.prototype` (`own`); then `for...in` counts the keys and scans for
-unknown ones only when the count differs from what the plan found. A leaf check receives its key
-and never touches `context.path`; a container pushes its own key before its children.
+name is a member of `Object.prototype` (`own`); a field with nothing under its own key is read
+from the first alias the value carries (`aliasOf`), and its check gets that key; then `for...in`
+counts the keys and scans for unknown ones only when the count differs from what the plan found.
+A leaf check receives its key and never touches `context.path`; a container pushes its own key
+before its children.
 
 **Kinds.** A capitalized first key sets kind and metadata via `getKindMetadata`; the metadata
 may carry `unknown: 'reject' | 'ignore'`, the default of that schema's `check`:
@@ -310,9 +346,10 @@ the passes never validate, so the JIT needs no second generator); then, on a val
 it treats `strip` as `ignore`; `createContext` takes a fourth argument, `parsing`, to accept
 it) and runs the decoders, a field's `parse(value)`, from the parts of a value up to the value
 (elements before the collection, fields before the nested struct's own `parse`, the record of an
-embedded reference through its entity), and the schema's `options.parse` last. A decoder's
-exception is an `exception` issue at the field and makes the result invalid; after the first
-failure no decoder runs. `serialize(value, { check })` is one pass the other way (the schema's
+embedded reference through its entity), and the schema's `options.parse` last; a field read
+from an alias is written under its own key by `finish` (the struct info carries a `DECODERS`
+bit for it), and `prepare` fills no default over it. A decoder's exception is an `exception`
+issue at the field and makes the result invalid; after the first failure no decoder runs. `serialize(value, { check })` is one pass the other way (the schema's
 `options.serialize`, then the fields' `serialize` top down; `format` is collected and never
 called). The passes are one `walk` over the built types, dispatched on the shape of a node
 (Schema, struct dictionary, nested struct, list, keyed, tuple, union, reference, leaf) with a
@@ -405,19 +442,25 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.0 bundle budgets are 17 KB min+gzip per core entry, 5 KB for the generators and 4 KB
-for the compile subpath on top of it** (`pnpm size --max-gzip 17 --max-gzip-generators 5
---max-gzip-compile 4` in CI). The core gate moved from 16 KB to 17 KB during the review of
+**The 3.1 bundle budgets are 17 KB min+gzip per core entry, 7.5 KB for the generators, 4 KB
+for the compile subpath and 8.5 KB for the model subpath on top of it** (`pnpm size --max-gzip
+17 --max-gzip-generators 7.5 --max-gzip-compile 4 --max-gzip-model 8.5` in CI). Workstream G
+(2026-10-11) added 850 bytes to the core (`src/snapshot.js`, the snapshot writer, about 660 of
+them; the aliases in `struct.js`, `codec.js` and `lint.js` the rest), which sits at 17394 bytes,
+17.0 KB, **14 bytes under the gate**: the next core change has to find its bytes first (the
+restore of a snapshot was moved to the subpath for that reason, see "Out of scope by design").
+The aliases cost the `./compile` subpath about 190 bytes, 4084 bytes, 12 bytes under its gate;
+`fromJSONSchema` took `./generators` to 6978 bytes (6.8 KB, gate 7.5 KB); `./model` is 8022
+bytes (7.8 KB, gate 8.5 KB), of which `sample.js` is about 3 KB. The core gate had moved from
+16 KB to 17 KB during the review of
 3.0 (2026-10-11): the fixes of the async union, of thenable data, of the abandoned promises
 and of the union trial, the lazy cycle set, the one scratch per parse and `maxDepth` cost
 about 900 bytes together, the loops and the shared tables gave about 300 back, and the entries
-sit at 16.1 KB after them. The core entries are at about 16530 bytes (`index.js` and
-`browser.js`), 16.1 KB, about 0.9 KB of headroom; the `./generators` subpath adds about 4.5 KB
-and the `./compile` subpath about 3.9 KB to a bundle of the core, each
-measured as the difference between a bundle of `index.js` plus the subpath's `index.js` and
-`index.js` alone (a subpath requires the core for `register()`, so on its own it would bundle
-the core again). The figures are quoted in README, `docs/index.md`, `docs/guide/why.md`,
-`docs/guide/browser.md`, `docs/guide/json-schema.md`, `docs/guide/compile.md`,
+sat at 16.1 KB after them (16530 bytes before G). A subpath is measured as the difference
+between a bundle of `index.js` plus the subpath's `index.js` and `index.js` alone (a subpath
+requires the core for `register()`, so on its own it would bundle the core again). The figures
+are quoted in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`,
+`docs/guide/json-schema.md`, `docs/guide/evolution.md`, `docs/guide/compile.md`,
 `docs/api/exports.md` and `docs/public/llms.txt`; change them together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
 the entries to 9.9 KB (gate 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer,
 pattern and min/max, the references rule and the lint cost about 2.6 KB together; gate 13 KB);
@@ -621,6 +664,23 @@ change. **This file wins** if they ever disagree.
   `check` options; `tests/unit/context.test.js` pins the context shape and the absence of global
   state. The locale tables are compared key by key, so a new issue code needs a renderer in every
   locale.
+- Workstream G suites (3.1): `snapshot.test.js` (the fixture model against the committed
+  `tests/fixtures/snapshot.json`, the key order, every form of the language, the types, a
+  schema of one type), `aliases.test.js` (check, parse, parseAsync, strip, defaults, nested,
+  own-named fields, the definition errors, the lint, the generators ignoring them, the plan),
+  `evolution.test.js` (`fromJSON` round trips and placeholders, `diff` by kind and op, renames
+  through aliases, the compatibility class of every rule of the table in
+  `docs/guide/evolution.md`, one row per rule, `register()`), `sample.test.js` (the fixture
+  entities and a schema of every form on both backends over several seeds, determinism, the
+  locale, examples, the pattern subset and its errors, custom types, every `ERR_UNSATISFIABLE`
+  case), `fromjsonschema.test.js` (every keyword of the subset, the root forms, `$ref` inline
+  and by name, the unsupported keywords with their pointers, the export of the import on the
+  subset, the import of the export checking as the schema does on both backends),
+  `merge.test.js` (the constraints of both, composed validators, nested forms, every conflict,
+  `register()`). `compile.test.js` holds the two backends to the same issues over aliased
+  fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
+  and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
+  compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
   the fixtures cannot be imported for inference) and the interfaces `toTypeScript(model)` renders
@@ -872,6 +932,52 @@ change. **This file wins** if they ever disagree.
 - **`relations` labels are read from the referencing side**: a `many` field is `'one-to-many'`
   (one record holds many targets), a single reference is `'many-to-one'`. Upstream had the two
   swapped; 2.0 uses the conventional direction.
+- **An alias is read by `check` and renamed by `parse`; `serialize` never looks at it.** `check`
+  reports an issue under the key it found the value under (`title` when the value carried the
+  alias), `parse` reports the same and writes the output under the field's own key, and a
+  value with the field's own key and an alias is read from its own key, the alias staying a
+  known key (kept under `ignore`, dropped under `strip`). `serialize` reads the program's
+  value, which carries the field keys. `Infer`, the JSON Schema and the dts name the field's own
+  key only: an alias is a key of the input. Both backends do the same, held by
+  `tests/unit/compile.test.js`.
+- **The snapshot has no functions, and the keys of a field are sorted.** `model.toJSON()`
+  writes `{ $function: true }` for a `validate`, a `parse`, a `serialize`, a `default` factory,
+  a calculated field and the functions of the schema itself (written among its fields, as a
+  nested struct's are), so two snapshots with different validators compare equal in `diff`; a
+  field's keys after `type` and `required` are sorted so that the order of a definition does
+  not show, while the fields of a struct keep their order (it is the order of the check).
+  `database`, `custom` and an index definition are written as given. `types` lists the types
+  the entities use, not the table the model was given: an unused custom type is not in it.
+- **A model restored with `fromJSON` validates the structure only.** The placeholders (a
+  validate that passes, codecs that return the value, a default factory that gives
+  `undefined`, a custom type that accepts everything and every rule) are what a snapshot can
+  say; `options.types` brings the real custom types. The registry is isolated by default so
+  that a placeholder never reaches the shared registry where the real type may be (or come
+  later: `ERR_TYPE_REGISTERED`).
+- **`compatibility` assumes a reader that ignores unknown keys** (the Confluent model;
+  `unknown: 'ignore'` or `parse` with `strip`), so a field removed is backward compatible even
+  though `check` rejects it under `reject`; and `required: false → true` is `forward`, `enum`
+  values added `backward` (the new reader accepts more), which is what the definitions give
+  even where a first reading of the rules has them the other way round. The classes are bits
+  (`backward = 1`, `forward = 2`, `full = 3`) and a list's class is the AND.
+- **`sample` draws a field up to 24 times and verifies every draw with the field's own check.**
+  So a `validate` that rejects a draw costs another draw, not a wrong sample; `examples` are
+  drawn half the time when a field has them, which is the hook for a validator the generator
+  cannot read. The verification context is `createContext({ references, maxErrors: 1, maxDepth
+  })`, one per draw. An unbounded quantifier of a pattern repeats up to `length.min` times.
+- **`merge` keeps `nullable` only where both sides allow null and composes two `validate`
+  functions into one that returns `[a, b]`** (`absorb` reads an array of returns; a promise
+  from either makes it `Promise.all`). A key the other side lacks stands (`embed: true` on one
+  side only is kept), and an annotation present on both sides is the first schema's. A
+  nested struct's composed `validate` is put into the nested definition, since the field's own
+  `validate` wins over the definition's (the fix of 2026-10-11).
+- **`fromJSONSchema` drops `format` and a nested `additionalProperties`.** `format` is an
+  annotation in JSON Schema unless a dialect asserts it, and closedness is a policy of the
+  whole check that only the root decides (`additionalProperties: false` at the root is
+  `{ Struct: {} }`, anything else `{ Struct: { unknown: 'ignore' } }`). A `date` exported on
+  the input side comes back as a `string`, a `discriminator` exported to draft 2020-12 or
+  draft-07 comes back as a plain union (only `openapi-3.0` writes it). A nested struct comes
+  back as its fields unless its first key would read as a type or a kind, then as `{ schema }`.
 
 ## Documentation site
 
@@ -892,10 +998,15 @@ published to npm, and lint/format do not cover it.
   produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 pages are
 `guide/parse.md` (the pipeline, defaults, codecs, strip, serialize, async, the boundaries),
 `guide/json-schema.md` (options, targets, the mapping table, the strict profile with a tool
-definition, the mongodb target, the boundaries) and `guide/compile.md` (compile, register,
-canEval, the jit option, where there is no eval, what the generated code contains, the
-boundaries). The sidebar is in `.vitepress/config.mts`; a new page goes there and into
-`docs/public/llms.txt` if it is a key fact.
+definition, the mongodb target, the import of a document, the boundaries) and
+`guide/compile.md` (compile, register, canEval, the jit option, where there is no eval, what
+the generated code contains, the boundaries). The 3.1 pages are `guide/evolution.md` (the
+model subpath, `aliases` and `deprecated`, `diff`, the change shape, `compatibility` with the
+rules table, the boundaries) and `guide/samples.md` (`sample`, the options, what is drawn per
+type, the pattern subset, the unsatisfiable cases); `guide/model.md` has the snapshot format and
+`fromJSON`, `guide/schema-syntax.md` the merge rules. The sidebar is in
+`.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
+fact.
 
 ## Release process
 

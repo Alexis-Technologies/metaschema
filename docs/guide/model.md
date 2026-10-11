@@ -44,6 +44,8 @@ const model = new Model(types, entities, database);
 | `model.warnings` | lint and consistency warnings, `Warning [code]: text` |
 | `model.dts`, `model.toTypeScript(options)` | TypeScript interfaces for every entity, after `register()` of the [generators subpath](/guide/json-schema#the-generators-subpath); `toTypeScript(model, options)` without it |
 | `model.toJSONSchema(options)` | every entity as a [JSON Schema](/guide/json-schema#models) definition, or the document of one entity; `toJSONSchema(model, options)` of the subpath without `register()` |
+| `model.toJSON()` | the model as plain JSON, what `JSON.stringify(model)` writes; see [The snapshot](#the-snapshot) |
+| `Model.fromJSON(snapshot, options)`, `Model.diff(prev, next)`, `Model.compatibility(changes)` | after `register()` of the [model subpath](/guide/evolution#the-model-subpath): a model back from its snapshot, the changes between two versions and their class; the functions of the subpath without it |
 
 ```js
 model.order; // Set { 'Address', 'Company', 'User' }
@@ -92,6 +94,103 @@ The path in an `unknown-option` warning follows the definition: `Order.address.c
 struct, `Order.tags[]` for the element of a collection, `Order.point[1]` for a tuple element,
 `Order.shape|1` for a union branch. Treat warnings as a CI check (`assert.deepStrictEqual(model.warnings, [])`)
 to catch a typo in an option name before it is silently ignored.
+
+## The snapshot
+
+`model.toJSON()` is the model as data: the entities in dependency order with their metadata,
+fields, indexes and relations, and the types the entities use, as plain JSON with a fixed key
+order, so that two builds of one model give the same text. `JSON.stringify(model)` writes it.
+It is the contract other programs read the model through: a migration tool reads the entities,
+their indexes and their relations and builds the validator of a collection with
+[`toJSONSchema(entity, { target: 'mongodb' })`](/guide/json-schema#the-mongodb-target), a
+modelling tool imports and exports it, a service introspects its contract through it, and a
+committed snapshot is the baseline [`diff`](/guide/evolution#diff) compares a later model with.
+
+```js
+const model = new Model(
+  { string: { metadata: { pg: 'varchar' } } },
+  [
+    ['Company', { Dictionary: {}, name: { type: 'string', unique: true } }],
+    ['User', { Registry: {}, login: { type: 'string', length: { min: 3, max: 32 } }, company: 'Company', active: { type: 'boolean', default: true }, byLogin: { index: ['login'] } }],
+  ],
+  { name: 'example', version: 1 },
+);
+
+model.toJSON();
+// {
+//   format: 1,
+//   database: { name: 'example', version: 1 },
+//   types: { string: { metadata: { pg: 'varchar' } } },
+//   entities: {
+//     Company: {
+//       kind: 'dictionary', scope: 'application', store: 'persistent', allow: 'write',
+//       parent: '', unknown: 'reject', custom: {},
+//       fields: {
+//         name: { type: 'string', required: true, unique: true },
+//         companyId: { type: 'string', required: false },
+//       },
+//       indexes: {},
+//       relations: [],
+//     },
+//     User: {
+//       kind: 'registry', scope: 'application', store: 'persistent', allow: 'write',
+//       parent: '', unknown: 'reject', custom: {},
+//       fields: {
+//         login: { type: 'string', required: true, length: { min: 3, max: 32 } },
+//         company: { type: 'Company', required: true, one: 'Company' },
+//         active: { type: 'boolean', required: true, default: true },
+//         userId: { type: 'string', required: false },
+//       },
+//       indexes: { byLogin: { index: ['login'] } },
+//       relations: [{ to: 'Company', type: 'many-to-one' }],
+//     },
+//   },
+// }
+```
+
+The format, `format: 1`:
+
+| Key | Contents |
+| --- | --- |
+| `database` | the `database` argument, as given |
+| `types` | the types the entities use, by name, sorted: an alias of a built-in as `{ js, metadata }`, a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
+| `entities` | every entity in `model.order`: `kind`, `scope`, `store`, `allow`, `parent` (`''` unless a projection), `unknown`, `custom` (the other keys of the kind metadata, as given), then `fields` for a struct or `type` for a schema of one type, `indexes` (the `index`, `primary` and `unique` definitions, as given; a `many` field is a field) and `relations` (`{ to, type }`) |
+| a field | its `type` and `required` first, then the other keys of its definition sorted: a nested struct under `schema`, the element of a collection under `value`, the elements of a tuple as a list under `value`, the branches under `union`, the rules as the definition normalised them (`length` as `{ min, max }`, `pattern` as its source, or `{ source, flags }` with flags beyond `u`), `aliases`, `deprecated` and every annotation |
+
+A function has no JSON form and is written as `{ $function: true }` wherever it stands: a
+`validate`, a `parse`, a `serialize`, a `default` factory, a calculated field, and the functions
+of the schema itself, which are written among its fields as a nested struct's are. A bigint is
+`{ $bigint: '10' }`, a `Date` is `{ $date: '2026-10-11T00:00:00.000Z' }`. What has no JSON form
+at all (a symbol, `NaN`) is left to `JSON.stringify`, which drops or nulls it; a `Map` or a
+`Set` as a `default` is written as `{}`.
+
+The repository pins the format with `tests/fixtures/snapshot.json`, the snapshot of its fixture
+model.
+
+### Restoring a model
+
+`fromJSON(snapshot, options)` of the [model subpath](/guide/evolution#the-model-subpath)
+(`Model.fromJSON` after its `register()`) builds a model back from a snapshot, with the
+structure, the rules and the metadata as they were written. The functions have no body in the
+snapshot, so a placeholder stands in for each: a `validate` that passes, a `parse` and a
+`serialize` that return the value, a `default` factory and a calculated field that give nothing,
+and a custom type whose check accepts everything (and every rule). The restored model validates
+the structure, then: a field of the wrong type, a missing key, a rule, an enum, a reference.
+
+```js
+const { fromJSON } = require('@alexify/metaschema/model');
+
+const restored = fromJSON(JSON.parse(fs.readFileSync('model.snapshot.json', 'utf8')));
+restored.entities.get('User').check({ login: 'ab', company: 'c1', active: true }).errors;
+// [ 'Field "User.login" value is too short' ]
+JSON.stringify(restored) === JSON.stringify(snapshot); // true: the snapshot of the restored model is the snapshot
+```
+
+`options.types` brings the real custom types (entries of the table `Model` takes) over the
+snapshot's, where the restored model should validate as the original did; `options.registry`
+is `'isolated'` unless it says `'shared'`, so the placeholders of the custom types never reach
+the shared registry. A snapshot of another format, or a value that is not one, is
+`ERR_INVALID_SNAPSHOT`.
 
 ## Loading schemas from files
 
