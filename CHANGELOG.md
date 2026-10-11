@@ -18,6 +18,9 @@ fix in `check`.
 
 ### Upgrading from 2.0
 
+The same guide with before-and-after examples is
+[Migrating from 2.x](https://metaschema.vercel.app/guide/migrating-from-2).
+
 - **`schema['~standard'].validate` is `parse`.** A consumer of Standard Schema (tRPC, TanStack
   Form, Hono, …) gets the value `parse` gives: the `default` of a missing key filled in and the
   `parse` function of every field applied, with the schema's own `unknown` metadata as the
@@ -209,9 +212,9 @@ fix in `check`.
 ### Fixed
 
 - **A struct rejects an array.** `check` accepted `[]` for a struct whose fields are all
-  optional (`typeof [] === 'object'`, no keys to look at); an array is now `not of expected
-  type: object`, as it is for a struct with required fields. Found by the differential test
-  against ajv.
+  optional (`typeof [] === 'object'`, no keys to look at) and reported the missing keys of
+  any other struct; an array is now `not of expected type: object`, whatever the fields.
+  Found by the differential test against ajv.
 - **A failed branch of a plain union left its deferred validators behind** in `checkAsync` and
   `parseAsync`, so a value that matched a later branch was reported invalid by the validators
   of a branch it did not match. Both backends drop them with the issues of the branch. A plain

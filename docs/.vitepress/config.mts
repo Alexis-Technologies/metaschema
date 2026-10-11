@@ -142,6 +142,7 @@ export default defineConfig({
           text: 'Going Further',
           items: [
             { text: 'Performance', link: '/guide/performance' },
+            { text: 'Migrating from 2.x', link: '/guide/migrating-from-2' },
             { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
             { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
           ],

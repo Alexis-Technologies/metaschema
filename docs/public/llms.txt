@@ -76,6 +76,7 @@ Docs:
 - Schema syntax: https://metaschema.vercel.app/guide/schema-syntax
 - Validation: https://metaschema.vercel.app/guide/validation
 - Parse and serialize: https://metaschema.vercel.app/guide/parse
+- Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model
 - JSON Schema: https://metaschema.vercel.app/guide/json-schema
