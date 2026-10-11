@@ -317,6 +317,23 @@ and every exported type.
 
 ## Migrating
 
+### From 2.x
+
+3.0 has two breaking changes. The generators left the core entry: `model.dts`,
+`schema.toInterface()` and `saveTypes` are `toTypeScript(target, options)` and
+`saveTypes(file, target, options)` of `@alexify/metaschema/generators`, whose `register()` puts
+the methods back on the classes once per process. And `schema['~standard'].validate` is `parse`
+rather than `check`: a consumer of Standard Schema gets the defaults filled in and the `parse`
+functions applied, and a promise for a schema with an `async function`. The smaller changes: a
+struct rejects an array, the synchronous `check` and `parse` throw `ERR_ASYNC_VALIDATOR` for a
+promise, a graph deeper than 128 embedded records is a `depth` issue (`maxDepth` raises it),
+`Infer` makes a defaulted key optional, and a few definitions that could never work throw when
+the schema is built. Everything else is additive: `parse`, `serialize`, `checkAsync` and
+`parseAsync`, the JSON Schema export, the JIT backend of `@alexify/metaschema/compile`, JSDoc
+and named types. The step-by-step guide with before-and-after examples is
+[Migrating from 2.x](https://metaschema.vercel.app/guide/migrating-from-2); the full list is
+under "Upgrading from 2.0" in the [CHANGELOG](./CHANGELOG.md).
+
 ### From 1.x
 
 2.0 changes the shape of a result (`issue.path` is an array of keys, `issue.message` has no
@@ -347,7 +364,7 @@ the same schema language. What changed in 1.0:
 - **`browser.js`** replaces `dist.js`, and an `exports` map closes deep imports.
 
 The full list is in [Migrating from metarhia](https://metaschema.vercel.app/guide/migrating-from-metarhia),
-and the 2.0 changes above apply on top of it.
+and the 2.0 and 3.0 changes above apply on top of it.
 
 ## Changelog
 
