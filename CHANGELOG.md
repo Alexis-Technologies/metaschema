@@ -172,6 +172,10 @@ async check with a sync validator after an unrelated promise, a pattern no longe
   the generator asks (`readsAsStruct` in `types.js`) follows the preprocessor's `firstKey`
   now, and the model subpath shares it.
 
+- **`CheckContext` declares `renamed`.** The context has carried the slot (whether the check
+  read a field from one of its aliases) since 3.1, and the migration guide says the type declares
+  every slot; `tests/types/index.test-d.ts` pins it now.
+
 ### Tooling
 
 - **A cross-library benchmark, charted.** `pnpm bench:compare` replaces `pnpm bench
