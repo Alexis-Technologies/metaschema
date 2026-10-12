@@ -61,3 +61,39 @@ test('Values: any and unknown accept every value, required keys included', () =>
     true,
   );
 });
+
+test('Values: a value whose constructor key names a built-in is not that built-in', () => {
+  // JSON can carry an own key called `constructor`, and `{ name: 'Map' }`
+  // under it is what the check reads the name of a built-in from; the shape
+  // decides, so such a value is a type issue, never a throw out of check.
+  const fake = (name) => JSON.parse(`{"constructor":{"name":"${name}"},"size":0}`);
+  const schema = Schema.from({
+    when: 'date',
+    table: { map: { string: 'number' } },
+    bag: { set: 'number' },
+    'sized?': { map: { string: 'number' }, length: { max: 2 } },
+    u: { union: [{ set: 'number' }, { map: { string: 'number' } }, 'date', 'string'] },
+  });
+  const value = {
+    when: fake('Date'),
+    table: fake('Map'),
+    bag: fake('Set'),
+    sized: fake('Map'),
+    u: fake('Set'),
+  };
+  assert.deepStrictEqual(schema.check(value).errors, [
+    'Field "when" not of expected type: date',
+    'Field "table" not of expected type: map',
+    'Field "bag" not of expected type: set',
+    'Field "sized" not of expected type: map',
+    'Field "u" does not match any of: set, map, date, string',
+  ]);
+  const parsed = schema.parse(value);
+  assert.strictEqual(parsed.valid, false);
+  assert.strictEqual(parsed.issues.length, 5);
+  assert.strictEqual(schema.serialize(value).value.when, value.when);
+  // The real built-ins are still what they are, from any realm.
+  const real = { when: new Date(0), table: new Map([['a', 1]]), bag: new Set([1]), u: new Set() };
+  assert.strictEqual(schema.check(real).valid, true);
+  assert.strictEqual(Schema.from({ at: 'date' }).check({ at: { getTime: () => 1 } }).valid, false);
+});

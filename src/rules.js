@@ -6,6 +6,7 @@
 // the type check.
 const { issues } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
+const { isMap, isSet } = require('./util.js');
 
 const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);
 
@@ -52,11 +53,28 @@ const formatPattern = (value) => {
 
 // The formatter of each rule, by name; the names are the rules that exist. A
 // null-prototype dictionary: a definition key may be called `constructor`.
+// The formats a string may name (`format: 'email'`): a null-prototype table
+// of `{ test, examples }` entries, empty until `register()` of the formats
+// subpath fills it (the core knows the rule, the subpath the formats), read
+// when the field is built. A name the table lacks is a definition error with
+// the hint, never a check that passes everything.
+const FORMATS = Object.create(null);
+
+const formatName = (value) => {
+  if (typeof value !== 'string') throw invalidRule('Rule "format" needs the name of a format');
+  if (FORMATS[value] === undefined) {
+    const hint = 'register() of @alexify/metaschema/formats';
+    throw invalidRule(`Rule "format" names a format that is not registered: "${value}" (${hint})`);
+  }
+  return value;
+};
+
 const FORMAT = Object.assign(Object.create(null), {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
+  format: formatName,
 });
 
 const notApplicable = (rule, type, rules) => {
@@ -92,8 +110,7 @@ const keyCount = (value) => {
 // length of an array, the size of a Set or a Map, the own keys of an object.
 const lengthOf = (value) => {
   if (typeof value === 'string' || Array.isArray(value)) return value.length;
-  const name = value.constructor?.name;
-  return name === 'Set' || name === 'Map' ? value.size : keyCount(value);
+  return isMap(value) || isSet(value) ? value.size : keyCount(value);
 };
 
 // A string field measures its units, or its code points when it asks for
@@ -145,11 +162,33 @@ const compileRange = (type) => {
   };
 };
 
+// The units a pattern may be run over: `length.max` (twice it when the
+// length counts code points, each at most two units), so that a string past
+// the bound, reported for its length already, never reaches a pattern that
+// backtracks over it; no limit without the bound.
+const patternLimit = (type) => {
+  const max = type.length?.max;
+  if (max === undefined) return Infinity;
+  return type.unicode === true ? 2 * max : max;
+};
+
 const compilePattern = (type) => {
   const { pattern } = type;
   const { source } = pattern;
+  const limit = patternLimit(type);
   return (value, context, key) => {
-    if (!pattern.test(value)) issues.pattern(context, source, key);
+    if (value.length <= limit && !pattern.test(value)) issues.pattern(context, source, key);
+  };
+};
+
+// A format is the test the subpath registered under its name, run after the
+// pattern and under the same bound.
+const compileFormat = (type) => {
+  const { format } = type;
+  const { test } = FORMATS[format];
+  const limit = patternLimit(type);
+  return (value, context, key) => {
+    if (value.length <= limit && !test(value)) issues.format(context, format, key);
   };
 };
 
@@ -171,6 +210,7 @@ const ruleNames = (type) => {
 const COMPILERS = Object.assign(Object.create(null), {
   length: compileLength,
   pattern: compilePattern,
+  format: compileFormat,
   range: compileRange,
 });
 
@@ -182,4 +222,13 @@ const compileRules = (type) => {
   return checks;
 };
 
-module.exports = { FORMAT, notApplicable, ruleNames, compileRules, codePoints, lengthOf };
+module.exports = {
+  FORMAT,
+  FORMATS,
+  notApplicable,
+  ruleNames,
+  compileRules,
+  patternLimit,
+  codePoints,
+  lengthOf,
+};

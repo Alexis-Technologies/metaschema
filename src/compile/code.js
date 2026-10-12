@@ -1,7 +1,7 @@
 // The builder of the generated source. Generated code holds identifiers,
 // numbers, booleans and JSON strings only: a regular expression, a Set, a
 // function, a nested check or a dictionary of known keys goes into the scope
-// and is reached by name (the ajv and schemasafe rule, ROADMAP P9), so
+// and is reached by name (the ajv and schemasafe rule), so
 // nothing taken from a schema is ever part of the source text.
 const { IDENTIFIER } = require('../util.js');
 

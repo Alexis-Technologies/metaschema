@@ -17,7 +17,7 @@ It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
 `@alexify/migronaut`. The git remote `upstream` points at metarhia; `origin` at
 `Alexis-Technologies/metaschema`. The schema language is upstream's; 2.0 settled its semantics
-(ROADMAP.md §5.1–5.4, CHANGELOG "Upgrading from 1.x": issues as data, the first key, `min`/`max`,
+(CHANGELOG "Upgrading from 1.x": issues as data, the first key, `min`/`max`,
 references by kind, `union`, `nullable`, `Infer`, Standard Schema). The package around it (no
 loader, no dependencies, tooling, layout) is ours.
 
@@ -36,14 +36,19 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>]   # esbuild bundle sizes; CI gates at 17.5 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile and 10 KB for ./model on top
-pnpm bench [filter] [--json] [--save] [--compare] [--compare-libs]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json, --compare-libs runs zod/valibot/ajv/typebox (bench/libs.js)
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>]   # esbuild bundle sizes; CI gates at 17.75 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model, 1.5 KB for ./stream and 2 KB for ./formats on top
+pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
+pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
+node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
+pnpm size:compare [--json]         # the comparison's schema bundled per library, verified, min+gzip → bench/results/size.json
+pnpm bench:report                  # the charts (docs/public/benchmarks/*.svg) and the generated tables of README and docs/guide/benchmarks.md
+pnpm docs:comparison               # the feature matrix of README and docs/guide/comparison.md from docs/comparison.json
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10`
+`pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -57,9 +62,9 @@ There is no build step.
   never by spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/metaschema'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
-  `src/locales/*.d.ts` that type the locale subpath exports through it and the three subpath
-  typings `src/generators/index.d.ts`, `src/compile/index.d.ts` and `src/model/index.d.ts`,
-  which import the shared types from it. A public API change touches
+  `src/locales/*.d.ts` that type the locale subpath exports through it and the four subpath
+  typings `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts` and
+  `src/stream/index.d.ts`, which import the shared types from it. A public API change touches
   `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
   `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
   `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
@@ -69,8 +74,10 @@ There is no build step.
   and resolves the locale subpaths. `tests/types/*.test-d.ts` (tsd) pin signatures. `check:dts`
   needs `--target es2022` because there is no tsconfig.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
-  `default`; `./locales/en`, `./locales/uk`, `./generators`, `./compile` and `./model`, each
-  with its own `types`) and a
+  `default`; `./locales/en`, `./locales/uk`, `./generators`, `./compile`, `./model`,
+  `./stream` and `./formats`, each with its own `types`), `sideEffects: false` (nothing
+  registers on import, so a bundler may drop a subpath a program imports and never calls; the
+  size script exports what it bundles for that reason) and a
   `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
   and SECURITY. `src/generators/index.d.ts` types the subpath and imports the option types from
   the root `index.d.ts`, which also declares the methods `register()` installs on `Schema` and
@@ -111,14 +118,33 @@ once per construction, that `register()` fills. A new backend goes there too.
 without an import and the snapshot is the contract other programs read the model through
 (migronaut, Alioth, wrpc); `aliases` and `deprecated` are in the core because `check`, `parse`
 and the lint read them. Everything that reads a snapshot or builds on it (`fromJSON`, `diff`,
-`compatibility`), and everything that builds values or schemas from schemas (`sample`,
-`merge`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an explicit
-`register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
-`Schema.merge` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
-was planned for the core (ROADMAP §5.7 G1) and moved to the subpath on 2026-10-11 because the
+`compatibility`), and everything that builds values or schemas from schemas or from values (`sample`,
+`merge`, `infer`), is the `@alexify/metaschema/model` subpath (`src/model/`): functions plus an
+explicit `register()` that installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
+`Schema.merge`, `Schema.infer` and `schema.sample` non-enumerably; importing registers nothing. `Model.fromJSON`
+was planned for the core and moved to the subpath on 2026-10-11 because the
 restore is 0.8 KB that validation never needs and the core had 14 bytes of headroom left.
 `fromJSONSchema` is the other direction of `toJSONSchema` and lives beside it in
 `./generators`. Nothing in the core requires `model/` or `generators/`.
+
+**A sequence of records is the `./stream` subpath (3.2).** `checkEach`, `parseEach`, their
+async twins and `transform` (a `TransformStream`) run the methods of the core on each record
+of an iterable and yield `{ index, record, result }`; `register()` installs them on `Schema`.
+It is iteration glue and an adapter to the Web Streams, not validation semantics, so it is a
+subpath (Alex's decision, 2026-10-11) and the core did not grow for it; it requires `util`,
+`issues` (`abandon`), `errors` and `schema.js` only, never `codec`.
+
+**A string format is a rule of the core with a table the `./formats` subpath fills (3.2).**
+`{ type: 'string', format: 'email' }` is a rule beside `length` and `pattern`: `rules.js`
+holds the rule and an empty null-prototype table `FORMATS`, read when a field is built (a name
+the table lacks is `ERR_INVALID_RULE` with the hint), and `register(custom)` of
+`@alexify/metaschema/formats` fills it with nine built-in formats (the expressions of
+ajv-formats' fast mode, copied with attribution; the date and time ranges checked) and the
+program's own `{ test, examples, infer }`, once per name, process-wide like `TYPES`. A format
+is a rule and not a type on purpose (Alex's decision, 2026-10-11): a type named `email` makes
+`{ email: 'string', name: 'string' }` read as the shorthand of that type (the first key
+decides), which was reproduced before the design was changed. The generators, `sample` and
+`infer` read `FORMATS` of the core; the subpath requires `rules.js` and `errors.js` only.
 
 ## Repository layout
 
@@ -134,7 +160,9 @@ src/
   issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType, settle (the async drain)
   codec.js          the passes of parse and serialize over the built types: defaults, strip, decoders, serializers, hasAsync
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
-  rules.js          rules per type: FORMAT (length, min, max, pattern), compileRules, code points
+  rules.js          rules per type: FORMAT (length, min, max, pattern, format), FORMATS (the table the
+                    formats subpath fills), compileRules, patternLimit (no pattern or format past length.max),
+                    code points
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases)
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true })
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
@@ -159,7 +187,13 @@ src/
                     diff.js (diff, compatibility: the Confluent rules as bits),
                     sample.js (the seeded witness: mulberry32, per-field verification), pattern.js (the regex
                     subset: a parser into nodes once per RegExp, a string drawn from the nodes),
-                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT)
+                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT),
+                    infer.js (a definition from samples: the summary of every place, fused records,
+                    the dictionary and enum heuristics, the self-check, ERR_INFER_DEPTH/ERR_INFER_MISMATCH)
+  stream/           the ./stream subpath: index.js (checkEach, parseEach, checkEachAsync, parseEachAsync,
+                    transform, register), index.d.ts
+  formats/          the ./formats subpath: index.js (the nine built-in formats, register, FORMATS of the
+                    core re-exported), index.d.ts
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
@@ -167,8 +201,13 @@ tests/
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
   fixtures/snapshot.json  the committed snapshot of the fixture model (the format 1 contract, pinned by snapshot.test.js)
 scripts/size.js     bundle-size report and budget gate (CI smoke)
-bench/              zero-dependency ops/sec harness (closures and JIT); libs.js compares with zod, valibot,
-                    ajv and typebox (--compare-libs); baseline.json is a snapshot for --compare
+scripts/size-compare.js  the comparison's schema per library, bundled for the browser and verified
+scripts/comparison.js    renders docs/comparison.json (the feature matrix) into README and the docs
+bench/              zero-dependency ops/sec harness (closures and JIT); baseline.json is a snapshot for
+                    --compare; compare.js + compare/ (adapters per library, scenarios, measure.js,
+                    the workers) and releases.js run the cross-library and release benchmarks into
+                    results/*.json; report.js + report/ (model.mjs: the chart models shared by the
+                    docs components and svg.mjs, the README images) render them
 docs/               VitePress site (metaschema.vercel.app), not published
 .claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
 ```
@@ -179,8 +218,11 @@ Module graph (no cycles; nothing checks this automatically, so look at the `requ
 an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 
 - `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util`,
-  `errors` and `locales/en`; `rules.js` (+ `errors`), `result.js` (+ `util`, `locales/en`) and
-  `context.js` (+ `locales/en`) require `issues`. `util.js` must not require `issues.js`.
+  `errors` and `locales/en`; `rules.js` (+ `errors`, `util` for `isMap`/`isSet`), `result.js`
+  (+ `util`, `locales/en`) and `context.js` (+ `locales/en`, `errors` for `invalidOption`)
+  require `issues`. `util.js` must not require `issues.js`. `tests/unit/graph.test.js` walks
+  the relative requires of `src/` and fails on a cycle (oxlint's `import/no-cycle` does not
+  see a CommonJS require).
 - `kinds → metadata` (+ `result`, `errors`, `issues`); `struct` (`util`, `issues`, `errors`) →
   `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
   (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`,
@@ -191,9 +233,9 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   identity of its `compile`, as `compile/emit.js` does) and never `schema.js`: a reference is
   followed through `root.findReference` at parse time.
 - `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct`, `lint` and `codec`; `snapshot.js` requires only `util`; `model.js` requires
-  `schema`, `types`, `lint`, `util`, `snapshot`; `src/index.js` requires nothing else (no
-  runtime).
+  `struct`, `lint` and `codec`, plus `metautil`, `util` and `errors`; `snapshot.js` requires
+  only `util`; `model.js` requires `schema`, `types`, `lint`, `util`, `snapshot`;
+  `src/index.js` requires nothing else (no runtime).
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
   `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
   generators), never `schema.js` or `model.js`: they take the instances and read `fields`,
@@ -201,21 +243,33 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
   generators; nothing in the core requires `generators/`.
 - `compile/code.js` requires `util` (`IDENTIFIER`); `compile/emit.js` requires `util`
-  (`ENUM_SET_SIZE`), `issues`, `rules` (`codePoints`, `lengthOf`, `ruleNames`), `struct`
+  (`ENUM_SET_SIZE`), `issues`, `rules` (`FORMATS`, `codePoints`, `lengthOf`, `ruleNames`,
+  `patternLimit`), `struct`
   (`STRUCT`, `isStruct`), the prototypes (for the identity of their `compile` methods; `union`
   also for `nameOf` and `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
   `schema.js`, `errors` and the two. Nothing in the core requires `compile/`.
-- `generators/fromjsonschema.js` requires `metautil`, `util` (`define`), `schema.js` (for `as:
-  'schema'`), `types` (`TYPES`, to tell a struct key that reads as a type) and `errors`.
+- `generators/fromjsonschema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
+  (for `as: 'schema'`), `types` (`readsAsStruct`, to tell a struct key that reads as a type),
+  `rules` (`FORMATS`, to read a registered `format` back) and `errors`.
 - `model/data.js` requires `util`, `snapshot` (`FORMAT`), `errors` and `struct` (`isStruct`,
   for `definitionOf`); `model/restore.js` requires `util`, `schema.js`, `model.js`, `errors`
   and `data`;
   `model/diff.js` requires `errors` and `data`; `model/pattern.js` requires `errors` only;
   `model/sample.js` requires `util`, `context` (`createContext`, for the verification of a
   draw), `errors`, `struct`, `prototypes/reference` (`embeds`), `issues` (`toDotPath`,
-  `finalize`), `locales/en` and `pattern`; `model/merge.js` requires `util`, `schema.js`,
-  `struct`, `issues` (`isThenable`), `errors` and `data`; `model/index.js` requires
-  `schema.js`, `model.js` and the five. Nothing in the core requires `model/`.
+  `finalize`), `locales/en`, `rules` (`FORMATS`, the examples of a format) and `pattern`;
+  `model/merge.js` requires `util`, `schema.js`, `struct`, `issues` (`isThenable`), `errors`
+  and `data`; `model/infer.js` requires `util` (`define`, `IDENTIFIER`, `shorten`),
+  `schema.js`, `errors`, `types` (`readsAsStruct`), `rules` (`FORMATS`), `issues`
+  (`toDotPath`, `finalize`), `locales/en` and `data` (`DEPTH`, `capitalize`); `model/index.js`
+  requires `schema.js`, `model.js` and the six. Nothing in the core requires `model/`.
+- `stream/index.js` requires `util` (`hasBrand`), `issues` (`abandon`), `errors`
+  (`invalidTarget`, `invalidOption`) and `schema.js` (for `register()`); it calls the public
+  methods of a schema and never `codec` or the prototypes. Nothing in the core requires
+  `stream/`.
+- `formats/index.js` requires `rules` (`FORMATS`) and `errors` only. Nothing in the core
+  requires `formats/`; the `install` helper of `register()` is a copy per subpath (generators,
+  model, stream) rather than a helper of the core, which is measured on its own.
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -248,8 +302,9 @@ kind or the `schema` shorthand.
 `ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`, `ERR_UNKNOWN_JS_TYPE`,
 `ERR_INVALID_OPTIONS`, `ERR_INVALID_RULE`, `ERR_INVALID_UNION`, `ERR_UNREPRESENTABLE` and
 `ERR_UNSUPPORTED_SCHEMA` of the generators, `ERR_NO_EVAL` and `ERR_JIT_BUILD` of the compile
-subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`
-and `ERR_MERGE_CONFLICT` of the model subpath), `schema` and `field`. A function of a subpath
+subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`,
+`ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH` and `ERR_INFER_MISMATCH` of the model subpath,
+`ERR_INVALID_FORMAT` and `ERR_FORMAT_REGISTERED` of the formats subpath), `schema` and `field`. A function of a subpath
 given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
 JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
 (`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
@@ -374,10 +429,19 @@ does. `~standard.validate` is `parse` with the schema's policies.
 **Async.** `checkAsync`/`parseAsync` set `context.async = []`; `guarded` in `issues.js`, the one
 place where user code runs (field and schema `validate`, custom `checkType`, on both backends,
 the JIT reaching it through `runValidate` in the scope), keeps a promise it gets with the path
-it was met at, and every validator met after it as a deferred call, so that "a validator runs
-only when nothing under it failed" holds across promises; `settle` runs the list after the walk,
-in field order, each entry under its path, skipping a deferred call when an issue recorded since
-lies under its path, and stops at `maxErrors`. The sync `check`/`parse` throw a `TypeError`
+it was met at, and keeps a validator met later as a deferred call only when the **last entry of
+the list lies under the validator's path** (`under`): the walk is depth first and every
+container pushes its key before its children, so the entries under a validator's path are a
+contiguous suffix of the list, and one prefix test against the last entry is the whole
+dependency test (3.2; until then every validator after the first promise was deferred and the
+latency was the sum of the waits). Every other validator runs at once, as in `check`, its
+promise in flight with the rest. "A validator runs only when nothing under it failed" holds
+across promises; `settle` runs the list after the walk, in field order, each entry under its
+path, awaiting a promise and calling a deferred entry unless an issue recorded since lies under
+its path (`failedUnder`, through `under`), and stops at `maxErrors` with `release` over the
+rest (the promises are observed, never awaited; `release` is also what a failed union branch
+and the trial of parse drop their entries with, on both backends). Under a low `maxErrors` a
+validator may be called whose result is dropped: the limit decides what is recorded. The sync `check`/`parse` throw a `TypeError`
 with `code: 'ERR_ASYNC_VALIDATOR'` (`asyncReturn` in `errors.js`) for a promise. Decoders that
 return promises are awaited by `parseAsync` inside the `finish` pass (`Promise.all` over the
 parts of a container, then the container's own decoder). `hasAsync(schema)` (an `AsyncFunction`
@@ -452,12 +516,34 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.1 bundle budgets are 17.5 KB min+gzip per core entry, 7.5 KB for the generators,
-4.25 KB for the compile subpath and 10 KB for the model subpath on top of it** (`pnpm size
---max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10` in CI).
-After the review of 3.1 (2026-10-11) the entries measure 17626 bytes (17.2 KB) each, the
-generators 7303 bytes (7.1 KB), the compile subpath 4124 bytes (4.0 KB) and the model subpath
-9682 bytes (9.5 KB).
+**The 3.2 bundle budgets are 17.75 KB min+gzip per core entry, 7.5 KB for the generators,
+4.25 KB for the compile subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath
+and 2 KB for the formats subpath on top of it** (`pnpm size --max-gzip 17.75
+--max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5
+--max-gzip-formats 2` in CI). After the review of 3.2 (2026-10-11, before the tag) the entries
+measure 18137 bytes (17.7 KB) each, the generators 7286 bytes (7.1 KB), the compile subpath
+4298 bytes (4.2 KB), the model subpath 12245 bytes (12.0 KB, 43 bytes under its gate: the
+formats cost `infer` and `sample` about 260 bytes), the stream subpath 978 bytes (1.0 KB) and
+the formats subpath 1348 bytes (1.3 KB). The review cost the core 396 bytes: the predicates
+`isMap`/`isSet`/`isDate` and the pattern bound (+199, the first on the path of a Map, Set or
+Date field only, the second one integer comparison per pattern field), the cap of the
+`unexpected` message, `walkAsync` and `release` (the rest of 0.A), the `format` rule with its
+issue and the renderer of `en` (+150), `toJSON`, the inspect of `Model`, `shorten` and
+`define` at three places (+47); the core gate moved from 17.5 KB to 17.75 KB for it (Alex's
+decision, 2026-10-11: a gate the next fix cannot fit under is no gate, as in the review of
+3.1), and a dedupe of the `install` helper into `util.js` was reverted because the core came
+out one byte over the new gate with it. Before the review the entries measured 17741 bytes
+(17.3 KB) each, the generators 7230 bytes (7.1 KB), the compile subpath 4132 bytes (4.0 KB),
+the model subpath 11948 bytes (11.7 KB) and the stream subpath 1026 bytes (1.0 KB). 3.2
+itself cost the core 115 bytes, none of them on the synchronous hot path: the `release`
+helper, `readsAsStruct` and the guard that reads `{}` as a struct (+94), `under` in `guarded`
+with `failedUnder` rewritten over it (+16), the walkers of `codec.js` without a state object
+per container (+5); `infer` cost the model subpath 2.3 KB, which moved its gate from 10 KB to
+12 KB (Alex's decision, 2026-10-11: the subpath is tooling, not the validation path, as for
+the move from 8.5 to 10 KB in the review of 3.1; 340 bytes of headroom remain); the stream
+subpath is new, with a gate of its own. After the review of 3.1 (2026-10-11) the entries
+measured 17626 bytes (17.2 KB) each, the generators 7303 bytes (7.1 KB), the compile subpath
+4124 bytes (4.0 KB) and the model subpath 9682 bytes (9.5 KB).
 Workstream G (2026-10-11) added 850 bytes to the core (`src/snapshot.js`, the snapshot writer,
 about 660 of them; the aliases in `struct.js`, `codec.js` and `lint.js` the rest), which took it
 to 17394 bytes, 17.0 KB, 14 bytes under the 17 KB gate of 3.0 (the restore of a snapshot was
@@ -485,7 +571,7 @@ sat at 16.1 KB after them (16530 bytes before G). A subpath is measured as the d
 between a bundle of `index.js` plus the subpath's `index.js` and `index.js` alone (a subpath
 requires the core for `register()`, so on its own it would bundle the core again). The figures
 are quoted in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`,
-`docs/guide/json-schema.md`, `docs/guide/evolution.md`,
+`docs/guide/json-schema.md`, `docs/guide/evolution.md`, `docs/guide/architecture.md`,
 `docs/api/exports.md` and `docs/public/llms.txt`; change them together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
 the entries to 9.9 KB (gate 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer,
 pattern and min/max, the references rule and the lint cost about 2.6 KB together; gate 13 KB);
@@ -498,7 +584,7 @@ change, so the release is 3.0.0, planned as 2.1.0); Workstream E added 37 bytes 
 with a 4 KB gate; Workstream F added 3146 bytes to the core (`src/codec.js` is 2.7 KB of it,
 the rest is `parse`/`parseAsync`/`checkAsync`/`serialize` in `schema.js` and the async drain in
 `issues.js`), which took it to 15.1 KB with a 16 KB gate: parse is core behaviour, not a
-subpath, because `~standard.validate` is parse (Alex's instruction). ROADMAP.md §5.8 planned
+subpath, because `~standard.validate` is parse (Alex's instruction). The plan of 2.0 had been
 10 KB for 2.0 and 12 KB for the release after it.
 
 **`pnpm bench` measures `check` as a callee.** The scenarios that validate call `check` through
@@ -525,6 +611,16 @@ harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
 
+`bench/baseline.json` was re-saved on the 3.2 branch (2026-10-11): the rows of 3.1 moved by
+less than the run-to-run band, the strip rows gained from the walkers without a state object
+(100 records under `strip` 61 K → 66 K on the closures, 81 K → 95 K on the JIT, measured as
++16% and +24% in an A/B of scratch worktrees before the merge), the async rows are the settle
+of 3.2 (four independent validators awaiting `setImmediate` 18 K → 65 K checks a second, 32
+records with one each 2.2 K → 43 K, four awaiting `setTimeout(1)` 190 → 812; the sync and
+resolved-promise rows unchanged), and `checkEach` costs about 20 ns a record over a loop of
+`check` (7.6 K vs 9.2 K batches of 1 000 on the closures, 19 K vs 31 K on the JIT: the entry
+and the iterator's result object); `docs/guide/performance.md` has the table. The figures that
+follow are those of 3.1, kept for the history of the targets.
 `bench/baseline.json` (Node 24, this machine, 2026-10-10, the branch of Workstream F): on the
 closures flat valid ≈ 10.4 M ops/s, flat invalid ≈ 3.4 M, nested ≈ 2.5 M / 1.4 M, the moltar
 modes ≈ 7.1–7.4 M flat and 4.2–4.4 M nested; on the JIT (`check (jit) — …`, a second schema
@@ -543,12 +639,30 @@ its rules against its type and a projection re-parses its parent's fields), `mod
 fifth on this machine). **The moltar schema carries `Struct: {}` since E**: its first key is
 `number`, so until then it was a number field with five unknown options, every check failed
 at the root, and the 14.1–14.7 M of the 2.0 baseline (and the "no strict/loose asymmetry")
-measured that. The roadmap's 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
+measured that. The 2.0 targets were 12 M / 6 M on the closures; the 3.0 JIT target of
 25 M on flat valid is met at 30.9 M, the 8 M on flat invalid is not (5.6 M): the invalid path is
 bounded by the issue objects (a params object, a path array and a rendered message each, about
-40 ns an issue), which both backends build with the same constructors. `pnpm bench
---compare-libs` (`bench/libs.js`) runs the moltar scenarios through zod 4, valibot, ajv and
-typebox beside both backends; the tables are in `docs/guide/performance.md`.
+40 ns an issue), which both backends build with the same constructors.
+
+**`pnpm bench:compare` is the cross-library comparison (2026-10-11, replacing `bench/libs.js`
+and `--compare-libs`), built like kerberos's.** One adapter per library in
+`bench/compare/adapters/` translates a library-neutral shape of the moltar object into the
+library's idiom (metaschema on the closures and the JIT, Metarhia's metaschema 2.2.2, zod,
+valibot, ArkType, Effect Schema, TypeBox 1.x `Compile` and `Value`, Ajv, Yup, Joi,
+Superstruct; all devDependencies); `bench/compare/scenarios.js` has the moltar flat and nested
+objects in the suite's four modes, every issue of an invalid value (four wrong fields, the
+paths compared) and building the strict nested schema. Every (library, scenario) pair runs in a
+fresh process (`compare/worker.js`) that checks the verdicts before timing and measures through
+one megamorphic call site (`compare/measure.js`), median of 5 × 1 s after a 1 s warmup; a cold
+start (load, build, first check) is the median of 20 processes. `bench/releases.js --src <dir>`
+runs metaschema's own scenarios against a checkout of another release (`git archive vX | tar
+-x`) or `node_modules/metaschema`, so the release chart is one machine and one harness.
+Metarhia's metaschema has no loose mode (the chart says why a row is missing), and its bundle
+needs `keepNames` (its checks compare `constructor.name`; minified, it accepts everything).
+`pnpm bench:report` renders `docs/public/benchmarks/*.svg` (README images, absolute URLs to the
+docs site) and the tables between `<!-- bench:<name>:start/end -->` markers; the docs pages
+render the same models interactively (`docs/.vitepress/theme/components/Bench*.vue`). Run the
+comparison on a quiet machine, never beside other work.
 
 ## Platform split
 
@@ -718,6 +832,34 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
+- Review of 3.2 suites: `formats.test.js` (the rule before and after `register()`, the table
+  of valid and invalid values of every built-in format cross-checked with ajv-formats' full
+  mode on both backends, the issue and both locales, the order with `length` and `pattern`
+  and the bound, custom formats and every error of `register`, a name `__proto__`, the JSON
+  Schema round trip, `sample` and `infer` with formats, `merge` and `diff`, a snapshot
+  restored, the linearity of every built-in test on hostile strings), `graph.test.js` (the
+  module graph of `src/` without a cycle, the leaves pinned), the shape tests in
+  `values.test.js` and `compile.test.js` (a value whose `constructor` key names a built-in),
+  the bound in `pattern.test.js` (with a timing), the cap in `result.test.js`, the two
+  unhandled-rejection tests in `async.test.js` and `stream.test.js`, `compiled()` in
+  `compile.test.js`, `toJSON` in `result.test.js`, the inspect of a model in `model.test.js`,
+  the shortened keys in `infer.test.js` and `fromjsonschema.test.js`, the `__proto__` index in
+  `snapshot.test.js`, the thrown null in `schema.test.js`; `tests/types/formats.test-d.ts`
+  pins the typings of the subpath.
+- 3.2 suites: `infer.test.js` (every form of a value, optional/nullable/null, the enum and
+  dictionary rules with their options, unions with the record last, nested fusion, the root
+  forms and the id of a stored kind, every hostile key (`__proto__`, `constructor`, keys not
+  led by a letter, keys named like types, `foo?`, symbol and inherited keys, the names of the
+  methods of a field), the depth limit with a cycle, the call errors, `register()`, and the
+  round trip with `sample` over the fixture entities and every form of the language, both
+  backends throughout), `stream.test.js` (the generators over arrays, Sets and generators, `parseEach`
+  with defaults/strip/decoders/aliases, `maxInvalid`, the async pair over sync and async
+  sources with `concurrency` 1/3/100 and the count in flight observed, an iteration that ends
+  early with promises in flight (no unhandled rejection, a parse that throws), `transform` in
+  both modes and async, the stream that errors with `ERR_INVALID_RECORD`, the call errors,
+  `register()`); `export-parity.test.js`, `bundle.test.js` (the subpath through both bundles,
+  the browser context given `TransformStream`) and `scripts.test.js` cover the subpath export,
+  the bundles and the size row; `tests/types/stream.test-d.ts` the typings.
 - Workstream C: `tests/types/infer.test-d.ts` covers every form `Infer` reads, with
   `tests/fixtures/schemas` mirrored as an `as const` object (a JS module widens its literals, so
   the fixtures cannot be imported for inference) and the interfaces `toTypeScript(model)` renders
@@ -735,7 +877,9 @@ change. **This file wins** if they ever disagree.
   fixture model is the one the migration guide (`docs/guide/migrating-from-1.md`) was run
   against: it builds with no warnings, validates rows (ids) by default and the graph with
   `{ references: 'embed' }`.
-- `bench/bench.js` has no test. Its scenarios are `Schema.from` flat/nested, `check` flat/nested
+- `bench/` has no tests (the compare adapters need the devDependencies, some of them ESM-only,
+  which `require` loads on Node 22+ only); `pnpm size:compare` loads every bundle it measures
+  and checks its verdicts, so a broken entry fails there. `bench/bench.js` has no test. Its scenarios are `Schema.from` flat/nested, `check` flat/nested
   valid/invalid, the eight moltar modes on both backends (`bench/helpers.js`), the `parse`
   scenarios and `new Model`/`model.dts` over the
   fixture; `pnpm bench moltar` filters by name. `tests/unit/scripts.test.js` covers
@@ -864,7 +1008,7 @@ change. **This file wins** if they ever disagree.
   `null`.
 - **A reference to an Entity validates as an id by default.** `person.check({ employer: { name }
   })` fails with `not of expected type: string` when `Company` is a stored kind: that is the
-  storage view (ROADMAP W11, the references guide's ADR). Validate a graph with `check(value, {
+  storage view (the references guide's ADR). Validate a graph with `check(value, {
   references: 'embed' })` or mark the field `embed: true`; tests that embed use a `Struct` kind.
   Cycle detection therefore only happens where a record is embedded.
 - **`date`, `null`, `any`, `unknown`, `integer` and `union` are type names.** A nested struct
@@ -939,7 +1083,28 @@ change. **This file wins** if they ever disagree.
   survives bundlers renaming a class (`class _Schema`) and minifiers mangling it (which
   `constructor.name` does not). `tests/unit/bundle.test.js` validates through esbuild bundles of
   both entries, minified and not. Only built-ins are still recognised by name
-  (`value?.constructor?.name === 'Map'`), since nothing renames those.
+  (`value?.constructor?.name === 'Map'`), since nothing renames those, **and by shape**
+  (`isMap`/`isSet`/`isDate` in `util.js`: an iterator, `getTime`), since a value parsed from
+  JSON can carry an own key `constructor` and did throw out of `check` before the review of
+  3.2; the JIT inlines the same expression.
+- **A `pattern` or a `format` is never run over a string longer than `length.max`**
+  (`patternLimit` in `rules.js`, twice the bound in UTF-16 units under `unicode: true`): such
+  a string is reported for its length alone, one issue where there were two before the review
+  of 3.2, and that bound is what the ReDoS note promises. A field without `length.max` runs
+  its pattern on every string.
+- **The message of `unexpected` lists ten keys**; `params.keys` has them all. One issue per
+  struct meant `maxErrors` never bounded that message.
+- **`format` on a field is a rule with a name; `format` on a schema is a function.** The rule
+  is read from `string` fields only and keeps the name (`field.format === 'email'`); the
+  schema-level `format` is the collected, never called option of `src/metadata.js`. They do
+  not meet: `extractOption` takes functions, the rule takes a string. The table is process-wide
+  and read when the field is built, so a model restored with `fromJSON` needs the formats
+  registered first, and an isolated type registry does not isolate the formats.
+- **`compiled(schema)` of the compile subpath is the public way to tell the backend**; the
+  name `jit` of the generated function and `//# sourceURL` stay what the tests and a debugger
+  read. `JSON.stringify(result)` writes `{ valid, issues }` since the review of 3.2 (`toJSON`;
+  `errors` is derived), and `RecordEntry<T, R>` types the record of a stream entry by its
+  source.
 - **`schema.fields` is a null-prototype object, not a class instance.** `createStruct` builds it
   that way on purpose: a field may be called `check`, `name` or `constructor`, and input keys
   such as `__proto__` must come back as unexpected instead of resolving to `Object.prototype`.
@@ -1056,12 +1221,51 @@ change. **This file wins** if they ever disagree.
   draft-07 comes back as a plain union (only `openapi-3.0` writes it). A nested struct comes
   back as its fields unless its first key would read as a type or a kind, then as `{ schema }`.
 
+- **`infer` makes a struct of records, never a union of two struct shapes**, and a
+  dictionary of records whose keys are not names (ids, dates) from one sample on: both are
+  Baazizi's record fusion and quicktype's map rule, with `map: false`/`enum: 0` to turn the
+  heuristics off. It infers no bounds (`length`, `min`, `max`): the extremes of a sample are
+  not the domain. A root of records and `null` is `{ union: [struct], required: false }`
+  because the `schema` shorthand at the root is the struct itself and `required` means nothing
+  there (`Schema.from({ schema: {...}, required: false }).check(null)` is a type issue). A key
+  ending in `?` is written `'foo??'`; a key that is not a name makes the record a dictionary,
+  so `{ 'foo?': 1 }` alone is `{ object: { string: 'integer' } }`.
+- **The id field of a stored kind wins over a field of the same name in a definition.**
+  `new Schema('Order', { Entity: {}, orderId: 'integer' })` has `orderId: '?string'`
+  (`schema.js` spreads the kind's fields over the definition's). `infer` therefore defaults to
+  `kind: 'struct'`, and its self-check names such a field (`ERR_INFER_MISMATCH`). Not changed
+  in 3.2 (it is the kinds' semantics); documented in the inference guide.
+- **The entries of `checkEach` carry the record and its index; the error lines carry the
+  schema name.** `{ index, record, result }` is one shape for every entry: an iterator has no
+  position and a stream cannot be read again. `root` is one label per call, not per record
+  (a string per record would cost more than the check of a flat struct), so
+  `result.errors` says `Field "Order.qty" ...` for every record and the index is in the entry.
+- **`maxInvalid` ends a generator and errors a stream.** A generator that ends is read to its
+  end; a stream that ends looks complete to `pipeTo`, so `transform` ends with
+  `ERR_INVALID_RECORD` instead, after `onInvalid` was told of the n-th invalid record.
+- **The async pair keeps the order of the records whatever `concurrency` is**, so a slow record
+  holds the ones after it; the window overlaps the waits, it does not reorder. The queue is as
+  long as `concurrency` (an array with `shift`), which is small by design.
+- **A string is not a sequence of records.** It is iterable, over its characters, and
+  `checkEach(schema, 'rows')` is `ERR_INVALID_TARGET`.
+
 ## Documentation site
 
 VitePress in `docs/`, deployed to Vercel (`vercel.json`) at `metaschema.vercel.app`. It is not
 published to npm, and lint/format do not cover it.
 
-- Only `docs/index.md` has frontmatter; links between pages are absolute and extensionless.
+- Only `docs/index.md` has frontmatter; links between pages are absolute and extensionless. The
+  comparison page gets its full width from `.VPDoc:has(.ms-matrix)` in `custom.css`, not from
+  frontmatter.
+- Diagrams are mermaid blocks (`vitepress-plugin-mermaid`). pnpm does not hoist mermaid's
+  browser dependencies, so `@braintree/sanitize-url`, `cytoscape`, `cytoscape-cose-bilkent`,
+  `dayjs`, `debug` and `fastdom` are devDependencies (as in kerberos) and `fastdom` is in
+  `vite.optimizeDeps.include`; without them every page fails to load in the dev server. Keep a
+  diagram narrow (top to bottom, short labels): a wide one is scaled down to unreadable text.
+- Generated regions: the benchmark tables (`pnpm bench:report`) and the feature matrix
+  (`pnpm docs:comparison`, from `docs/comparison.json`, every cell checked against the
+  published source in October 2026) sit between markers in README and the docs; edit the data,
+  then regenerate.
 - `ignoreDeadLinks` is off, so `pnpm docs:build` failing on a dead link is a feature.
 - The nav version label is read from `package.json`.
 - The brand is the violet "braces" mark (`#7C5CFF`, `#9D85FF` on dark): `docs/public/logo-mark*.svg`,
@@ -1070,7 +1274,7 @@ published to npm, and lint/format do not cover it.
 - When behavior changes, update README and the matching docs page together. Example outputs in the
   docs were checked against the code, so keep them true.
 - The 2.0 pages: `guide/unions.md` (union, discriminator, optional vs nullable vs `null`),
-  `guide/performance.md` (the core, the baseline numbers, the JIT, the library comparison), `guide/migrating-from-1.md`
+  `guide/performance.md` (the core, the baseline numbers and their chart, the JIT), `guide/migrating-from-1.md`
   (the CHANGELOG's "Upgrading from 1.x" with before-and-after examples; the 1.x outputs were
   produced by the code on `main`) and `guide/standard-schema.md`. The 3.0 pages are
 `guide/parse.md` (the pipeline, defaults, codecs, strip, serialize, async, the boundaries),
@@ -1081,7 +1285,17 @@ the generated code contains, the boundaries). The 3.1 pages are `guide/evolution
 model subpath, `aliases` and `deprecated`, `diff`, the change shape, `compatibility` with the
 rules table, the boundaries) and `guide/samples.md` (`sample`, the options, what is drawn per
 type, the pattern subset, the unsatisfiable cases); `guide/model.md` has the snapshot format and
-`fromJSON`, `guide/schema-syntax.md` the merge rules. The sidebar is in
+`fromJSON`, `guide/schema-syntax.md` the merge rules. The 3.2 pages are `guide/streaming.md`
+(the stream subpath: the entries, `parseEach`, `maxInvalid`, the async pair and `concurrency`,
+`transform`, the boundaries), `guide/infer.md` (`infer`, the options, what is inferred per
+value, optional/nullable/null, the enum, format and dictionary rules, the keys, the root, the
+self-check, the round trip with `sample`, the boundaries) and `guide/formats.md` (the `format`
+rule, the built-in formats, `register` and the program's own, JSON Schema, samples and
+inference, evolution, the boundaries); `guide/parse.md` describes the
+settle of 3.2 and `guide/performance.md` its rows. Added with 3.2 as well:
+`guide/benchmarks.md` (the comparison, cold start, bundle size, release over release, method),
+`guide/comparison.md` (the feature matrix of twenty alternatives) and `guide/architecture.md`
+(the mermaid diagrams of the pipeline). The sidebar is in
 `.vitepress/config.mts`; a new page goes there and into `docs/public/llms.txt` if it is a key
 fact.
 

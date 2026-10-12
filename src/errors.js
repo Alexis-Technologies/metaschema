@@ -43,4 +43,12 @@ const invalidTarget = (message) => {
   return error;
 };
 
-module.exports = { SchemaDefinitionError, asyncReturn, invalidTarget };
+const shown = (value) =>
+  typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
+
+// An option of a call that is not what it must be (`maxErrors`, the options
+// of the stream subpath): a TypeError naming it, as invalidTarget is.
+const invalidOption = (name, expected, value) =>
+  new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
+
+module.exports = { SchemaDefinitionError, asyncReturn, invalidTarget, invalidOption };

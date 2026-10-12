@@ -5,16 +5,11 @@
 const en = require('./locales/en.js');
 
 const { NONE } = require('./issues.js');
+const { invalidOption: invalid } = require('./errors.js');
 
 // The limit when there is none: the largest small integer, so the comparison
 // with the count on every field stays an integer comparison.
 const UNLIMITED = 2 ** 30 - 1;
-
-const shown = (value) =>
-  typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
-
-const invalid = (name, expected, value) =>
-  new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
 
 // A whole number of issues, or no limit at all.
 const maxErrorsOf = (maxErrors) => {
@@ -126,9 +121,10 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
     references: 'kind',
     root: name,
     messages: en,
-    // The validators that returned a promise, in field order, settled after
-    // the walk by checkAsync and parseAsync; null in a synchronous check,
-    // where such a promise is an error.
+    // The validators that returned a promise, in field order, and the ones
+    // kept uncalled over them, settled after the walk by checkAsync and
+    // parseAsync; null in a synchronous check, where such a promise is an
+    // error.
     async: null,
     // The context parse tries the branches of a plain union in, made at the
     // first such union of a pass and reused for the rest; null in a check.

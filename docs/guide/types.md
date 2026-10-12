@@ -4,7 +4,7 @@
 
 | Type | Accepts | Rules |
 | --- | --- | --- |
-| `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern` |
+| `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern`, [`format`](/guide/formats) |
 | `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max` |
 | `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |
@@ -212,7 +212,25 @@ schema.check({ slug: 'Hello World', name: 'Марк' }).issues;
 ```
 
 A pattern that does not compile throws `ERR_INVALID_RULE` when the schema is built. Pair every
-`pattern` with a `length.max`; see [Patterns and ReDoS](/guide/validation#patterns-and-redos).
+`pattern` with a `length.max`: a string past the bound is reported for its length and the pattern
+is never run over it; see [Patterns and ReDoS](/guide/validation#patterns-and-redos).
+
+### `format`
+
+`format` names a form a string must have, `email`, `uuid`, `date`, `uri`, one of the nine the
+`@alexify/metaschema/formats` subpath registers or one of your own. It runs after `pattern`,
+under the same `length.max` bound, and a failed test is a `format` issue:
+
+```js
+const { register } = require('@alexify/metaschema/formats');
+register();
+const schema = Schema.from({ email: { type: 'string', format: 'email', length: { max: 254 } } });
+schema.check({ email: 'ann@' }).issues;
+// [ { code: 'format', path: ['email'], message: 'is not a valid email', params: { format: 'email' } } ]
+```
+
+A format the subpath did not register is `ERR_INVALID_RULE` when the schema is built. See
+[String formats](/guide/formats).
 
 ### `validate`
 

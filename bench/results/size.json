@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-10-11T20:55:39.318Z",
+  "libraries": [
+    {
+      "id": "metaschema-jit",
+      "name": "metaschema",
+      "variant": "check() · compile(), JIT",
+      "package": "@alexify/metaschema",
+      "version": "3.2.0",
+      "min": 63993,
+      "gzip": 22743
+    },
+    {
+      "id": "metaschema",
+      "name": "metaschema",
+      "variant": "check() · closures",
+      "package": "@alexify/metaschema",
+      "version": "3.2.0",
+      "min": 51062,
+      "gzip": 18407
+    },
+    {
+      "id": "metarhia",
+      "name": "Metarhia metaschema",
+      "variant": "check() · strict only",
+      "package": "metaschema",
+      "version": "2.2.2",
+      "min": 30735,
+      "gzip": 11288,
+      "note": "minified with keepNames: its checks compare constructor names"
+    },
+    {
+      "id": "zod",
+      "name": "Zod",
+      "variant": "safeParse()",
+      "package": "zod",
+      "version": "4.6.6",
+      "min": 90512,
+      "gzip": 26360
+    },
+    {
+      "id": "valibot",
+      "name": "Valibot",
+      "variant": "safeParse() · is()",
+      "package": "valibot",
+      "version": "1.5.0",
+      "min": 3342,
+      "gzip": 1264
+    },
+    {
+      "id": "arktype",
+      "name": "ArkType",
+      "variant": "type(value) · allows()",
+      "package": "arktype",
+      "version": "2.2.8",
+      "min": 155538,
+      "gzip": 47550
+    },
+    {
+      "id": "effect",
+      "name": "Effect Schema",
+      "variant": "decodeUnknownResult() · is()",
+      "package": "effect",
+      "version": "4.0.3",
+      "min": 74606,
+      "gzip": 24958
+    },
+    {
+      "id": "typebox",
+      "name": "TypeBox",
+      "variant": "Compile(…).Check()",
+      "package": "typebox",
+      "version": "1.3.36",
+      "min": 165343,
+      "gzip": 41812
+    },
+    {
+      "id": "typebox-value",
+      "name": "TypeBox",
+      "variant": "Value.Check()",
+      "package": "typebox",
+      "version": "1.3.36",
+      "min": 150266,
+      "gzip": 38381
+    },
+    {
+      "id": "ajv",
+      "name": "Ajv",
+      "variant": "compile(…)(value), draft 2020-12",
+      "package": "ajv",
+      "version": "8.20.0",
+      "min": 134055,
+      "gzip": 40428
+    },
+    {
+      "id": "yup",
+      "name": "Yup",
+      "variant": "validateSync() · isValidSync(), strict",
+      "package": "yup",
+      "version": "1.7.1",
+      "min": 42432,
+      "gzip": 13547
+    },
+    {
+      "id": "joi",
+      "name": "Joi",
+      "variant": "validate(), convert: false",
+      "package": "joi",
+      "version": "18.2.9",
+      "min": 173600,
+      "gzip": 54605
+    },
+    {
+      "id": "superstruct",
+      "name": "Superstruct",
+      "variant": "validate() · is()",
+      "package": "superstruct",
+      "version": "2.0.2",
+      "min": 3619,
+      "gzip": 1512
+    }
+  ]
+}

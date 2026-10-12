@@ -9,9 +9,10 @@
 // The document is untrusted input: a pointer reads own keys only, a `$ref` is
 // converted once per pointer, and the nesting is bounded.
 const { isFirstUpper } = require('../metautil.js');
-const { define } = require('../util.js');
+const { define, shorten } = require('../util.js');
 const { Schema } = require('../schema.js');
-const { TYPES } = require('../types.js');
+const { readsAsStruct } = require('../types.js');
+const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
 const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
@@ -99,11 +100,12 @@ const createContext = (document, options) => {
   };
 };
 
-// The place in the document as a JSON pointer (RFC 6901).
+// The place in the document as a JSON pointer (RFC 6901); a key of the
+// document may be huge, a message must not be.
 const pointerOf = (path) => {
   let pointer = '';
   for (const segment of path) {
-    pointer += `/${String(segment).replace(/~/g, '~0').replace(/\//g, '~1')}`;
+    pointer += `/${shorten(segment).replace(/~/g, '~0').replace(/\//g, '~1')}`;
   }
   return pointer;
 };
@@ -132,15 +134,6 @@ const compilesWithU = (pattern) => {
   } catch {
     return false;
   }
-};
-
-// A struct key that the first-key rule reads as something else needs the
-// `schema` shorthand around the struct.
-const safeFirstKey = (fields) => {
-  const first = Object.keys(fields)[0];
-  if (first === undefined) return true;
-  const key = first.endsWith('?') ? first.slice(0, -1) : first;
-  return key !== 'type' && TYPES[key] === undefined && !isFirstUpper(key);
 };
 
 // A definition of a type with no other key is its name.
@@ -263,6 +256,10 @@ const typed = (context, node, type, used) => {
         unsupported(context, `The pattern ${shown} (not a valid pattern under the u flag)`);
       }
     }
+    // A format the formats subpath registered is the rule; any other stays
+    // the annotation JSON Schema says it is.
+    const format = take('format');
+    if (typeof format === 'string' && FORMATS[format] !== undefined) def.format = format;
     return def;
   }
   if (type === 'number' || type === 'integer') {
@@ -490,7 +487,7 @@ const compactDef = (def, required) => {
   if (def.nullable === true && !required) delete def.nullable;
   if (def.type === 'schema' && Object.keys(def).length === 2) {
     const { schema } = def;
-    if (safeFirstKey(schema)) return required ? schema : { schema, required: false };
+    if (readsAsStruct(schema)) return required ? schema : { schema, required: false };
     return required ? { schema } : { schema, required: false };
   }
   return compact(def, required);

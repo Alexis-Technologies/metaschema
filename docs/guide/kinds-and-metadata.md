@@ -132,4 +132,5 @@ Top-level `validate`, `format`, `parse` and `serialize` functions are schema opt
 [Validation](/guide/validation#custom-validation)), `parse` and `serialize` by
 [`parse` and `serialize`](/guide/parse#codecs-parse-and-serialize-on-a-field) as the decoder and
 encoder of the whole record; `format` is kept for code that builds on the schema and never
-called.
+called. (The `format` rule of a string field, `{ type: 'string', format: 'email' }`, is a
+different thing: a [string format](/guide/formats).)

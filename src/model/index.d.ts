@@ -1,6 +1,7 @@
 import type {
   Compatibility,
   Infer,
+  InferOptions,
   MergeOptions,
   Model,
   ModelSnapshot,
@@ -50,7 +51,18 @@ export function sample<D extends string | object>(
 // and the name are the first schema's unless the options say otherwise.
 export function merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
 
+// A definition (or a Schema, with `as: 'schema'`) that accepts every sample:
+// the kinds seen at every place, the records of a place fused into one
+// struct with optional keys, a string field of few values as an enum,
+// records of many sparse keys as a dictionary, whole numbers as `integer`.
+// The samples are input: the walk is bounded (`ERR_INFER_DEPTH`), and the
+// definition is checked against every sample before it is returned
+// (`ERR_INFER_MISMATCH` is a bug to report). An argument that is not a
+// non-empty iterable is a `TypeError` with the code `ERR_INVALID_TARGET`.
+export function infer(samples: Iterable<unknown>, options: InferOptions & { as: 'schema' }): Schema;
+export function infer(samples: Iterable<unknown>, options?: InferOptions): object | string;
+
 // Installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`,
-// `Model.compatibilityOf`, `Schema.merge` and `schema.sample`. Once per
-// process; later calls do nothing.
+// `Model.compatibilityOf`, `Schema.merge`, `Schema.infer` and
+// `schema.sample`. Once per process; later calls do nothing.
 export function register(): void;

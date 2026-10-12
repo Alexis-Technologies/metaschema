@@ -12,7 +12,7 @@ and messages; it is only faster: about three times on a flat struct, six on a ne
 
 ```js
 const { Schema } = require('@alexify/metaschema');
-const { compile, register, canEval } = require('@alexify/metaschema/compile');
+const { compile, compiled, register, canEval } = require('@alexify/metaschema/compile');
 
 const user = Schema.from({
   name: 'string',
@@ -29,6 +29,7 @@ user.check({ name: 7 }).errors; // [ 'Field "name" not of expected type: string'
 | --- | --- |
 | `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with the generated one, and returns `{ accelerated, error }`: `accelerated` is `true` when the check runs generated code now and `false` in the fallback, where the closures stay as they were; `error` is what stopped the first check that could not be generated (a `SchemaDefinitionError` with the code `ERR_JIT_BUILD`, the generator's error as its `cause`), absent where the environment allows no code generation at all. `compile(target, { jit: false })` puts the closures a schema was built with back |
 | `register(options?)` | compiles every schema built from then on, so an application that wants everything fast calls it once at startup; a later call replaces the options, `register({ jit: false })` stops it; a schema built before the call is not touched (pass it to `compile`). `register({ onFallback(schema, error) })` is told of every schema whose check could not be generated |
+| `compiled(target)` | whether a `Schema` (every entity of a `Model`) runs generated code now |
 | `canEval()` | whether this environment allows code generation from strings, probed once with `new Function('')` |
 
 Nothing happens on import: a program that never calls `compile` or `register` never runs
@@ -45,6 +46,19 @@ the schemas it keeps.
 ## The jit option
 
 `compile` and `register` take `{ jit }`:
+
+```mermaid
+flowchart TB
+    C["compile(schema, { jit })"] --> J{"jit"}
+    J -->|"false"| CL["the closures"]
+    J -->|"'auto' or true"| E{"canEval()"}
+    E -->|"no, 'auto'"| CL
+    E -->|"no, true"| NE["throws ERR_NO_EVAL"]
+    E -->|"yes"| G{"generated?"}
+    G -->|"yes"| JIT["schema[RUN] = generated code"]
+    G -->|"no, 'auto'"| FB["the closures,<br/>error: ERR_JIT_BUILD"]
+    G -->|"no, true"| TH["throws ERR_JIT_BUILD"]
+```
 
 | `jit` | Where code generation is allowed | Where it is not |
 | --- | --- | --- |
@@ -64,9 +78,17 @@ if (!accelerated && error) console.warn(`${user.name}: ${error.message}`, error.
 register({ onFallback: (schema, error) => log.warn(`JIT skipped ${schema.name}`, error) });
 ```
 
-To tell which backend a schema runs on, read the name of its check:
-`schema[Symbol.for('alexify.metaschema.run')].name` is `'jit'` for a compiled schema and `''`
-for the closures, and `.toString()` on that function is the generated source.
+To tell which backend a schema runs on, ask the subpath: `compiled(schema)` is `true` while the
+schema (every entity of a model) runs generated code, `false` for a schema built before
+`register()` and after `{ jit: false }`. The generated source is
+`schema[Symbol.for('alexify.metaschema.run')].toString()`.
+
+```js
+const { compile, compiled } = require('@alexify/metaschema/compile');
+compiled(user); // false
+compile(user);
+compiled(user); // true where the environment allows code generation
+```
 
 ## Where there is no eval
 
@@ -84,7 +106,8 @@ Node.js builtin and resolves to the same file in Node.js and in the browser.
 ## What the generated code contains
 
 The source of a compiled check holds identifiers, numbers, booleans and JSON strings, and
-nothing else from the schema. A regular expression, a `Set` of enum values, a validate function,
+nothing else from the schema. A regular expression, the test of a [format](/guide/formats), a
+`Set` of enum values, a validate function,
 a custom type's check, the closure of a reference and the issue constructors reach the function
 through a `scope` array and appear in the code by name (`s3.test(x12)`), the way ajv and
 schemasafe do it. A key of the schema is a property access (`v.name`) when it is an identifier
@@ -94,7 +117,7 @@ holds a schema of such keys and values against the closures.
 
 What is inlined: structs (the plan, `Object.hasOwn` where the closures ask it, keys named after
 members of `Object.prototype`, one `unexpected` issue per struct with the known keys as a
-`switch`), every scalar with its rules (`length`, `unicode`, `pattern`, `min`/`max`), `enum` (a
+`switch`), every scalar with its rules (`length`, `unicode`, `pattern`, `format`, `min`/`max`), `enum` (a
 chain of comparisons, or a `Set` past eight values), `integer`, `date`, `null`, `any`, `json`,
 `array`, `set`, `object`, `map`, tuples, unions (a `switch` on the discriminator, or the branches
 in order), `nullable` and optional fields, and the limits of a check (`maxErrors`, `unknown`).

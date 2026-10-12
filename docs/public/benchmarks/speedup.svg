@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="587" viewBox="0 0 760 587" role="img" aria-label="metaschema 3.2.0 against Metarhia's metaschema 2.2.2. How many times faster, scenario by scenario (1 = as fast). Higher is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">metaschema 3.2.0 against Metarhia's metaschema 2.2.2</text>
+<text class="subtitle" x="20" y="56">How many times faster, scenario by scenario (1 = as fast). Higher is better.</text>
+<line class="grid" x1="256" y1="71" x2="256" y2="527"/>
+<text class="tick" x="256" y="543" text-anchor="middle">0</text>
+<line class="grid" x1="466" y1="71" x2="466" y2="527"/>
+<text class="tick" x="466" y="543" text-anchor="middle">×50</text>
+<line class="grid" x1="676" y1="71" x2="676" y2="527"/>
+<text class="tick" x="676" y="543" text-anchor="middle">×100</text>
+<line class="axis" x1="256" y1="71" x2="256" y2="527"/>
+<line class="ref" x1="260.2" y1="71" x2="260.2" y2="527"/>
+<text class="group" x="20" y="89">CLOSURES, EVERY SCHEMA</text>
+<g><title>Schema.from — flat struct · 581k → 356k schemas/s
+×0.6 the speed of Metarhia 2.2.2
+581,307 → 355,915 schemas/s</title>
+<text class="label secondary" x="20" y="116">Schema.from — flat struct</text>
+<text class="sublabel" x="20" y="131">581k → 356k schemas/s</text>
+<path class="bar secondary" d="M256,112H255.99999999999997A2.571522832099524,2.571522832099524 0 0 1 258.5715228320995,114.57152283209952V123.42847716790048A2.571522832099524,2.571522832099524 0 0 1 255.99999999999997,126H256Z"/>
+<text class="value" x="264.5715228320995" y="125">×0.6</text>
+</g>
+<g><title>Schema.from — nested struct · 156k → 98.6k schemas/s
+×0.6 the speed of Metarhia 2.2.2
+155,968 → 98,596 schemas/s</title>
+<text class="label secondary" x="20" y="156">Schema.from — nested struct</text>
+<text class="sublabel" x="20" y="171">156k → 98.6k schemas/s</text>
+<path class="bar secondary" d="M256,152H256A2.6550471109489497,2.6550471109489497 0 0 1 258.65504711094894,154.65504711094894V163.34495288905106A2.6550471109489497,2.6550471109489497 0 0 1 256,166H256Z"/>
+<text class="value" x="264.65504711094894" y="165">×0.6</text>
+</g>
+<g><title>check — flat struct, valid · 1.44M → 11.6M ops/s
+×8.1 the speed of Metarhia 2.2.2
+1,442,666 → 11,633,216 ops/s</title>
+<text class="label secondary" x="20" y="196">check — flat struct, valid</text>
+<text class="sublabel" x="20" y="211">1.44M → 11.6M ops/s</text>
+<path class="bar secondary" d="M256,192H285.8675020045159A4,4 0 0 1 289.8675020045159,196V202A4,4 0 0 1 285.8675020045159,206H256Z"/>
+<text class="value" x="295.8675020045159" y="205">×8.1</text>
+</g>
+<g><title>check — flat struct, invalid · 1.01M → 3.9M ops/s
+×3.9 the speed of Metarhia 2.2.2
+1,013,230 → 3,902,498 ops/s</title>
+<text class="label secondary" x="20" y="236">check — flat struct, invalid</text>
+<text class="sublabel" x="20" y="251">1.01M → 3.9M ops/s</text>
+<path class="bar secondary" d="M256,232H268.176480514858A4,4 0 0 1 272.176480514858,236V242A4,4 0 0 1 268.176480514858,246H256Z"/>
+<text class="value" x="278.176480514858" y="245">×3.9</text>
+</g>
+<g><title>check — nested struct, valid · 238k → 2.91M ops/s
+×12.3 the speed of Metarhia 2.2.2
+237,702 → 2,913,540 ops/s</title>
+<text class="label secondary" x="20" y="276">check — nested struct, valid</text>
+<text class="sublabel" x="20" y="291">238k → 2.91M ops/s</text>
+<path class="bar secondary" d="M256,272H303.47981105753684A4,4 0 0 1 307.47981105753684,276V282A4,4 0 0 1 303.47981105753684,286H256Z"/>
+<text class="value" x="313.47981105753684" y="285">×12</text>
+</g>
+<g><title>check — nested struct, invalid · 222k → 1.57M ops/s
+×7.1 the speed of Metarhia 2.2.2
+221,872 → 1,573,928 ops/s</title>
+<text class="label secondary" x="20" y="316">check — nested struct, invalid</text>
+<text class="sublabel" x="20" y="331">222k → 1.57M ops/s</text>
+<path class="bar secondary" d="M256,312H281.79425799701437A4,4 0 0 1 285.79425799701437,316V322A4,4 0 0 1 281.79425799701437,326H256Z"/>
+<text class="value" x="291.79425799701437" y="325">×7.1</text>
+</g>
+<text class="group" x="20" y="357">JIT, AFTER COMPILE()</text>
+<g><title>check — flat struct, valid · 1.44M → 37.9M ops/s
+×26.3 the speed of Metarhia 2.2.2
+1,442,666 → 37,916,070 ops/s</title>
+<text class="label primary" x="20" y="384">check — flat struct, valid</text>
+<text class="sublabel" x="20" y="399">1.44M → 37.9M ops/s</text>
+<path class="bar primary" d="M256,380H362.3841380099252A4,4 0 0 1 366.3841380099252,384V390A4,4 0 0 1 362.3841380099252,394H256Z"/>
+<text class="value" x="372.3841380099252" y="393">×26</text>
+</g>
+<g><title>check — flat struct, invalid · 1.01M → 6.16M ops/s
+×6.1 the speed of Metarhia 2.2.2
+1,013,230 → 6,163,119 ops/s</title>
+<text class="label primary" x="20" y="424">check — flat struct, invalid</text>
+<text class="sublabel" x="20" y="439">1.01M → 6.16M ops/s</text>
+<path class="bar primary" d="M256,420H277.547114033771A4,4 0 0 1 281.547114033771,424V430A4,4 0 0 1 277.547114033771,434H256Z"/>
+<text class="value" x="287.547114033771" y="433">×6.1</text>
+</g>
+<g><title>check — nested struct, valid · 238k → 19.7M ops/s
+×82.8 the speed of Metarhia 2.2.2
+237,702 → 19,692,294 ops/s</title>
+<text class="label primary" x="20" y="464">check — nested struct, valid</text>
+<text class="sublabel" x="20" y="479">238k → 19.7M ops/s</text>
+<path class="bar primary" d="M256,460H599.9463401564665A4,4 0 0 1 603.9463401564665,464V470A4,4 0 0 1 599.9463401564665,474H256Z"/>
+<text class="value" x="609.9463401564665" y="473">×83</text>
+</g>
+<g><title>check — nested struct, invalid · 222k → 2.11M ops/s
+×9.5 the speed of Metarhia 2.2.2
+221,872 → 2,110,172 ops/s</title>
+<text class="label primary" x="20" y="504">check — nested struct, invalid</text>
+<text class="sublabel" x="20" y="519">222k → 2.11M ops/s</text>
+<path class="bar primary" d="M256,500H291.94529222870324A4,4 0 0 1 295.94529222870324,504V510A4,4 0 0 1 291.94529222870324,514H256Z"/>
+<text class="value" x="301.94529222870324" y="513">×9.5</text>
+</g>
+<text class="caption" x="20" y="568">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each release in a fresh process · 2026-10-11</text>
+</svg>

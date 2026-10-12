@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="547" viewBox="0 0 760 547" role="img" aria-label="check — nested struct, valid, release over release. ops/s, linear scale, higher is better. The same harness and machine for every release.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">check — nested struct, valid, release over release</text>
+<text class="subtitle" x="20" y="56">ops/s, linear scale, higher is better. The same harness and machine for every release.</text>
+<line class="grid" x1="202" y1="71" x2="202" y2="487"/>
+<text class="tick" x="202" y="503" text-anchor="middle">0</text>
+<line class="grid" x1="320.5" y1="71" x2="320.5" y2="487"/>
+<text class="tick" x="320.5" y="503" text-anchor="middle">5M</text>
+<line class="grid" x1="439" y1="71" x2="439" y2="487"/>
+<text class="tick" x="439" y="503" text-anchor="middle">10M</text>
+<line class="grid" x1="557.5" y1="71" x2="557.5" y2="487"/>
+<text class="tick" x="557.5" y="503" text-anchor="middle">15M</text>
+<line class="grid" x1="676" y1="71" x2="676" y2="487"/>
+<text class="tick" x="676" y="503" text-anchor="middle">20M</text>
+<line class="axis" x1="202" y1="71" x2="202" y2="487"/>
+<text class="group" x="20" y="89">CLOSURES, EVERY SCHEMA</text>
+<g><title>Metarhia 2.2.2 · Metarhia metaschema
+237,702 ops/s
+4.21 µs per call
+samples 237k – 238k</title>
+<text class="label" x="20" y="116">Metarhia 2.2.2</text>
+<text class="sublabel" x="20" y="131">Metarhia metaschema</text>
+<path class="bar" d="M202,112H203.63354372142166A4,4 0 0 1 207.63354372142166,116V122A4,4 0 0 1 203.63354372142166,126H202Z"/>
+<text class="value" x="213.63354372142166" y="125">238k</text>
+</g>
+<g><title>1.0.0 · ×1.5 vs Metarhia 2.2.2
+367,854 ops/s
+2.72 µs per call
+samples 366k – 378k</title>
+<text class="label" x="20" y="156">1.0.0</text>
+<text class="sublabel" x="20" y="171">×1.5 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,152H206.71812915204785A4,4 0 0 1 210.71812915204785,156V162A4,4 0 0 1 206.71812915204785,166H202Z"/>
+<text class="value" x="216.71812915204785" y="165">368k</text>
+</g>
+<g><title>2.0.0 · ×12 vs Metarhia 2.2.2
+2,951,887 ops/s
+339 ns per call
+samples 2.95M – 2.96M</title>
+<text class="label" x="20" y="196">2.0.0</text>
+<text class="sublabel" x="20" y="211">×12 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,192H267.9597198361438A4,4 0 0 1 271.9597198361438,196V202A4,4 0 0 1 267.9597198361438,206H202Z"/>
+<text class="value" x="277.9597198361438" y="205">2.95M</text>
+</g>
+<g><title>3.0.0 · ×12 vs Metarhia 2.2.2
+2,926,722 ops/s
+342 ns per call
+samples 2.9M – 2.95M</title>
+<text class="label" x="20" y="236">3.0.0</text>
+<text class="sublabel" x="20" y="251">×12 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,232H267.36330035661626A4,4 0 0 1 271.36330035661626,236V242A4,4 0 0 1 267.36330035661626,246H202Z"/>
+<text class="value" x="277.36330035661626" y="245">2.93M</text>
+</g>
+<g><title>3.1.0 · ×12 vs Metarhia 2.2.2
+2,923,170 ops/s
+342 ns per call
+samples 2.92M – 2.94M</title>
+<text class="label" x="20" y="276">3.1.0</text>
+<text class="sublabel" x="20" y="291">×12 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,272H267.2791345165009A4,4 0 0 1 271.2791345165009,276V282A4,4 0 0 1 267.2791345165009,286H202Z"/>
+<text class="value" x="277.2791345165009" y="285">2.92M</text>
+</g>
+<g><title>3.2.0 · ×12 vs Metarhia 2.2.2
+2,913,540 ops/s
+343 ns per call
+samples 2.91M – 2.93M</title>
+<text class="label secondary" x="20" y="316">3.2.0</text>
+<text class="sublabel" x="20" y="331">×12 vs Metarhia 2.2.2</text>
+<path class="bar secondary" d="M202,312H267.05089675313343A4,4 0 0 1 271.05089675313343,316V322A4,4 0 0 1 267.05089675313343,326H202Z"/>
+<text class="value" x="277.05089675313343" y="325">2.91M</text>
+</g>
+<text class="group" x="20" y="357">JIT, AFTER COMPILE()</text>
+<g><title>3.0.0 · ×83 vs Metarhia 2.2.2
+19,692,470 ops/s
+50.8 ns per call
+samples 19.7M – 19.8M</title>
+<text class="label" x="20" y="384">3.0.0</text>
+<text class="sublabel" x="20" y="399">×83 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,380H664.7115424315093A4,4 0 0 1 668.7115424315093,384V390A4,4 0 0 1 664.7115424315093,394H202Z"/>
+<text class="value" x="674.7115424315093" y="393">19.7M</text>
+</g>
+<g><title>3.1.0 · ×82 vs Metarhia 2.2.2
+19,574,585 ops/s
+51.1 ns per call
+samples 19.5M – 19.6M</title>
+<text class="label" x="20" y="424">3.1.0</text>
+<text class="sublabel" x="20" y="439">×82 vs Metarhia 2.2.2</text>
+<path class="bar" d="M202,420H661.91766629073A4,4 0 0 1 665.91766629073,424V430A4,4 0 0 1 661.91766629073,434H202Z"/>
+<text class="value" x="671.91766629073" y="433">19.6M</text>
+</g>
+<g><title>3.2.0 · ×83 vs Metarhia 2.2.2
+19,692,294 ops/s
+50.8 ns per call
+samples 19.5M – 19.7M</title>
+<text class="label primary" x="20" y="464">3.2.0</text>
+<text class="sublabel" x="20" y="479">×83 vs Metarhia 2.2.2</text>
+<path class="bar primary" d="M202,460H664.7073619000263A4,4 0 0 1 668.7073619000263,464V470A4,4 0 0 1 664.7073619000263,474H202Z"/>
+<text class="value" x="674.7073619000263" y="473">19.7M</text>
+</g>
+<text class="caption" x="20" y="528">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each release in a fresh process · 2026-10-11</text>
+</svg>

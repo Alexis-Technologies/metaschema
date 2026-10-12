@@ -58,6 +58,19 @@ Two overrides, from the narrowest to the widest:
   whole graph (an API payload, a document store), `'id'` validates rows as stored, and `'kind'`
   (the default) applies the rule and the field overrides above.
 
+```mermaid
+flowchart TB
+    R["a reference field"] --> O{"options.references"}
+    O -->|"'embed'"| E["the record"]
+    O -->|"'id'"| I["the id: a string"]
+    O -->|"'kind' (the default)"| F{"embed on the field"}
+    F -->|"true"| E
+    F -->|"false"| I
+    F -->|"not set"| S{"the target's store"}
+    S -->|"persistent"| I
+    S -->|"memory"| E
+```
+
 ```js
 const person = model.entities.get('Person');
 

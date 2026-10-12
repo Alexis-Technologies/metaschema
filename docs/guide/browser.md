@@ -23,11 +23,15 @@ global symbol brand (`Symbol.for`), not by class names, so a bundler that rename
 minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
 builds both entry points with esbuild, minified and not, and validates through the result.
 
-The core entry is 17.2 KB min+gzip in either environment, and CI keeps it under 17.5 KB; the
+The core entry is 17.7 KB min+gzip in either environment, and CI keeps it under 17.75 KB; the
 `@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 7.1 KB where it is
 imported, under a budget of 7.5 KB, the `@alexify/metaschema/compile` subpath (the JIT backend)
-4.0 KB, under 4.25 KB, and the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
-merge) 9.5 KB, under 10 KB. `pnpm size` in the repository prints the exact numbers.
+4.2 KB, under 4.25 KB, the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
+merge, inference) 11.96 KB, just under 12 KB, the `@alexify/metaschema/stream` subpath (records and
+streams) 1.0 KB, under 1.5 KB, and the `@alexify/metaschema/formats` subpath (string formats)
+1.3 KB, under 2 KB. `pnpm size` in the repository prints the exact numbers. The package says
+`sideEffects: false`: nothing registers on import, so a bundler may drop a subpath a program
+imports and never calls.
 
 ## Content Security Policy
 

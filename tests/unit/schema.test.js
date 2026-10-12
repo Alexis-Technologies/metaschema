@@ -581,3 +581,26 @@ test('Schema: the schema-level validate runs on the schema, and never returns a 
   const async = Schema.from({ a: 'string', validate: async () => true });
   assert.throws(() => async.validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
 });
+
+test('Schema: the validate method reports a thrown null or symbol as an exception', () => {
+  const nullish = new Schema('S', {
+    Struct: {},
+    a: 'string',
+    validate() {
+      // oxlint-disable-next-line no-throw-literal
+      throw null;
+    },
+  });
+  assert.deepStrictEqual(nullish.validate({ a: 'x' }).errors, ['Field "" validation failed null']);
+  const symbolic = new Schema('S', {
+    Struct: {},
+    a: 'string',
+    validate() {
+      // oxlint-disable-next-line no-throw-literal
+      throw Symbol('s');
+    },
+  });
+  assert.deepStrictEqual(symbolic.validate({ a: 'x' }).errors, [
+    'Field "" validation failed Symbol(s)',
+  ]);
+});

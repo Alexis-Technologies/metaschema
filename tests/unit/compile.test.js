@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 const { Schema, Model } = require('../../index.js');
-const { compile, register, canEval } = require('@alexify/metaschema/compile');
+const { compile, compiled: isCompiled, register, canEval } = require('@alexify/metaschema/compile');
 const uk = require('@alexify/metaschema/locales/uk');
 const { RUN } = require('../../src/util.js');
 const { Code, quote, prop, literal } = require('../../src/compile/code.js');
@@ -1124,6 +1124,78 @@ test('Compile: a failed branch of a plain union drops its deferred validators on
   const expected = await run(closures);
   assert.deepStrictEqual(expected[0], []);
   assert.deepStrictEqual(await run(compiled), expected);
+  // The promise of a validator a failed branch set aside is observed, not
+  // dropped, on both backends: the generated code releases the entries as
+  // the closures do instead of truncating the list.
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    const dropping = () =>
+      new Schema('Drop', {
+        u: {
+          union: [
+            {
+              Struct: {},
+              a: { type: 'string', validate: () => Promise.reject(new Error('dropped')) },
+              b: 'number',
+            },
+            { Struct: {}, a: 'string', b: 'string' },
+          ],
+        },
+      });
+    const fast = dropping();
+    assert.deepStrictEqual(compile(fast, JIT), { accelerated: canEval() });
+    assert.strictEqual(sourceOf(fast).includes('c.async.length ='), false);
+    for (const schema of [dropping(), fast]) {
+      assert.deepStrictEqual((await schema.checkAsync({ u: { a: 'x', b: 'y' } })).errors, []);
+      assert.strictEqual((await schema.parseAsync({ u: { a: 'x', b: 'y' } })).valid, true);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
+});
+
+test('Compile: the order of the issues of an async check is the same on both backends', async () => {
+  const build = () =>
+    new Schema('Mix', {
+      a: { type: 'string', validate: async (value) => value !== 'bad' || 'a async' },
+      b: { type: 'string', validate: (value) => value !== 'bad' || 'b sync' },
+      c: 'number',
+      inner: {
+        x: { type: 'string', validate: async (value) => value !== 'bad' || 'x async' },
+        validate: () => 'inner ran',
+      },
+      d: { type: 'string', validate: async (value) => value !== 'bad' || 'd async' },
+      validate: () => 'root ran',
+    });
+  const values = [
+    { a: 'bad', b: 'bad', c: 'x', inner: { x: 'bad' }, d: 'bad' },
+    { a: 'ok', b: 'ok', c: 1, inner: { x: 'ok' }, d: 'ok' },
+    { a: 'ok', b: 'bad', c: 1, inner: { x: 'ok' }, d: 'bad' },
+  ];
+  const closures = build();
+  const compiled = build();
+  assert.deepStrictEqual(compile(compiled, JIT), { accelerated: canEval() });
+  for (const value of values) {
+    const expected = (await closures.checkAsync(value)).issues;
+    assert.deepStrictEqual((await compiled.checkAsync(value)).issues, expected);
+    assert.deepStrictEqual((await compiled.parseAsync(value)).issues, expected);
+  }
+  assert.deepStrictEqual((await compiled.checkAsync(values[0])).errors, [
+    'Field "Mix.b" b sync',
+    'Field "Mix.c" not of expected type: number',
+    'Field "Mix.a" a async',
+    'Field "Mix.inner.x" x async',
+    'Field "Mix.d" d async',
+  ]);
+  assert.deepStrictEqual((await compiled.checkAsync(values[2])).errors, [
+    'Field "Mix.b" b sync',
+    'Field "Mix.inner" inner ran',
+    'Field "Mix.d" d async',
+  ]);
 });
 
 test('Compile: the generated source is strict and named after the schema', () => {
@@ -1145,4 +1217,122 @@ test('Compile: the generated source is strict and named after the schema', () =>
       'Field "User.name" not of expected type: string',
     ]);
   }
+});
+
+test('Compile: a built-in by name and shape, and the pattern bound, on both backends', () => {
+  // A value parsed from JSON may carry `constructor: { name: 'Map' }`; both
+  // backends read the shape as well and report a type issue instead of
+  // throwing out of the check. A string past length.max skips its pattern.
+  const fake = (name) => JSON.parse(`{"constructor":{"name":"${name}"},"size":0}`);
+  const schema = new Schema('Shapes', {
+    when: 'date',
+    table: { map: { string: 'number' } },
+    bag: { set: 'number' },
+    u: { union: [{ set: 'number' }, 'date', 'string'] },
+    slug: { type: 'string', length: { max: 4 }, pattern: /^[a-z]+$/ },
+    glyphs: { type: 'string', length: { max: 2 }, unicode: true, pattern: /^\p{L}+$/u },
+    free: { type: 'string', pattern: /^a+$/ },
+  });
+  equivalent(schema, [
+    {
+      when: new Date(0),
+      table: new Map(),
+      bag: new Set([1]),
+      u: 'x',
+      slug: 'ab',
+      glyphs: 'é',
+      free: 'a',
+    },
+    {
+      when: fake('Date'),
+      table: fake('Map'),
+      bag: fake('Set'),
+      u: fake('Set'),
+      slug: 'ab',
+      glyphs: 'é',
+      free: 'a',
+    },
+    {
+      when: new Date(0),
+      table: new Map([['a', 1]]),
+      bag: new Set(),
+      u: 'x',
+      slug: 'ABCDE',
+      glyphs: '\u{1F642}\u{1F642}\u{1F642}',
+      free: 'bbbbbbbb',
+    },
+    {
+      when: new Date(0),
+      table: new Map([['a', 1]]),
+      bag: new Set(),
+      u: 'x',
+      slug: 'ABCD',
+      glyphs: '\u{1F642}\u{1F642}',
+      free: 'b',
+    },
+  ]);
+});
+
+test('Compile: formats on both backends', () => {
+  // A format is a registered test the generated code reaches through the
+  // scope, under the bound of length.max as a pattern is.
+  require('../../src/formats/index.js').register();
+  const schema = new Schema('Formats', {
+    email: { type: 'string', format: 'email' },
+    'site?': { type: 'string', format: 'uri', length: { max: 32 } },
+    id: { type: 'string', format: 'uuid', pattern: /^[0-9a-f-]+$/, length: 36 },
+    when: { type: 'string', format: 'date-time', unicode: true, length: { max: 24 } },
+    checked: {
+      type: 'string',
+      format: 'ipv4',
+      validate: (value) => value !== '0.0.0.0' || 'is any',
+    },
+  });
+  equivalent(schema, [
+    {
+      email: 'ann@example.com',
+      site: 'https://example.com',
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      when: '2026-10-11T12:00:00Z',
+      checked: '10.0.0.1',
+    },
+    { email: 'nope', site: 'example.com', id: 'xyz', when: 'today', checked: '0.0.0.0' },
+    {
+      email: 'ann@example.com',
+      site: `https://${'x'.repeat(40)}.com`,
+      id: '550E8400-E29B-41D4-A716-446655440000',
+      when: `2026-10-11T12:00:00.${'0'.repeat(20)}Z`,
+      checked: '256.0.0.1',
+    },
+    { email: 7, site: null, id: 'ZZZZ', when: '2026-10-11', checked: '1.2.3.4' },
+  ]);
+});
+
+test('Compile: compiled() says which backend a schema runs on', () => {
+  const schema = Schema.from({ name: 'string' });
+  assert.strictEqual(isCompiled(schema), false);
+  assert.deepStrictEqual(compile(schema, JIT), { accelerated: canEval() });
+  assert.strictEqual(isCompiled(schema), canEval());
+  assert.strictEqual(isCompiled(schema), schema[RUN].name === 'jit');
+  compile(schema, { jit: false });
+  assert.strictEqual(isCompiled(schema), false);
+  // A model is compiled when every entity is.
+  const model = new Model({}, [
+    ['A', { Struct: {}, a: 'string' }],
+    ['B', { Struct: {}, b: 'string' }],
+  ]);
+  assert.strictEqual(isCompiled(model), false);
+  compile(model.entities.get('A'), JIT);
+  assert.strictEqual(isCompiled(model), false);
+  compile(model, JIT);
+  assert.strictEqual(isCompiled(model), canEval());
+  // A schema built under register() is compiled from the start.
+  register(JIT);
+  try {
+    assert.strictEqual(isCompiled(Schema.from({ x: 'number' })), canEval());
+  } finally {
+    register({ jit: false });
+  }
+  assert.strictEqual(isCompiled(Schema.from({ x: 'number' })), false);
+  assert.throws(() => isCompiled({ name: 'string' }), { code: 'ERR_INVALID_TARGET' });
 });

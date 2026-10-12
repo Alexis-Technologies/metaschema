@@ -7,6 +7,7 @@ const { tuple } = require('./prototypes/tuple.js');
 const { union } = require('./prototypes/union.js');
 const { json } = require('./prototypes/json.js');
 const { SchemaDefinitionError } = require('./errors.js');
+const { firstKey, isFirstUpper } = require('./metautil.js');
 
 const PROTOTYPES = {
   ...scalars,
@@ -57,6 +58,18 @@ const createTypes = (prototypes) => {
 const TYPES = createTypes(PROTOTYPES);
 
 const createRegistry = () => createTypes(PROTOTYPES);
+
+// Whether a dictionary of fields reads as a struct under the first-key rule
+// (`preprocessor.js`): the first key that starts with a letter is a kind
+// when capitalized, the long form when it is `type` and a shorthand when it
+// is a type name of the registry; a struct that reads otherwise needs the
+// `schema` shorthand around it. What generates a definition asks here.
+const readsAsStruct = (fields, types = TYPES) => {
+  const first = firstKey(fields);
+  if (first === undefined) return true;
+  const key = first.endsWith('?') ? first.slice(0, -1) : first;
+  return key !== 'type' && types[key] === undefined && !isFirstUpper(key);
+};
 
 // The own keys of the metadata given, as data: the table has no prototype.
 const updateTypeMetadata = (Type, metadata) => {
@@ -124,4 +137,4 @@ const typeFactory = (customTypes, registry = TYPES) => {
   return registry;
 };
 
-module.exports = { TYPES, createRegistry, typeFactory };
+module.exports = { TYPES, createRegistry, readsAsStruct, typeFactory };

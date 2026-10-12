@@ -332,6 +332,8 @@ const RENDER = Object.assign(Object.create(null), {
     if (context.strict) return json;
     bounds(json, field.length, 'minLength', 'maxLength');
     if (field.pattern !== undefined) json.pattern = field.pattern.source;
+    // The names are those of JSON Schema; a $jsonSchema has no `format`.
+    if (field.format !== undefined && !context.mongo) json.format = field.format;
     return json;
   },
   number: (field, context) => ranged(typed('number', context), field, context),

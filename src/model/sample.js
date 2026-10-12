@@ -4,7 +4,7 @@
 // built and drawn again when it fails (a pattern a length rule contradicts,
 // a validate function), and a field no draw satisfies is an error: a
 // definition that no value can satisfy is found here, not in production
-// (witness generation as a satisfiability check, ROADMAP §3).
+// (witness generation as a satisfiability check).
 const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
@@ -13,6 +13,7 @@ const { embeds } = require('../prototypes/reference.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
 const { int, pick, patternOf, fromPattern } = require('./pattern.js');
+const { FORMATS } = require('../rules.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
@@ -70,7 +71,10 @@ const lettersOf = (state, count) => {
 // pattern whose shortest string is over `length.max` is unsatisfiable before
 // a string is built.
 const stringOf = (state, field, key) => {
-  const { pattern, length } = field;
+  const { pattern, length, format } = field;
+  // A format draws one of the examples it was registered with; the check of
+  // the field decides whether its other rules accept it.
+  if (format !== undefined) return pick(state, FORMATS[format].examples);
   if (pattern !== undefined) {
     const { node, minLength } = patternOf(pattern);
     const max = length?.max;

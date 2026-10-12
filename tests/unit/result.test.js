@@ -34,7 +34,7 @@ test('Result: errors are rendered once, from the issues, on first use', () => {
     util.inspect(schema.check({ name: 'x' })),
     'ValidationResult { valid: true, errors: [], issues: [] }',
   );
-  assert.strictEqual(JSON.stringify(schema.check({ name: 'x' })), '{"issues":[]}');
+  assert.strictEqual(JSON.stringify(schema.check({ name: 'x' })), '{"valid":true,"issues":[]}');
 });
 
 test('Result: flatten, tree and summary', () => {
@@ -128,6 +128,7 @@ test('Locales: every code has a renderer in every locale', () => {
     'length',
     'range',
     'pattern',
+    'format',
     'union',
     'reference',
     'circular',
@@ -282,4 +283,42 @@ test('Result: flatten groups several messages of one path', () => {
   assert.deepStrictEqual(flat, { formErrors: [], fieldErrors: { code: ['one', 'two'] } });
   const tree = schema.check({ code: 'x' }).tree();
   assert.deepStrictEqual(tree, { errors: [], properties: { code: { errors: ['one', 'two'] } } });
+});
+
+test('Locales: the unexpected keys are capped at ten in the message, all of them in params', () => {
+  const schema = Schema.from({ a: 'string' });
+  const keys = Array.from({ length: 12 }, (_, index) => `k${index}`);
+  const value = { a: 'x' };
+  for (const key of keys) value[key] = 1;
+  const result = schema.check(value);
+  assert.deepStrictEqual(result.issues[0].params.keys, keys);
+  assert.deepStrictEqual(result.errors, [
+    'Field "" has unexpected keys: k0, k1, k2, k3, k4, k5, k6, k7, k8, k9 and 2 more',
+  ]);
+  assert.deepStrictEqual(schema.check(value, { messages: uk }).errors, [
+    'Поле "" має неочікувані ключі: k0, k1, k2, k3, k4, k5, k6, k7, k8, k9 і ще 2',
+  ]);
+  const ten = {};
+  for (const key of keys.slice(0, 10)) ten[key] = 1;
+  assert.deepStrictEqual(schema.check({ a: 'x', ...ten }).errors, [
+    'Field "" has unexpected keys: k0, k1, k2, k3, k4, k5, k6, k7, k8, k9',
+  ]);
+  const many = { a: 'x' };
+  for (let index = 0; index < 100_000; index += 1) many[`x${index}`] = 1;
+  assert.ok(schema.check(many).errors[0].length < 200);
+});
+
+test('Result: toJSON writes the verdict and the issues', () => {
+  const schema = Schema.from({ name: 'string' });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(schema.check({ name: 'x' }))), {
+    valid: true,
+    issues: [],
+  });
+  const invalid = schema.check({});
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(invalid)), {
+    valid: false,
+    issues: [{ code: 'required', path: ['name'], message: 'is required', params: {} }],
+  });
+  assert.deepStrictEqual(invalid.toJSON(), { valid: false, issues: invalid.issues });
+  assert.deepStrictEqual(Object.keys(JSON.parse(JSON.stringify({ result: invalid }))), ['result']);
 });

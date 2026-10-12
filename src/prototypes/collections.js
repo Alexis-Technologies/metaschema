@@ -1,5 +1,6 @@
 const { issues } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
+const { isMap, isSet } = require('../util.js');
 
 // The keys of a keyed collection are strings or numbers; anything else can
 // never match a key, and the JIT quotes the key type into its source.
@@ -77,7 +78,7 @@ const map = {
     const { required, type, key: keyType } = this;
     const { check } = this.value;
     return (value, context, key) => {
-      if (value?.constructor?.name !== 'Map') {
+      if (!isMap(value)) {
         if (!required && value == null) return;
         issues.type(context, type, value, key);
         return;
@@ -103,7 +104,7 @@ const map = {
   },
 
   isInstance(value) {
-    return value?.constructor?.name === 'Map';
+    return isMap(value);
   },
 };
 
@@ -156,7 +157,7 @@ const set = {
   ...array,
 
   isInstance(value) {
-    return value?.constructor?.name === 'Set';
+    return isSet(value);
   },
 };
 

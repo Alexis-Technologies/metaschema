@@ -36,7 +36,7 @@ test('Async: a validator that returns a promise is an error of a synchronous che
   assert.strictEqual(decoded.check({ when: 'x' }).valid, true);
 });
 
-test('Async: checkAsync settles the validators after the walk, in field order', async () => {
+test('Async: checkAsync runs the independent validators during the walk and settles the promises after it', async () => {
   const order = [];
   const schema = new Schema('User', {
     a: {
@@ -69,20 +69,22 @@ test('Async: checkAsync settles the validators after the walk, in field order', 
   });
   const valid = await schema.checkAsync({ a: 'x', b: 'y', c: 'z', d: 1 });
   assert.strictEqual(valid.valid, true);
-  assert.deepStrictEqual(order, ['a', 'b', 'c', 'root']);
+  // `b` is synchronous and `c` runs to its first await during the walk, as
+  // in check; `a` pushes after its tick; the root one waits for all three.
+  assert.deepStrictEqual(order, ['b', 'c', 'a', 'root']);
   order.length = 0;
   const result = await schema.checkAsync({ a: 'bad', b: 'bad', c: 'bad', d: 'x' });
   assert.strictEqual(result.valid, false);
-  // The type issue of `d` is recorded during the walk; the validators come
-  // after it, each at its own path, and the root one last.
+  // What the walk records comes first, in walk order (`b` before the type
+  // issue of `d`); the promises settle after it, in field order.
   assert.deepStrictEqual(result.errors, [
+    'Field "User.b" b is bad',
     'Field "User.d" not of expected type: number',
     'Field "User.a" a is bad',
-    'Field "User.b" b is bad',
     'Field "User.c" c is bad',
   ]);
-  assert.deepStrictEqual(order, ['a', 'b', 'c']);
-  assert.deepStrictEqual(result.issues[1], {
+  assert.deepStrictEqual(order, ['b', 'c', 'a']);
+  assert.deepStrictEqual(result.issues[2], {
     code: 'custom',
     path: ['a'],
     message: 'a is bad',
@@ -132,23 +134,24 @@ test('Async: a validator runs only when nothing under it failed, promises includ
   });
   assert.deepStrictEqual(
     (await schema.checkAsync({ inner: { x: 'bad', y: 'y' }, other: 'bad' })).errors,
-    ['Field "Order.inner.x" x is bad', 'Field "Order.other" other is bad'],
+    ['Field "Order.other" other is bad', 'Field "Order.inner.x" x is bad'],
   );
-  // The validate of `inner` saw its field fail and did not run; `other`
-  // is beside it and did; the root one saw both.
+  // `other` is beside the promise of `inner.x`, not above it, and ran during
+  // the walk; the validate of `inner` waited for the promise, saw its field
+  // fail and did not run; the root one saw both.
   assert.deepStrictEqual(ran, ['other']);
   ran.length = 0;
   assert.deepStrictEqual(
     (await schema.checkAsync({ inner: { x: 'refuse', y: 'y' }, other: 'ok' })).errors,
     ['Field "Order.inner" inner refused'],
   );
-  assert.deepStrictEqual(ran, ['inner', 'other']);
+  assert.deepStrictEqual(ran, ['other', 'inner']);
   ran.length = 0;
   assert.strictEqual(
     (await schema.checkAsync({ inner: { x: 'x', y: 'y' }, other: 'ok' })).valid,
     true,
   );
-  assert.deepStrictEqual(ran, ['inner', 'other', 'root']);
+  assert.deepStrictEqual(ran, ['other', 'inner', 'root']);
   // A sync failure under an async validator cancels it as the walk does.
   const typed = Schema.from({
     inner: { x: 'string', validate: async () => 'never' },
@@ -156,21 +159,26 @@ test('Async: a validator runs only when nothing under it failed, promises includ
   assert.deepStrictEqual((await typed.checkAsync({ inner: { x: 1 } })).errors, [
     'Field "inner.x" not of expected type: string',
   ]);
-  // An issue beside a deferred validator, at a shorter path, is not under it.
+  // A validator beside a promise, at another path, runs during the walk.
   const beside = Schema.from({
     a: { type: 'string', validate: async () => 'a failed' },
     b: { c: { type: 'string', validate: () => 'c ran' } },
   });
   assert.deepStrictEqual((await beside.checkAsync({ a: 'a', b: { c: 'c' } })).errors, [
-    'Field "a" a failed',
     'Field "b.c" c ran',
+    'Field "a" a failed',
   ]);
 });
 
 test('Async: maxErrors, exceptions and every return value', async () => {
+  let called = 0;
+  const counted = (validate) => (value) => {
+    called += 1;
+    return validate(value);
+  };
   const schema = new Schema('User', {
-    a: { type: 'string', validate: async () => 'a failed' },
-    b: { type: 'string', validate: async () => 'b failed' },
+    a: { type: 'string', validate: counted(async () => 'a failed') },
+    b: { type: 'string', validate: counted(async () => 'b failed') },
     c: {
       type: 'string',
       validate: async () => {
@@ -194,10 +202,14 @@ test('Async: maxErrors, exceptions and every return value', async () => {
     'Field "User.g" one',
     'Field "User.g" two',
   ]);
+  // The validators are independent, so every one is called during the walk
+  // and the limit decides what is recorded, not what is run.
+  called = 0;
   assert.deepStrictEqual((await schema.checkAsync(value, { maxErrors: 2 })).errors, [
     'Field "User.a" a failed',
     'Field "User.b" b failed',
   ]);
+  assert.strictEqual(called, 2);
   assert.deepStrictEqual((await schema.checkAsync(value, { maxErrors: 7 })).errors.length, 7);
   assert.deepStrictEqual((await schema.checkAsync({ ...value, a: 1 }, { maxErrors: 1 })).errors, [
     'Field "User.a" not of expected type: string',
@@ -208,6 +220,90 @@ test('Async: maxErrors, exceptions and every return value', async () => {
     'Field "User.a" a failed',
     'Field "User.b" b failed',
   ]);
+});
+
+test('Async: independent validators are in flight together; a validator over them waits', async () => {
+  // A gate every validator waits at: what has started before it opens is
+  // in flight together, and what starts after a validator ended waited for it.
+  let open;
+  const gate = new Promise((resolve) => (open = resolve));
+  const log = [];
+  const waiting = (name, fail = false) =>
+    async function validate() {
+      log.push(`start:${name}`);
+      await gate;
+      log.push(`end:${name}`);
+      return !fail || `${name} failed`;
+    };
+  const build = (fail) =>
+    new Schema('Doc', {
+      a: { type: 'string', validate: waiting('a') },
+      b: { type: 'string', validate: waiting('b') },
+      inner: {
+        x: { type: 'string', validate: waiting('inner.x', fail) },
+        validate: waiting('inner'),
+      },
+      items: { array: { id: 'number', validate: waiting('item') } },
+      validate: waiting('root'),
+    });
+  const value = { a: 'a', b: 'b', inner: { x: 'x' }, items: [{ id: 1 }, { id: 2 }] };
+  const pending = build(false).checkAsync(value);
+  // Every validator with no promise under it started during the walk; the
+  // validate of `inner` and the root one wait for the promises under them.
+  assert.deepStrictEqual(log, ['start:a', 'start:b', 'start:inner.x', 'start:item', 'start:item']);
+  open();
+  assert.strictEqual((await pending).valid, true);
+  assert.deepStrictEqual(log.slice(5), [
+    'end:a',
+    'end:b',
+    'end:inner.x',
+    'end:item',
+    'end:item',
+    'start:inner',
+    'end:inner',
+    'start:root',
+    'end:root',
+  ]);
+  // When a field under a validator fails, the validator never starts.
+  log.length = 0;
+  const failed = await build(true).checkAsync(value);
+  assert.deepStrictEqual(failed.errors, ['Field "Doc.inner.x" inner.x failed']);
+  assert.strictEqual(log.includes('start:inner'), false);
+  assert.strictEqual(log.includes('start:root'), false);
+  // The order of the issues: what the walk recorded, in walk order, then the
+  // promises in field order; a sync validator after a promise is the walk's.
+  const ordered = new Schema('Mix', {
+    a: { type: 'string', validate: async () => 'a async' },
+    b: { type: 'string', validate: () => 'b sync' },
+    c: 'number',
+    d: { type: 'string', validate: async () => 'd async' },
+  });
+  assert.deepStrictEqual((await ordered.checkAsync({ a: '', b: '', c: 'x', d: '' })).errors, [
+    'Field "Mix.b" b sync',
+    'Field "Mix.c" not of expected type: number',
+    'Field "Mix.a" a async',
+    'Field "Mix.d" d async',
+  ]);
+  // Two independent validators waiting on real timers overlap: both start
+  // before either ends, so the check takes one wait, not two. Told by the
+  // order, not by the clock: a timer of 20 ms fires after up to 31 ms where
+  // the resolution is 15.6 ms (Windows), which a bound on the time missed.
+  const timers = [];
+  const timer = (name) => () => {
+    timers.push(`start:${name}`);
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        timers.push(`end:${name}`);
+        resolve();
+      }, 20),
+    );
+  };
+  const slow = new Schema('Slow', {
+    a: { type: 'string', validate: timer('a') },
+    b: { type: 'string', validate: timer('b') },
+  });
+  assert.strictEqual((await slow.checkAsync({ a: 'a', b: 'b' })).valid, true);
+  assert.deepStrictEqual(timers, ['start:a', 'start:b', 'end:a', 'end:b']);
 });
 
 test('Async: a custom type may check asynchronously', async () => {
@@ -476,11 +572,11 @@ test('Async: a validator may run another check, sync or async', async () => {
     y: { type: 'string', validate: () => inner.check({ a: 'a' }).errors },
   });
   // The lines of an inner result already name their field and are kept as
-  // they are; `y` was met after the promise of `x` and waits for it.
+  // they are; `y` is beside the promise of `x` and ran during the walk.
   assert.deepStrictEqual((await outer.checkAsync({ x: 'x', y: 'y' })).errors, [
+    'Field "b" is required',
     'Field "a" not of expected type: string',
     'Field "b" inner b',
-    'Field "b" is required',
   ]);
 });
 
@@ -584,14 +680,37 @@ test('Async: a promise the check cannot wait for never rejects unhandled', async
                 throw new Error('trial');
               },
             },
+            k: {
+              type: 'number',
+              validate: async () => {
+                await tick();
+                throw new Error('trial too');
+              },
+            },
             'd?': { type: 'number', default: 1 },
           },
           'string',
         ],
       },
     });
-    const parsed = await tried.parseAsync({ u: { n: 1 } });
+    const parsed = await tried.parseAsync({ u: { n: 1, k: 2 } });
     assert.deepStrictEqual(parsed.valid, false);
+    // A failed branch of a plain union drops the promises it set aside and
+    // observes them: the value matches the second branch after the first set
+    // a rejecting validator aside and failed on `b`.
+    const branched = Schema.from({
+      u: {
+        union: [
+          {
+            a: { type: 'string', validate: () => Promise.reject(new Error('dropped')) },
+            b: 'number',
+          },
+          { a: 'string', b: 'string' },
+        ],
+      },
+    });
+    assert.deepStrictEqual((await branched.checkAsync({ u: { a: 'x', b: 'y' } })).errors, []);
+    assert.strictEqual((await branched.parseAsync({ u: { a: 'x', b: 'y' } })).valid, true);
     await tick();
     await tick();
     await tick();
@@ -624,4 +743,38 @@ test('Async: the decoders that reject respect maxErrors', async () => {
     [['a'], 'validation failed Error: a'],
     [['b'], 'validation failed Error: b'],
   ]);
+});
+
+test('Async: a walk that throws leaves no promise of the check unhandled', async () => {
+  // A getter of the value that throws is the program's error and leaves
+  // checkAsync as such; the promise a validator met before it returned is
+  // observed on the way out, not left to reject on its own.
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  try {
+    const schema = Schema.from({
+      a: {
+        type: 'string',
+        validate: async () => {
+          await tick();
+          throw new Error('a rejects');
+        },
+      },
+      b: 'string',
+    });
+    const value = {
+      a: 'x',
+      get b() {
+        throw new Error('getter');
+      },
+    };
+    await assert.rejects(schema.checkAsync(value), { message: 'getter' });
+    await assert.rejects(schema.parseAsync(value), { message: 'getter' });
+    await tick();
+    await tick();
+    assert.deepStrictEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', listen);
+  }
 });

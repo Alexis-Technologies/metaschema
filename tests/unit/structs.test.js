@@ -499,3 +499,33 @@ test('Structs: the validate of a nested struct may be given on the field', () =>
   });
   assert.deepStrictEqual(nested.check({ a: { x: 'y' } }).errors, ['Field "a" in']);
 });
+
+test('Structs: a nested struct may have a field named required', () => {
+  // The key of a field and its own definition decide whether it is required;
+  // a `required` key inside a nested struct is a field of that struct.
+  const schema = Schema.from({
+    a: { required: 'boolean', b: 'string' },
+    'c?': { required: 'number' },
+  });
+  assert.strictEqual(schema.fields.a.required, true);
+  assert.strictEqual(schema.fields.a.schema.required.type, 'boolean');
+  assert.strictEqual(schema.fields.c.required, false);
+  assert.strictEqual(schema.check({ a: { required: true, b: 'x' } }).valid, true);
+  assert.deepStrictEqual(schema.check({ a: { b: 'x' } }).errors, [
+    'Field "a.required" is required',
+  ]);
+  assert.strictEqual(JSON.stringify(schema).includes('"required":"boolean"'), false);
+  // The definition's own `required` still counts, together with the key's.
+  assert.strictEqual(
+    Schema.from({ a: { type: 'string', required: false } }).fields.a.required,
+    false,
+  );
+  assert.strictEqual(
+    Schema.from({ 'a?': { type: 'string', required: true } }).fields.a.required,
+    false,
+  );
+  assert.strictEqual(
+    Schema.from({ a: { schema: { x: 'string' }, required: false } }).fields.a.required,
+    false,
+  );
+});

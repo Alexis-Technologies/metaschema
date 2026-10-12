@@ -122,3 +122,30 @@ test('Syntax: a projection copies the fields of its parent as its own', () => {
     'Field "Signin.tags[0]" not of expected type: string',
   ]);
 });
+
+test('Syntax: an object with no key that starts with a letter is a struct', () => {
+  // The first key is the first one that starts with a letter; an object
+  // without one has no first key and is a struct of its keys, or of none.
+  const empty = Schema.from({});
+  assert.strictEqual(empty.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(empty.fields), []);
+  assert.strictEqual(empty.check({}).valid, true);
+  assert.strictEqual(empty.check({ a: 1 }).issues[0].code, 'unexpected');
+  const underscored = Schema.from({ _id: 'string', 1: 'number', $set: '?boolean' });
+  assert.deepStrictEqual(Object.keys(underscored.fields).sort(), ['$set', '1', '_id']);
+  assert.strictEqual(underscored.check({ _id: 'x', 1: 2 }).valid, true);
+  assert.deepStrictEqual(underscored.check({ _id: 1 }).errors, [
+    'Field "1" is required',
+    'Field "_id" not of expected type: string',
+  ]);
+  const nested = Schema.from({ a: {}, b: { _x: 'string' } });
+  assert.strictEqual(nested.fields.a.type, 'schema');
+  assert.strictEqual(nested.fields.b.type, 'schema');
+  assert.strictEqual(nested.check({ a: {}, b: { _x: 'y' } }).valid, true);
+  assert.strictEqual(nested.check({ a: { x: 1 }, b: {} }).valid, false);
+  // The first key that starts with a letter still decides, whatever comes
+  // before it: a type name there is that type.
+  const typed = Schema.from({ a: { _id: 'string', string: 'number' } });
+  assert.strictEqual(typed.fields.a.type, 'string');
+  assert.deepStrictEqual(Object.keys(typed.fields.a.toJSON()).includes('_id'), true);
+});

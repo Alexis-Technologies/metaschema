@@ -1,14 +1,16 @@
 import { createRequire } from 'node:module';
 import { defineConfig } from 'vitepress';
+import { withMermaid } from 'vitepress-plugin-mermaid';
 
 // The nav version label is read from package.json at config load, so a release
 // needs no hand-edit here.
 const { version } = createRequire(import.meta.url)('../../package.json') as { version: string };
 
-const ogTitle = 'metaschema — schemas, validation and TypeScript types for JavaScript';
+const ogTitle = 'metaschema — fast, zero-dependency schemas, validation and TypeScript types';
 const ogDescription =
-  'Zero-dependency metadata schema and interface definition language for Node.js and browsers: ' +
-  'declare structs and domain models once, validate data, and generate TypeScript interfaces.';
+  'Fast, zero-dependency metadata schema and interface definition language for Node.js and ' +
+  'browsers: declare structs and domain models once, validate and parse data with a JIT backend, ' +
+  'and generate TypeScript types and JSON Schema.';
 const repo = 'https://github.com/Alexis-Technologies/metaschema';
 const base = '/';
 const hostname = 'https://metaschema.vercel.app/';
@@ -25,6 +27,11 @@ const keywords = [
   'domain model',
   'typescript interface generation',
   'zero dependency validation',
+  'fast validation',
+  'jit validation',
+  'standard schema',
+  'json schema',
+  'zod alternative',
   'browser schema validation',
   'metarhia',
 ].join(', ');
@@ -49,132 +56,149 @@ const jsonLd = {
 };
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
-  title: '@alexify/metaschema',
-  titleTemplate: ':title — metaschema',
-  description: ogDescription,
-  lang: 'en-US',
-  base,
-  cleanUrls: true,
-  lastUpdated: true,
-  sitemap: { hostname },
+// withMermaid renders the ```mermaid blocks of the guide (architecture and the
+// topic pages) in the browser; the diagrams follow the light and dark theme.
+export default withMermaid(
+  defineConfig({
+    title: '@alexify/metaschema',
+    titleTemplate: ':title — metaschema',
+    description: ogDescription,
+    lang: 'en-US',
+    base,
+    cleanUrls: true,
+    lastUpdated: true,
+    sitemap: { hostname },
 
-  head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
-    ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
-    ['meta', { name: 'theme-color', content: '#7C5CFF' }],
-    ['meta', { name: 'author', content: 'Alexis Technologies' }],
-    ['meta', { name: 'keywords', content: keywords }],
-    ['meta', { name: 'robots', content: 'index, follow' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:site_name', content: '@alexify/metaschema' }],
-    ['meta', { property: 'og:title', content: ogTitle }],
-    ['meta', { property: 'og:description', content: ogDescription }],
-    ['meta', { property: 'og:image', content: ogImage }],
-    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:title', content: ogTitle }],
-    ['meta', { name: 'twitter:description', content: ogDescription }],
-    ['meta', { name: 'twitter:image', content: ogImage }],
-    ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
-  ],
-
-  // Per-page canonical + og:url for clean SEO indexing
-  transformPageData(pageData) {
-    const path = pageData.relativePath.replace(/index\.md$/, '').replace(/\.md$/, '');
-    const canonical = `${hostname}${path}`;
-    pageData.frontmatter.head ??= [];
-    pageData.frontmatter.head.push(
-      ['link', { rel: 'canonical', href: canonical }],
-      ['meta', { property: 'og:url', content: canonical }],
-    );
-  },
-
-  themeConfig: {
-    logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'metaschema' },
-
-    nav: [
-      { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
-      { text: 'API', link: '/api/exports', activeMatch: '/api/' },
-      {
-        text: `v${version}`,
-        items: [
-          { text: 'Changelog', link: `${repo}/blob/main/CHANGELOG.md` },
-          { text: 'npm', link: 'https://www.npmjs.com/package/@alexify/metaschema' },
-          { text: 'Releases', link: `${repo}/releases` },
-        ],
-      },
+    head: [
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon.svg` }],
+      ['link', { rel: 'icon', type: 'image/png', href: `${base}favicon.png` }],
+      ['meta', { name: 'theme-color', content: '#7C5CFF' }],
+      ['meta', { name: 'author', content: 'Alexis Technologies' }],
+      ['meta', { name: 'keywords', content: keywords }],
+      ['meta', { name: 'robots', content: 'index, follow' }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:site_name', content: '@alexify/metaschema' }],
+      ['meta', { property: 'og:title', content: ogTitle }],
+      ['meta', { property: 'og:description', content: ogDescription }],
+      ['meta', { property: 'og:image', content: ogImage }],
+      ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+      ['meta', { name: 'twitter:title', content: ogTitle }],
+      ['meta', { name: 'twitter:description', content: ogDescription }],
+      ['meta', { name: 'twitter:image', content: ogImage }],
+      ['script', { type: 'application/ld+json' }, JSON.stringify(jsonLd)],
     ],
 
-    sidebar: {
-      '/guide/': [
+    // Per-page canonical + og:url for clean SEO indexing
+    transformPageData(pageData) {
+      const path = pageData.relativePath.replace(/index\.md$/, '').replace(/\.md$/, '');
+      const canonical = `${hostname}${path}`;
+      pageData.frontmatter.head ??= [];
+      pageData.frontmatter.head.push(
+        ['link', { rel: 'canonical', href: canonical }],
+        ['meta', { property: 'og:url', content: canonical }],
+      );
+    },
+
+    themeConfig: {
+      logo: { light: '/logo-mark.svg', dark: '/logo-mark-dark.svg', alt: 'metaschema' },
+
+      nav: [
+        { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
+        { text: 'API', link: '/api/exports', activeMatch: '/api/' },
         {
-          text: 'Introduction',
+          text: `v${version}`,
           items: [
-            { text: 'Why metaschema?', link: '/guide/why' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-          ],
-        },
-        {
-          text: 'Defining Schemas',
-          items: [
-            { text: 'Schema Syntax', link: '/guide/schema-syntax' },
-            { text: 'Types', link: '/guide/types' },
-            { text: 'Unions, nullable and null', link: '/guide/unions' },
-            { text: 'References', link: '/guide/references' },
-            { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
-            { text: 'Custom Types', link: '/guide/custom-types' },
-          ],
-        },
-        {
-          text: 'Using Schemas',
-          items: [
-            { text: 'Validation', link: '/guide/validation' },
-            { text: 'Parse and serialize', link: '/guide/parse' },
-            { text: 'Domain Models', link: '/guide/model' },
-            { text: 'Model evolution', link: '/guide/evolution' },
-            { text: 'Sample values', link: '/guide/samples' },
-            { text: 'TypeScript', link: '/guide/typescript' },
-            { text: 'Standard Schema', link: '/guide/standard-schema' },
-            { text: 'JSON Schema', link: '/guide/json-schema' },
-            { text: 'The JIT backend', link: '/guide/compile' },
-            { text: 'Browser', link: '/guide/browser' },
-          ],
-        },
-        {
-          text: 'Going Further',
-          items: [
-            { text: 'Performance', link: '/guide/performance' },
-            { text: 'Migrating from 2.x', link: '/guide/migrating-from-2' },
-            { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
-            { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
+            { text: 'Changelog', link: `${repo}/blob/main/CHANGELOG.md` },
+            { text: 'npm', link: 'https://www.npmjs.com/package/@alexify/metaschema' },
+            { text: 'Releases', link: `${repo}/releases` },
           ],
         },
       ],
-      '/api/': [
-        {
-          text: 'API',
-          items: [{ text: 'Exports', link: '/api/exports' }],
-        },
-      ],
+
+      sidebar: {
+        '/guide/': [
+          {
+            text: 'Introduction',
+            items: [
+              { text: 'Why metaschema?', link: '/guide/why' },
+              { text: 'Compared with alternatives', link: '/guide/comparison' },
+              { text: 'Getting Started', link: '/guide/getting-started' },
+              { text: 'Architecture', link: '/guide/architecture' },
+            ],
+          },
+          {
+            text: 'Defining Schemas',
+            items: [
+              { text: 'Schema Syntax', link: '/guide/schema-syntax' },
+              { text: 'Types', link: '/guide/types' },
+              { text: 'String formats', link: '/guide/formats' },
+              { text: 'Unions, nullable and null', link: '/guide/unions' },
+              { text: 'References', link: '/guide/references' },
+              { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
+              { text: 'Custom Types', link: '/guide/custom-types' },
+            ],
+          },
+          {
+            text: 'Using Schemas',
+            items: [
+              { text: 'Validation', link: '/guide/validation' },
+              { text: 'Parse and serialize', link: '/guide/parse' },
+              { text: 'Records and streams', link: '/guide/streaming' },
+              { text: 'Domain Models', link: '/guide/model' },
+              { text: 'Model evolution', link: '/guide/evolution' },
+              { text: 'Sample values', link: '/guide/samples' },
+              { text: 'Schema inference', link: '/guide/infer' },
+              { text: 'TypeScript', link: '/guide/typescript' },
+              { text: 'Standard Schema', link: '/guide/standard-schema' },
+              { text: 'JSON Schema', link: '/guide/json-schema' },
+              { text: 'The JIT backend', link: '/guide/compile' },
+              { text: 'Browser', link: '/guide/browser' },
+            ],
+          },
+          {
+            text: 'Going Further',
+            items: [
+              { text: 'Performance', link: '/guide/performance' },
+              { text: 'Benchmarks', link: '/guide/benchmarks' },
+              { text: 'Migrating from 2.x', link: '/guide/migrating-from-2' },
+              { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
+              { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },
+            ],
+          },
+        ],
+        '/api/': [
+          {
+            text: 'API',
+            items: [{ text: 'Exports', link: '/api/exports' }],
+          },
+        ],
+      },
+
+      search: { provider: 'local' },
+
+      socialLinks: [{ icon: 'github', link: repo }],
+
+      editLink: {
+        pattern: `${repo}/edit/main/docs/:path`,
+        text: 'Edit this page on GitHub',
+      },
+
+      footer: {
+        message: 'Released under the MIT License.',
+        copyright: 'Copyright © 2017-2025 Metarhia contributors · © 2026 Alexis Technologies',
+      },
+
+      docFooter: {
+        prev: 'Previous page',
+        next: 'Next page',
+      },
     },
 
-    search: { provider: 'local' },
-
-    socialLinks: [{ icon: 'github', link: repo }],
-
-    editLink: {
-      pattern: `${repo}/edit/main/docs/:path`,
-      text: 'Edit this page on GitHub',
+    // mermaid 11.17 imports fastdom, a CommonJS module the plugin does not
+    // pre-bundle (it is a devDependency for the same reason as dayjs and
+    // cytoscape: pnpm does not hoist it); served raw, it breaks every page.
+    vite: {
+      optimizeDeps: { include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'] },
     },
-
-    footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2017-2025 Metarhia contributors · © 2026 Alexis Technologies',
-    },
-
-    docFooter: {
-      prev: 'Previous page',
-      next: 'Next page',
-    },
-  },
-});
+  }),
+);

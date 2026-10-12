@@ -1,9 +1,14 @@
+<script setup>
+import BenchFigure from '../.vitepress/theme/components/BenchFigure.vue';
+</script>
+
 # Performance
 
 metaschema 2.0 validates about five times faster than 1.0 on the same machine, and 3.0 adds a JIT
 backend that is three to six times faster again. The speed comes from the shape of the core rather
-than from a trick in one place. This page explains that core, gives the numbers of the
-repository's benchmark and how to reproduce them, and puts them beside other validators.
+than from a trick in one place. This page explains that core and gives the numbers of the
+repository's own benchmark; [Benchmarks](/guide/benchmarks) puts metaschema beside ten other
+validators and beside every earlier release.
 
 ## The core
 
@@ -11,7 +16,7 @@ Everything a `check` needs is computed once, when the schema is built, and nothi
 per call.
 
 **The plan.** A struct definition becomes a frozen list of entries, one per validated field
-(`{ key, type, required, own, check }`), plus a null-prototype dictionary of the known keys. The
+(`{ key, type, required, own, aliases, check }`), plus a null-prototype dictionary of the known keys. The
 struct check is an index loop over that list: one keyed load per field, the field's compiled
 check called with its key, and `Object.hasOwn` consulted only when the value is `undefined` and
 the field is required (or the field is named after a member of `Object.prototype`). Unknown keys
@@ -22,17 +27,19 @@ the expected keys is never scanned twice.
 scalar without rules is one `typeof`, an `enum` with more than eight values a `Set` lookup, a
 `Map` or `Set` is iterated directly, an `object` through `for...in`, a tuple by index, a nested
 struct through its own compiled check, a reference through a lookup plus cycle tracking. Rules
-(`length`, `pattern`, `min`/`max`) are compiled into one closure over the field's bounds and wrap
-the type check only when the field has rules or a `validate`; `nullable: true` wraps the result
-once more. Nothing in the hot path reads the definition, creates a closure or a `RegExp`, or
+(`length`, `pattern`, `format`, `min`/`max`) are compiled into one closure over the field's
+bounds and wrap the type check only when the field has rules or a `validate`; `nullable: true`
+wraps the result once more. A `pattern` or a `format` is never run over a string longer than
+`length.max`, so a field with a bound costs at most one comparison for an oversized string. Nothing in the hot path reads the definition, creates a closure or a `RegExp`, or
 looks a function up by name.
 
 **The context.** Each call to `check` creates one object that every closure records into:
-`{ issues, count, limit, path, seen, unknown, references, root, messages }`, always in that
-order, so the hot path sees a single shape. The path is a stack of keys a container pushes
-before its children and pops after them; a leaf never touches it. `issues` is a shared frozen
-empty list until the first problem, and `seen` (cycle tracking) is created at the first
-reference met. Two checks never share state, so a `validate` function may run another check,
+`{ issues, count, limit, depth, maxDepth, path, seen, source, unknown, references, root,
+messages, async, scratch, renamed }`, always in that order, so the hot path sees a single shape.
+The path is a stack of keys a container pushes before its children and pops after them; a leaf
+never touches it. `issues` is a shared frozen empty list until the first problem, `seen` (cycle
+tracking) is created at the first embedded record, and `async` and `scratch` stay `null` outside
+the async methods and `parse`. Two checks never share state, so a `validate` function may run another check,
 even of the same value.
 
 **Issues without text.** A problem is recorded as `{ code, path, params }` with an empty message.
@@ -66,12 +73,13 @@ closures stay.
 
 ## Numbers
 
-`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.1 branch (Node
-24, Apple silicon, 2026-10-11, after the review of 3.1). The 1.0 column is the same scenarios on
-the same machine the day before 2.0; the closure column is what every `check` does, the JIT
-column the same schemas after `compile`. A run of one scenario on its own comes out higher than
-the same scenario in the whole run (the call sites are warmer); the figures are from the whole
-run.
+<BenchFigure chart="engine" />
+
+`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.2 branch (Node
+24, Apple silicon, 2026-10-11). The 1.0 column is the same scenarios on the same machine the day
+before 2.0; the closure column is what every `check` does, the JIT column the same schemas after
+`compile`. A run of one scenario on its own comes out higher than the same scenario in the whole
+run (the call sites are warmer); the figures are from the whole run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
@@ -86,11 +94,22 @@ run.
 | `parse`, nested struct, valid | — | 2.5 M | 14.5 M |
 | `parse`, flat struct, a default and a `Date` decoder | — | 2.0 M | 2.8 M |
 | `parse`, flat struct with an alias, no alias in the input | — | 8.0 M | 27.6 M |
-| `parse`, flat struct with an alias, the alias in the input | — | 3.1 M | 4.3 M |
-| moltar flat (6 fields), four modes | — | 7.0–7.3 M | 29.0–32.3 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.1–4.3 M | 22.2–29.6 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.2 M | 4.6 M |
+| `parse`, nested struct under `strip`, an extra key at every level | — | 1.3 M | 2.0 M |
+| `parse`, 100 records under `strip` | — | 66 K | 95 K |
+| `check`, flat struct, four sync validators | — | 3.8 M | 5.6 M |
+| `checkAsync`, the same four sync validators | — | 2.9 M | 3.7 M |
+| `checkAsync`, four async validators, resolved promises | — | 1.5 M | 1.7 M |
+| `checkAsync`, four independent validators awaiting `setImmediate` | — | 65 K | 66 K |
+| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 812 | 841 |
+| `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 43 K | 44 K |
+| `parseAsync`, flat struct, an async decoder | — | 1.3 M | 1.4 M |
+| `check`, 1 000 flat records in a loop | — | 9.2 K | 31 K |
+| `checkEach`, the same 1 000 records | — | 7.6 K | 19 K |
+| moltar flat (6 fields), four modes | — | 7.2 M | 27.7–29.4 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.5–25.6 M |
 | `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
-| `toTypeScript(model)`, fixture model | — | 86 K | — |
+| `toTypeScript(model)`, fixture model | — | 89 K | — |
 
 The moltar scenarios are the object of the
 [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
@@ -118,56 +137,35 @@ the result object). With a default to fill and a `Date` to decode the flat struc
 [alias](/guide/evolution#aliases-and-deprecated) parses a value that carries none at the
 speed of a schema without (the pass that renames runs only after a check that read an alias),
 and a value under the alias at the speed of a decoded field: the copy that renames, and a
-second one that puts the field where the alias was.
+second one that puts the field where the alias was. Under `unknown: 'strip'` every struct of
+the output is rebuilt from its known keys, so the pass visits every container; since 3.2 it
+allocates nothing per container it visits (the output under construction is a local of the
+walker), which is what took 100 records from 61 K to 66 K on the closures and from 81 K to
+95 K on the JIT in this run.
+
+The async rows measure the path of [`checkAsync`](/guide/parse#async). With sync validators
+only, the async method is the sync one plus the promise it returns and the `await` of the
+caller: 2.9 M against 3.8 M. With validators that resolve at once the time is the microtasks:
+one per validator. With validators that wait for the event loop the time is the waits, and
+since 3.2 independent validators wait together: four of them awaiting `setImmediate` cost one
+turn of the loop per check (65 K checks a second, 18 K in 3.1, when they waited one after the
+other), 32 records with a validator each cost one turn too (43 K, 2.2 K in 3.1), and four
+awaiting `setTimeout(1)` cost one millisecond rather than four (812 a second, 190 in 3.1). A
+validator over a promise, a struct's own `validate` or the schema's, still waits for it.
+
+[`checkEach`](/guide/streaming) of the stream subpath costs what a loop of `check` costs plus
+about 20 ns a record on this machine: the entry `{ index, record, result }` and the result
+object of the iterator itself. On the closures that is 7.6 K against 9.2 K batches of a
+thousand records a second; on the JIT, where a check is 33 ns, 19 K against 31 K, so a program
+that validates millions of records at the speed of the JIT and needs no entries per record
+loops over `check` itself.
 
 ## Other libraries
 
-`pnpm bench --compare-libs` runs the moltar scenarios through zod, valibot, ajv and
-@sinclair/typebox beside metaschema's two backends (`bench/libs.js`), on one machine, in one
-process, every library reached through the same adapter object and the same megamorphic call
-site, so no library's check is inlined into the measuring loop, and every adapter's verdicts
-are checked before anything is timed (a failing check is fast, and a mistranslated schema would
-measure that). Node 24, Apple silicon, 2026-10-10, in millions of operations a second:
-
-**moltar flat (6 fields)**
-
-| Library | parseSafe | parseStrict | assertLoose | assertStrict |
-| --- | ---: | ---: | ---: | ---: |
-| metaschema 3.0 (closures) | 9.7 | 9.7 | 10.4 | 9.6 |
-| metaschema 3.0 (JIT) | 35.9 | 33.7 | 36.5 | 31.2 |
-| zod 4.6.5 | 23.7 | 11.6 | 23.9 | 11.6 |
-| valibot 1.5.0 | 3.6 | 3.0 | 3.6 | 3.0 |
-| ajv 8.20.0 (draft 2020-12) | 63.0 | 33.6 | 64.1 | 34.1 |
-| @sinclair/typebox 0.34.52 (TypeCompiler) | 98.5 | 59.0 | 98.0 | 59.4 |
-| @sinclair/typebox 0.34.52 (Value.Check) | 4.6 | 4.5 | 4.6 | 4.5 |
-
-**moltar nested (6 + 3 fields)**
-
-| Library | parseSafe | parseStrict | assertLoose | assertStrict |
-| --- | ---: | ---: | ---: | ---: |
-| metaschema 3.0 (closures) | 4.8 | 4.6 | 4.8 | 4.6 |
-| metaschema 3.0 (JIT) | 33.6 | 27.3 | 32.3 | 27.0 |
-| zod 4.6.5 | 12.1 | 6.4 | 12.4 | 6.5 |
-| valibot 1.5.0 | 2.1 | 1.7 | 2.0 | 1.7 |
-| ajv 8.20.0 (draft 2020-12) | 37.1 | 18.0 | 35.7 | 18.8 |
-| @sinclair/typebox 0.34.52 (TypeCompiler) | 48.4 | 27.6 | 49.9 | 26.7 |
-| @sinclair/typebox 0.34.52 (Value.Check) | 2.6 | 2.5 | 2.6 | 2.5 |
-
-Read the table with its method in mind. The libraries do different work for one call: ajv and
-typebox's TypeCompiler return a boolean from generated code and allocate nothing on a valid
-value (ajv sets `validate.errors`, typebox keeps nothing), which is the floor of 10 to 17 ns a
-call on a flat value; metaschema returns a `ValidationResult` with a context behind it, two
-allocations per check, and zod and valibot build a result object and, in the parse modes, a
-copy of the value without its unknown keys. The strict modes cost every code generator about
-the same: the scan of the value's keys. The harness itself takes a share from all of them
-alike: called directly inside the measuring closure, zod's `safeParse` does 29 M on the flat
-value and metaschema's compiled `check` 44 M, against 24 M and 36 M through the adapter and
-the megamorphic site. The suite's published numbers come from a different harness
-(benchmark.js, direct calls), so they are not comparable with these one to one, only the order
-is. What the table says is where metaschema stands with its own API: the closures are in the
-range of the interpreters, the JIT in the range of the code generators (level with typebox's
-compiler on the nested strict modes, ahead of ajv there, behind both on a flat loose value), and
-both return every problem with its path.
+The comparison with zod, valibot, ArkType, Effect Schema, TypeBox, Ajv, Yup, Joi, Superstruct and
+Metarhia's metaschema has a page of its own, [Benchmarks](/guide/benchmarks): the moltar object
+in the suite's four modes, every issue of an invalid value, building a schema, cold start and
+bundle size, each library in a fresh process and checked for its verdicts before it is timed.
 
 ## Reproducing
 
@@ -177,7 +175,7 @@ pnpm bench check           # only the scenarios whose name contains "check"
 pnpm bench --json          # the results as JSON
 pnpm bench --save          # write them to bench/baseline.json
 pnpm bench --compare       # the change against bench/baseline.json, scenario by scenario
-pnpm bench --compare-libs  # the moltar scenarios through zod, valibot, ajv and typebox
+pnpm bench:report          # the chart above, from bench/baseline.json
 ```
 
 The numbers are machine-specific, so compare before and after a change on one machine, and

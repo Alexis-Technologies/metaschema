@@ -37,6 +37,7 @@ export type IssueCode =
   | 'length'
   | 'range'
   | 'pattern'
+  | 'format'
   | 'union'
   | 'reference'
   | 'circular'
@@ -56,6 +57,8 @@ export interface IssueParams {
   range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
   // The source of the pattern the string did not match.
   pattern: { pattern: string };
+  // The name of the format the string is not of.
+  format: { format: string };
   // No branch of a union matched: the branch names, or the discriminator
   // values when the union has a discriminator (the path then ends with it).
   union: { expected: unknown[]; discriminator: string | undefined };
@@ -192,6 +195,8 @@ export class ValidationResult {
   add(error: ValidationReturn, code?: IssueCode): this;
   flatten(): FlatIssues;
   tree(): IssueTree;
+  // The result as data: what JSON.stringify(result) writes.
+  toJSON(): { valid: boolean; issues: ValidationIssue[] };
   static issuesOf(error: ValidationReturn, path?: PropertyKey[], code?: IssueCode): ValidationIssue[];
   static isInstance(error: unknown): boolean;
 }
@@ -220,6 +225,9 @@ export interface CheckContext {
   async: unknown[] | null;
   // The context parse tries the branches of a plain union in; null in a check.
   scratch: CheckContext | null;
+  // Whether the check read a field from one of its aliases: the pass after it
+  // renames only when it did.
+  renamed: boolean;
 }
 
 // A validator may return a promise of its result to checkAsync and parseAsync;
@@ -346,6 +354,16 @@ export type DefinitionErrorCode =
   | 'ERR_SAMPLE_TYPE'
   // Thrown by `merge` of the same subpath for what no value can satisfy.
   | 'ERR_MERGE_CONFLICT'
+  // Thrown by `infer` of the same subpath: a sample nested deeper than
+  // `maxDepth`, and a definition that rejects a sample it was inferred from
+  // (a bug of the inference, to report).
+  | 'ERR_INFER_DEPTH'
+  | 'ERR_INFER_MISMATCH'
+  // Thrown by `register` of the `@alexify/metaschema/formats` subpath: an
+  // entry that is not a format, and a name registered again with another
+  // test.
+  | 'ERR_INVALID_FORMAT'
+  | 'ERR_FORMAT_REGISTERED'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -368,7 +386,7 @@ export class SchemaDefinitionError extends TypeError {
 // `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
 // given something other than what it takes (a Schema, a Model, a snapshot, a
 // list of changes).
-export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET';
+export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET' | 'ERR_INVALID_RECORD';
 
 // ---------------------------------------------------------------------------
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
@@ -492,6 +510,36 @@ export interface MergeOptions {
   metadata?: Partial<KindMetadata>;
 }
 
+// The options of `infer` of the `@alexify/metaschema/model` subpath (the
+// name sits beside the type `Infer<D>`: the function reads samples, the type
+// reads a definition).
+export interface InferOptions {
+  // What comes back: the definition ('definition', the default), or a Schema
+  // built from it ('schema').
+  as?: 'definition' | 'schema';
+  // The name of the Schema, and of the error locations ('').
+  name?: string;
+  // The kind of a root that is a struct ('struct'); a stored kind adds its
+  // id field, which wins over an inferred field of that name.
+  kind?: string;
+  // The most distinct strings a place may hold to be an enum (8), each
+  // value seen twice on average over at least four samples; 0 or false never.
+  enum?: number | false;
+  // Whether whole numbers are `integer` (true) rather than `number`.
+  integer?: boolean;
+  // The distinct keys past which records of a place read as a dictionary
+  // (16) when every key is missing from some record and the values are of
+  // one kind; keys that are not names are a dictionary from one sample on;
+  // false keeps every record a struct.
+  map?: number | false;
+  // How deep a sample may nest (128, the most); past it `ERR_INFER_DEPTH`.
+  maxDepth?: number;
+  // Whether a place whose every string passes a registered format is that
+  // format (true); the formats subpath registers them, in the order `infer`
+  // tries them, and nothing is registered until its `register()` ran.
+  formats?: boolean;
+}
+
 // The options of `sample` of the `@alexify/metaschema/model` subpath.
 export interface SampleOptions {
   // The seed of the generator (1): the same seed gives the same value.
@@ -505,6 +553,50 @@ export interface SampleOptions {
   // How deep embedded records nest (3): an optional reference deeper than
   // that is left out, a required one is an error.
   maxDepth?: number;
+}
+
+// The options of `checkEach` and `checkEachAsync` of the
+// `@alexify/metaschema/stream` subpath: those of `check`, and how many invalid
+// records end the iteration (no limit by default).
+export interface EachOptions extends CheckOptions {
+  maxInvalid?: number;
+}
+
+// The options of `parseEach` and `parseEachAsync`: those of `parse`, and
+// `maxInvalid`.
+export interface ParseEachOptions extends ParseOptions {
+  maxInvalid?: number;
+}
+
+// The option of the async pair: how many records are in flight at once (1).
+export interface EachAsyncOptions {
+  concurrency?: number;
+}
+
+// The options of `transform`: those of `parse` (or of `check`, with
+// `mode: 'check'`), `maxInvalid`, and what the stream does with an invalid
+// record.
+export interface TransformOptions extends ParseOptions {
+  // What goes on down the stream: the parsed value ('parse', the default) or
+  // the record as it is ('check').
+  mode?: 'parse' | 'check';
+  // Whether the stream runs `parseAsync`/`checkAsync` (false).
+  async?: boolean;
+  // Told of every invalid record, which is then dropped; without it the
+  // stream ends with the error at the first one.
+  onInvalid?: (record: unknown, result: ValidationResult | ParseResult<unknown>, index: number) => void;
+  // After that many invalid records the stream ends with the error even with
+  // `onInvalid` (no limit by default).
+  maxInvalid?: number;
+}
+
+// What `checkEach` and its kin yield for a record: its position in the
+// sequence, the record as the source gave it, and the result of `check` or
+// `parse`.
+export interface RecordEntry<T, R> {
+  index: number;
+  record: T;
+  result: R;
 }
 
 export const KIND: Array<string>;
@@ -1060,7 +1152,7 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
 // consumers of the specification accept it without an adapter. The shape is
 // written out here because this file cannot import `@standard-schema/spec` (a
 // devDependency); tests/types/standard.test-d.ts pins that a `Schema<D>` is a
-// `StandardSchemaV1<Infer<D>, Infer<D>>` of that package.
+// `StandardSchemaV1<Infer<D>, InferOutput<D>>` of that package.
 
 // The vendor-specific options of a `validate` call are the options of `parse`.
 export interface StandardOptions {
@@ -1115,6 +1207,11 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
   // the same without it.
   static merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
+  // A definition (or a Schema) that accepts every sample: exists once
+  // `register()` of the `@alexify/metaschema/model` subpath has run; its
+  // `infer(samples, options)` is the same without it.
+  static infer(samples: Iterable<unknown>, options: InferOptions & { as: 'schema' }): Schema;
+  static infer(samples: Iterable<unknown>, options?: InferOptions): object | string;
 
   kind: Kind;
   scope: Scope;
@@ -1165,6 +1262,27 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
   // options)` is the same without it.
   sample(options?: SampleOptions): Infer<D>;
+  // The five members below exist once `register()` of the
+  // `@alexify/metaschema/stream` subpath has run; its `checkEach(schema,
+  // records, options)` and kin are the same without it.
+  checkEach<T>(
+    records: Iterable<T>,
+    options?: EachOptions,
+  ): Generator<RecordEntry<T, ValidationResult>, void, undefined>;
+  parseEach<T>(
+    records: Iterable<T>,
+    options?: ParseEachOptions,
+  ): Generator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
+  checkEachAsync<T>(
+    records: Iterable<T> | AsyncIterable<T>,
+    options?: EachOptions & EachAsyncOptions,
+  ): AsyncGenerator<RecordEntry<T, ValidationResult>, void, undefined>;
+  parseEachAsync<T>(
+    records: Iterable<T> | AsyncIterable<T>,
+    options?: ParseEachOptions & EachAsyncOptions,
+  ): AsyncGenerator<RecordEntry<T, ParseResult<InferOutput<D>>>, void, undefined>;
+  transform(options: TransformOptions & { mode: 'check' }): TransformStream<unknown, Infer<D>>;
+  transform(options?: TransformOptions): TransformStream<unknown, InferOutput<D>>;
   // The two methods below exist once `register()` of the generators subpath
   // has run; the subpath's `toJSONSchema(schema)` and `toTypeScript(schema)`
   // are the same without it.

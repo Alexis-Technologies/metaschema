@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="652" viewBox="0 0 760 652" role="img" aria-label="Bundle size. A browser bundle that builds the strict nested schema and checks a value (esbuild, minified, tree-shaken), min+gzip. Lower is better.">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .title { font-size: 15px; font-weight: 700; fill: #1b1c1e; }
+  .subtitle, .caption { font-size: 12px; fill: #67676c; }
+  .caption { font-size: 11px; }
+  .group { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; fill: #67676c; }
+  .label { font-size: 13px; font-weight: 600; fill: #1b1c1e; }
+  .label.primary, .label.secondary { font-weight: 700; }
+  .sublabel { font-size: 11px; fill: #67676c; }
+  .value { font-size: 12px; font-weight: 600; fill: #3c3c43; font-variant-numeric: tabular-nums; }
+  .value.small { font-size: 10px; }
+  .legend { font-size: 11px; fill: #3c3c43; }
+  .tick { font-size: 11px; fill: #67676c; font-variant-numeric: tabular-nums; }
+  .grid { stroke: #e4e4e7; stroke-width: 1; }
+  .axis { stroke: #c2c2c4; stroke-width: 1; }
+  .ref { stroke: #67676c; stroke-width: 1; stroke-dasharray: 3 3; }
+  .bar { fill: #c9cad1; }
+  .bar.primary { fill: #7c5cff; }
+  .bar.secondary { fill: #c4b5fd; }
+  @media (prefers-color-scheme: dark) {
+    .title, .label { fill: #dfdfd6; }
+    .subtitle, .caption, .group, .sublabel, .tick { fill: #98989f; }
+    .value, .legend { fill: #c2c2c4; }
+    .grid { stroke: #2e2e32; }
+    .axis { stroke: #48484c; }
+    .ref { stroke: #98989f; }
+    .bar { fill: #4a4b53; }
+    .bar.primary { fill: #9d85ff; }
+    .bar.secondary { fill: #5b4aa8; }
+  }
+</style>
+<text class="title" x="20" y="35">Bundle size</text>
+<text class="subtitle" x="20" y="56">A browser bundle that builds the strict nested schema and checks a value (esbuild, minified, tree-shaken),</text>
+<text class="subtitle" x="20" y="73">min+gzip. Lower is better.</text>
+<line class="grid" x1="265" y1="88" x2="265" y2="608"/>
+<text class="tick" x="265" y="624" text-anchor="middle">0 KB</text>
+<line class="grid" x1="402" y1="88" x2="402" y2="608"/>
+<text class="tick" x="402" y="624" text-anchor="middle">20 KB</text>
+<line class="grid" x1="539" y1="88" x2="539" y2="608"/>
+<text class="tick" x="539" y="624" text-anchor="middle">40 KB</text>
+<line class="grid" x1="676" y1="88" x2="676" y2="608"/>
+<text class="tick" x="676" y="624" text-anchor="middle">60 KB</text>
+<line class="axis" x1="265" y1="88" x2="265" y2="608"/>
+<g><title>Valibot · safeParse() · is()
+1.2 KB min+gzip
+3.3 KB minified
+valibot@1.5.0</title>
+<text class="label" x="20" y="105">Valibot</text>
+<text class="sublabel" x="20" y="120">safeParse() · is()</text>
+<path class="bar" d="M265,101H269.45546875A4,4 0 0 1 273.45546875,105V111A4,4 0 0 1 269.45546875,115H265Z"/>
+<text class="value" x="279.45546875" y="114">1.2 KB</text>
+</g>
+<g><title>Superstruct · validate() · is()
+1.5 KB min+gzip
+3.5 KB minified
+superstruct@2.0.2</title>
+<text class="label" x="20" y="145">Superstruct</text>
+<text class="sublabel" x="20" y="160">validate() · is()</text>
+<path class="bar" d="M265,141H271.114453125A4,4 0 0 1 275.114453125,145V151A4,4 0 0 1 271.114453125,155H265Z"/>
+<text class="value" x="281.114453125" y="154">1.5 KB</text>
+</g>
+<g><title>Metarhia metaschema · check() · strict only
+11.0 KB min+gzip
+30.0 KB minified
+metaschema@2.2.2
+minified with keepNames: its checks compare constructor names</title>
+<text class="label" x="20" y="185">Metarhia metaschema</text>
+<text class="sublabel" x="20" y="200">check() · strict only</text>
+<path class="bar" d="M265,181H336.510546875A4,4 0 0 1 340.510546875,185V191A4,4 0 0 1 336.510546875,195H265Z"/>
+<text class="value" x="346.510546875" y="194">11.0 KB</text>
+</g>
+<g><title>Yup · validateSync() · isValidSync(), strict
+13.2 KB min+gzip
+41.4 KB minified
+yup@1.7.1</title>
+<text class="label" x="20" y="225">Yup</text>
+<text class="sublabel" x="20" y="240">validateSync() · isValidSync(), strict</text>
+<path class="bar" d="M265,221H351.622021484375A4,4 0 0 1 355.622021484375,225V231A4,4 0 0 1 351.622021484375,235H265Z"/>
+<text class="value" x="361.622021484375" y="234">13.2 KB</text>
+</g>
+<g><title>metaschema · check() · closures
+18.0 KB min+gzip
+49.9 KB minified
+@alexify/metaschema@3.2.0</title>
+<text class="label secondary" x="20" y="265">metaschema</text>
+<text class="sublabel" x="20" y="280">check() · closures</text>
+<path class="bar secondary" d="M265,261H384.132763671875A4,4 0 0 1 388.132763671875,265V271A4,4 0 0 1 384.132763671875,275H265Z"/>
+<text class="value" x="394.132763671875" y="274">18.0 KB</text>
+</g>
+<g><title>metaschema · check() · compile(), JIT
+22.2 KB min+gzip
+62.5 KB minified
+@alexify/metaschema@3.2.0</title>
+<text class="label primary" x="20" y="305">metaschema</text>
+<text class="sublabel" x="20" y="320">check() · compile(), JIT</text>
+<path class="bar primary" d="M265,301H413.13823242187505A4,4 0 0 1 417.13823242187505,305V311A4,4 0 0 1 413.13823242187505,315H265Z"/>
+<text class="value" x="423.13823242187505" y="314">22.2 KB</text>
+</g>
+<g><title>Effect Schema · decodeUnknownResult() · is()
+24.4 KB min+gzip
+72.9 KB minified
+effect@4.0.3</title>
+<text class="label" x="20" y="345">Effect Schema</text>
+<text class="sublabel" x="20" y="360">decodeUnknownResult() · is()</text>
+<path class="bar" d="M265,341H427.95537109375A4,4 0 0 1 431.95537109375,345V351A4,4 0 0 1 427.95537109375,355H265Z"/>
+<text class="value" x="437.95537109375" y="354">24.4 KB</text>
+</g>
+<g><title>Zod · safeParse()
+25.7 KB min+gzip
+88.4 KB minified
+zod@4.6.6</title>
+<text class="label" x="20" y="385">Zod</text>
+<text class="sublabel" x="20" y="400">safeParse()</text>
+<path class="bar" d="M265,381H437.333984375A4,4 0 0 1 441.333984375,385V391A4,4 0 0 1 437.333984375,395H265Z"/>
+<text class="value" x="447.333984375" y="394">25.7 KB</text>
+</g>
+<g><title>TypeBox · Value.Check()
+37.5 KB min+gzip
+146.7 KB minified
+typebox@1.3.36</title>
+<text class="label" x="20" y="425">TypeBox</text>
+<text class="sublabel" x="20" y="440">Value.Check()</text>
+<path class="bar" d="M265,421H517.747900390625A4,4 0 0 1 521.747900390625,425V431A4,4 0 0 1 517.747900390625,435H265Z"/>
+<text class="value" x="527.747900390625" y="434">37.5 KB</text>
+</g>
+<g><title>Ajv · compile(…)(value), draft 2020-12
+39.5 KB min+gzip
+130.9 KB minified
+ajv@8.20.0</title>
+<text class="label" x="20" y="465">Ajv</text>
+<text class="sublabel" x="20" y="480">compile(…)(value), draft 2020-12</text>
+<path class="bar" d="M265,461H531.4412109375A4,4 0 0 1 535.4412109375,465V471A4,4 0 0 1 531.4412109375,475H265Z"/>
+<text class="value" x="541.4412109375" y="474">39.5 KB</text>
+</g>
+<g><title>TypeBox · Compile(…).Check()
+40.8 KB min+gzip
+161.5 KB minified
+typebox@1.3.36</title>
+<text class="label" x="20" y="505">TypeBox</text>
+<text class="sublabel" x="20" y="520">Compile(…).Check()</text>
+<path class="bar" d="M265,501H540.6994140625A4,4 0 0 1 544.6994140625,505V511A4,4 0 0 1 540.6994140625,515H265Z"/>
+<text class="value" x="550.6994140625" y="514">40.8 KB</text>
+</g>
+<g><title>ArkType · type(value) · allows()
+46.4 KB min+gzip
+151.9 KB minified
+arktype@2.2.8</title>
+<text class="label" x="20" y="545">ArkType</text>
+<text class="sublabel" x="20" y="560">type(value) · allows()</text>
+<path class="bar" d="M265,541H579.08349609375A4,4 0 0 1 583.08349609375,545V551A4,4 0 0 1 579.08349609375,555H265Z"/>
+<text class="value" x="589.08349609375" y="554">46.4 KB</text>
+</g>
+<g><title>Joi · validate(), convert: false
+53.3 KB min+gzip
+169.5 KB minified
+joi@18.2.9</title>
+<text class="label" x="20" y="585">Joi</text>
+<text class="sublabel" x="20" y="600">validate(), convert: false</text>
+<path class="bar" d="M265,581H626.277587890625A4,4 0 0 1 630.277587890625,585V591A4,4 0 0 1 626.277587890625,595H265Z"/>
+<text class="value" x="636.277587890625" y="594">53.3 KB</text>
+</g>
+</svg>

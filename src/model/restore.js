@@ -10,7 +10,7 @@
 // is read (a tag that does not read, a nesting deeper than DEPTH, an index
 // named like a field) is ERR_INVALID_SNAPSHOT located where the walk was,
 // and the kind metadata it declares is never loosened by its `custom` keys.
-const { define } = require('../util.js');
+const { define, shorten } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
 const { SchemaDefinitionError } = require('../errors.js');
@@ -102,7 +102,7 @@ const structDef = (fields, at, depth, context) => {
   const out = {};
   for (const key of Object.keys(fields)) {
     const item = fields[key];
-    const where = `${at}.${key}`;
+    const where = `${at}.${shorten(key)}`;
     const def = isFunctionMarker(item)
       ? placeholderOf(key, where, context)
       : fieldDef(item, where, depth, context);
@@ -132,7 +132,7 @@ const entityDef = (name, entity, context) => {
   const struct = structDef(fields, name, 0, context);
   for (const key of Object.keys(struct)) define(def, key, struct[key]);
   for (const key of Object.keys(indexes ?? {})) {
-    context.at = `${name}.${key}`;
+    context.at = `${name}.${shorten(key)}`;
     if (Object.hasOwn(fields, key)) throw invalidSnapshot('An index is named like a field');
     define(def, key, revive(indexes[key], key, context.at, 0, context));
   }

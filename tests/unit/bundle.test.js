@@ -22,6 +22,8 @@ const bundle = async (entry, options) => {
     "generators: require('./src/generators/index.js'),",
     "compile: require('./src/compile/index.js'),",
     "model: require('./src/model/index.js'),",
+    "stream: require('./src/stream/index.js'),",
+    "formats: require('./src/formats/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -41,7 +43,8 @@ const loadBrowser = async (minify) => {
     globalName: 'metaschema',
     minify,
   });
-  const context = vm.createContext({});
+  // A browser has the Web Streams; a bare context has not.
+  const context = vm.createContext({ TransformStream });
   vm.runInContext(code, context);
   return context.metaschema;
 };
@@ -71,9 +74,48 @@ const evaluates = (() => {
   }
 })();
 
-const checkBundle = async ({ core, generators, compile, model: tools }, browser) => {
+const checkBundle = async (
+  { core, generators, compile, model: tools, stream, formats },
+  browser,
+) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The stream subpath through the bundle: an entry per record, and a
+  // transform of a stream that lets the valid records through.
+  const streamRows = [{ name: 'x', qty: 1 }, { name: 1 }];
+  const streamed = Schema.from({ name: 'string', qty: '?integer' });
+  assert.deepStrictEqual(
+    Array.from(stream.checkEach(streamed, streamRows), (entry) => entry.result.valid),
+    [true, false],
+  );
+  const dropped = [];
+  const source = new ReadableStream({
+    start(controller) {
+      for (const row of streamRows) controller.enqueue(row);
+      controller.close();
+    },
+  });
+  const passed = [];
+  const piped = source.pipeThrough(
+    stream.transform(streamed, { onInvalid: (record, result, index) => dropped.push(index) }),
+  );
+  for await (const value of piped) passed.push(value);
+  assert.deepStrictEqual(passed, [{ name: 'x', qty: 1 }]);
+  assert.deepStrictEqual(dropped, [1]);
+  assert.strictEqual(streamed.checkEach, undefined);
+  stream.register();
+  assert.strictEqual(typeof streamed.checkEach, 'function');
+  // The formats subpath through the bundle: the rule is the core's, the
+  // table the subpath's, and a check reads the registered test.
+  assert.throws(() => Schema.from({ email: { type: 'string', format: 'email' } }), {
+    code: 'ERR_INVALID_RULE',
+  });
+  formats.register();
+  const formatted = Schema.from({ email: { type: 'string', format: 'email' } });
+  assert.strictEqual(formatted.check({ email: 'ann@example.com' }).valid, true);
+  assert.deepStrictEqual(errorsOf(formatted.check({ email: 'nope' })), [
+    'Field "email" is not a valid email',
+  ]);
   // The model subpath through the bundle: a snapshot of the bundled Model
   // class comes back as one, and the changes between two versions classify.
   const prev = new Model({}, [['Item', { Entity: {}, name: 'string', qty: 'integer' }]]);
@@ -108,6 +150,10 @@ const checkBundle = async ({ core, generators, compile, model: tools }, browser)
     'tag',
   ]);
   assert.strictEqual(merged.check({ name: 'x', qty: 10, tag: 't' }).valid, false);
+  // A definition inferred from values accepts them, through the bundle.
+  const inferred = tools.infer([{ name: 'x', qty: 1 }, { name: 'y' }], { as: 'schema' });
+  assert.strictEqual(inferred.check({ name: 'z', qty: 2 }).valid, true);
+  assert.strictEqual(inferred.check({ name: 1 }).valid, false);
   assert.strictEqual(Model.diff, undefined);
   tools.register();
   assert.strictEqual(Model.compatibility(Model.diff(prev, next)), 'backward');

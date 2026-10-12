@@ -312,3 +312,13 @@ test('Snapshot: a Schema instance as a field and as an entity', () => {
   assert.strictEqual(Person.fields.nick.required, false);
   assert.deepStrictEqual(Object.keys(Name.fields), ['first', 'last']);
 });
+
+test('Snapshot: an index named __proto__ is written as a key', () => {
+  const definition = JSON.parse('{"Entity":{},"a":"string","__proto__":{"index":["a"]}}');
+  const model = new Model({}, [['A', definition]]);
+  const { indexes } = model.toJSON().entities.A;
+  assert.strictEqual(Object.hasOwn(indexes, '__proto__'), true);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(model)).entities.A.indexes, {
+    ['__proto__']: { index: ['a'] },
+  });
+});

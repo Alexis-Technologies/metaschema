@@ -68,7 +68,7 @@ const entityOf = (schema) => {
   } else out.type = fieldOf(fields);
   const own = {};
   // A `many` field is recorded with the indexes and is not one.
-  for (const key in indexes) if (indexes[key].many === undefined) own[key] = indexes[key];
+  for (const key in indexes) if (indexes[key].many === undefined) define(own, key, indexes[key]);
   out.indexes = own;
   out.relations = valueOf(Array.from(schema.relations));
   return out;

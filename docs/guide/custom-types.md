@@ -42,6 +42,12 @@ payment.check({ amount: 10.5, createdAt: 1 }).errors;
 // ]
 ```
 
+A type that only names a string form, like `datetime` and `ip` above, is often better written as
+a [string format](/guide/formats): `{ type: 'string', format: 'date-time' }` checks the form as
+well (`date-time`, `ipv4` and `ipv6` are built in), and the name travels into JSON Schema,
+samples and inference. A type stays the tool for metadata (`pg`, `bson`) and for a check of its
+own.
+
 ## Entry forms
 
 | Entry | Effect |
@@ -131,4 +137,5 @@ const catalog = new Model(catalogTypes, catalogEntities, null, { registry: 'isol
 
 An isolated model starts from its own copy of the built-in types and registers its table into
 that copy. Its entities, and any schema that attaches it as a namespace, resolve types through
-it; the shared registry, and `Schema.from` without a namespace, are untouched.
+it; the shared registry, and `Schema.from` without a namespace, are untouched. The table of
+[string formats](/guide/formats) is not isolated: it is one per process.

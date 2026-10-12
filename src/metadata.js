@@ -2,6 +2,7 @@ const { getKindMetadata } = require('./kinds.js');
 const { ValidationResult } = require('./result.js');
 const { SchemaDefinitionError, asyncReturn } = require('./errors.js');
 const { isThenable } = require('./issues.js');
+const { safeString } = require('./util.js');
 
 // The functions of a schema definition that are the schema's own: its
 // validate, its decoder, its serializer and `format`.
@@ -101,10 +102,10 @@ class SchemaMetadata {
       if (isThenable(output)) throw asyncReturn('validator', path, 'checkAsync');
       return result.add(output);
     } catch (error) {
-      if (error.code === 'ERR_ASYNC_VALIDATOR') throw error;
+      if (error?.code === 'ERR_ASYNC_VALIDATOR') throw error;
       return result.add({
         code: 'exception',
-        message: `validation failed ${error}`,
+        message: `validation failed ${safeString(error)}`,
         params: { error },
       });
     }

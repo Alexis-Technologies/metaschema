@@ -90,6 +90,7 @@ class Preprocessor {
   }
 
   typeShorthand(source, first) {
+    if (first === undefined) return null;
     const { types } = this;
     const parsed = formatters.key(first, source.required);
     const type = parsed.field;

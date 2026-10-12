@@ -9,10 +9,15 @@ const required = () => 'є обовʼязковим';
 const type = ({ expected, key }) =>
   key === undefined ? `не відповідає типу: ${expected}` : `ключі мають бути типу ${expected}`;
 
+// Перші ключі списку і скільки їх ще: значення з мільйоном невідомих ключів
+// є одним issue, і його повідомлення не є цим мільйоном.
+const SHOWN = 10;
+
 const list = (keys) => {
+  const count = Math.min(keys.length, SHOWN);
   let text = shorten(keys[0]);
-  for (let index = 1; index < keys.length; index += 1) text += `, ${shorten(keys[index])}`;
-  return text;
+  for (let index = 1; index < count; index += 1) text += `, ${shorten(keys[index])}`;
+  return keys.length > SHOWN ? `${text} і ще ${keys.length - SHOWN}` : text;
 };
 
 const unexpected = ({ keys }) => `має неочікувані ключі: ${list(keys)}`;
@@ -26,6 +31,8 @@ const range = ({ min, max, actual }) =>
   min !== undefined && actual < min ? `менше за ${min}` : `більше за ${max}`;
 
 const pattern = ({ pattern: source }) => `не відповідає шаблону ${source}`;
+
+const format = ({ format: name }) => `не є коректним ${name}`;
 
 const union = ({ expected, discriminator }) =>
   discriminator === undefined
@@ -51,6 +58,7 @@ module.exports = {
   length,
   range,
   pattern,
+  format,
   union,
   reference,
   circular,

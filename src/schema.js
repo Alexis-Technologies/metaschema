@@ -6,7 +6,7 @@ const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata } = require('./metadata.js');
 const { ValidationResult } = require('./result.js');
-const { finalize, runValidate, settle } = require('./issues.js');
+const { finalize, runValidate, settle, release } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
@@ -58,6 +58,18 @@ const parsed = (context, output) => {
 // The result of parse read as Standard Schema does.
 const standardize = (result) =>
   result.valid ? { value: result.value } : { issues: result.issues };
+
+// The walk of an async check: a throw out of it (a getter of the value that
+// throws, the engine's limit on a pattern) leaves the promises the walk
+// queued observed, so that none of them rejects unhandled.
+const walkAsync = (schema, value, context) => {
+  try {
+    schema[RUN](value, context);
+  } catch (error) {
+    release(context.async, 0);
+    throw error;
+  }
+};
 
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
@@ -204,13 +216,13 @@ class Schema extends SchemaMetadata {
     return resultOf(context);
   }
 
-  // The same check, with the validators that return a promise settled after
-  // the walk, in field order.
+  // The same check, with the validators that return a promise in flight
+  // together and settled after the walk, in field order.
   async checkAsync(source, options) {
     const context = createContext(options, this.name, this.unknown);
     context.async = [];
     if (this.#tracked) context.source = source;
-    this[RUN](source, context);
+    walkAsync(this, source, context);
     if (context.async.length > 0) await settle(context);
     return resultOf(context);
   }
@@ -249,7 +261,7 @@ class Schema extends SchemaMetadata {
     const context = createContext(options, this.name, this.unknown, true);
     context.async = [];
     const value = this.#prepare(source, context);
-    this[RUN](value, context);
+    walkAsync(this, value, context);
     if (context.async.length > 0) await settle(context);
     let output;
     if (context.count === 0) {

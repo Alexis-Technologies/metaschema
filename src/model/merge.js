@@ -108,6 +108,7 @@ const mergeKey = (key, a, b, path) => {
       }
       return Array.isArray(a) ? mergeList(a, b, path) : mergeFields(a, b, `${path}[]`);
     case 'pattern':
+    case 'format':
     case 'default':
     case 'parse':
     case 'serialize':

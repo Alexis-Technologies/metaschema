@@ -8,8 +8,8 @@
 // Generated code names three things: `v` the value, `c` the context and `k`
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE } = require('../util.js');
-const { issues, runValidate } = require('../issues.js');
-const { codePoints, lengthOf, ruleNames } = require('../rules.js');
+const { issues, runValidate, release } = require('../issues.js');
+const { FORMATS, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
@@ -53,6 +53,14 @@ const typeIssue = (state, expected, x, key) =>
 
 const notObject = (x) => `${x} === null || typeof ${x} !== "object" || Array.isArray(${x})`;
 
+// A built-in by the name of its constructor and by its shape, as util.js
+// tests it: the name alone is what a value parsed from JSON can carry.
+const isDateCode = (x) =>
+  `${x}?.constructor?.name === "Date" && typeof ${x}.getTime === "function"`;
+
+const isIterableCode = (x, name) =>
+  `${x}?.constructor?.name === ${quote(name)} && typeof ${x}[Symbol.iterator] === "function"`;
+
 // The conditions of the bounds a field has.
 const outside = (state, x, min, max) => {
   const parts = [];
@@ -77,11 +85,27 @@ const emitLength = (type, x, key, state) => {
   code.push('}');
 };
 
+// The condition that keeps a pattern or a format off a string past
+// length.max, as the closures do.
+const withinLength = (type, x, code) => {
+  const limit = patternLimit(type);
+  return limit === Infinity ? '' : `${x}.length <= ${code.value(limit)} && `;
+};
+
 const emitPattern = (type, x, key, state) => {
   const { code } = state;
   const { pattern } = type;
-  code.push(`if (!${code.ref(pattern)}.test(${x})) {`);
+  code.push(`if (${withinLength(type, x, code)}!${code.ref(pattern)}.test(${x})) {`);
   record(state, issue(state, 'pattern', `${quote(pattern.source)}, ${keyOf(key)}`));
+  code.push('}');
+};
+
+const emitFormat = (type, x, key, state) => {
+  const { code } = state;
+  const { format } = type;
+  const { test } = FORMATS[format];
+  code.push(`if (${withinLength(type, x, code)}!${code.ref(test)}(${x})) {`);
+  record(state, issue(state, 'format', `${quote(format)}, ${keyOf(key)}`));
   code.push('}');
 };
 
@@ -97,6 +121,7 @@ const emitRange = (type, x, key, state) => {
 const RULES = Object.assign(Object.create(null), {
   length: emitLength,
   pattern: emitPattern,
+  format: emitFormat,
   range: emitRange,
 });
 
@@ -155,7 +180,7 @@ const emitInteger = (type, x, key, state) =>
   typed(type, x, key, state, `!Number.isInteger(${x})`, typeIssue(state, 'integer', x, key));
 
 const emitDate = (type, x, key, state) => {
-  const fails = `!(${x}?.constructor?.name === "Date" && !Number.isNaN(${x}.getTime()))`;
+  const fails = `!(${isDateCode(x)} && !Number.isNaN(${x}.getTime()))`;
   typed(type, x, key, state, fails, typeIssue(state, 'date', x, key));
 };
 
@@ -228,7 +253,7 @@ const emitObject = (type, x, key, state) => {
 const emitMap = (type, x, key, state) => {
   const { code } = state;
   const failure = typeIssue(state, type.type, x, key);
-  typed(type, x, key, state, `${x}?.constructor?.name !== "Map"`, failure, () => {
+  typed(type, x, key, state, `!(${isIterableCode(x, 'Map')})`, failure, () => {
     if (type.required) {
       code.push(`if (${x}.size === 0) {`);
       record(state, issue(state, 'required', keyOf(key)));
@@ -258,7 +283,7 @@ const emitMap = (type, x, key, state) => {
 const emitList = (type, x, key, state) => {
   const { code } = state;
   const set = type.isInstance === collections.set.isInstance;
-  const fails = set ? `${x}?.constructor?.name !== "Set"` : `!Array.isArray(${x})`;
+  const fails = set ? `!(${isIterableCode(x, 'Set')})` : `!Array.isArray(${x})`;
   typed(type, x, key, state, fails, typeIssue(state, type.type, x, key), () => {
     const children = inside(state, key);
     const index = code.name('i');
@@ -413,7 +438,7 @@ const emitUnion = (type, x, key, state) => {
       code.push('}');
       code.push(`if (c.count === ${before}) break ${label};`);
       code.push(`c.issues.length = ${before}; c.count = ${before};`);
-      code.push(`if (c.async !== null) c.async.length = ${pending};`);
+      code.push(`if (c.async !== null) ${code.ref(release)}(c.async, ${pending});`);
     }
     const names = [];
     for (let index = 0; index < branches.length; index += 1) names.push(nameOf(branches[index]));

@@ -7,8 +7,17 @@
 // whose subtree carries nothing for a phase is returned as it is, and a
 // container is copied only when one of its parts changed: the value given is
 // never written to.
-const { hasBrand, define } = require('./util.js');
-const { EMPTY, NONE, issues, isThenable, abandon, pathOf, toDotPath } = require('./issues.js');
+const { hasBrand, define, isMap, isSet } = require('./util.js');
+const {
+  EMPTY,
+  NONE,
+  issues,
+  isThenable,
+  abandon,
+  release,
+  pathOf,
+  toDotPath,
+} = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct, aliasOf } = require('./struct.js');
 const { asyncReturn } = require('./errors.js');
@@ -176,14 +185,13 @@ const toMap = (value) => new Map(value);
 
 const toSet = (list) => new Set(list);
 
-// The output of a container under construction: the container is copied at
-// the first part that changed (`clone`), a part is written with `put`, and
-// the parts that decoded asynchronously are written in once they settle (a
-// decoder that failed resolved to nothing and recorded its issue). A
-// container pushes its key on the path for its parts.
-const enter = (context, key, value, clone, put) => {
-  if (key !== undefined) context.path.push(key);
-  return { context, key, value, clone, put, out: null, pending: null };
+// The output of a container under construction, kept in the locals of its
+// walker (no state object per container): null until a part changes, then a
+// copy of the container (`clone`) the parts are written into (`put`).
+const written = (out, value, clone, put, key, result) => {
+  const target = out === null ? clone(value) : out;
+  put(target, key, result);
+  return target;
 };
 
 // A part that is still decoding: only a decoder makes a promise (a thenable
@@ -191,13 +199,11 @@ const enter = (context, key, value, clone, put) => {
 // of the data with a `then` of its own is data, never awaited.
 const isPending = (context, value) => context.async !== null && value instanceof Promise;
 
-const take = (state, key, result, phase) => {
-  if (state.out === null) state.out = state.clone(state.value);
-  state.put(state.out, key, result);
-  if (phase === DECODERS && isPending(state.context, result)) {
-    if (state.pending === null) state.pending = [];
-    state.pending.push(key, result);
-  }
+// The parts of a container still decoding, as key, promise, key, promise.
+const queued = (pending, key, result) => {
+  const list = pending === null ? [] : pending;
+  list.push(key, result);
+  return list;
 };
 
 // What a promise of the passes resolves to: a box around the value, never
@@ -205,10 +211,11 @@ const take = (state, key, result, phase) => {
 // own and the value of a program may well have one.
 const boxed = (value) => ({ value });
 
-const leave = (state, wrap) => {
-  const { context, key, out, pending, put } = state;
-  if (key !== undefined) context.path.pop();
-  if (out === null) return state.value;
+// What a container comes back as: the value when no part changed, its copy,
+// or a promise of a box when parts are still decoding, written in once they
+// settle (a decoder that failed resolved to nothing and recorded its issue).
+const settled = (value, out, pending, put, wrap) => {
+  if (out === null) return value;
   if (pending === null) return wrap === undefined ? out : wrap(out);
   const promises = [];
   for (let index = 1; index < pending.length; index += 2) promises.push(pending[index]);
@@ -323,8 +330,10 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   const { plan, infos, extra } = info;
   const strip = (want & STRUCTS) !== 0;
   const parts = info.parts[strip ? STRUCTS : phase];
-  const state = enter(context, key, value, copy, putKey);
-  if (strip) state.out = {};
+  const nested = key !== undefined;
+  if (nested) context.path.push(key);
+  let out = strip ? {} : null;
+  let pending = null;
   let renames = null;
   for (let position = 0; position < parts.length; position += 1) {
     const index = parts[position];
@@ -341,15 +350,18 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
         const fallback = entry.type.default;
         if (fallback === undefined) continue;
         item = typeof fallback === 'function' ? fallback() : fallback;
-        take(state, from, item, phase);
+        out = written(out, value, copy, putKey, from, item);
       }
       const result = apply(infos[index], entry.type, item, context, from, phase, want);
-      if (result !== item) take(state, from, result, phase);
+      if (result !== item) out = written(out, value, copy, putKey, from, result);
       continue;
     }
     const result = apply(infos[index], entry.type, item, context, from, phase, want);
     const renamed = from !== name;
-    if (strip ? result !== undefined : renamed || result !== item) take(state, name, result, phase);
+    if (strip ? result !== undefined : renamed || result !== item) {
+      out = written(out, value, copy, putKey, name, result);
+      if (phase === DECODERS && isPending(context, result)) pending = queued(pending, name, result);
+    }
     if (renamed && !strip) {
       if (renames === null) renames = [];
       renames.push(from, name);
@@ -358,27 +370,37 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   if (strip) {
     for (let index = 0; index < extra.length; index += 1) {
       const name = extra[index];
-      if (Object.hasOwn(value, name)) putKey(state.out, name, value[name]);
+      if (Object.hasOwn(value, name)) putKey(out, name, value[name]);
     }
-  } else if (renames !== null) state.out = renameKeys(state.out, renames);
-  return leave(state);
+  } else if (renames !== null) out = renameKeys(out, renames);
+  if (nested) context.path.pop();
+  return settled(value, out, pending, putKey, undefined);
 };
 
 // The elements of an array, a Set or a tuple, by position; a Set comes back
 // as a Set.
 const walkItems = (children, infos, fixed, value, context, key, phase, want) => {
   const set = !Array.isArray(value);
-  if (set && (fixed || value.constructor?.name !== 'Set')) return value;
-  const state = enter(context, key, value, Array.from, putIndex);
+  if (set && (fixed || !isSet(value))) return value;
+  const nested = key !== undefined;
+  if (nested) context.path.push(key);
+  let out = null;
+  let pending = null;
   let index = 0;
   for (const item of value) {
     const slot = fixed ? index : 0;
     if (slot >= children.length) break;
     const result = apply(infos[slot], children[slot], item, context, index, phase, want);
-    if (result !== item) take(state, index, result, phase);
+    if (result !== item) {
+      out = written(out, value, Array.from, putIndex, index, result);
+      if (phase === DECODERS && isPending(context, result)) {
+        pending = queued(pending, index, result);
+      }
+    }
     index += 1;
   }
-  return leave(state, set ? toSet : undefined);
+  if (nested) context.path.pop();
+  return settled(value, out, pending, putIndex, set ? toSet : undefined);
 };
 
 const walkList = (info, node, value, context, key, phase, want) =>
@@ -386,17 +408,27 @@ const walkList = (info, node, value, context, key, phase, want) =>
 
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, value, context, key, phase, want) => {
-  const map = value.constructor?.name === 'Map';
+  const map = isMap(value);
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;
   const child = info.children[0];
   const sub = info.infos[0];
-  const state = enter(context, key, value, map ? toMap : copy, map ? putEntry : putKey);
+  const clone = map ? toMap : copy;
+  const put = map ? putEntry : putKey;
+  const nested = key !== undefined;
+  if (nested) context.path.push(key);
+  let out = null;
+  let pending = null;
   if (map) {
     for (const pair of value) {
       const name = pair[0];
       const item = pair[1];
       const result = apply(sub, child, item, context, name, phase, want);
-      if (result !== item) take(state, name, result, phase);
+      if (result !== item) {
+        out = written(out, value, clone, put, name, result);
+        if (phase === DECODERS && isPending(context, result)) {
+          pending = queued(pending, name, result);
+        }
+      }
     }
   } else {
     // The own keys of the object, in order, as the check iterates them.
@@ -404,10 +436,16 @@ const walkKeyed = (info, node, value, context, key, phase, want) => {
       if (!Object.hasOwn(value, name)) continue;
       const item = value[name];
       const result = apply(sub, child, item, context, name, phase, want);
-      if (result !== item) take(state, name, result, phase);
+      if (result !== item) {
+        out = written(out, value, clone, put, name, result);
+        if (phase === DECODERS && isPending(context, result)) {
+          pending = queued(pending, name, result);
+        }
+      }
     }
   }
-  return leave(state);
+  if (nested) context.path.pop();
+  return settled(value, out, pending, put, undefined);
 };
 
 // The context for trying the branches of a plain union, one per parse, made
@@ -434,12 +472,8 @@ const accepts = (branch, value, scratch, path, key) => {
   scratch.issues = NONE;
   scratch.count = 0;
   scratch.path = path;
-  const list = scratch.async;
-  list.length = 0;
   branch.check(value, scratch, key);
-  for (let index = 0; index < list.length; index += 1) {
-    if (list[index].promise !== null) abandon(list[index].promise);
-  }
+  release(scratch.async, 0);
   return scratch.count === 0;
 };
 

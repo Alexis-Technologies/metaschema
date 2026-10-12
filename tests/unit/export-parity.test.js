@@ -23,6 +23,8 @@ const entryPoints = [
   ['src/generators/index.js', 'src/generators/index.d.ts'],
   ['src/compile/index.js', 'src/compile/index.d.ts'],
   ['src/model/index.js', 'src/model/index.d.ts'],
+  ['src/stream/index.js', 'src/stream/index.d.ts'],
+  ['src/formats/index.js', 'src/formats/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -67,7 +69,7 @@ test('Exports: the generators are reachable through their subpath export', () =>
 test('Exports: the compile subpath is reachable through its subpath export', () => {
   const compile = require('@alexify/metaschema/compile');
   assert.strictEqual(compile, require(path.join(ROOT, 'src/compile/index.js')));
-  assert.deepStrictEqual(Object.keys(compile), ['compile', 'register', 'canEval']);
+  assert.deepStrictEqual(Object.keys(compile), ['compile', 'compiled', 'register', 'canEval']);
   const source = [
     "import { compile, register, canEval } from '@alexify/metaschema/compile';",
     "import { Schema } from '@alexify/metaschema';",
@@ -96,6 +98,7 @@ test('Exports: the model subpath is reachable through its subpath export', () =>
     'compatibilityOf',
     'sample',
     'merge',
+    'infer',
     'register',
   ]);
   const source = [
@@ -111,6 +114,55 @@ test('Exports: the model subpath is reachable through its subpath export', () =>
   const args = ['--input-type=module', '-e', source];
   const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
   assert.deepStrictEqual(JSON.parse(output), [1, 'full', true, ['A']]);
+});
+
+test('Exports: the stream subpath is reachable through its subpath export', () => {
+  const stream = require('@alexify/metaschema/stream');
+  assert.strictEqual(stream, require(path.join(ROOT, 'src/stream/index.js')));
+  assert.deepStrictEqual(Object.keys(stream), [
+    'checkEach',
+    'parseEach',
+    'checkEachAsync',
+    'parseEachAsync',
+    'transform',
+    'register',
+  ]);
+  const source = [
+    "import { checkEach, parseEach, transform, register } from '@alexify/metaschema/stream';",
+    "import { Schema } from '@alexify/metaschema';",
+    "const schema = Schema.from({ name: 'string', 'n?': { type: 'number', default: 1 } });",
+    "const rows = [{ name: 'a' }, { name: 1 }];",
+    'const verdicts = Array.from(checkEach(schema, rows), (entry) => entry.result.valid);',
+    'const values = Array.from(parseEach(schema, rows), (entry) => entry.result.value);',
+    'register();',
+    'process.stdout.write(JSON.stringify([verdicts, values, typeof schema.checkEach, transform(schema) instanceof TransformStream]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [
+    [true, false],
+    [{ name: 'a', n: 1 }, null],
+    'function',
+    true,
+  ]);
+});
+
+test('Exports: the formats subpath is reachable through its subpath export', () => {
+  const formats = require('@alexify/metaschema/formats');
+  assert.strictEqual(formats, require(path.join(ROOT, 'src/formats/index.js')));
+  assert.deepStrictEqual(Object.keys(formats), ['FORMATS', 'register']);
+  const source = [
+    "import { FORMATS, register } from '@alexify/metaschema/formats';",
+    "import { Schema } from '@alexify/metaschema';",
+    'const before = Object.keys(FORMATS).length;',
+    'register();',
+    "const schema = Schema.from({ email: { type: 'string', format: 'email' } });",
+    "const verdicts = ['ann@example.com', 'nope'].map((email) => schema.check({ email }).valid);",
+    'process.stdout.write(JSON.stringify([before, Object.keys(FORMATS).length, verdicts]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [0, 9, [true, false]]);
 });
 
 test('Exports: the locales are reachable through their subpath exports', () => {
