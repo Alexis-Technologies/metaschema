@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.2.0] - 2026-10-11
+## [3.2.0] - 2026-10-12
 
 3.2 takes a schema to the records around it. The new `@alexify/metaschema/stream` subpath runs
 a schema over a sequence of records, lazily and in order, as generators and as a

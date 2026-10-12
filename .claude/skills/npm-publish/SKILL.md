@@ -39,7 +39,7 @@ These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
 ```bash
 pnpm run test:jit                # the suite with every schema compiled by ./compile
 pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
-pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10   # the bundle budgets (CLAUDE.md "Budgets")
+pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2   # the bundle budgets (CLAUDE.md "Budgets")
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -126,11 +126,11 @@ Keep all existing links intact.
 
 ## Step 4: TypeScript Declarations
 
-The types are hand-written: `index.d.ts` for the core entry, `src/generators/index.d.ts` and `src/compile/index.d.ts` for the subpaths (they import the shared types from the root), and the one-line `src/locales/*.d.ts`:
+The types are hand-written: `index.d.ts` for the core entry, `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts`, `src/stream/index.d.ts` and `src/formats/index.d.ts` for the subpaths (they import the shared types from the root), and the one-line `src/locales/*.d.ts`:
 
 1. `pnpm run check:dts` (tsc over all of them) and `pnpm run test:types` (tsd) must pass with no errors
 2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js`, `browser.js` and the subpaths with the declared value exports; it must pass
-3. Read `src/index.js`, `src/generators/index.js`, `src/compile/index.js` and their `.d.ts` files and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations. The methods `register()` of the generators installs on `Schema` and `Model` are declared in the root `index.d.ts` on purpose (a type-level claim)
+3. Read `src/index.js`, the `index.js` of every subpath (`generators`, `compile`, `model`, `stream`, `formats`) and their `.d.ts` files and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations. The methods the `register()` of a subpath installs on `Schema` and `Model` are declared in the root `index.d.ts` on purpose (a type-level claim)
 4. If the release includes API changes, update the typings and `tests/types/*.test-d.ts` accordingly
 
 ## Step 5: README, Docs & License Review
@@ -142,9 +142,10 @@ Scan for staleness:
 1. **README.md usage examples**: do they match the current API? Run them if in doubt; the documented outputs must be true
 2. **Badges**: do the URLs point to `@alexify/<name>` and the `Alexis-Technologies` repository?
 3. **docs/**: guide and API pages for anything the release changed; the nav version label is read from `package.json` automatically. `pnpm run docs:build` must pass (dead links fail it)
-4. **docs/public/llms.txt**: key facts (exports, Node.js version, size). The min+gzip figures (the core, the generators and the compile subpath) also appear in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`, `docs/guide/json-schema.md`, `docs/guide/compile.md`, `docs/api/exports.md` and CLAUDE.md "Budgets"; take them from `pnpm size` and update them together
-5. **docs/guide/performance.md**: the numbers come from `bench/baseline.json`; if the baseline was re-saved, update the table
-6. **SECURITY.md**: the supported-versions table on a major release
+4. **docs/public/llms.txt**: key facts (exports, Node.js version, size). The min+gzip figures (the core and every subpath) also appear in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`, `docs/guide/json-schema.md`, `docs/guide/evolution.md`, `docs/guide/architecture.md`, `docs/api/exports.md` and CLAUDE.md "Budgets"; take them from `pnpm size` and update them together
+5. **The benchmark and comparison pages**: `docs/guide/benchmarks.md` and the README tables are generated (`pnpm bench:report`, `pnpm docs:comparison`); regenerate them when their data changed, never edit the generated regions by hand
+6. **docs/guide/performance.md**: the numbers come from `bench/baseline.json`; if the baseline was re-saved, update the table
+7. **SECURITY.md**: the supported-versions table on a major release
 
 Only edit if something is factually wrong or outdated. Don't rewrite style or add unsolicited content.
 
@@ -154,7 +155,7 @@ Only edit if something is factually wrong or outdated. Don't rewrite style or ad
 
 Check these fields are correct:
 
-- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first for `.`, `./locales/en`, `./locales/uk`, `./generators` and `./compile`, and the `browser` map covers the root entry and `src/runtime/node.js`
+- `"main"` / `"exports"` / `"browser"` — point to existing files; `exports` lists `types` first for `.`, `./locales/en`, `./locales/uk`, `./generators`, `./compile`, `./model`, `./stream` and `./formats`, and the `browser` map covers the root entry and `src/runtime/node.js`
 - `"types"` — points to `index.d.ts`
 - `"files"` — the explicit allowlist includes everything that ships and nothing else (there is no `.npmignore`)
 - `"engines"` — matches the CI matrix (`.github/workflows/ci.yml`)
@@ -183,7 +184,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 17.5 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 10 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

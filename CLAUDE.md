@@ -571,7 +571,7 @@ sat at 16.1 KB after them (16530 bytes before G). A subpath is measured as the d
 between a bundle of `index.js` plus the subpath's `index.js` and `index.js` alone (a subpath
 requires the core for `register()`, so on its own it would bundle the core again). The figures
 are quoted in README, `docs/index.md`, `docs/guide/why.md`, `docs/guide/browser.md`,
-`docs/guide/json-schema.md`, `docs/guide/evolution.md`,
+`docs/guide/json-schema.md`, `docs/guide/evolution.md`, `docs/guide/architecture.md`,
 `docs/api/exports.md` and `docs/public/llms.txt`; change them together from `pnpm size`. History: 1.0 shipped under 8 KB with an 8 KB gate; Workstream A took
 the entries to 9.9 KB (gate 10 KB); Workstream B to 12.5 KB (union, date/null/any/integer,
 pattern and min/max, the references rule and the lint cost about 2.6 KB together; gate 13 KB);
