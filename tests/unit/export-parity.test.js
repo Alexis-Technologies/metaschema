@@ -25,6 +25,7 @@ const entryPoints = [
   ['src/model/index.js', 'src/model/index.d.ts'],
   ['src/stream/index.js', 'src/stream/index.d.ts'],
   ['src/formats/index.js', 'src/formats/index.d.ts'],
+  ['src/derive/index.js', 'src/derive/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -163,6 +164,35 @@ test('Exports: the formats subpath is reachable through its subpath export', () 
   const args = ['--input-type=module', '-e', source];
   const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
   assert.deepStrictEqual(JSON.parse(output), [0, 9, [true, false]]);
+});
+
+test('Exports: the derive subpath is reachable through its subpath export', () => {
+  const derive = require('@alexify/metaschema/derive');
+  assert.strictEqual(derive, require(path.join(ROOT, 'src/derive/index.js')));
+  assert.deepStrictEqual(Object.keys(derive), [
+    'pick',
+    'omit',
+    'partial',
+    'required',
+    'extend',
+    'keyof',
+    'register',
+  ]);
+  const source = [
+    "import { omit, keyof, register } from '@alexify/metaschema/derive';",
+    "import { Schema } from '@alexify/metaschema';",
+    "const account = new Schema('Account', { Entity: {}, login: 'string', password: 'string' });",
+    "const create = omit(account, ['password']);",
+    'const before = typeof account.partial;',
+    'register();',
+    "const patch = account.omit(['password']).partial();",
+    'process.stdout.write(JSON.stringify([',
+    '  Object.keys(create.fields), before, patch.check({}).valid, keyof(account).fields.enum,',
+    ']));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [['login'], 'undefined', true, ['login', 'password']]);
 });
 
 test('Exports: the locales are reachable through their subpath exports', () => {

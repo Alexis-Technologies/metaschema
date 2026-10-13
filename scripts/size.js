@@ -4,12 +4,13 @@
  * `--max-gzip-generators <KB>` when the `./generators` subpath adds more than
  * that on top of the core, with `--max-gzip-compile <KB>` when the `./compile`
  * subpath does, with `--max-gzip-model <KB>` when the `./model` subpath does,
- * with `--max-gzip-stream <KB>` when the `./stream` subpath does and with
- * `--max-gzip-formats <KB>` when the `./formats` subpath does (CI uses the
- * six as gates). The budgets are 17.75 KB per core entry, 7.5 KB for the
+ * with `--max-gzip-stream <KB>` when the `./stream` subpath does, with
+ * `--max-gzip-formats <KB>` when the `./formats` subpath does and with
+ * `--max-gzip-derive <KB>` when the `./derive` subpath does (CI uses the
+ * seven as gates). The budgets are 17.75 KB per core entry, 7.5 KB for the
  * generators, 4.25 KB for the compile subpath, 12 KB for the model subpath,
- * 1.5 KB for the stream subpath and 2 KB for the formats subpath (CLAUDE.md
- * "Budgets").
+ * 1.5 KB for the stream subpath, 2 KB for the formats subpath and 2.5 KB for
+ * the derive subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -74,6 +75,13 @@ const SUBPATHS = [
     platform: 'node',
     subpath: './src/formats/index.js',
     flag: '--max-gzip-formats',
+  },
+  {
+    label: 'Derive (./derive) on top of the Node entry',
+    entry: 'index.js',
+    platform: 'node',
+    subpath: './src/derive/index.js',
+    flag: '--max-gzip-derive',
   },
 ];
 

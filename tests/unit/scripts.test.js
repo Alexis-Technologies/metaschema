@@ -22,6 +22,8 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-formats',
     '100',
+    '--max-gzip-derive',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -32,6 +34,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(ok.stdout, /\| Model \(\.\/model\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Stream \(\.\/stream\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Formats \(\.\/formats\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Derive \(\.\/derive\) on top of the Node entry \| [1-9]/);
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -67,6 +70,11 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(formats.stderr, /Bundle budget exceeded: Formats \(\.\/formats\)/);
   assert.doesNotMatch(formats.stderr, /exceeded: Stream/);
 
+  const derive = run('scripts/size.js', ['--max-gzip-derive', '1']);
+  assert.strictEqual(derive.status, 1);
+  assert.match(derive.stderr, /Bundle budget exceeded: Derive \(\.\/derive\)/);
+  assert.doesNotMatch(derive.stderr, /exceeded: Formats/);
+
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
   assert.match(bad.stderr, /--max-gzip needs a positive number of kilobytes/);
@@ -85,4 +93,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   const badFormats = run('scripts/size.js', ['--max-gzip-formats', '']);
   assert.strictEqual(badFormats.status, 1);
   assert.match(badFormats.stderr, /--max-gzip-formats needs a positive number/);
+  const badDerive = run('scripts/size.js', ['--max-gzip-derive', 'none']);
+  assert.strictEqual(badDerive.status, 1);
+  assert.match(badDerive.stderr, /--max-gzip-derive needs a positive number/);
 });

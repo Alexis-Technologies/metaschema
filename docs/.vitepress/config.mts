@@ -135,6 +135,7 @@ export default withMermaid(
               { text: 'Unions, nullable and null', link: '/guide/unions' },
               { text: 'References', link: '/guide/references' },
               { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
+              { text: 'Deriving schemas', link: '/guide/derive' },
               { text: 'Custom Types', link: '/guide/custom-types' },
             ],
           },

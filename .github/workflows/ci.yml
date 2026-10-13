@@ -34,9 +34,9 @@ jobs:
       # ever reaches the browser bundle, and fails over the min+gzip budgets.
       # 17.75 KB per core entry, 7.5 KB for the ./generators subpath, 4.25 KB
       # for the ./compile subpath, 12 KB for the ./model subpath, 1.5 KB for
-      # the ./stream subpath and 2 KB for the ./formats subpath on top of it
-      # are the 3.2 budgets (CLAUDE.md "Budgets").
-      - run: pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2
+      # the ./stream subpath, 2 KB for the ./formats subpath and 2.5 KB for the
+      # ./derive subpath on top of it are the 3.3 budgets (CLAUDE.md "Budgets").
+      - run: pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2 --max-gzip-derive 2.5
 
   types:
     runs-on: ubuntu-latest

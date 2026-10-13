@@ -364,6 +364,9 @@ export type DefinitionErrorCode =
   // test.
   | 'ERR_INVALID_FORMAT'
   | 'ERR_FORMAT_REGISTERED'
+  // Thrown by the functions of the `@alexify/metaschema/derive` subpath for
+  // a key the schema has no field of, located in the schema.
+  | 'ERR_UNKNOWN_FIELD'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -508,6 +511,31 @@ export interface MergeOptions {
   // The kind metadata of the merged schema, over the first schema's: `kind`,
   // `scope`, `store`, `allow`, `unknown` and any other key.
   metadata?: Partial<KindMetadata>;
+}
+
+// The options of every function of the `@alexify/metaschema/derive` subpath.
+export interface DeriveOptions {
+  // The name of the derived schema: the source's by default.
+  name?: string;
+  // The kind metadata of the derived schema, over the source's (a stored
+  // kind or a projection is a struct, keeping its `unknown`).
+  metadata?: Partial<KindMetadata>;
+}
+
+// The options of `partial`: the fields to make optional (every one by
+// default), `deep` into nested structs, and `defaults` to keep the defaults
+// a patch would otherwise fill.
+export interface PartialOptions<K extends string = string> extends DeriveOptions {
+  keys?: readonly K[];
+  deep?: boolean;
+  defaults?: boolean;
+}
+
+// The options of `required`: the fields to make required (every one by
+// default) and `deep` into nested structs.
+export interface RequiredOptions<K extends string = string> extends DeriveOptions {
+  keys?: readonly K[];
+  deep?: boolean;
 }
 
 // The options of `infer` of the `@alexify/metaschema/model` subpath (the
@@ -1147,6 +1175,248 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
   Infer<E[Name], E> & IdOf<Name, E[Name]>
 >;
 
+// The definitions of derived schemas (the `@alexify/metaschema/derive`
+// subpath): what `pick`, `omit`, `partial`, `required` and `extend` build,
+// as a definition `Infer` reads. A derived definition always has a kind as
+// its first key, so its fields read as a struct whatever their names.
+
+// The definition a schema type was built from.
+export type DefinitionOf<S> = S extends Schema<infer D> ? D : never;
+
+// A schema whose definition is not known (`Schema`, an entity of a model):
+// what is derived from it is not known either.
+type IsWide<D> = string extends D ? true : object extends D ? true : false;
+
+type IsShorthand<D> = D extends { array: unknown }
+  ? true
+  : D extends
+        | { set: unknown }
+        | { object: object }
+        | { map: object }
+        | { enum: readonly unknown[] }
+        | { tuple: readonly unknown[] }
+        | { union: readonly unknown[] }
+        | { schema: object }
+        | { one: string }
+        | { many: string }
+    ? true
+    : false;
+
+// Whether a definition is a struct, as `Infer` reads it.
+type IsStructDef<D> = D extends string
+  ? false
+  : D extends readonly unknown[]
+    ? false
+    : D extends Schema<infer X>
+      ? IsStructDef<X>
+      : D extends object
+        ? [KindKey<D>] extends [never]
+          ? D extends { type: string }
+            ? false
+            : IsShorthand<D> extends true
+              ? false
+              : true
+          : true
+        : false;
+
+// What a derive function takes: a struct, or a schema of an unknown one.
+export type StructGuardOf<D> =
+  IsWide<D> extends true ? unknown : IsStructDef<D> extends true ? unknown : never;
+
+type OptionKey = 'validate' | 'parse' | 'serialize' | 'format';
+
+type Fn = (...args: never[]) => unknown;
+
+// The keys of the fields of a struct definition, as written ('nick?').
+type FieldKeyOf<D> = Exclude<FieldKeys<D>, KindKey<D>>;
+
+// The keys of its calculated fields.
+type CalculatedKeyOf<D> = {
+  [K in keyof D]: D[K] extends Fn ? (K extends OptionKey ? never : K) : never;
+}[keyof D];
+
+// The names a derive function takes: the fields, the calculated fields and,
+// for a stored kind, its id (named after the entity, which the definition
+// does not carry).
+export type DeriveKeyOf<D> =
+  IsWide<D> extends true
+    ? string
+    : Extract<
+        | FieldName<FieldKeyOf<D>>
+        | CalculatedKeyOf<D>
+        | (StoreOf<D> extends 'persistent' ? `${string}Id` | 'id' : never),
+        string
+      >;
+
+type KindName<D> = [KindKey<D>] extends [never] ? 'Struct' : KindKey<D>;
+
+// The kind of a derived definition: the one of the options, else a struct
+// for a kindless definition, a stored kind and a projection, else the
+// source's kind with its metadata.
+type DerivedKind<D, O> = O extends { metadata: { kind: infer K extends string } }
+  ? { [P in Capitalize<K>]: {} }
+  : KindName<D> extends 'Struct' | 'Projection'
+    ? { Struct: {} }
+    : Lowercase<KindName<D> & string> extends StoredKind
+      ? { Struct: {} }
+      : { [P in KindName<D> & keyof D]: D[P] };
+
+// A derived schema: of an unknown definition when the source's is unknown.
+export type DerivedSchema<D, R> = IsWide<D> extends true ? Schema : Schema<Simplify<R>>;
+
+type Keep<D, K> = {
+  [P in keyof D as P extends FieldKeyOf<D>
+    ? FieldName<P> extends K
+      ? P
+      : never
+    : P extends CalculatedKeyOf<D>
+      ? P extends K
+        ? P
+        : never
+      : never]: D[P];
+};
+
+type Drop<D, K> = {
+  [P in keyof D as P extends FieldKeyOf<D>
+    ? FieldName<P> extends K
+      ? never
+      : P
+    : P extends CalculatedKeyOf<D>
+      ? P extends K
+        ? never
+        : P
+      : never]: D[P];
+};
+
+export type PickDefinition<D, K, O = {}> = DerivedKind<D, O> & Keep<D, K>;
+
+export type OmitDefinition<D, K, O = {}> = DerivedKind<D, O> & Drop<D, K>;
+
+type KeysOf<O, D> = O extends { keys: readonly (infer K)[] } ? K : FieldName<FieldKeyOf<D>>;
+
+type IsDeep<O> = O extends { deep: true } ? true : false;
+
+// The fields of a nested struct as a definition of their own, in each form
+// a field may hold one in; never for anything else.
+type NestedOf<X> =
+  X extends Schema<infer S>
+    ? IsStructDef<S> extends true
+      ? S
+      : never
+    : X extends { schema: infer S }
+      ? IsStructDef<S> extends true
+        ? S
+        : never
+      : IsStructDef<X> extends true
+        ? Omit<X, KindKey<X>>
+        : never;
+
+// A field holding a nested struct with the fields `F` in its place.
+type Reshaped<X, F> =
+  X extends Schema<any>
+    ? F
+    : X extends { schema: unknown }
+      ? Omit<X, 'schema' | 'validate' | 'parse' | 'serialize'> & { schema: F }
+      : { [K in KindKey<X> & keyof X]: X[K] } & F;
+
+type NoDefault<X, O> = O extends { defaults: true }
+  ? X
+  : IsStructDef<X> extends true
+    ? X
+    : Omit<X, 'default'>;
+
+type OptionalDef<X, O> = X extends string
+  ? X
+  : IsDeep<O> extends true
+    ? [NestedOf<X>] extends [never]
+      ? NoDefault<X, O>
+      : Simplify<Reshaped<NoDefault<X, O>, PartialFields<NestedOf<X>, O>>>
+    : NoDefault<X, O>;
+
+type PartialFields<D, O> = {
+  [P in keyof D as P extends FieldKeyOf<D>
+    ? `${FieldName<P> & string}?`
+    : P extends CalculatedKeyOf<D>
+      ? P
+      : never]: P extends FieldKeyOf<D> ? OptionalDef<D[P], O> : D[P];
+};
+
+type PartialOf<D, O> = {
+  [P in keyof D as P extends FieldKeyOf<D>
+    ? FieldName<P> extends KeysOf<O, D>
+      ? `${FieldName<P> & string}?`
+      : P
+    : P extends CalculatedKeyOf<D>
+      ? P
+      : never]: P extends FieldKeyOf<D>
+    ? FieldName<P> extends KeysOf<O, D>
+      ? OptionalDef<D[P], O>
+      : D[P]
+    : D[P];
+};
+
+export type PartialDefinition<D, O = {}> = DerivedKind<D, O> & PartialOf<D, O>;
+
+type RequiredDef<X, O> = X extends `?${infer N}`
+  ? N
+  : X extends string
+    ? X
+    : Simplify<
+        (X extends { type: `?${infer N}` }
+          ? Omit<X, 'type' | 'required'> & { type: N }
+          : IsStructDef<X> extends true
+            ? X
+            : Omit<X, 'required'>) extends infer Y
+          ? IsDeep<O> extends true
+            ? [NestedOf<X>] extends [never]
+              ? Y
+              : X extends { schema: unknown }
+                ? Omit<Y, 'schema'> & { schema: RequiredFields<NestedOf<X>, O> }
+                : X extends Schema<any>
+                  ? RequiredFields<NestedOf<X>, O>
+                  : { [K in KindKey<X> & keyof X]: X[K] } & RequiredFields<NestedOf<X>, O>
+            : Y
+          : never
+      >;
+
+type RequiredFields<D, O> = {
+  [P in keyof D as P extends FieldKeyOf<D> ? FieldName<P> : P]: P extends FieldKeyOf<D>
+    ? RequiredDef<D[P], O>
+    : D[P];
+};
+
+type RequiredOf<D, O> = {
+  [P in keyof D as P extends FieldKeyOf<D>
+    ? FieldName<P> extends KeysOf<O, D>
+      ? FieldName<P>
+      : P
+    : P extends CalculatedKeyOf<D> | OptionKey
+      ? P
+      : never]: P extends FieldKeyOf<D>
+    ? FieldName<P> extends KeysOf<O, D>
+      ? RequiredDef<D[P], O>
+      : D[P]
+    : D[P];
+};
+
+export type RequiredDefinition<D, O = {}> = DerivedKind<D, O> & RequiredOf<D, O>;
+
+// What an extension adds: its fields (a Schema's, without its kind).
+type ExtensionOf<X> = X extends Schema<infer S> ? Omit<S, KindKey<S>> : X;
+
+export type ExtendDefinition<D, X, O = {}> = DerivedKind<D, O> & {
+  [P in keyof D as P extends KindKey<D>
+    ? never
+    : P extends FieldKeyOf<D>
+      ? FieldName<P> extends FieldName<keyof ExtensionOf<X>>
+        ? never
+        : P
+      : P]: D[P];
+} & ExtensionOf<X>;
+
+// The names of the fields of a struct definition, as a definition of an enum.
+export type KeyofDefinition<D> = { enum: Array<FieldName<FieldKeyOf<D>>> };
+
 // Standard Schema v1 (https://standardschema.dev): the interface every schema
 // exposes as `schema['~standard']`, so tRPC, TanStack Form, Hono and the other
 // consumers of the specification accept it without an adapter. The shape is
@@ -1262,6 +1532,46 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
   // options)` is the same without it.
   sample(options?: SampleOptions): Infer<D>;
+  // The six members below exist once `register()` of the
+  // `@alexify/metaschema/derive` subpath has run; its `pick(schema, keys)`
+  // and kin are the same without it. They are typed through `this`, never
+  // through `D`: a member that maps `D` makes every comparison of two Schema
+  // types instantiate the mapping ("excessively deep").
+  pick<
+    S extends Schema,
+    const K extends readonly DeriveKeyOf<DefinitionOf<S>>[],
+    const O extends DeriveOptions = {},
+  >(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    keys: K,
+    options?: O,
+  ): DerivedSchema<DefinitionOf<S>, PickDefinition<DefinitionOf<S>, K[number], O>>;
+  omit<
+    S extends Schema,
+    const K extends readonly DeriveKeyOf<DefinitionOf<S>>[],
+    const O extends DeriveOptions = {},
+  >(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    keys: K,
+    options?: O,
+  ): DerivedSchema<DefinitionOf<S>, OmitDefinition<DefinitionOf<S>, K[number], O>>;
+  partial<S extends Schema, const O extends PartialOptions<DeriveKeyOf<DefinitionOf<S>>> = {}>(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    options?: O,
+  ): DerivedSchema<DefinitionOf<S>, PartialDefinition<DefinitionOf<S>, O>>;
+  required<S extends Schema, const O extends RequiredOptions<DeriveKeyOf<DefinitionOf<S>>> = {}>(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    options?: O,
+  ): DerivedSchema<DefinitionOf<S>, RequiredDefinition<DefinitionOf<S>, O>>;
+  extend<S extends Schema, const X extends object, const O extends DeriveOptions = {}>(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    extension: X,
+    options?: O,
+  ): DerivedSchema<DefinitionOf<S>, ExtendDefinition<DefinitionOf<S>, X, O>>;
+  keyof<S extends Schema>(
+    this: S & StructGuardOf<DefinitionOf<S>>,
+    options?: DeriveOptions,
+  ): DerivedSchema<DefinitionOf<S>, KeyofDefinition<DefinitionOf<S>>>;
   // The five members below exist once `register()` of the
   // `@alexify/metaschema/stream` subpath has run; its `checkEach(schema,
   // records, options)` and kin are the same without it.

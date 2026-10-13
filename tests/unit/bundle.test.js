@@ -12,7 +12,7 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
-// One bundle of the core entry and the three subpaths, the way an
+// One bundle of the core entry and the subpaths, the way an
 // application that uses them gets them: a subpath shares the core's modules,
 // and its register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
@@ -24,6 +24,7 @@ const bundle = async (entry, options) => {
     "model: require('./src/model/index.js'),",
     "stream: require('./src/stream/index.js'),",
     "formats: require('./src/formats/index.js'),",
+    "derive: require('./src/derive/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -75,11 +76,24 @@ const evaluates = (() => {
 })();
 
 const checkBundle = async (
-  { core, generators, compile, model: tools, stream, formats },
+  { core, generators, compile, model: tools, stream, formats, derive },
   browser,
 ) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The derive subpath through the bundle: a stored kind becomes a struct
+  // without its id, the index whose columns stay stays, and the methods
+  // chain once registered.
+  const member = new Model({}, [
+    ['Member', { Entity: {}, login: 'string', password: 'string', byLogin: { unique: ['login'] } }],
+  ]).entities.get('Member');
+  const created = derive.omit(member, ['password']);
+  assert.strictEqual(created.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(created.fields), ['login']);
+  assert.deepStrictEqual(Object.keys(created.indexes), ['byLogin']);
+  assert.strictEqual(member.partial, undefined);
+  derive.register();
+  assert.strictEqual(member.omit(['password']).partial().check({}).valid, true);
   // The stream subpath through the bundle: an entry per record, and a
   // transform of a stream that lets the valid records through.
   const streamRows = [{ name: 'x', qty: 1 }, { name: 1 }];
