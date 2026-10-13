@@ -90,6 +90,11 @@ class Schema extends SchemaMetadata {
   // What the passes of parse and serialize know about the schema, on first use.
   #codec = null;
 
+  // Whether parse coerces the input unless the call says otherwise: the
+  // `coerce` of the kind metadata, read once (an own property would shadow
+  // the method the `./coerce` subpath installs).
+  #coerce = false;
+
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
   }
@@ -129,6 +134,7 @@ class Schema extends SchemaMetadata {
       this.fields = createStruct(combined, preprocessor);
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
+    this.#coerce = this.custom.coerce === true;
     this[RUN] = compileSchema(this);
     const hook = Schema[HOOK];
     if (hook !== undefined) hook(this);
@@ -227,16 +233,20 @@ class Schema extends SchemaMetadata {
     return resultOf(context);
   }
 
-  #pass(phase, source, context) {
+  #pass(phase, source, context, coerce) {
     if (this.#codec === null) this.#codec = infoOf(this);
-    return apply(this.#codec, this, source, context, undefined, phase, wantOf(phase, context));
+    const want = wantOf(phase, context, coerce);
+    return apply(this.#codec, this, source, context, undefined, phase, want);
   }
 
-  // The defaults of the schema over a value, before its check; the objects
-  // met on the way down are not the check's, and a value that loops through
-  // its references is checked as it was given.
-  #prepare(source, context) {
-    const prepared = this.#pass(PREPARE, source, context);
+  // The coercion (when the call, else the schema, asks for it) and the
+  // defaults of the schema over a value, before its check; the objects met
+  // on the way down are not the check's, and a value that loops through its
+  // references is checked as it was given.
+  #prepare(source, context, options) {
+    const own = options == null ? undefined : options.coerce;
+    const coerce = own === undefined ? this.#coerce : own;
+    const prepared = this.#pass(PREPARE, source, context, coerce);
     const value = looped(context) ? source : prepared;
     context.seen = null;
     if (this.#tracked) context.source = value;
@@ -251,7 +261,7 @@ class Schema extends SchemaMetadata {
   // there was nothing to apply; the value given is never written to.
   parse(source, options) {
     const context = createContext(options, this.name, this.unknown, true);
-    const value = this.#prepare(source, context);
+    const value = this.#prepare(source, context, options);
     this[RUN](value, context);
     const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
     return parsed(context, output);
@@ -260,7 +270,7 @@ class Schema extends SchemaMetadata {
   async parseAsync(source, options) {
     const context = createContext(options, this.name, this.unknown, true);
     context.async = [];
-    const value = this.#prepare(source, context);
+    const value = this.#prepare(source, context, options);
     walkAsync(this, value, context);
     if (context.async.length > 0) await settle(context);
     let output;

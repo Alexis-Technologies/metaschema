@@ -25,6 +25,7 @@ const bundle = async (entry, options) => {
     "stream: require('./src/stream/index.js'),",
     "formats: require('./src/formats/index.js'),",
     "derive: require('./src/derive/index.js'),",
+    "coerce: require('./src/coerce/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -76,11 +77,26 @@ const evaluates = (() => {
 })();
 
 const checkBundle = async (
-  { core, generators, compile, model: tools, stream, formats, derive },
+  { core, generators, compile, model: tools, stream, formats, derive, coerce },
   browser,
 ) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The coerce subpath through the bundle: the policy is the core's, the
+  // converters the subpath's, and a parse that coerces before register()
+  // says so.
+  const query = new Schema('Query', { Form: { coerce: true }, page: 'integer', all: 'boolean' });
+  assert.throws(() => query.parse({ page: '2' }), { code: 'ERR_NOT_REGISTERED' });
+  coerce.register();
+  assert.deepStrictEqual({ ...query.parse({ page: '2', all: '1' }).value }, { page: 2, all: true });
+  assert.deepStrictEqual(
+    { ...coerce.coerce(query, { page: '3', all: 'false' }) },
+    {
+      page: 3,
+      all: false,
+    },
+  );
+  assert.strictEqual(query.check({ page: '2', all: true }).valid, false);
   // The derive subpath through the bundle: a stored kind becomes a struct
   // without its id, the index whose columns stay stays, and the methods
   // chain once registered.

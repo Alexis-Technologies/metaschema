@@ -89,7 +89,7 @@ test('Graph: the modules of src/ require each other without a cycle', () => {
 // The directories of the subpaths: nothing in the core requires them, and a
 // subpath requires another only along the edges below (CLAUDE.md
 // "Architecture"), so a program that imports one subpath carries no other.
-const SUBPATHS = ['generators', 'compile', 'model', 'stream', 'formats', 'derive'];
+const SUBPATHS = ['generators', 'compile', 'model', 'stream', 'formats', 'derive', 'coerce'];
 const SUBPATH_EDGES = ['derive/index.js -> model/data.js'];
 
 const subpathOf = (name) => {

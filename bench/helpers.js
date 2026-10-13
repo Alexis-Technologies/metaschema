@@ -21,6 +21,7 @@ const callCheck = (value, options) => subject.schema.check(value, options);
 const callParse = (value, options) => subject.schema.parse(value, options);
 const callCheckAsync = (value, options) => subject.schema.checkAsync(value, options);
 const callParseAsync = (value, options) => subject.schema.parseAsync(value, options);
+const callCoerce = (value, options) => subject.schema.coerce(value, options);
 
 const decoy = (shape, n) => ({
   ...shape,
@@ -28,6 +29,7 @@ const decoy = (shape, n) => ({
   parse: () => n,
   checkAsync: () => n,
   parseAsync: () => n,
+  coerce: () => n,
 });
 
 const DECOYS = [
@@ -44,6 +46,7 @@ for (let round = 0; round < 2_000; round++) {
     callParse(null, undefined);
     callCheckAsync(null, undefined);
     callParseAsync(null, undefined);
+    callCoerce(null, undefined);
   }
 }
 
@@ -173,6 +176,10 @@ const CODEC_VALID = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
 const FLAT_INVALID = { name: 7, email: 'm@x', extra: true };
 const SPARSE_VALID = { name: 'Marcus', email: 'marcus@example.com', active: true };
 const ALIASED_VALID = { title: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
+// The flat value as a form or a query string gives it: the number and the
+// boolean as text, for parse with `coerce: true`.
+const COERCE_VALUE = { name: 'Marcus', email: 'marcus@example.com', age: '42', active: 'true' };
+const COERCE = { coerce: true };
 
 const NESTED_VALID = {
   name: { first: 'Marcus', last: 'Aurelius' },
@@ -268,6 +275,9 @@ module.exports = {
   callParse,
   callCheckAsync,
   callParseAsync,
+  callCoerce,
+  COERCE_VALUE,
+  COERCE,
   SYNC_VALIDATORS_SCHEMA,
   RESOLVED_VALIDATORS_SCHEMA,
   LATER_VALIDATORS_SCHEMA,

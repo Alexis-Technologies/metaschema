@@ -26,6 +26,7 @@ const entryPoints = [
   ['src/stream/index.js', 'src/stream/index.d.ts'],
   ['src/formats/index.js', 'src/formats/index.d.ts'],
   ['src/derive/index.js', 'src/derive/index.d.ts'],
+  ['src/coerce/index.js', 'src/coerce/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -193,6 +194,30 @@ test('Exports: the derive subpath is reachable through its subpath export', () =
   const args = ['--input-type=module', '-e', source];
   const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
   assert.deepStrictEqual(JSON.parse(output), [['login'], 'undefined', true, ['login', 'password']]);
+});
+
+test('Exports: the coerce subpath is reachable through its subpath export', () => {
+  const coerce = require('@alexify/metaschema/coerce');
+  assert.strictEqual(coerce, require(path.join(ROOT, 'src/coerce/index.js')));
+  assert.deepStrictEqual(Object.keys(coerce), ['COERCIONS', 'coerce', 'register']);
+  const source = [
+    "import { COERCIONS, coerce, register } from '@alexify/metaschema/coerce';",
+    "import { Schema } from '@alexify/metaschema';",
+    "const form = new Schema('Form', { Form: { coerce: true }, age: 'integer', on: 'boolean' });",
+    'const before = Object.keys(COERCIONS).length;',
+    'register();',
+    "const { value } = form.parse({ age: '42', on: 'true' });",
+    "const converted = coerce(form, { age: '7', on: '0' });",
+    'process.stdout.write(JSON.stringify([before, value, converted, typeof form.coerce]));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [
+    0,
+    { age: 42, on: true },
+    { age: 7, on: false },
+    'function',
+  ]);
 });
 
 test('Exports: the locales are reachable through their subpath exports', () => {

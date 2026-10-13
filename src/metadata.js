@@ -61,6 +61,10 @@ class SchemaMetadata {
 
   #setMany(values) {
     const { kind, scope, store, allow, parent, unknown, ...custom } = values;
+    if (custom.coerce !== undefined && typeof custom.coerce !== 'boolean') {
+      const reason = `Schema metadata "coerce" must be a boolean, got ${JSON.stringify(custom.coerce)}`;
+      throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+    }
     this.kind = kind || this.kind;
     this.scope = scope || this.scope;
     this.store = store || this.store;

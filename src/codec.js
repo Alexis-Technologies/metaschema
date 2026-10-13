@@ -1,7 +1,8 @@
-// What parse and serialize do beyond the check: the defaults, the decoders,
-// the serializers and the stripping of unknown keys, as passes over the built
-// types. `parse` is the check of the schema (whichever backend installed it)
-// between two passes, defaults before and decoders after; `serialize` is one
+// What parse and serialize do beyond the check: the coercion of the input,
+// the defaults, the decoders, the serializers and the stripping of unknown
+// keys, as passes over the built types. `parse` is the check of the schema
+// (whichever backend installed it) between two passes, coercion and defaults
+// before and decoders after; `serialize` is one
 // pass the other way. The passes read the same plan the closures walk and
 // validate nothing themselves, so the JIT needs no second generator. A node
 // whose subtree carries nothing for a phase is returned as it is, and a
@@ -36,6 +37,20 @@ const ASYNC = 16;
 // A field with aliases below: the pass after the check visits it only when
 // the check read a field from an alias (`context.renamed`).
 const ALIASES = 32;
+// On every info: a pass before the check that coerces enters every subtree,
+// since any value of the input may need a conversion.
+const COERCE = 64;
+
+// The converters of coercion, by type name, are the `./coerce` subpath's:
+// its register() installs `convert` here. Until then a pass that has to
+// convert a value is a call that cannot work.
+const COERCION = {
+  convert() {
+    const error = new TypeError('coerce needs register() of @alexify/metaschema/coerce');
+    error.code = 'ERR_NOT_REGISTERED';
+    throw error;
+  },
+};
 
 // The shape of a node: a Schema, a struct (the dictionary of its fields), or
 // a field by the identity of its prototype's compile, as the JIT tells them
@@ -71,7 +86,9 @@ const isAsyncFunction = (fn) => typeof fn === 'function' && fn.constructor.name 
 
 // What the passes know about a node, computed on first use and kept apart
 // from the node: its shape, the bits of its subtree, its own decoder and
-// serializer, its children with their infos, the fields of a struct a phase
+// serializer, its own coercion policy (a field's `coerce` key, which turns
+// coercion on or off for its subtree), its children with their infos, the
+// fields of a struct a phase
 // has to visit (`parts`, by phase bit; every field under `strip`), and the
 // reference fields beneath it (their targets are resolved at parse time, so a
 // reference counts as carrying everything).
@@ -85,8 +102,12 @@ const infoOf = (node) => {
   const own = shape === SCHEMA ? node.options : shape === FIELDS ? EMPTY : node;
   const decode = own.parse || undefined;
   const encode = own.serialize || undefined;
-  let bits = decode === undefined ? 0 : DECODERS;
+  // A field that coerces makes the pass before the check enter its subtree
+  // whatever the policy of the call.
+  const coerce = own.coerce === true ? true : own.coerce === false ? false : undefined;
+  let bits = decode === undefined ? COERCE : COERCE | DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
+  if (coerce === true) bits |= DEFAULTS;
   if (isAsyncFunction(own.validate) || isAsyncFunction(decode) || isAsyncFunction(own.checkType)) {
     bits |= ASYNC;
   }
@@ -146,7 +167,7 @@ const infoOf = (node) => {
       parts[STRUCTS].push(index);
     }
   }
-  info = { shape, bits, decode, encode, children, infos, plan, parts, extra, table, refs };
+  info = { shape, bits, decode, encode, coerce, children, infos, plan, parts, extra, table, refs };
   INFO.set(node, info);
   return info;
 };
@@ -318,8 +339,9 @@ const renameKeys = (out, renames) => {
   return result;
 };
 
-// The fields of a struct: a default fills a missing key before the check, a
-// decoder replaces the value after it. Stripping rebuilds the object from
+// The fields of a struct: before the check a present value is coerced and a
+// default fills a missing key (coerced too: it is validated like any
+// value), a decoder replaces the value after it. Stripping rebuilds the object from
 // the known keys; otherwise the object is copied when a field changed. A
 // value under an alias of a field is read from there (no default fills the
 // field, and the check sees it there), and the pass after the check writes
@@ -329,7 +351,8 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
   const { plan, infos, extra } = info;
   const strip = (want & STRUCTS) !== 0;
-  const parts = info.parts[strip ? STRUCTS : phase];
+  // Every field under strip, and under coercion: any of them may convert.
+  const parts = info.parts[(want & (STRUCTS | COERCE)) !== 0 ? STRUCTS : phase];
   const nested = key !== undefined;
   if (nested) context.path.push(key);
   let out = strip ? {} : null;
@@ -346,14 +369,17 @@ const walkFields = (info, fields, value, context, key, phase, want) => {
       if (from !== name) item = value[from];
     }
     if (phase === DEFAULTS) {
-      if (item === undefined) {
-        const fallback = entry.type.default;
-        if (fallback === undefined) continue;
-        item = typeof fallback === 'function' ? fallback() : fallback;
-        out = written(out, value, copy, putKey, from, item);
+      let result = item;
+      if (item !== undefined) {
+        result = apply(infos[index], entry.type, item, context, from, phase, want);
       }
-      const result = apply(infos[index], entry.type, item, context, from, phase, want);
-      if (result !== item) out = written(out, value, copy, putKey, from, result);
+      const fallback = entry.type.default;
+      if (result === undefined && fallback !== undefined) {
+        const filled = typeof fallback === 'function' ? fallback() : fallback;
+        out = written(out, value, copy, putKey, from, filled);
+        result = apply(infos[index], entry.type, filled, context, from, phase, want);
+        if (result !== filled) out = written(out, value, copy, putKey, from, result);
+      } else if (result !== item) out = written(out, value, copy, putKey, from, result);
       continue;
     }
     const result = apply(infos[index], entry.type, item, context, from, phase, want);
@@ -480,7 +506,9 @@ const accepts = (branch, value, scratch, path, key) => {
 // The branch of a union a value belongs to: by the discriminator, or the
 // first branch whose check records nothing, as the check picks it. Before
 // the check a branch is tried with its own defaults in place, and the value
-// with those defaults is what parse goes on with.
+// with those defaults is what parse goes on with. Under coercion a value
+// some branch accepts as given is not converted: the branches are tried as
+// given first, then converted.
 const walkUnion = (info, node, value, context, key, phase, want) => {
   const { children, infos, table } = info;
   if (table !== null) {
@@ -490,15 +518,17 @@ const walkUnion = (info, node, value, context, key, phase, want) => {
     return apply(infos[index], children[index], value, context, key, phase, want);
   }
   const scratch = scratchOf(context);
-  for (let index = 0; index < children.length; index += 1) {
-    const branch = children[index];
-    const sub = infos[index];
-    const prepared =
-      phase === DEFAULTS ? apply(sub, branch, value, context, key, phase, want) : value;
-    if (!accepts(branch, prepared, scratch, context.path, key)) continue;
-    return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase, want);
+  for (let round = want & ~COERCE; ; round = want) {
+    for (let index = 0; index < children.length; index += 1) {
+      const branch = children[index];
+      const sub = infos[index];
+      const prepared =
+        phase === DEFAULTS ? apply(sub, branch, value, context, key, phase, round) : value;
+      if (!accepts(branch, prepared, scratch, context.path, key)) continue;
+      return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase, round);
+    }
+    if (round === want) return value;
   }
-  return value;
 };
 
 // A reference resolved at parse time, as the check resolves it: an id stays
@@ -538,28 +568,35 @@ const WALKERS = [
   walkReference,
 ];
 
-// The bits a pass wants of a subtree, decided once per pass: its own, and
-// for the pass after the check the structs (under `strip`) and the fields
-// with aliases (after a check that read one).
-const wantOf = (phase, context) => {
+// The bits a pass wants of a subtree, decided once per pass: its own, for
+// the pass after the check the structs (under `strip`) and the fields with
+// aliases (after a check that read one), and for the pass before it every
+// subtree when the parse coerces.
+const wantOf = (phase, context, coerce) => {
   let want = phase;
   if (phase === DECODERS) {
     if (context.unknown === 'strip') want |= STRUCTS;
     if (context.renamed) want |= ALIASES;
-  }
+  } else if (phase === DEFAULTS && coerce === true) want |= COERCE;
   return want;
 };
 
 // One pass over a value from a node whose info is known, by the shape of
 // each node. A serializer runs before the parts of its value, a decoder
-// after them; a subtree without the bits the pass wants is returned as it
-// is, which is the one test a value nothing applies to costs.
+// after them, a conversion before them (a field's own policy holds for its
+// subtree); a subtree without the bits the pass wants is returned as it is,
+// which is the one test a value nothing applies to costs.
 const apply = (info, node, value, context, key, phase, want) => {
   if (value == null) return value;
   if ((info.bits & want) === 0) return value;
   let input = value;
-  if (phase === ENCODERS && info.encode !== undefined) {
-    input = info.encode.call(node, value);
+  if (phase !== DECODERS) {
+    if (phase === ENCODERS) {
+      if (info.encode !== undefined) input = info.encode.call(node, value);
+    } else {
+      if (info.coerce !== undefined) want = info.coerce ? want | COERCE : want & ~COERCE;
+      if ((want & COERCE) !== 0) input = COERCION.convert(value, node);
+    }
     if (input == null) return input;
   }
   const out = WALKERS[info.shape](info, node, input, context, key, phase, want);
@@ -570,6 +607,7 @@ module.exports = {
   PREPARE: DEFAULTS,
   FINISH: DECODERS,
   SERIALIZE: ENCODERS,
+  COERCION,
   infoOf,
   apply,
   wantOf,

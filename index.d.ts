@@ -142,6 +142,20 @@ export interface CheckOptions {
 // does not have, which the output then leaves out.
 export interface ParseOptions extends Omit<CheckOptions, 'unknown'> {
   unknown?: 'reject' | 'ignore' | 'strip';
+  // Whether parse converts the input to the types of the fields before the
+  // check (`'42'` to a number, an ISO string to a Date): the schema's
+  // `coerce` metadata unless the call says otherwise, a field's own
+  // `coerce` key for its subtree. The converters are those `register()` of
+  // the `@alexify/metaschema/coerce` subpath installed; `check` never
+  // converts.
+  coerce?: boolean;
+}
+
+// The options of `coerce(schema, value)` of the `@alexify/metaschema/coerce`
+// subpath: how references are followed and how deep.
+export interface CoerceOptions {
+  references?: CheckOptions['references'];
+  maxDepth?: number;
 }
 
 // What parse returns: the output only for a valid value, the issues always.
@@ -243,6 +257,9 @@ export interface FieldType {
   required: boolean;
   // The value may be null; the key is still required unless `required` is false.
   nullable?: boolean;
+  // Whether parse converts the input of this field and what is under it,
+  // whatever the policy of the call or the schema.
+  coerce?: boolean;
   // On a reference: check and render it as the record (true) or its id
   // (false) whatever the kind of its target.
   embed?: boolean;
@@ -314,6 +331,8 @@ export interface KindMetadata {
   parent?: string;
   // The default of `check` for keys the schema does not have.
   unknown?: 'reject' | 'ignore';
+  // The default of `parse` (and so of `~standard.validate`) for coercion.
+  coerce?: boolean;
   [key: string]: unknown;
 }
 
@@ -367,6 +386,11 @@ export type DefinitionErrorCode =
   // Thrown by the functions of the `@alexify/metaschema/derive` subpath for
   // a key the schema has no field of, located in the schema.
   | 'ERR_UNKNOWN_FIELD'
+  // Thrown by `register` of the `@alexify/metaschema/coerce` subpath: an
+  // entry that is not a converter of a type, and a name registered again
+  // with another function.
+  | 'ERR_INVALID_COERCION'
+  | 'ERR_COERCION_REGISTERED'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
   | 'ERR_NO_EVAL'
@@ -389,7 +413,13 @@ export class SchemaDefinitionError extends TypeError {
 // `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
 // given something other than what it takes (a Schema, a Model, a snapshot, a
 // list of changes).
-export type RuntimeErrorCode = 'ERR_ASYNC_VALIDATOR' | 'ERR_INVALID_TARGET' | 'ERR_INVALID_RECORD';
+export type RuntimeErrorCode =
+  | 'ERR_ASYNC_VALIDATOR'
+  | 'ERR_INVALID_TARGET'
+  | 'ERR_INVALID_RECORD'
+  // A parse that coerces before `register()` of the `@alexify/metaschema/coerce`
+  // subpath ran: there is no converter to run.
+  | 'ERR_NOT_REGISTERED';
 
 // ---------------------------------------------------------------------------
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
@@ -1532,6 +1562,11 @@ export class Schema<const D extends string | object = string | object> {
   // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
   // options)` is the same without it.
   sample(options?: SampleOptions): Infer<D>;
+  // The value with the conversions of the schema and its defaults applied,
+  // nothing checked: exists once `register()` of the
+  // `@alexify/metaschema/coerce` subpath has run; its `coerce(schema,
+  // value)` is the same without it.
+  coerce(value: unknown, options?: CoerceOptions): unknown;
   // The six members below exist once `register()` of the
   // `@alexify/metaschema/derive` subpath has run; its `pick(schema, keys)`
   // and kin are the same without it. They are typed through `this`, never

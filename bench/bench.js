@@ -25,6 +25,7 @@ const { Schema, Model } = require('../index.js');
 const { toTypeScript } = require('../src/generators/index.js');
 const { compile } = require('../src/compile/index.js');
 const { checkEach } = require('../src/stream/index.js');
+const coercion = require('../src/coerce/index.js');
 const {
   bench,
   benchAsync,
@@ -32,6 +33,9 @@ const {
   callParse,
   callCheckAsync,
   callParseAsync,
+  callCoerce,
+  COERCE_VALUE,
+  COERCE,
   SYNC_VALIDATORS_SCHEMA,
   RESOLVED_VALIDATORS_SCHEMA,
   LATER_VALIDATORS_SCHEMA,
@@ -183,6 +187,7 @@ const asyncSchemas = (build) => ({
 
 const main = async () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
+  coercion.register();
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
@@ -245,7 +250,24 @@ const main = async () => {
       () => callParse(ALIASED_VALID),
       aliased,
     ],
+    [
+      'parse — flat struct, coerce: two strings converted',
+      () => callParse(COERCE_VALUE, COERCE),
+      flat,
+    ],
+    ['parse — flat struct, coerce: nothing to convert', () => callParse(FLAT_VALID, COERCE), flat],
+    ['coerce — flat struct, two strings converted', () => callCoerce(COERCE_VALUE), flat],
     ['parse (jit) — flat struct, valid', () => callParse(FLAT_VALID), flatJit],
+    [
+      'parse (jit) — flat struct, coerce: two strings converted',
+      () => callParse(COERCE_VALUE, COERCE),
+      flatJit,
+    ],
+    [
+      'parse (jit) — flat struct, coerce: nothing to convert',
+      () => callParse(FLAT_VALID, COERCE),
+      flatJit,
+    ],
     ['parse (jit) — nested struct, valid', () => callParse(NESTED_VALID), nestedJit],
     ['parse (jit) — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codecJit],
     [

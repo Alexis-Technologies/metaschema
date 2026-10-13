@@ -24,6 +24,8 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-derive',
     '100',
+    '--max-gzip-coerce',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -35,6 +37,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(ok.stdout, /\| Stream \(\.\/stream\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Formats \(\.\/formats\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Derive \(\.\/derive\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Coerce \(\.\/coerce\) on top of the Node entry \| [1-9]/);
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -75,6 +78,11 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(derive.stderr, /Bundle budget exceeded: Derive \(\.\/derive\)/);
   assert.doesNotMatch(derive.stderr, /exceeded: Formats/);
 
+  const coerce = run('scripts/size.js', ['--max-gzip-coerce', '0.5']);
+  assert.strictEqual(coerce.status, 1);
+  assert.match(coerce.stderr, /Bundle budget exceeded: Coerce \(\.\/coerce\)/);
+  assert.doesNotMatch(coerce.stderr, /exceeded: Derive/);
+
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
   assert.match(bad.stderr, /--max-gzip needs a positive number of kilobytes/);
@@ -96,4 +104,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   const badDerive = run('scripts/size.js', ['--max-gzip-derive', 'none']);
   assert.strictEqual(badDerive.status, 1);
   assert.match(badDerive.stderr, /--max-gzip-derive needs a positive number/);
+  const badCoerce = run('scripts/size.js', ['--max-gzip-coerce', '-1']);
+  assert.strictEqual(badCoerce.status, 1);
+  assert.match(badCoerce.stderr, /--max-gzip-coerce needs a positive number/);
 });

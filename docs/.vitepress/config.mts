@@ -144,6 +144,7 @@ export default withMermaid(
             items: [
               { text: 'Validation', link: '/guide/validation' },
               { text: 'Parse and serialize', link: '/guide/parse' },
+              { text: 'Coercion', link: '/guide/coercion' },
               { text: 'Records and streams', link: '/guide/streaming' },
               { text: 'Domain Models', link: '/guide/model' },
               { text: 'Model evolution', link: '/guide/evolution' },

@@ -92,6 +92,11 @@ const configure = (context, options, parsing) => {
   if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown, parsing);
   if (options.references !== undefined) context.references = referencesOf(options.references);
   if (options.root !== undefined) context.root = rootOf(options.root);
+  // Read by parse itself (Schema#prepare), checked here with the rest.
+  const { coerce } = options;
+  if (parsing && coerce !== undefined && typeof coerce !== 'boolean') {
+    throw invalid('coerce', 'a boolean', coerce);
+  }
 };
 
 // One object shape for every context: the keys are always present, in this

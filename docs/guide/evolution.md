@@ -184,6 +184,7 @@ that adds one.
 | a `default` removed from a required field | `forward` | old data written without it has no key |
 | `nullable` `false` → `true` | `backward` | new data may hold null |
 | `nullable` `true` → `false` | `forward` | old data may hold null |
+| `coerce` on or off | `full` | a conversion of the input: what `check` accepts and `parse` gives is the same |
 | `integer` → `number` | `backward` | every integer is a number |
 | `number` → `integer` | `forward` | old data may hold fractions |
 | any other type | `none` | |

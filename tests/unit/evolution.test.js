@@ -745,6 +745,10 @@ const RULES = [
   ],
   ['nullable', { a: 'string' }, { a: { type: 'string', nullable: true } }, 'backward'],
   ['not nullable', { a: { type: 'string', nullable: true } }, { a: 'string' }, 'forward'],
+  // Coercion converts the input of parse: neither what check accepts nor
+  // what parse gives changes.
+  ['coerced', { a: 'integer' }, { a: { type: 'integer', coerce: true } }, 'full'],
+  ['not coerced', { a: { type: 'integer', coerce: true } }, { a: 'integer' }, 'full'],
   ['integer to number', { a: 'integer' }, { a: 'number' }, 'backward'],
   ['number to integer', { a: 'number' }, { a: 'integer' }, 'forward'],
   ['another type', { a: 'string' }, { a: 'number' }, 'none'],

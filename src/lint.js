@@ -15,6 +15,7 @@ const KNOWN = new Set([
   'type',
   'required',
   'nullable',
+  'coerce',
   'validate',
   'parse',
   'serialize',
