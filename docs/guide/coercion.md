@@ -143,6 +143,19 @@ coercion.register({
 });
 ```
 
+A converter that throws leaves the value to the check, which reports it as given, so a bug in a
+converter of your own looks like a value it could not read. `register(custom, { onError })` is
+told of every such throw, with the error and the field:
+
+```js
+coercion.register(converters, {
+  onError: (error, field) => logger.warn(`converter of ${field.type} threw`, error),
+});
+```
+
+`coerce` on a field where no conversion can happen (a reference checked as an id, a field of
+`any`, `unknown`, `json` or `null`) is a `dead-coerce` warning in `schema.warnings`.
+
 An alias type (`{ money: { js: 'number' } }`) converts as the type it aliases, unless it has a
 converter of its own: that is also the way to read a built-in type differently, since the
 built-in converters cannot be replaced.

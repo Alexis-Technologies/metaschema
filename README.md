@@ -111,7 +111,7 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
 - **Zero dependencies, 18.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers; the generators add 7.4 KB, the JIT backend 4.2 KB, the
   model tools 12.0 KB, the record tools 1.0 KB, the string formats 4.0 KB, the derive tools
-  1.9 KB, the converters of coercion 1.3 KB and the MongoDB tools 3.3 KB (on top of the
+  1.9 KB, the converters of coercion 1.4 KB and the MongoDB tools 3.5 KB (on top of the
   converters, which they require) where they are imported.
 
 ## Benchmarks

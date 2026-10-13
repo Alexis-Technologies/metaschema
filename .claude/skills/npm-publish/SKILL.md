@@ -39,7 +39,7 @@ These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
 ```bash
 pnpm run test:jit                # the suite with every schema compiled by ./compile
 pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
-pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5   # the bundle budgets (CLAUDE.md "Budgets")
+pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4   # the bundle budgets (CLAUDE.md "Budgets")
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -184,7 +184,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

@@ -135,7 +135,7 @@ class Schema extends SchemaMetadata {
       this.fields = createStruct(combined, preprocessor);
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
-    this.#coerce = this.custom.coerce === true;
+    this.#coerce = Object.hasOwn(this.custom, 'coerce') && this.custom.coerce === true;
     this[RUN] = compileSchema(this);
     const hook = Schema[HOOK];
     if (hook !== undefined) hook(this);

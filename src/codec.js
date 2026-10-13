@@ -106,8 +106,10 @@ const infoOf = (node) => {
   const decode = own.parse || undefined;
   const encode = own.serialize || undefined;
   // A field that coerces makes the pass before the check enter its subtree
-  // whatever the policy of the call.
-  const coerce = own.coerce === true ? true : own.coerce === false ? false : undefined;
+  // whatever the policy of the call. An own key only: a `coerce` set on
+  // Object.prototype elsewhere must not turn every schema's on.
+  const policy = Object.hasOwn(own, 'coerce') ? own.coerce : undefined;
+  const coerce = policy === true ? true : policy === false ? false : undefined;
   let bits = decode === undefined ? COERCE : COERCE | DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
   if (coerce === true) bits |= DEFAULTS | POLICY;

@@ -521,6 +521,61 @@ test('Mongodb: checkUpdate checks what each operator does to the field of each p
   assert.deepStrictEqual(issuesOf({ $set: { 'company.name': 1 } }, { references: 'embed' }), [
     'company.name type',
   ]);
+  // A path that names nothing whatever the policy says: an empty segment,
+  // the `_id` of the document, a part a field cannot have (an element of a
+  // string, a field of an id); a key a struct does not have is the policy's.
+  const ignore = { unknown: 'ignore' };
+  for (const path of ['', 'a..b', 'address.', '.login', '_id', 'login.x', 'login.$[x]']) {
+    assert.deepStrictEqual(issuesOf({ $set: { [path]: 1 } }, ignore).length, 1, path);
+    assert.strictEqual(issuesOf({ $set: { [path]: 1 } }, ignore)[0].endsWith('unexpected'), true);
+  }
+  assert.deepStrictEqual(issuesOf({ $set: { 'company.name': 1 } }, ignore), ['company unexpected']);
+  assert.deepStrictEqual(issuesOf({ $setOnInsert: { _id: A } }, ignore), []);
+  assert.deepStrictEqual(issuesOf({ $setOnInsert: { _id: A } }), [' unexpected']);
+  const own = new Schema('Own', { Entity: {}, _id: 'string', name: 'string' });
+  assert.strictEqual(checkUpdate(own, { $set: { _id: 'x' } }).valid, true);
+  // The issue of an operand names what the operator takes.
+  assert.deepStrictEqual(
+    checkUpdate(Account, { $push: { login: 'y' }, $inc: { login: 1, visits: 1.5 } }).errors,
+    [
+      'Field "Account.login" not of expected type: array',
+      'Field "Account.login" not of expected type: number',
+      'Field "Account.visits" not of expected type: integer',
+    ],
+  );
+  // A path through more embedded records than maxDepth.
+  const chain = new Model({}, [['Node', { Struct: {}, name: 'string', 'next?': 'Node' }]]);
+  const Node = chain.entities.get('Node');
+  const deep = `${'next.'.repeat(200)}name`;
+  assert.strictEqual(checkUpdate(Node, { $set: { [deep]: 'x' } }).issues[0].code, 'depth');
+  assert.strictEqual(checkUpdate(Node, { $set: { [deep]: 'x' } }, { maxDepth: 300 }).valid, true);
+  assert.deepStrictEqual(Object.keys(toUpdate(Node, { $set: { [deep]: 'x' } }).$set), [deep]);
+});
+
+test('Mongodb: the walks of a document stop at maxDepth as the check does', () => {
+  register({ bson });
+  const chain = new Model({}, [['Node', { Struct: {}, name: 'string', 'next?': 'Node' }]]);
+  const Node = chain.entities.get('Node');
+  let graph = { name: 'leaf' };
+  for (let index = 0; index < 20_000; index += 1) graph = { name: `n${index}`, next: graph };
+  // No RangeError: the records past the limit are left as they are, and
+  // the check reports the depth.
+  const document = toDocument(Node, graph);
+  assert.strictEqual(document.name, 'n19999');
+  const read = fromDocument(Node, document);
+  assert.strictEqual(read.valid, false);
+  assert.strictEqual(read.issues[0].code, 'depth');
+  let shallow = { name: 'leaf' };
+  for (let index = 0; index < 150; index += 1) shallow = { name: `n${index}`, next: shallow };
+  assert.strictEqual(fromDocument(Node, toDocument(Node, shallow)).valid, false);
+  assert.strictEqual(
+    fromDocument(Node, toDocument(Node, shallow, { maxDepth: 200 }), { maxDepth: 200 }).valid,
+    true,
+  );
+  assert.throws(() => toDocument(Node, shallow, { maxDepth: 0 }), {
+    name: 'TypeError',
+    message: 'maxDepth must be a positive integer, got 0',
+  });
 });
 
 test('Mongodb: toUpdate serializes the values and makes their ids ObjectIds', () => {

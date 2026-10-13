@@ -204,13 +204,13 @@ is not a Schema of a struct is a `TypeError` with `code: 'ERR_INVALID_TARGET'`.
 
 ## `@alexify/metaschema/coerce`
 
-The converters of [coercion](/guide/coercion), in a subpath of its own (1.3 KB min+gzip on top
+The converters of [coercion](/guide/coercion), in a subpath of its own (1.4 KB min+gzip on top
 of the core); the policy (`coerce` of a parse call, of the kind metadata, of a field) and the
 step in the pass before the check are the core's.
 
 | Export | Description |
 | --- | --- |
-| `register(custom?)` | installs the built-in converters (`string`, `number`, `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and the program's own by type name (`{ point: (value, field) => value }`), once per name, process-wide; another function under a registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a type or an entry that is not a function `ERR_INVALID_COERCION`; adds `schema.coerce` |
+| `register(custom?, options?)` | installs the built-in converters (`string`, `number`, `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and the program's own by type name (`{ point: (value, field) => value }`), once per name, process-wide, every entry checked before any is written; another function under a registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a type or an entry that is not a function `ERR_INVALID_COERCION`; `options.onError(error, field)` is told of a converter that threw; adds `schema.coerce` |
 | `coerce(schema, value, options?)` | the pass parse runs before its check with coercion on: the value converted and its defaults filled, nothing checked; `options`: `references`, `maxDepth` |
 | `COERCIONS` | the table of the converters by type name, to read |
 
@@ -220,18 +220,18 @@ enters the schema, whatever the value holds. The type of a converter is `Coercio
 
 ## `@alexify/metaschema/mongodb`
 
-The schema side of a MongoDB program, in a subpath of its own (3.3 KB min+gzip on top of the
+The schema side of a MongoDB program, in a subpath of its own (3.5 KB min+gzip on top of the
 core and `./coerce`, which it requires), without a dependency on the driver and without I/O;
 see [MongoDB](/guide/mongodb).
 
 | Export | Description |
 | --- | --- |
 | `types` | the BSON types `objectId`, `decimal128`, `binary` to give a model (`new Model({ ...types }, entities)`); a value is one by its `_bsontype` and a method, never by `instanceof` |
-| `register({ bson })` | keeps the module of the driver (or of bson) and installs the converters of the BSON types into `./coerce`; another module after the first is a `TypeError` |
-| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id` (an `_id` beside it in the value is left out), ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references`; a value of a class at the root is `ERR_INVALID_TARGET` |
+| `register({ bson })` | keeps the module of the driver (or of bson) and installs the converters of the BSON types the module can build (`Decimal128`, `Binary` when it has them) into `./coerce`; another module after the first is a `TypeError` |
+| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id` (an `_id` beside it in the value is left out), ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references`, `maxDepth` (128: a record deeper is left as it is for the check); a value of a class at the root is `ERR_INVALID_TARGET` |
 | `fromDocument(target, document, options?)`, `fromDocumentAsync(…)` | `_id` back to the id field, ObjectIds to hex strings, then `parse` (`parseAsync`) with `coerce: true` unless the options say otherwise; `null` (what `findOne` gives for nothing) is a `type` issue |
 | `indexesOf(target)` | the indexes of a schema for `createIndexes`, or of every stored entity of a model by name |
-| `checkUpdate(target, update, options?)` | the issues of an update of the driver (`$set`, `$unset`, `$inc`, `$push`, …) against the schema, as a `ValidationResult`; `options`: those of `check` |
+| `checkUpdate(target, update, options?)` | the issues of an update of the driver (`$set`, `$unset`, `$inc`, `$push`, …) against the schema, as a `ValidationResult`; `options`: those of `check` (`unknown` decides a key a struct does not have; a path with an empty segment, into a part a field cannot have, or to the `_id` of the document is `unexpected` whatever it says, one through more records than `maxDepth` a `depth` issue) |
 | `toUpdate(target, update, options?)` | the update as the database takes it: values serialized, ids as ObjectIds, the id as `_id` |
 
 `toDocument` and `toUpdate` with `ids: 'objectId'` (the default) before `register()` are a
@@ -355,7 +355,7 @@ it; see [Validation](/guide/validation#the-result).
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
 | `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`) |
 | `FormatDefinition` | an entry of the formats subpath: `{ test: (value: string) => boolean; examples: readonly string[]; infer?: boolean; pattern?: string }` |
-| `Coercion` | a converter of the coerce subpath: `(value: unknown, field: FieldType) => unknown` |
+| `Coercion`, `RegisterOptions` | a converter of the coerce subpath: `(value: unknown, field: FieldType) => unknown`; the options of its `register` (`onError`) |
 | `BSONModule`, `ObjectIdLike`, `Decimal128Like`, `BinaryLike` | the mongodb subpath: the module of the driver `register` takes (`ObjectId`, and `Decimal128`, `Binary` when it has them) and what the subpath reads of their values (`_bsontype` and a method) |
 | `DocumentOptions`, `IndexDescription`, `Update`, `UpdateOperator` | the mongodb subpath: the options of `toDocument`/`toUpdate` (`ids`, `references`), an index as `createIndexes` takes it, an update of the driver and its operators |
 | `EachOptions`, `ParseEachOptions`, `EachAsyncOptions` | the options of `checkEach` (`CheckOptions` and `maxInvalid`), of `parseEach` (`ParseOptions` and `maxInvalid`) and the one the async pair adds (`concurrency`) |

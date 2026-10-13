@@ -176,6 +176,12 @@ const converterOf = (field) => {
   }
 };
 
+// The hook `register({ onError })` gives: told of a converter that threw,
+// with the field, since the value is left to the check as if the converter
+// could not read it, and a bug in a converter of the program would look the
+// same.
+let onError = null;
+
 // What the core calls for every node of a coercing pass: a node that is not
 // a field (a schema, a struct) has nothing to convert of its own, and a
 // converter that throws leaves the value to the check.
@@ -188,7 +194,8 @@ const convert = (value, node) => {
   if (converter === null) return value;
   try {
     return converter(value, node);
-  } catch {
+  } catch (error) {
+    if (onError !== null) onError(error, node);
     return value;
   }
 };
@@ -237,15 +244,23 @@ let installed = false;
 // ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
 // type differently), and adds `schema.coerce(value, options)`. Every entry
 // is checked before any is written, so a call that throws leaves the table
-// as it was.
-const register = (custom = {}) => {
+// as it was. `options.onError` is told of a converter that threw.
+const register = (custom = {}, settings = {}) => {
   if (custom === null || typeof custom !== 'object' || Array.isArray(custom)) {
     throw invalidCoercion('The converters must be an object of functions by type name');
+  }
+  if (settings === null || typeof settings !== 'object') {
+    throw invalidCoercion('The options of register must be an object');
+  }
+  const hook = settings.onError;
+  if (hook !== undefined && typeof hook !== 'function') {
+    throw invalidCoercion('Option "onError" must be a function');
   }
   const names = Object.keys(custom);
   for (const name of names) check(name, custom[name]);
   for (const name of Object.keys(BUILT_IN)) COERCIONS[name] = BUILT_IN[name];
   for (const name of names) COERCIONS[name] = custom[name];
+  if (hook !== undefined) onError = hook;
   converters = new WeakMap();
   COERCION.convert = convert;
   COERCION.installed = true;

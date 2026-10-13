@@ -17,9 +17,17 @@ export const COERCIONS: { readonly [name: string]: Coercion | undefined };
 // `code: 'ERR_NOT_REGISTERED'`.
 export function coerce(schema: Schema, value: unknown, options?: CoerceOptions): unknown;
 
+// The options of `register`: `onError` is told of a converter that threw
+// (the value is left to the check as if the converter could not read it, so
+// a bug in a converter of the program would look the same without it).
+export interface RegisterOptions {
+  onError?: (error: unknown, field: FieldType) => void;
+}
+
 // Fills the table with the built-in converters and the program's own, by
 // type name, once per name and process-wide (another function under a
 // registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a
-// type or an entry that is not a function `ERR_INVALID_COERCION`), and adds
+// type or an entry that is not a function `ERR_INVALID_COERCION`; every
+// entry is checked before any is written), and adds
 // `schema.coerce(value, options)`. Importing the subpath registers nothing.
-export function register(custom?: Record<string, Coercion>): void;
+export function register(custom?: Record<string, Coercion>, options?: RegisterOptions): void;

@@ -43,8 +43,8 @@ flowchart LR
     STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
     FMT["./formats · 4.0 KB<br/>35 formats · your own"] --> CORE
     DER["./derive · 1.9 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
-    COE["./coerce · 1.3 KB<br/>converters · coerce()"] --> CORE
-    MDB["./mongodb · 3.3 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
+    COE["./coerce · 1.4 KB<br/>converters · coerce()"] --> CORE
+    MDB["./mongodb · 3.5 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
     CORE["@alexify/metaschema · 18.1 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
 ```

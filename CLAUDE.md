@@ -39,7 +39,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 5 KB for ./compile, 13 KB for ./model, 1.5 KB for ./stream, 5 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 3.5 KB for ./mongodb on top of the core and ./coerce
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 5 KB for ./compile, 13 KB for ./model, 1.5 KB for ./stream, 5 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 4 KB for ./mongodb on top of the core and ./coerce
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
 node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
@@ -51,7 +51,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5`
+`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -203,7 +203,7 @@ src/
   rules.js          rules per type: FORMAT (length, min, max, pattern, format), FORMATS (the table the
                     formats subpath fills), compileRules, patternLimit (no pattern or format past length.max),
                     code points
-  lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases)
+  lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases, dead-coerce)
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true })
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
@@ -273,7 +273,8 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 - `kinds → metadata` (+ `result`, `errors`, `issues`); `struct` (`util`, `issues`, `errors`) →
   `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
   (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`,
-  `issues` for `typeOf`) and `lint` (`util`) stand alone. `util.js` also holds `define`,
+  `issues` for `typeOf`) stands alone, and `lint` requires `util` and `prototypes/reference`
+  (`embeds`, to tell a reference checked as an id for `dead-coerce`). `util.js` also holds `define`,
   `IDENTIFIER`, `ENUM_SET_SIZE` and `safeString`, shared by the core, the generators and the JIT.
 - `codec.js` requires `util`, `issues`, `context`, `struct`, `errors` and the prototypes
   (`collections`, `schema`, `tuple`, `union`, `reference`: it tells a node's shape by the
@@ -585,25 +586,29 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 **The 3.3 bundle budgets are 19 KB min+gzip per core entry, 7.5 KB for the generators,
 5 KB for the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath,
 5 KB for the formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on
-top of it, and 3.5 KB for the mongodb subpath on top of it and `./coerce`** (`pnpm size
+top of it, and 4 KB for the mongodb subpath on top of it and `./coerce`** (`pnpm size
 --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13
 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2
---max-gzip-mongodb 3.5` in CI). **A gate is raised to the next whole KB when a fix needs it,
+--max-gzip-mongodb 4` in CI). **A gate is raised to the next whole KB when a fix needs it,
 and never sits a few bytes over a subpath** (Alex's decision, 2026-10-13, at the review of
 3.3: the compile and model gates moved from 4.25 and 12 KB to 5 and 13 KB because the two
 subpaths were 10 and 28 bytes under them and a change of the core alone, which shifts the
 difference of two gzips, could fail CI on code that did not change; the formats gate from 4 to
-5 KB for the scanners of the review; the mongodb gate of 3.5 KB is confirmed). After the
-review of 3.3 (2026-10-13) the entries measure 18582 bytes (18.1 KB) each, the generators
-7556 bytes (7.4 KB), the compile subpath 4320, the model subpath 12253, the stream subpath
-1006, the formats subpath 4049 (4.0 KB, 35 formats, five of them scanners), the derive
-subpath 1921 (1.9 KB, of which `model/data.js` is about 600), the coerce subpath 1373 (1.3 KB)
-and the mongodb subpath 3382 bytes on top of the core and `./coerce` (3.3 KB). The review's
-phase 0 cost the core about 70 bytes (`notRegistered` in `errors.js`, the `POLICY` bit and
-the check at the entry of `walkSchema`), the formats subpath about 480 (the scanners of
-`email`, the two JSON pointers, `uri-template`, `slug` and `semver`, and the cap of `regex`),
-the coerce subpath 30 (`isPlain` of `toMap`, the atomic `register`) and the mongodb subpath
-40 (`rootOf`, the `_id` of a body left out, the driver read only when ObjectIds are written).
+5 KB for the scanners of the review; the mongodb gate from 3.5 to 4 KB for the depth limit and
+the markers of the paths). After the review of 3.3 (2026-10-13) the entries measure 18744
+bytes (18.3 KB) each, the generators 7551 bytes (7.4 KB), the compile subpath 4328, the model
+subpath 12263, the stream subpath 1013, the formats subpath 4077 (4.0 KB, 35 formats, six of
+them scanners), the derive subpath 1933 (1.9 KB, of which `model/data.js` is about 600), the
+coerce subpath 1466 (1.4 KB) and the mongodb subpath 3594 bytes on top of the core and
+`./coerce` (3.5 KB). The review's phase 0 cost the core about 70 bytes (`notRegistered` in
+`errors.js`, the `POLICY` bit and the check at the entry of `walkSchema`), the formats
+subpath about 480 (the scanners of `email`, the two JSON pointers, `uri-template`, `slug` and
+`semver`, and the cap of `regex`), the coerce subpath 30 (`isPlain` of `toMap`, the atomic
+`register`) and the mongodb subpath 40 (`rootOf`, the `_id` of a body left out, the driver
+read only when ObjectIds are written); phase 1 cost the core about 160 (`dead-coerce` with
+its require of `prototypes/reference`, `Object.hasOwn` for the policy at two places), the
+coerce subpath 90 (`onError`) and the mongodb subpath 210 (`maxDepth` of the walks, the
+`NONE` and `DEEP` markers of a path, the converters a slim module can build).
 Before the review the entries measured 18509 / 18528 bytes (18.1 KB; 18145 / 18153 before
 3.3, not the 18137 quoted below), the generators 7553 bytes (7.4 KB: the patterns of the
 formats and `ids` added about 250), the compile subpath 4342, the model subpath 12260 (12276
@@ -613,7 +618,7 @@ bytes (the `COERCE` bit and the `COERCION` slot, the conversions in the walkers,
 check of a field, the option and the metadata check, the pass before the check written out in
 `parse` and `parseAsync`); the core gate moved from 17.75 to 19 KB for it (Alex's decision,
 2026-10-13). The plan gave `./mongodb` 3 KB; it came out about 270 bytes over after the
-obvious trims, so its gate is 3.5 KB. `scripts/size.js` measures a
+obvious trims, so its gate was 3.5 KB (4 KB after the review). `scripts/size.js` measures a
 subpath with a `base` (the subpaths it requires) as (core + base + subpath) − (core + base).
 **The inlining budget of `parse`:** the first version of coercion put the pass before the
 check in `#prepare` and the conversion in `apply`, and `parse (jit)` lost 13% (flat) and 8%

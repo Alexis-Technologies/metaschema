@@ -53,6 +53,9 @@ export interface DocumentOptions {
   // Which references are records (and so documents with their own `_id`)
   // and which ids, as in `check`.
   references?: 'kind' | 'embed' | 'id';
+  // How many embedded records deep the walk goes (128 by default, as in
+  // `check`); a record deeper is left as it is for the check to report.
+  maxDepth?: number;
 }
 
 // The document of a value: its serializers run, the id field of a stored

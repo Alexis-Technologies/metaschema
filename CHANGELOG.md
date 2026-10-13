@@ -36,6 +36,10 @@ place) are listed under Changed.
   any; `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` are new codes. The converters are
   linear on hostile strings (a run of a hundred thousand digits that is not a number costs
   nothing), and `toMap` converts a plain object or a list of pairs only.
+  `register(custom, { onError })` is told of a converter that threw (the value is left to the
+  check either way), the policy is read from own keys only (a `coerce` set on
+  `Object.prototype` elsewhere turns nothing on), and `coerce` on a reference checked as an id
+  or on a field of `any`, `unknown`, `json` or `null` is a `dead-coerce` warning.
 - **`@alexify/metaschema/derive`.** `pick`, `omit`, `partial` (`keys`, `deep`, `defaults`),
   `required`, `extend` and `keyof` build a new Schema from the definition a schema was built
   from: a stored kind or a projection becomes a struct without the id of the kind (unless
@@ -62,7 +66,14 @@ place) are listed under Changed.
   record is not written (`toDocument` of a body checked with `unknown: 'ignore'` cannot
   choose the `_id`), `fromDocument(schema, null)` is a `type` issue rather than a throw, a
   value of a class at the root is `ERR_INVALID_TARGET`, reading a document and `ids:
-  'string'` need no driver, and `binary` is coerced from text of the base64 shape only.
+  'string'` need no driver, and `binary` is coerced from text of the base64 shape only. The
+  walks of a document stop at `maxDepth` (128, an option of `toDocument` and `toUpdate`) as
+  the check does, instead of recursing until the stack ends; `checkUpdate` reports a path with
+  an empty segment, into a part a field cannot have or to the `_id` of the document whatever
+  the policy for unknown keys says, a path through more records than `maxDepth` as a `depth`
+  issue, and names what an operator takes in its issues (`array` for a `$push` on a field
+  that is no list, `number` for an `$inc` on a string); `register({ bson })` installs the
+  converters of the BSON types the module can build only.
 - **`ids: 'objectId'`** for the mongodb target of `toJSONSchema`: the validator of the
   documents `toDocument` writes.
 - `pnpm size` measures a subpath on top of another it requires (`./mongodb` on `./coerce`).
@@ -73,7 +84,7 @@ place) are listed under Changed.
   measures 18.1 KB. The formats gate is 5 KB (was 2 KB; the scanners of the review took the
   subpath to 4.0 KB), the compile gate 5 KB (was 4.25) and the model gate 13 KB (was 12): a
   gate is raised to the next whole KB when a fix needs it, and never sits a few bytes over a
-  subpath. New gates: 2.5 KB for `./derive`, 2 KB for `./coerce`, 3.5 KB for `./mongodb`.
+  subpath. New gates: 2.5 KB for `./derive`, 2 KB for `./coerce`, 4 KB for `./mongodb` (3.5 before the review: the depth limit and the markers of the paths took the subpath over it).
 - **`coerce` is a reserved key** of a field definition and of the kind metadata. A field
   `coerce` that is not a boolean is `ERR_INVALID_DEFINITION` (was an `unknown-option` warning),
   a kind metadata `coerce` that is not a boolean is `ERR_INVALID_OPTIONS` (was an ordinary

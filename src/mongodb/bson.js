@@ -81,8 +81,11 @@ const toBinary = (value) =>
 
 // Takes the module of the driver (`require('mongodb')`, which carries the
 // bson it was built with) or of bson, and installs the converters of the
-// BSON types into the coercion of `./coerce`. Once: another module after
-// the first is an error, since values of the first are in the program.
+// BSON types into the coercion of `./coerce`: the one of a type the module
+// cannot build (a slim build without `Decimal128` or `Binary`) is not
+// installed, so that such a value is reported by the check rather than
+// lost in a converter that throws. Once: another module after the first is
+// an error, since values of the first are in the program.
 const register = (options) => {
   const bson = options === null || typeof options !== 'object' ? undefined : options.bson;
   const valid = bson !== null && typeof bson === 'object' && typeof bson.ObjectId === 'function';
@@ -92,8 +95,11 @@ const register = (options) => {
   if (driver !== null && driver !== bson) {
     throw invalidOption('bson', 'the module registered before', 'another one');
   }
+  const converters = { objectId: toObjectId };
+  if (typeof bson.Decimal128?.fromString === 'function') converters.decimal128 = toDecimal128;
+  if (typeof bson.Binary?.createFromBase64 === 'function') converters.binary = toBinary;
   driver = bson;
-  coercion({ objectId: toObjectId, decimal128: toDecimal128, binary: toBinary });
+  coercion(converters);
 };
 
 // The id field a stored kind adds (kinds.js names it the same way), which a

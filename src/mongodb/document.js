@@ -78,13 +78,22 @@ const record = (state, owner, value) => {
 };
 
 // A reference: the record through its entity where it is embedded, else
-// the id (a list of them for `many`).
+// the id (a list of them for `many`). The records embedded are counted as
+// the check counts them, and one deeper than `maxDepth` is left as it is
+// for the check to report: a reference is the one place a graph recurses.
 const reference = (state, node, value) => {
   const target = node.root.findReference(node.one || node.many);
   const embedded = target !== null && embeds(target, node.embed, state.references);
   const one = (item) => (embedded ? walk(state, target, item) : idValue(state, item));
-  if (node.one) return one(value);
-  return Array.isArray(value) ? listOf(value, one) : value;
+  if (embedded) {
+    if (state.depth >= state.maxDepth) return value;
+    state.depth += 1;
+  }
+  let out = value;
+  if (node.one) out = one(value);
+  else if (Array.isArray(value)) out = listOf(value, one);
+  if (embedded) state.depth -= 1;
+  return out;
 };
 
 const walk = (state, node, value) => {
@@ -126,16 +135,19 @@ const stateOf = (target, options, out) => {
   if (!hasBrand(target, 'Schema') || !isStruct(target.fields)) {
     throw invalidTarget('A Schema of a struct is expected');
   }
-  const { ids = 'objectId', references = 'kind' } = options ?? {};
+  const { ids = 'objectId', references = 'kind', maxDepth = 128 } = options ?? {};
   if (ids !== 'objectId' && ids !== 'string') {
     throw invalidOption('ids', '"objectId" or "string"', ids);
   }
   if (references !== 'kind' && references !== 'embed' && references !== 'id') {
     throw invalidOption('references', '"kind", "embed" or "id"', references);
   }
+  if (!Number.isInteger(maxDepth) || maxDepth < 1) {
+    throw invalidOption('maxDepth', 'a positive integer', maxDepth);
+  }
   const objectIds = ids === 'objectId';
   const driver = out && objectIds ? driverOf() : null;
-  return { out, objectIds, references, seen: new Set(), driver };
+  return { out, objectIds, references, seen: new Set(), driver, depth: 0, maxDepth };
 };
 
 // The root of a walk is the record itself: a value of a class (a model

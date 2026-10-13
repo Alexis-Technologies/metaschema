@@ -106,7 +106,8 @@ the document) is left out; a value of a class at the root (a model instance) is
 `ERR_INVALID_TARGET` rather than a document with its id a string. The `ids` of this subpath
 default to `'objectId'`, the way the documents are stored; `toJSONSchema` of the generators
 defaults to `'string'`, the way a program's JSON is, and names `'objectId'` for the collection
-validator.
+validator. The walk counts the records it embeds as `check` does and stops at `maxDepth` (128
+by default): a record deeper is left as it is, and the check reports the depth.
 
 ## Reading
 
@@ -151,8 +152,13 @@ bson.checkUpdate(Account, {
 - `$pull`, `$pullAll`, `$pop`: the path.
 - A path goes through nested structs, the elements of lists (`items.0`, `items.$`,
   `items.$[]`, `items.$[name]`), the values of dictionaries and the records references embed; a
-  path the schema does not have is `unexpected` under `unknown: 'reject'`. The id of a stored
-  record is set by `$setOnInsert` only.
+  key a struct does not have is `unexpected` under `unknown: 'reject'` and the policy's under
+  `'ignore'`. A path with an empty segment (`'a..b'`), into a part a field cannot have (an
+  element of a string, a field of a reference checked as an id) or to the `_id` of the
+  document is `unexpected` whatever the policy says; one through more embedded records than
+  `maxDepth` is a `depth` issue. The id of a stored record (its field, or `_id`) is set by
+  `$setOnInsert` only. The issue of an operand names what the operator takes (`$push` on a
+  field that is no list: `not of expected type: array`).
 
 `toUpdate` turns a checked update into the driver's: the values serialized, their ids
 ObjectIds, the id of the record as `_id`. It converts what the schema knows and passes the rest

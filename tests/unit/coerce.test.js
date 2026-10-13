@@ -579,6 +579,38 @@ test('Coerce: alias types convert as their base, a custom converter as its own',
     },
   ).entities.get('T');
   assert.strictEqual(odd.parse({ s: 1 }, { coerce: true }).valid, false);
+  // Told of it through the hook, with the field: a bug in a converter of
+  // the program does not look like a value it could not read.
+  const seen = [];
+  register({}, { onError: (error, field) => seen.push([error.message, field.type]) });
+  assert.strictEqual(odd.parse({ s: 1 }, { coerce: true }).valid, false);
+  assert.deepStrictEqual(seen, [['no', 'throwing']]);
+  register({});
+  assert.strictEqual(odd.parse({ s: 1 }, { coerce: true }).valid, false);
+  assert.strictEqual(seen.length, 2);
+  for (const options of [null, 'log', { onError: true }]) {
+    assert.throws(() => register({}, options), { code: 'ERR_INVALID_COERCION' });
+  }
+});
+
+test('Coerce: the policy is an own key, never one of Object.prototype', () => {
+  const plain = Schema.from({ a: 'number' });
+  const form = new Schema('Form', { Form: {}, a: 'number' });
+  // The pollution under test, undone in `finally`.
+  // oxlint-disable-next-line no-extend-native
+  Object.prototype.coerce = true;
+  try {
+    assert.strictEqual(plain.parse({ a: '1' }).valid, false);
+    assert.strictEqual(form.parse({ a: '1' }).valid, false);
+    assert.strictEqual(Schema.from({ a: 'number' }).parse({ a: '1' }).valid, false);
+    assert.strictEqual(
+      new Schema('Late', { Form: {}, a: 'number' }).parse({ a: '1' }).valid,
+      false,
+    );
+    assert.strictEqual(plain.parse({ a: '1' }, { coerce: true }).valid, true);
+  } finally {
+    delete Object.prototype.coerce;
+  }
 });
 
 test('Coerce: the policy is part of the definition a snapshot keeps', () => {

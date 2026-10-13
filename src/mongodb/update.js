@@ -27,6 +27,12 @@ const REFERENCE = 8;
 const LOOSE = Symbol('loose');
 // An element of a list of ids: a string.
 const ID = Symbol('id');
+// A part a node does not have (an element of a string, a field of an id):
+// the path is malformed whatever the policy for unknown keys says, which
+// decides `null`, a key a struct does not have.
+const NONE = Symbol('none');
+// A path through more embedded records than `maxDepth`.
+const DEEP = Symbol('deep');
 
 const ELEMENT = /^(?:\d+|\$|\$\[\w*\])$/;
 const INDEX = /^\d+$/;
@@ -57,33 +63,40 @@ const targetOf = (node, references) => {
 // What one segment of a path names from a node: the field of a struct, the
 // element of a list (an index, `$`, `$[]`, `$[name]`) or of a tuple, the
 // value of a dictionary, a field of the record a reference embeds; null for
-// what has no such part.
+// a key a struct does not have, NONE for a part a node cannot have.
 const step = (node, segment, references) => {
   if (hasBrand(node, 'Schema')) return step(node.fields, segment, references);
   if (isStruct(node)) return hasBrand(node[segment], 'Type') ? node[segment] : null;
   const { shape } = infoOf(node);
   if (shape === NESTED) return step(node.schema, segment, references);
-  if (shape === LIST) return ELEMENT.test(segment) ? node.value : null;
+  if (shape === LIST) return ELEMENT.test(segment) ? node.value : NONE;
   if (shape === KEYED) return node.value;
   if (shape === TUPLE) {
-    if (INDEX.test(segment)) return node.value[Number(segment)] ?? null;
-    return ELEMENT.test(segment) ? LOOSE : null;
+    if (INDEX.test(segment)) return node.value[Number(segment)] ?? NONE;
+    return ELEMENT.test(segment) ? LOOSE : NONE;
   }
   if (shape === REFERENCE) {
     const target = targetOf(node, references);
-    if (target === null) return null;
+    if (target === null) return NONE;
     if (node.one) return step(target, segment, references);
-    return ELEMENT.test(segment) ? target : null;
+    return ELEMENT.test(segment) ? target : NONE;
   }
   const base = baseOf(node);
-  return base === 'union' || base === 'any' || base === 'unknown' || base === 'json' ? LOOSE : null;
+  return base === 'union' || base === 'any' || base === 'unknown' || base === 'json' ? LOOSE : NONE;
 };
 
-const resolve = (target, segments, references) => {
+// The node a path names, or null, NONE, LOOSE or DEEP: the records a path
+// goes through are counted as the check counts the records it enters.
+const resolve = (target, segments, references, maxDepth) => {
   let node = target;
+  let depth = 0;
   for (let index = 0; index < segments.length && node !== LOOSE; index += 1) {
+    if (hasBrand(node, 'Type') && infoOf(node).shape === REFERENCE) {
+      depth += 1;
+      if (depth > maxDepth) return DEEP;
+    }
     node = step(node, segments[index], references);
-    if (node === null) return null;
+    if (node === null || node === NONE) return node;
   }
   return node;
 };
@@ -110,7 +123,8 @@ const checkAt = (node, value, context, key) => {
 };
 
 // An operand of `$inc` or `$mul`: a number for a field of numbers (a whole
-// one for an integer, a bigint for a bigint), never a field of another type.
+// one for an integer, a bigint for a bigint), never a field of another type;
+// the issue names what the operator takes, not the type of the field.
 const checkStep = (node, value, context, key) => {
   const base = hasBrand(node, 'Type') ? baseOf(node) : '';
   const fits =
@@ -118,7 +132,10 @@ const checkStep = (node, value, context, key) => {
       ? typeof value === 'bigint'
       : typeof value === 'number' &&
         (base === 'number' || (base === 'integer' && Number.isInteger(value)));
-  if (!fits) issues.type(context, node.type, value, key);
+  if (!fits) {
+    const expected = base === 'bigint' || base === 'integer' ? base : 'number';
+    issues.type(context, expected, value, key);
+  }
 };
 
 const checkOperation = (operator, node, value, context, key) => {
@@ -129,7 +146,7 @@ const checkOperation = (operator, node, value, context, key) => {
   else if (operator === '$currentDate') checkAt(node, new Date(), context, key);
   else if (operator === '$push' || operator === '$addToSet') {
     const element = elementOf(node, context.references);
-    if (element === null) issues.type(context, node.type, value, key);
+    if (element === null) issues.type(context, 'array', value, key);
     else for (const item of itemsOf(value)) checkAt(element, item, context, key);
   }
 };
@@ -138,17 +155,23 @@ const segmentOf = (segment) => (INDEX.test(segment) ? Number(segment) : segment)
 
 // One path of an operator: the parents on the path of the context, the
 // field it names checked by what the operator does. The id of a stored
-// record is its `_id`, which only an insert sets.
+// record (its field, or the `_id` of the document it is written to) is set
+// by an insert only; a path with an empty segment, or into a part a node
+// cannot have, names nothing whatever the policy for unknown keys says.
 const checkPath = (target, id, operator, path, value, context) => {
   const segments = path.split('.');
   const last = segments.length - 1;
   for (let index = 0; index < last; index += 1) context.path.push(segmentOf(segments[index]));
   const key = segmentOf(segments[last]);
-  const immutable = segments[0] === id && operator !== '$setOnInsert';
-  const node = immutable ? null : resolve(target, segments, context.references);
-  if (node === null) {
-    if (immutable || context.unknown === 'reject') issues.unexpected(context, [segments[last]]);
-  } else if (node !== LOOSE) checkOperation(operator, node, value, context, key);
+  const first = segments[0];
+  const immutable =
+    (first === id || (first === KEY && !(KEY in target.fields))) && operator !== '$setOnInsert';
+  const malformed = immutable || segments.includes('');
+  const node = malformed ? NONE : resolve(target, segments, context.references, context.maxDepth);
+  if (node === DEEP) issues.depth(context, context.maxDepth, key);
+  else if (node === NONE || (node === null && context.unknown === 'reject')) {
+    issues.unexpected(context, [segments[last]]);
+  } else if (node !== null && node !== LOOSE) checkOperation(operator, node, value, context, key);
   context.path.length -= last;
 };
 
@@ -227,12 +250,12 @@ const toUpdate = (target, update, options) => {
     const next = {};
     for (const path of Object.keys(operand)) {
       const segments = path.split('.');
-      const node = resolve(target, segments, state.references);
+      const node = resolve(target, segments, state.references, state.maxDepth);
       let value = operand[path];
       if (segments[0] === id) {
         segments[0] = KEY;
         if (segments.length === 1) value = idValue(state, value);
-      } else if (node !== null && node !== LOOSE) {
+      } else if (node !== null && typeof node !== 'symbol') {
         value = operandOf(state, context, operator, node, value);
       }
       define(next, segments.join('.'), value);
