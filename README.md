@@ -216,8 +216,8 @@ interactive.
 | Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 3.5 KB | 1.5 KB |  |
 | Metarhia metaschema<br><sub>check() · strict only · v2.2.2</sub> | 30.0 KB | 11.0 KB | minified with keepNames: its checks compare constructor names |
 | Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 41.4 KB | 13.2 KB |  |
-| **metaschema**<br><sub>check() · closures · v3.2.0</sub> | 49.9 KB | 18.0 KB |  |
-| **metaschema**<br><sub>check() · compile(), JIT · v3.2.0</sub> | 62.5 KB | 22.2 KB |  |
+| **metaschema**<br><sub>check() · closures · v3.2.0</sub> | 52.6 KB | 18.9 KB |  |
+| **metaschema**<br><sub>check() · compile(), JIT · v3.2.0</sub> | 65.2 KB | 23.1 KB |  |
 | Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 72.9 KB | 24.4 KB |  |
 | Zod<br><sub>safeParse() · v4.6.6</sub> | 88.4 KB | 25.7 KB |  |
 | TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 146.7 KB | 37.5 KB |  |

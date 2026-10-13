@@ -80,22 +80,22 @@ yup@1.7.1</title>
 <text class="value" x="361.622021484375" y="234">13.2 KB</text>
 </g>
 <g><title>metaschema · check() · closures
-18.0 KB min+gzip
-49.9 KB minified
+18.9 KB min+gzip
+52.6 KB minified
 @alexify/metaschema@3.2.0</title>
 <text class="label secondary" x="20" y="265">metaschema</text>
 <text class="sublabel" x="20" y="280">check() · closures</text>
-<path class="bar secondary" d="M265,261H384.132763671875A4,4 0 0 1 388.132763671875,265V271A4,4 0 0 1 384.132763671875,275H265Z"/>
-<text class="value" x="394.132763671875" y="274">18.0 KB</text>
+<path class="bar secondary" d="M265,261H390.367333984375A4,4 0 0 1 394.367333984375,265V271A4,4 0 0 1 390.367333984375,275H265Z"/>
+<text class="value" x="400.367333984375" y="274">18.9 KB</text>
 </g>
 <g><title>metaschema · check() · compile(), JIT
-22.2 KB min+gzip
-62.5 KB minified
+23.1 KB min+gzip
+65.2 KB minified
 @alexify/metaschema@3.2.0</title>
 <text class="label primary" x="20" y="305">metaschema</text>
 <text class="sublabel" x="20" y="320">check() · compile(), JIT</text>
-<path class="bar primary" d="M265,301H413.13823242187505A4,4 0 0 1 417.13823242187505,305V311A4,4 0 0 1 413.13823242187505,315H265Z"/>
-<text class="value" x="423.13823242187505" y="314">22.2 KB</text>
+<path class="bar primary" d="M265,301H419.55341796875A4,4 0 0 1 423.55341796875,305V311A4,4 0 0 1 419.55341796875,315H265Z"/>
+<text class="value" x="429.55341796875" y="314">23.1 KB</text>
 </g>
 <g><title>Effect Schema · decodeUnknownResult() · is()
 24.4 KB min+gzip

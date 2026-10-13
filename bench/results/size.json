@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T20:55:39.318Z",
+  "generatedAt": "2026-10-13T20:07:54.042Z",
   "libraries": [
     {
       "id": "metaschema-jit",
@@ -7,8 +7,8 @@
       "variant": "check() · compile(), JIT",
       "package": "@alexify/metaschema",
       "version": "3.2.0",
-      "min": 63993,
-      "gzip": 22743
+      "min": 66755,
+      "gzip": 23702
     },
     {
       "id": "metaschema",
@@ -16,8 +16,8 @@
       "variant": "check() · closures",
       "package": "@alexify/metaschema",
       "version": "3.2.0",
-      "min": 51062,
-      "gzip": 18407
+      "min": 53818,
+      "gzip": 19339
     },
     {
       "id": "metarhia",
