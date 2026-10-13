@@ -156,21 +156,21 @@ only to Ajv, and 6 to 100 times faster than the other TypeScript-first validator
 
 | Library | Flat object, parseSafe<br><sub>ops/s</sub> | Flat object, parseStrict<br><sub>ops/s</sub> | Flat object, assertLoose<br><sub>ops/s</sub> | Flat object, assertStrict<br><sub>ops/s</sub> | Nested object, parseSafe<br><sub>ops/s</sub> | Nested object, parseStrict<br><sub>ops/s</sub> | Nested object, assertLoose<br><sub>ops/s</sub> | Nested object, assertStrict<br><sub>ops/s</sub> | Every issue of an invalid value<br><sub>ops/s</sub> | Build a schema<br><sub>schemas/s</sub> |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **metaschema**<br><sub>check() · compile(), JIT · v3.2.0</sub> | 47,400,000 | 38,800,000 | 48,400,000 | 40,200,000 | 41,500,000 | 29,500,000 | 43,700,000 | 30,200,000 | 6,600,000 | 32,300 |
-| **metaschema**<br><sub>check() · closures · v3.2.0</sub> | 9,690,000 | 8,670,000 | 9,820,000 | 8,980,000 | 4,950,000 | 4,660,000 | 4,980,000 | 4,640,000 | 3,120,000 | 201,000 |
-| Metarhia metaschema<br><sub>check() · strict only · v2.2.2</sub> | — | 925,000 | — | 931,000 | — | 534,000 | — | 538,000 | 420,000 | 283,000 |
-| Zod<br><sub>safeParse() · v4.6.6</sub> | 26,800,000 | 12,300,000 | 27,100,000 | 12,800,000 | 16,700,000 | 7,200,000 | 16,600,000 | 7,170,000 | 447,000 | 80,600 |
-| Valibot<br><sub>safeParse() · is() · v1.5.0</sub> | 3,440,000 | 2,940,000 | 3,570,000 | 2,910,000 | 2,070,000 | 1,740,000 | 2,030,000 | 1,770,000 | 1,130,000 | 2,070,000 |
-| ArkType<br><sub>type(value) · allows() · v2.2.8</sub> | 49,700,000 | 7,270,000 | 169,000,000 | 8,560,000 | 37,600,000 | 4,220,000 | 131,000,000 | 4,730,000 | 67,100 | 14,700 |
-| Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 4,040,000 | 1,930,000 | 4,080,000 | 1,910,000 | 2,270,000 | 993,000 | 2,240,000 | 1,000,000 | 367,000 | 675,000 |
-| TypeBox<br><sub>Compile(…).Check() · v1.3.36</sub> | 164,000,000 | 78,200,000 | 186,000,000 | 81,700,000 | 119,000,000 | 42,700,000 | 136,000,000 | 43,600,000 | 90,900 | 36,300 |
-| TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 258,000 | 190,000 | 261,000 | 188,000 | 166,000 | 116,000 | 166,000 | 117,000 | 90,600 | 429,000 |
-| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 64,600,000 | 34,100,000 | 69,900,000 | 35,100,000 | 50,700,000 | 23,200,000 | 54,800,000 | 23,900,000 | 14,800,000 | 1,820 |
-| Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 301,000 | 291,000 | 305,000 | 291,000 | 181,000 | 172,000 | 182,000 | 173,000 | 11,500 | 54,600 |
-| Joi<br><sub>validate(), convert: false · v18.2.9</sub> | 819,000 | 834,000 | 796,000 | 830,000 | 528,000 | 529,000 | 520,000 | 532,000 | 258,000 | 38,600 |
-| Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 480,000 | 436,000 | 486,000 | 431,000 | 293,000 | 260,000 | 298,000 | 260,000 | 102,000 | 1,810,000 |
+| **metaschema**<br><sub>check() · compile(), JIT · v3.3.0</sub> | 48,400,000 | 38,900,000 | 49,700,000 | 40,800,000 | 42,000,000 | 29,900,000 | 44,100,000 | 30,300,000 | 6,650,000 | 32,300 |
+| **metaschema**<br><sub>check() · closures · v3.3.0</sub> | 9,430,000 | 9,020,000 | 10,000,000 | 9,200,000 | 5,100,000 | 4,810,000 | 5,090,000 | 4,750,000 | 3,000,000 | 190,000 |
+| Metarhia metaschema<br><sub>check() · strict only · v2.2.2</sub> | — | 958,000 | — | 959,000 | — | 550,000 | — | 546,000 | 428,000 | 282,000 |
+| Zod<br><sub>safeParse() · v4.6.6</sub> | 26,500,000 | 12,800,000 | 27,800,000 | 12,700,000 | 16,700,000 | 7,340,000 | 16,900,000 | 7,160,000 | 445,000 | 82,100 |
+| Valibot<br><sub>safeParse() · is() · v1.5.0</sub> | 3,570,000 | 2,950,000 | 3,620,000 | 3,010,000 | 2,130,000 | 1,800,000 | 2,080,000 | 1,780,000 | 1,150,000 | 2,050,000 |
+| ArkType<br><sub>type(value) · allows() · v2.2.8</sub> | 50,500,000 | 7,400,000 | 171,000,000 | 8,640,000 | 38,100,000 | 4,020,000 | 134,000,000 | 4,430,000 | 68,000 | 14,600 |
+| Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 4,200,000 | 1,970,000 | 4,220,000 | 1,980,000 | 2,310,000 | 1,000,000 | 2,310,000 | 1,000,000 | 359,000 | 672,000 |
+| TypeBox<br><sub>Compile(…).Check() · v1.3.36</sub> | 165,000,000 | 79,900,000 | 188,000,000 | 83,700,000 | 119,000,000 | 43,200,000 | 136,000,000 | 43,800,000 | 90,600 | 36,200 |
+| TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 263,000 | 191,000 | 264,000 | 192,000 | 170,000 | 118,000 | 167,000 | 114,000 | 89,400 | 422,000 |
+| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 65,700,000 | 34,600,000 | 71,900,000 | 35,300,000 | 51,500,000 | 23,500,000 | 55,400,000 | 24,100,000 | 15,000,000 | 1,840 |
+| Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 313,000 | 298,000 | 314,000 | 295,000 | 184,000 | 175,000 | 185,000 | 168,000 | 11,800 | 53,900 |
+| Joi<br><sub>validate(), convert: false · v18.2.9</sub> | 851,000 | 843,000 | 834,000 | 855,000 | 534,000 | 543,000 | 535,000 | 525,000 | 257,000 | 37,400 |
+| Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 492,000 | 453,000 | 496,000 | 443,000 | 304,000 | 266,000 | 299,000 | 257,000 | 100,000 | 1,770,000 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each library in a fresh process · 2026-10-11. Medians, rounded to three significant figures; — where the library cannot express the mode._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each library in a fresh process · 2026-10-13. Medians, rounded to three significant figures; — where the library cannot express the mode._
 
 <!-- bench:compare:end -->
 
@@ -187,19 +187,19 @@ interactive.
 
 | Library | Load | Build | First check | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 0.8 ms | 0.2 ms | 0.3 ms | 1.3 ms |
-| Valibot<br><sub>safeParse() · is() · v1.5.0</sub> | 3.7 ms | 0.1 ms | 0.1 ms | 4.0 ms |
-| Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 2.5 ms | 1.1 ms | 0.7 ms | 4.2 ms |
-| **metaschema**<br><sub>check() · closures · v3.2.0</sub> | 4.7 ms | 0.9 ms | 0.1 ms | 5.7 ms |
-| **metaschema**<br><sub>check() · compile(), JIT · v3.2.0</sub> | 5.7 ms | 1.6 ms | 0.2 ms | 7.6 ms |
+| Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 0.7 ms | 0.2 ms | 0.3 ms | 1.2 ms |
+| Valibot<br><sub>safeParse() · is() · v1.5.0</sub> | 3.7 ms | 0.1 ms | 0.1 ms | 3.9 ms |
+| Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 2.4 ms | 1.1 ms | 0.7 ms | 4.2 ms |
+| **metaschema**<br><sub>check() · closures · v3.3.0</sub> | 4.7 ms | 1.0 ms | 0.4 ms | 6.1 ms |
+| **metaschema**<br><sub>check() · compile(), JIT · v3.3.0</sub> | 5.9 ms | 1.7 ms | 0.2 ms | 7.8 ms |
 | Metarhia metaschema<br><sub>check() · strict only · v2.2.2</sub> | 20.7 ms | 0.6 ms | 0.2 ms | 21.5 ms |
-| Joi<br><sub>validate(), convert: false · v18.2.9</sub> | 23.3 ms | 1.2 ms | 0.6 ms | 25.1 ms |
-| Zod<br><sub>safeParse() · v4.6.6</sub> | 27.7 ms | 1.4 ms | 1.2 ms | 30.3 ms |
-| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 14.7 ms | 23.9 ms | 0.2 ms | 38.7 ms |
-| Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 71.0 ms | 0.2 ms | 0.8 ms | 72.0 ms |
-| TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 94.7 ms | 0.1 ms | 1.0 ms | 95.9 ms |
-| TypeBox<br><sub>Compile(…).Check() · v1.3.36</sub> | 94.8 ms | 1.9 ms | 0.0 ms | 96.7 ms |
-| ArkType<br><sub>type(value) · allows() · v2.2.8</sub> | 105.9 ms | 1.4 ms | 0.1 ms | 107.3 ms |
+| Joi<br><sub>validate(), convert: false · v18.2.9</sub> | 23.1 ms | 1.2 ms | 0.6 ms | 25.0 ms |
+| Zod<br><sub>safeParse() · v4.6.6</sub> | 27.7 ms | 1.5 ms | 1.2 ms | 30.3 ms |
+| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 14.6 ms | 24.4 ms | 0.2 ms | 39.3 ms |
+| Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 72.4 ms | 0.2 ms | 0.8 ms | 73.4 ms |
+| TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 96.6 ms | 0.1 ms | 1.1 ms | 97.8 ms |
+| TypeBox<br><sub>Compile(…).Check() · v1.3.36</sub> | 96.9 ms | 1.9 ms | 0.0 ms | 98.9 ms |
+| ArkType<br><sub>type(value) · allows() · v2.2.8</sub> | 107.8 ms | 1.4 ms | 0.1 ms | 109.3 ms |
 
 <!-- bench:coldstart:end -->
 
@@ -216,8 +216,8 @@ interactive.
 | Superstruct<br><sub>validate() · is() · v2.0.2</sub> | 3.5 KB | 1.5 KB |  |
 | Metarhia metaschema<br><sub>check() · strict only · v2.2.2</sub> | 30.0 KB | 11.0 KB | minified with keepNames: its checks compare constructor names |
 | Yup<br><sub>validateSync() · isValidSync(), strict · v1.7.1</sub> | 41.4 KB | 13.2 KB |  |
-| **metaschema**<br><sub>check() · closures · v3.2.0</sub> | 52.6 KB | 18.9 KB |  |
-| **metaschema**<br><sub>check() · compile(), JIT · v3.2.0</sub> | 65.2 KB | 23.1 KB |  |
+| **metaschema**<br><sub>check() · closures · v3.3.0</sub> | 52.6 KB | 18.9 KB |  |
+| **metaschema**<br><sub>check() · compile(), JIT · v3.3.0</sub> | 65.2 KB | 23.1 KB |  |
 | Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 72.9 KB | 24.4 KB |  |
 | Zod<br><sub>safeParse() · v4.6.6</sub> | 88.4 KB | 25.7 KB |  |
 | TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 146.7 KB | 37.5 KB |  |
@@ -233,7 +233,7 @@ interactive.
 <!-- bench:releases:start -->
 <!-- generated by `pnpm bench:report` from bench/results — edit the results, not this block -->
 
-<img src="https://metaschema.vercel.app/benchmarks/speedup.svg" alt="metaschema 3.2.0 against Metarhia's metaschema 2.2.2: How many times faster, scenario by scenario (1 = as fast). Higher is better." width="760" />
+<img src="https://metaschema.vercel.app/benchmarks/speedup.svg" alt="metaschema 3.3.0 against Metarhia's metaschema 2.2.2: How many times faster, scenario by scenario (1 = as fast). Higher is better." width="760" />
 
 <details>
 <summary>Every release, scenario by scenario</summary>
@@ -252,16 +252,16 @@ interactive.
 
 </details>
 
-| Scenario | Metarhia 2.2.2 | 1.0.0 | 2.0.0 | 3.0.0 | 3.0.0<br><sub>JIT</sub> | 3.1.0 | 3.1.0<br><sub>JIT</sub> | 3.2.0 | 3.2.0<br><sub>JIT</sub> |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Schema.from — flat struct | 581,000 | 321,000 | 362,000 | 372,000 | — | 367,000 | — | 356,000 | — |
-| Schema.from — nested struct | 156,000 | 95,600 | 104,000 | 99,000 | — | 98,400 | — | 98,600 | — |
-| check — flat struct, valid | 1,440,000 | 2,180,000 | 10,800,000 | 10,700,000 | 38,600,000 | 11,700,000 | 37,900,000 | 11,600,000 | 37,900,000 |
-| check — flat struct, invalid | 1,010,000 | 1,110,000 | 4,020,000 | 3,940,000 | 6,130,000 | 3,880,000 | 6,170,000 | 3,900,000 | 6,160,000 |
-| check — nested struct, valid | 238,000 | 368,000 | 2,950,000 | 2,930,000 | 19,700,000 | 2,920,000 | 19,600,000 | 2,910,000 | 19,700,000 |
-| check — nested struct, invalid | 222,000 | 300,000 | 1,570,000 | 1,580,000 | 2,140,000 | 1,570,000 | 2,110,000 | 1,570,000 | 2,110,000 |
+| Scenario | Metarhia 2.2.2 | 1.0.0 | 2.0.0 | 3.0.0 | 3.0.0<br><sub>JIT</sub> | 3.1.0 | 3.1.0<br><sub>JIT</sub> | 3.2.0 | 3.2.0<br><sub>JIT</sub> | 3.3.0 | 3.3.0<br><sub>JIT</sub> |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Schema.from — flat struct | 581,000 | 321,000 | 362,000 | 372,000 | — | 367,000 | — | 356,000 | — | 332,000 | — |
+| Schema.from — nested struct | 156,000 | 95,600 | 104,000 | 99,000 | — | 98,400 | — | 98,600 | — | 91,100 | — |
+| check — flat struct, valid | 1,440,000 | 2,180,000 | 10,800,000 | 10,700,000 | 38,600,000 | 11,700,000 | 37,900,000 | 11,600,000 | 37,900,000 | 11,600,000 | 38,200,000 |
+| check — flat struct, invalid | 1,010,000 | 1,110,000 | 4,020,000 | 3,940,000 | 6,130,000 | 3,880,000 | 6,170,000 | 3,900,000 | 6,160,000 | 3,850,000 | 6,240,000 |
+| check — nested struct, valid | 238,000 | 368,000 | 2,950,000 | 2,930,000 | 19,700,000 | 2,920,000 | 19,600,000 | 2,910,000 | 19,700,000 | 2,910,000 | 19,700,000 |
+| check — nested struct, invalid | 222,000 | 300,000 | 1,570,000 | 1,580,000 | 2,140,000 | 1,570,000 | 2,110,000 | 1,570,000 | 2,110,000 | 1,590,000 | 2,120,000 |
 
-_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each release in a fresh process · 2026-10-11. ops/s (schemas/s for `Schema.from`), medians._
+_Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each release in a fresh process · 2026-10-13. ops/s (schemas/s for `Schema.from`), medians._
 
 <!-- bench:releases:end -->
 

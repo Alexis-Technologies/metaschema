@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-10-13T20:07:54.042Z",
+  "generatedAt": "2026-10-13T21:01:48.459Z",
   "libraries": [
     {
       "id": "metaschema-jit",
       "name": "metaschema",
       "variant": "check() · compile(), JIT",
       "package": "@alexify/metaschema",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "min": 66755,
       "gzip": 23702
     },
@@ -15,7 +15,7 @@
       "name": "metaschema",
       "variant": "check() · closures",
       "package": "@alexify/metaschema",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "min": 53818,
       "gzip": 19339
     },

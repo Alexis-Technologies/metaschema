@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-11T20:54:17.275Z",
+  "generatedAt": "2026-10-13T20:48:38.637Z",
   "machine": {
     "cpu": "Apple M3 Max",
     "cores": 16,
@@ -303,7 +303,7 @@
       "name": "@alexify/metaschema",
       "version": "3.2.0",
       "backend": "closures",
-      "current": true,
+      "current": false,
       "results": {
         "from-flat": {
           "median": 355915.38080659555,
@@ -342,7 +342,7 @@
       "name": "@alexify/metaschema",
       "version": "3.2.0",
       "backend": "jit",
-      "current": true,
+      "current": false,
       "results": {
         "flat-valid": {
           "median": 37916069.64719858,
@@ -363,6 +363,74 @@
           "median": 2110172.210352405,
           "min": 2075666.4267942084,
           "max": 2133470.808602629
+        }
+      }
+    },
+    {
+      "id": "3.3.0",
+      "name": "@alexify/metaschema",
+      "version": "3.3.0",
+      "backend": "closures",
+      "current": true,
+      "results": {
+        "from-flat": {
+          "median": 331704.7664014153,
+          "min": 325236.3093751065,
+          "max": 334470.43873123574
+        },
+        "from-nested": {
+          "median": 91068.52205003887,
+          "min": 88155.8928449409,
+          "max": 93062.01124461423
+        },
+        "flat-valid": {
+          "median": 11551183.096747214,
+          "min": 11401341.448798195,
+          "max": 11647751.96065613
+        },
+        "flat-invalid": {
+          "median": 3853014.2581358748,
+          "min": 3676332.3868877515,
+          "max": 3860845.4744290086
+        },
+        "nested-valid": {
+          "median": 2911500.101786074,
+          "min": 2770272.6311284676,
+          "max": 2925318.7861212776
+        },
+        "nested-invalid": {
+          "median": 1588867.2009645468,
+          "min": 1563893.7017131497,
+          "max": 1595159.5055020729
+        }
+      }
+    },
+    {
+      "id": "3.3.0-jit",
+      "name": "@alexify/metaschema",
+      "version": "3.3.0",
+      "backend": "jit",
+      "current": true,
+      "results": {
+        "flat-valid": {
+          "median": 38190089.24457169,
+          "min": 38116396.55699719,
+          "max": 38300101.910169445
+        },
+        "flat-invalid": {
+          "median": 6235862.871230638,
+          "min": 6084238.780606374,
+          "max": 6244554.562360651
+        },
+        "nested-valid": {
+          "median": 19668415.381352622,
+          "min": 19644281.614697244,
+          "max": 19731750.86036981
+        },
+        "nested-invalid": {
+          "median": 2116313.361122012,
+          "min": 2072853.0274036375,
+          "max": 2146443.0322700096
         }
       }
     }

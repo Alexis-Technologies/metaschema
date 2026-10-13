@@ -4,6 +4,7 @@ const util = require('node:util');
 
 const { Schema, Model } = require('../../index.js');
 const { COERCIONS, coerce, register } = require('../../src/coerce/index.js');
+const { COERCION } = require('../../src/codec.js');
 const { compile, canEval } = require('../../src/compile/index.js');
 const { parseEach, parseEachAsync, transform } = require('../../src/stream/index.js');
 const { sample, fromJSON } = require('../../src/model/index.js');
@@ -69,6 +70,8 @@ test('Coerce: before register() nothing converts, and a parse that would says so
     message: 'Schema metadata "coerce" must be a boolean, got "on"',
   });
   assert.strictEqual(form.coerce, undefined);
+  // The slot that resolves a converter says the same to a caller that reaches it directly.
+  assert.throws(() => COERCION.resolve({}), notRegistered);
 });
 
 test('Coerce: register() fills the table once, and only with converters of types', () => {
@@ -773,4 +776,22 @@ test('Coerce: the policy is part of the definition a snapshot keeps', () => {
   const restored = fromJSON(snapshot).entities.get('Form');
   assert.deepStrictEqual(valueOf(restored, { a: '1', b: 2 }, undefined), { a: 1, b: 2 });
   assert.deepStrictEqual(model.warnings, []);
+});
+
+test('Coerce: the enum converter of the table reads a member written as text', () => {
+  register();
+  const convert = COERCIONS.enum;
+  assert.strictEqual(convert('2', { enum: [1, 2] }), 2);
+  assert.strictEqual(convert(2, { enum: ['1', '2'] }), '2');
+  assert.strictEqual(convert(2, { enum: [2] }), 2);
+  assert.strictEqual(convert('x', { enum: [1, 2] }), 'x');
+  const object = {};
+  assert.strictEqual(convert(object, { enum: [1] }), object);
+});
+
+test('Coerce: the report names a value that changed its form', () => {
+  const schema = Schema.from({ tags: { array: 'string' }, pairs: { map: { string: 'integer' } } });
+  const report = [];
+  coerce(schema, { tags: 'a', pairs: { x: '1' } }, { report });
+  assert.deepStrictEqual(report, [['tags'], ['pairs']]);
 });
