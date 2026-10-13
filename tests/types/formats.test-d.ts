@@ -5,10 +5,12 @@ import type { FormatDefinition } from '../../src/formats/index.js';
 import type { DefinitionErrorCode, InferSchema, IssueCode, IssueOf } from '../../index.js';
 
 // register() takes the program's own formats beside the built-in ones.
-expectType<void>(register());
-expectType<void>(register({ phone: { test: (value) => value.length > 3, examples: ['+380'] } }));
-expectType<void>(register({ word: { test: () => true, examples: ['a'], infer: false } }));
-expectType<void>(
+expectType<string[]>(register());
+expectType<string[]>(
+  register({ phone: { test: (value) => value.length > 3, examples: ['+380'] } }),
+);
+expectType<string[]>(register({ word: { test: () => true, examples: ['a'], infer: false } }));
+expectType<string[]>(
   register({ sku: { test: () => true, examples: ['A-1'], pattern: '^[A-Z]-\\d$' } }),
 );
 expectError(register({ sku: { test: () => true, examples: ['A-1'], pattern: /^[A-Z]-\d$/ } }));

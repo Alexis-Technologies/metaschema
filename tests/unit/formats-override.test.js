@@ -12,7 +12,10 @@ test('Formats: a format of the program takes the place of a built-in of its name
   // A format registered before its name was built in (3.2 had no ulid)
   // keeps working, in the place of the built-in.
   const ulid = { test: (value) => /^[0-9A-Z]{26}$/.test(value), examples: ['0'.repeat(26)] };
-  register({ ulid });
+  // The call says which built-in it replaced, so that a program can log it:
+  // none here, since nothing was in the table before this first call.
+  assert.deepStrictEqual(register({ ulid }), []);
+  assert.deepStrictEqual(register({ ulid }), []);
   assert.strictEqual(FORMATS.ulid.test, ulid.test);
   const names = Object.keys(FORMATS);
   assert.strictEqual(names.indexOf('ulid'), 1);
@@ -27,7 +30,9 @@ test('Formats: a format of the program takes the place of a built-in of its name
   // An override after the schemas were built: they keep the built-in test.
   const before = Schema.from({ s: { type: 'string', format: 'email' } });
   const email = { test: (value) => value.endsWith('@example.com'), examples: ['a@example.com'] };
-  register({ email });
+  assert.deepStrictEqual(register({ email, phone: { test: () => true, examples: ['1'] } }), [
+    'email',
+  ]);
   assert.strictEqual(FORMATS.email.test, email.test);
   assert.strictEqual(before.check({ s: 'ann@mail.org' }).valid, true);
   const after = Schema.from({ s: { type: 'string', format: 'email' } });

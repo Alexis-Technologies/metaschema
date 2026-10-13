@@ -152,11 +152,20 @@ export interface ParseOptions extends Omit<CheckOptions, 'unknown'> {
 }
 
 // The options of `coerce(schema, value)` of the `@alexify/metaschema/coerce`
-// subpath: how references are followed and how deep.
+// subpath: how references are followed and how deep, and an array given the
+// path of every key the pass changed (a value converted, a default filled).
 export interface CoerceOptions {
   references?: CheckOptions['references'];
   maxDepth?: number;
+  report?: PropertyKey[][];
 }
+
+// A converter of coercion: the value of a field of its type read from what
+// the input gave, or the value itself when it cannot be read (the check then
+// reports it as given). Registered process-wide by `register()` of the
+// `@alexify/metaschema/coerce` subpath, or given to a model for its own type
+// names (`ModelOptions.coercions`).
+export type Coercion = (value: unknown, field: FieldType) => unknown;
 
 // What parse returns: the output only for a valid value, the issues always.
 export type ParseResult<T> =
@@ -321,6 +330,10 @@ export interface ModelOptions {
   // 'shared' (the default) registers the types into the process-wide registry;
   // 'isolated' gives the model its own copy of the built-in types to register into.
   registry?: 'shared' | 'isolated';
+  // The converters of coercion for the model's own type names, read before
+  // the process-wide table for the fields of its entities: what an isolated
+  // registry is to the types.
+  coercions?: Record<string, Coercion>;
 }
 
 export interface KindMetadata {
@@ -1659,6 +1672,9 @@ export class Schema<const D extends string | object = string | object> {
 
 export class Model {
   types: TypeTable;
+  // The converters of coercion the model was given (`ModelOptions.coercions`),
+  // frozen, or null.
+  readonly coercions: Readonly<Record<string, Coercion>> | null;
   entities: Map<string, Schema>;
   database: Record<string, unknown> | null;
   order: Set<string>;

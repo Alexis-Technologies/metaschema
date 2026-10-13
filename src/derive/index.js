@@ -208,7 +208,11 @@ const extend = (schema, extension, options) => {
 // calculated fields and the id of a stored kind are not among them.
 const keyof = (schema, options) => {
   sourceOf(schema);
-  const { name = schema.name } = optionsOf(options);
+  const { name = schema.name, metadata } = optionsOf(options);
+  if (metadata !== undefined) {
+    const reason = 'keyof takes a name only: a schema of an enum has no kind';
+    throw atSchema(new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason), schema.name);
+  }
   const id = idOf(schema);
   const names = [];
   for (const key in schema.fields) {

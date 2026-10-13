@@ -93,6 +93,14 @@ branch does is the value converted, and the first branch that accepts the conver
 taken. `{ union: ['number', 'string'] }` keeps `'3'` a string, `{ union: ['number', 'boolean'] }`
 makes `'true'` the boolean. A discriminator is read as given.
 
+Before the check, the branches of a plain union are prepared first (their defaults, their
+conversions); when none of them changes the value there is nothing to pick between, and the
+check picks the branch. Otherwise the value is tried against each branch as given, then as
+converted, and a trial is a check of the subtree: a union of records that nest unions of
+records, with a leaf deep inside to convert, is tried at every level, which grows with the
+depth. A `discriminator` picks the branch in one lookup and is the answer for such a union, as
+it is for a union with async validators.
+
 A **reference** converts the record it embeds through its entity; an id is an id, and stays the
 id it was given (a number is not converted to a string id). A value under an **alias** of a
 field is converted, then renamed.
@@ -131,6 +139,20 @@ The converters run before the check, so the `length` of a field does not bound w
 read; they are linear on any string (a run of a hundred thousand digits that is not a number
 costs what reading it once costs), and a converter of your own should be too.
 
+`coerce(schema, value, { report })` is given an array and fills it with the path of every key
+the pass changed, a value converted or a default filled in, as the `path` of an issue
+(`PropertyKey[]`, the root `[]`), in the order of the keys of the output:
+
+```js
+const report = [];
+coerce(Query, { page: '3', tags: 'a' }, { report });
+// report: [ [ 'page' ], [ 'tags' ], [ 'all' ] ]  (page converted, tags made a list, all filled)
+```
+
+`parse` does not report: what it gives is the value of the program, and the input it read is
+the caller's. A converted leaf is reported once; a container converted whole (an object to a
+Map, a string to a Date) is one path.
+
 ## Converters of your own
 
 A converter is `(value, field) => value`: the value of a field of its type read from what the
@@ -168,6 +190,25 @@ register({
   looseBoolean: (value) => (value === 'on' || value === 'yes' ? true : COERCIONS.boolean(value)),
 });
 ```
+
+### Converters of a model
+
+The table of `register()` is one per process, like the type registry. A model that needs its
+own reading of a type name (two tenants, two domains in a monorepo, a test that builds a
+conflicting model) gives its converters to `new Model`, where an isolated registry gives its
+types:
+
+```js
+const cents = new Model({ money: { js: 'number' } }, entities, null, {
+  registry: 'isolated',
+  coercions: { money: (value) => (typeof value === 'string' ? Math.round(Number(value) * 100) : value) },
+});
+```
+
+The fields of its entities, and of a schema that attaches the model as a namespace, read a
+model's converter before the process-wide one of the same name (a built-in name included);
+every other schema reads the table of `register()`. `model.coercions` is the frozen table it was
+given, or `null`.
 
 ## TypeScript, JSON Schema, evolution
 

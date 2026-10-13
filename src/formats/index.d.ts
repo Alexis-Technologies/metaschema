@@ -25,5 +25,7 @@ export const FORMATS: { readonly [name: string]: Readonly<FormatDefinition> | un
 // registry: a name registered again with the same test is nothing, with
 // another test `ERR_FORMAT_REGISTERED`, and an entry that is not a format
 // `ERR_INVALID_FORMAT`. The program's own format under the name of a
-// built-in one takes its place.
-export function register(custom?: Record<string, FormatDefinition>): void;
+// built-in one takes its place, and the call returns the names of the
+// built-in formats it replaced (an empty list otherwise); the schemas built
+// before keep the built-in test.
+export function register(custom?: Record<string, FormatDefinition>): string[];

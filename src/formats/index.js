@@ -522,29 +522,36 @@ const registered = (name) =>
 const add = (name, entry, own) => {
   if (name === '') throw invalidFormat(name, 'needs a name');
   const known = FORMATS[name];
+  let replaced = false;
   if (known !== undefined) {
-    if (known.test === entry.test) return;
-    if (!own) return;
-    const builtIn = Object.hasOwn(BUILT_IN, name) && known.test === BUILT_IN[name].test;
-    if (!builtIn) throw registered(name);
+    if (known.test === entry.test) return false;
+    if (!own) return false;
+    replaced = Object.hasOwn(BUILT_IN, name) && known.test === BUILT_IN[name].test;
+    if (!replaced) throw registered(name);
   }
   FORMATS[name] = entryOf(name, entry);
+  return replaced;
 };
 
 // Registers the built-in formats and the program's own
 // (`{ phone: { test, examples } }`); once per name, process-wide, like the
-// type registry. Importing the subpath registers nothing.
+// type registry. Importing the subpath registers nothing. Returns the names
+// of the built-in formats the call replaced with the program's own (the
+// schemas built before keep the built-in test), so that a program can log
+// what it overrode; an empty list otherwise.
 const register = (custom = {}) => {
   if (custom === null || typeof custom !== 'object') {
     throw new SchemaDefinitionError('ERR_INVALID_FORMAT', 'Formats must be an object of entries');
   }
+  const replaced = [];
   for (const name of Object.keys(BUILT_IN)) {
     const own = Object.hasOwn(custom, name);
-    add(name, own ? custom[name] : BUILT_IN[name], own);
+    if (add(name, own ? custom[name] : BUILT_IN[name], own)) replaced.push(name);
   }
   for (const name of Object.keys(custom)) {
     if (!Object.hasOwn(BUILT_IN, name)) add(name, custom[name], true);
   }
+  return replaced;
 };
 
 module.exports = { FORMATS, register };

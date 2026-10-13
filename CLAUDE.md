@@ -180,7 +180,8 @@ functions; `extend` replaces where `merge` unifies.
 **`./mongodb` does no I/O and has no driver dependency (3.3).** The program registers the
 module of its driver (`register({ bson })`), which also installs the converters of the BSON
 types into `./coerce`; a value of bson is recognized by `_bsontype` and a method, never by
-`instanceof`. The program keeps ids as strings, `toDocument` writes `_id` and references as
+`instanceof`. `bson` is a devDependency (since the review of 3.3) for the differential test
+`mongodb-bson.test.js`, never a dependency. The program keeps ids as strings, `toDocument` writes `_id` and references as
 ObjectIds, `fromDocument` reads them back and parses with coercion, `indexesOf` and
 `checkUpdate`/`toUpdate` are data. A persistence layer with a `mongodb` peer dependency is a
 separate package, planned (Alex's decision, 2026-10-13); Mongoose stays the recommendation for
@@ -961,6 +962,19 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
+- Review of 3.3 suites: `mongodb-bson.test.js` (the subpath against the real `bson`, a
+  devDependency: the tag and the methods of its values, the strict converters of
+  `decimal128`/`binary`/`objectId`, a document round-tripped through `bson.serialize`; a file
+  of its own since the driver is kept per process), `mongodb-slim.test.js` (a module with
+  `ObjectId` only: the converters of the types it cannot build are not installed), the
+  hostile-input tests of `coerce.test.js` ("the converters are linear") and `formats.test.js`
+  ("no built-in test overflows the stack", 20 million characters), the `report` and the model
+  `coercions` tests of `coerce.test.js`, the `SHAPES` test and the paths of `checkUpdate` in
+  `mongodb.test.js`, `dead-coerce` in `lint.test.js`, `idFieldOf` in `schema.test.js`,
+  `baseTypeOf` in `types.test.js`, the `base` arithmetic of `scripts/size.js` in
+  `scripts.test.js` (`extrasOf` with a fake measure), and the derive rows of
+  `tests/types/derive.test-d.ts` (a wide extension, deep `required`, deep `partial` over the
+  `{ schema }` form and a Schema field, the kind of a derived schema).
 - 3.3 suites: `derive.test.js` (every operation over structs, nested structs, stored kinds,
   aliases, defaults, indexes, schema functions, references and unions on both backends; the
   kind and id rule, `deep` stopping at collections, the source never changed, `__proto__`,
@@ -1447,6 +1461,23 @@ change. **This file wins** if they ever disagree.
   `coerce.test.js`); a converter of the program's own is the program's.
 - **`toMap` converts a plain object or a list of pairs only**: a `Set`, a `Date` or a typed
   array is an object with entries of its own, which are not those of a map.
+- **A plain union prepares every branch before it tries any** (`walkUnion`, the pass before
+  the check): when no branch changes the value there is nothing to pick between, and the check
+  picks the branch, so a parse over a union of records that nest unions is linear where nothing
+  applies (a chain of 12 records: 59 → 14 ms, measured at the review of 3.3). Where a branch
+  does change it (a default, a conversion below), the value is tried as given first, then the
+  prepared values, and a trial is a check of the subtree: a leaf to convert deep in such a union
+  is tried at every level, which the docs say a `discriminator` answers. The preparation of a
+  branch that is not taken is discarded (its default factories were called).
+- **`coerce()` reports by comparing the output with the input**, not from the converters: a
+  container is copied only where a part changed, so what differs is what changed, and the
+  trials of a union convert nothing that stays in the output. The paths are in the order of the
+  keys of the output (a default filled in comes last). `parse` does not report.
+- **A model's `coercions` are read through the namespaces of a schema** (`field.root.namespaces`,
+  the models attached), before the process-wide table, by `converterOf` of the subpath; the
+  core only validates and keeps the frozen table (`model.coercions`). The converter resolved is
+  kept on the info of the node under the version of the process-wide table, so a model's table
+  must be given at construction (it is), never changed after.
 
 ## Documentation site
 

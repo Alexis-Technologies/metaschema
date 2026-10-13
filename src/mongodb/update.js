@@ -65,9 +65,10 @@ const step = (node, segment, references) => {
   }
   if (shape === REFERENCE) {
     const target = targetOf(node, references);
-    if (target === null) return NONE;
-    if (node.one) return step(target, segment, references);
-    return ELEMENT.test(segment) ? target : NONE;
+    // An id has no parts; an element of a list of ids is an id.
+    if (node.one) return target === null ? NONE : step(target, segment, references);
+    if (!ELEMENT.test(segment)) return NONE;
+    return target === null ? ID : target;
   }
   const base = baseOf(node);
   return base === 'union' || base === 'any' || base === 'unknown' || base === 'json' ? LOOSE : NONE;
@@ -79,6 +80,7 @@ const resolve = (target, segments, references, maxDepth) => {
   let node = target;
   let depth = 0;
   for (let index = 0; index < segments.length && node !== LOOSE; index += 1) {
+    if (node === ID) return NONE;
     if (hasBrand(node, 'Type') && infoOf(node).shape === REFERENCE) {
       depth += 1;
       if (depth > maxDepth) return DEEP;
@@ -92,7 +94,7 @@ const resolve = (target, segments, references, maxDepth) => {
 // The element a `$push` or a `$addToSet` adds to the field, or null when it
 // is no list.
 const elementOf = (node, references) => {
-  if (node === LOOSE || !hasBrand(node, 'Type')) return null;
+  if (typeof node === 'symbol' || !hasBrand(node, 'Type')) return null;
   const { shape } = infoOf(node);
   if (shape === LIST) return node.value;
   if (shape !== REFERENCE || !node.many) return null;
@@ -243,7 +245,7 @@ const toUpdate = (target, update, options) => {
       if (segments[0] === id) {
         segments[0] = KEY;
         if (segments.length === 1) value = idValue(state, value);
-      } else if (node !== null && typeof node !== 'symbol') {
+      } else if (node !== null && (node === ID || typeof node !== 'symbol')) {
         value = operandOf(state, context, operator, node, value);
       }
       define(next, segments.join('.'), value);

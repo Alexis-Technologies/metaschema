@@ -379,7 +379,8 @@ test('Formats: the rule needs a registered format, and register() fills the tabl
     code: 'ERR_INVALID_RULE',
     message: 'Rule "format" needs the name of a format in "s"',
   });
-  register();
+  // The call names the built-in formats it replaced: none here.
+  assert.deepStrictEqual(register(), []);
   const names = NAMES;
   assert.deepStrictEqual(Object.keys(FORMATS), names);
   for (const name of names) {

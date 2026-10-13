@@ -1,9 +1,10 @@
-import type { CoerceOptions, FieldType, Schema } from '../../index.js';
+import type { CoerceOptions, Coercion, FieldType, Schema } from '../../index.js';
 
 // A converter: the value of a field of its type read from what the input
 // gave, or the value itself when it cannot be read (the check then reports
 // it as given). It never throws on purpose: a throw is taken as "cannot".
-export type Coercion = (value: unknown, field: FieldType) => unknown;
+// Declared with the core (`ModelOptions.coercions` takes them too).
+export type { Coercion };
 
 // The converters by type name: the built-in ones (`string`, `number`,
 // `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and

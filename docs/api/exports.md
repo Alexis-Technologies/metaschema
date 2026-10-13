@@ -83,9 +83,10 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 | Member | Description |
 | --- | --- |
-| `new Model(types, entities, database?, options?)` | builds every entity; `entities` is an iterable of `[name, definition]`; `options.registry` is `'shared'` (default) or `'isolated'` |
+| `new Model(types, entities, database?, options?)` | builds every entity; `entities` is an iterable of `[name, definition]`; `options.registry` is `'shared'` (default) or `'isolated'`; `options.coercions` the [converters of coercion](/guide/coercion#converters-of-a-model) for the model's own type names, read before the process-wide table |
 | `model.entities` | `Map<string, Schema>` |
 | `model.types` | the type table |
+| `model.coercions` | the frozen table of converters the model was given, or `null` |
 | `model.database` | the `database` argument or `null` |
 | `model.order` | `Set` of entity names, dependencies first |
 | `model.warnings` | the `warnings` of every entity, their unresolved references and the recursive dependencies, as `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
@@ -176,7 +177,7 @@ subpath's, empty until `register()` ran.
 
 | Export | Description |
 | --- | --- |
-| `register(custom?)` | registers the 35 [built-in formats](/guide/formats#the-built-in-formats) and the program's own (`{ phone: { test, examples, infer?, pattern? } }`), once per name, process-wide; the same `test` again is nothing, another under a name the program registered `ERR_FORMAT_REGISTERED`, the program's own under the name of a built-in takes its place, an entry that is not a format `ERR_INVALID_FORMAT` |
+| `register(custom?)` | registers the 35 [built-in formats](/guide/formats#the-built-in-formats) and the program's own (`{ phone: { test, examples, infer?, pattern? } }`), once per name, process-wide; the same `test` again is nothing, another under a name the program registered `ERR_FORMAT_REGISTERED`, the program's own under the name of a built-in takes its place, an entry that is not a format `ERR_INVALID_FORMAT`; returns the names of the built-in formats the call replaced (`[]` otherwise) |
 | `FORMATS` | the table of the registered formats by name, `{ test, examples, infer, pattern? }` each, to read |
 
 A schema that names a format the table lacks is `ERR_INVALID_RULE` when it is built. The type
@@ -196,7 +197,7 @@ source was built from, with `options.name` (the source's by default) and `option
 | `partial(schema, options?)` | every field (or `options.keys`) optional, without its `default` unless `options.defaults`; `options.deep` goes into nested structs, not into collections, tuples, unions or references; the schema's own functions are left out |
 | `required(schema, options?)` | every field (or `options.keys`) required, the defaults kept; `options.deep` |
 | `extend(schema, extension, options?)` | the fields of `extension` (an object of fields or a Schema of a struct) over the schema's: one of the same name in its place, the others after |
-| `keyof(schema, options?)` | a schema of an `enum` of the names of the fields a value carries |
+| `keyof(schema, options?)` | a schema of an `enum` of the names of the fields a value carries; `options.name` only (a schema of an enum has no kind: a `metadata` is `ERR_INVALID_OPTIONS`) |
 | `register()` | installs the six as methods of `Schema`, once per process |
 
 A key the schema has no field of is `ERR_UNKNOWN_FIELD`, located in the schema; keys that are
@@ -214,7 +215,7 @@ step in the pass before the check are the core's.
 | Export | Description |
 | --- | --- |
 | `register(custom?, options?)` | installs the built-in converters (`string`, `number`, `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and the program's own by type name (`{ point: (value, field) => value }`), once per name, process-wide, every entry checked before any is written; another function under a registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a type or an entry that is not a function `ERR_INVALID_COERCION`; `options.onError(error, field)` is told of a converter that threw; adds `schema.coerce` |
-| `coerce(schema, value, options?)` | the pass parse runs before its check with coercion on: the value converted and its defaults filled, nothing checked; `options`: `references`, `maxDepth` |
+| `coerce(schema, value, options?)` | the pass parse runs before its check with coercion on: the value converted and its defaults filled, nothing checked; `options`: `references`, `maxDepth`, `report` (an array given the path of every key the pass changed) |
 | `COERCIONS` | the table of the converters by type name, to read |
 
 A parse that coerces (by the call, the kind metadata or a field's own `coerce: true`) before

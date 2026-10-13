@@ -63,10 +63,17 @@ const driverOf = () => {
 const toObjectId = (value) =>
   typeof value === 'string' && HEX.test(value) ? new driver.ObjectId(value) : value;
 
+// A decimal written as one (`fromString` of the driver reads `NaN`, `inf`
+// and an exponent too), or a finite number.
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+
 const toDecimal128 = (value) => {
-  const kind = typeof value;
-  if (kind !== 'string' && kind !== 'number') return value;
-  return driver.Decimal128.fromString(String(value));
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? driver.Decimal128.fromString(String(value)) : value;
+  }
+  return typeof value === 'string' && DECIMAL.test(value)
+    ? driver.Decimal128.fromString(value)
+    : value;
 };
 
 // Text of the base64 shape only: the decoder of the driver reads anything,

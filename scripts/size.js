@@ -147,16 +147,16 @@ const exceeded = (row, max) => {
   process.exitCode = 1;
 };
 
-const main = async () => {
-  const maxGzip = budget('--max-gzip');
-  const rows = [];
-  for (const entry of ENTRIES) rows.push(await measure(entry));
-  const core = rows[0];
+// The rows of the subpaths: each measured as the difference between the
+// core entry plus the subpaths it requires (`base`) plus the subpath, and
+// the core entry plus the base alone. `size` is a parameter so that the
+// arithmetic is tested without esbuild.
+const extrasOf = async (core, size = measure) => {
   const extras = [];
   for (const entry of SUBPATHS) {
     const { base = [] } = entry;
-    const under = base.length === 0 ? core : await measure(entry, base);
-    const both = await measure(entry, [...base, entry.subpath]);
+    const under = base.length === 0 ? core : await size(entry, base);
+    const both = await size(entry, [...base, entry.subpath]);
     extras.push({
       label: entry.label,
       max: budget(entry.flag),
@@ -165,6 +165,15 @@ const main = async () => {
       gzip: both.gzip - under.gzip,
     });
   }
+  return extras;
+};
+
+const main = async () => {
+  const maxGzip = budget('--max-gzip');
+  const rows = [];
+  for (const entry of ENTRIES) rows.push(await measure(entry));
+  const core = rows[0];
+  const extras = await extrasOf(core);
   console.log('| Entry | raw | min | min+gzip |');
   console.log('| ----- | ---:| ---:| --------:|');
   for (const row of [...rows, ...extras]) {
@@ -178,7 +187,11 @@ const main = async () => {
   }
 };
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { SUBPATHS, extrasOf };

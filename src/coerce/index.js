@@ -6,12 +6,12 @@
 // `false`, `1` or `0`, a date only with its zone, and the empty string is
 // never converted. A value a converter cannot read comes back as it was, so
 // the check reports it as given.
-const { hasBrand, isSet } = require('../util.js');
+const { hasBrand, isSet, isMap } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
 
 // The integer digits and the fraction are told apart by the dot alone:
 // `\d+\.?\d*` reads a run of digits two ways and is quadratic on a run
@@ -183,11 +183,22 @@ const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERC
 // alias of (`{ money: { js: 'number' } }` converts as a number); an alias
 // names a type registered before it, so the chain ends. The core keeps what
 // is resolved on the info of the node, under the version of the table.
+// The converter a model of the field's own gave for a type name
+// (`new Model(types, entities, database, { coercions })`), before the
+// process-wide one: the models among the namespaces of the schema.
+const ownConverterOf = (root, name) => {
+  for (const namespace of root.namespaces) {
+    const own = namespace.coercions;
+    if (own != null && own[name] !== undefined) return own[name];
+  }
+  return undefined;
+};
+
 const converterOf = (field) => {
   let Type = field.constructor;
   let name = field.type;
   for (;;) {
-    const converter = COERCIONS[name];
+    const converter = ownConverterOf(field.root, name) ?? COERCIONS[name];
     if (converter !== undefined) return converter;
     const js = Type?.source?.js;
     if (typeof js !== 'string') return null;
@@ -234,16 +245,61 @@ const check = (name, converter) => {
   }
 };
 
+// The paths of the keys the pass changed (a value converted, a default
+// filled in), read off the output beside the input: a container is copied
+// only where a part of it changed, and a part given back as it is is the
+// same reference, so what differs is what changed. The paths are those of
+// an issue (`PropertyKey[]`, the root `[]`).
+const report = (input, output, path, paths) => {
+  if (output === input) return;
+  const container = output !== null && typeof output === 'object';
+  const given = input !== null && typeof input === 'object';
+  if (!container || !given) {
+    paths.push(path);
+    return;
+  }
+  if (Array.isArray(output)) {
+    if (!Array.isArray(input)) {
+      paths.push(path);
+      return;
+    }
+    for (let index = 0; index < output.length; index += 1) {
+      report(input[index], output[index], [...path, index], paths);
+    }
+  } else if (isMap(output)) {
+    if (!isMap(input)) {
+      paths.push(path);
+      return;
+    }
+    for (const pair of output) report(input.get(pair[0]), pair[1], [...path, pair[0]], paths);
+  } else if (!isPlain(output) || !isPlain(input)) {
+    paths.push(path);
+  } else {
+    for (const key of Object.keys(output)) {
+      const before = Object.hasOwn(input, key) ? input[key] : undefined;
+      report(before, output[key], [...path, key], paths);
+    }
+  }
+};
+
 // The value with the conversions of the schema applied, and its defaults:
 // the pass parse runs before its check, with coercion on and nothing
 // checked. The value given is never written to; it comes back itself when
 // nothing changed, and as it was when it loops through its references.
+// `options.report`, an array, is given the path of every key the pass
+// changed.
 const coerce = (schema, value, options) => {
   if (!hasBrand(schema, 'Schema')) throw invalidTarget('A Schema is expected');
   const context = createContext(options, schema.name, schema.unknown, true);
+  const paths = options === undefined ? undefined : options.report;
+  if (paths !== undefined && !Array.isArray(paths)) {
+    throw invalidOption('report', 'an array', paths);
+  }
   const want = wantOf(PREPARE, context) | COERCE;
   const out = apply(infoOf(schema), schema, value, context, undefined, PREPARE, want);
-  return looped(context) ? value : out;
+  const result = looped(context) ? value : out;
+  if (paths !== undefined) report(value, result, [], paths);
+  return result;
 };
 
 // Installed like class members: not enumerable. A copy per subpath rather

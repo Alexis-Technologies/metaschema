@@ -157,7 +157,8 @@ they differ on purpose:
 few `examples` for [`sample`](/guide/samples) (valid strings), whether [`infer`](/guide/infer)
 may read the format out of data (`infer: false` for a form that ordinary words pass), and a
 `pattern` for the JSON Schema export (a string that compiles in unicode mode, a shape that never
-rejects what `test` accepts):
+rejects what `test` accepts). It returns the names of the built-in formats the call replaced
+with the program's own (an empty list as a rule), so that a program can log what it overrode:
 
 ```js
 register({

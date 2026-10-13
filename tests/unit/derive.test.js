@@ -251,6 +251,31 @@ test('Derive: a deep partial goes into nested structs only', () => {
     either: { union: ['string', { schema: { q: 'string' } }] },
     map: { object: { string: { schema: { m: 'string' } } } },
   });
+  // `keys` with `deep`: the fields named, and what is nested in them.
+  const some = partial(nested, { keys: ['meta'], deep: true });
+  const rest = {
+    title: 't',
+    long: { a: 'a', b: 'b' },
+    items: [],
+    pair: [{ p: 'p' }, 1],
+    either: 'e',
+    map: { k: { m: 'm' } },
+  };
+  assert.strictEqual(some.check(rest).valid, true, JSON.stringify(some.check(rest).issues));
+  assert.strictEqual(some.check({ ...rest, meta: { author: {} } }).valid, true);
+  assert.strictEqual(some.check({ ...rest, title: undefined }).valid, false);
+  assert.strictEqual(some.check({ ...rest, long: {} }).valid, false);
+  // `deep` with `defaults`: a nested default stays.
+  const defaulted = new Schema('D', {
+    box: { size: { type: 'integer', default: 3 }, label: 'string' },
+  });
+  assert.deepStrictEqual(
+    partial(defaulted, { deep: true, defaults: true }).parse({ box: {} }).value,
+    {
+      box: { size: 3 },
+    },
+  );
+  assert.deepStrictEqual(partial(defaulted, { deep: true }).parse({ box: {} }).value, { box: {} });
   for (const patch of both(() => partial(nested, { deep: true }))) {
     assert.strictEqual(patch.check({ meta: { author: {} } }).valid, true);
     assert.strictEqual(patch.check({ long: {} }).valid, true);
@@ -377,6 +402,11 @@ test('Derive: keyof is an enum of the names of the fields', () => {
   assert.strictEqual(query.check({ sort: 'role', fields: ['login', 'nick'] }).valid, true);
   assert.strictEqual(query.check({ sort: 'password', fields: [] }).valid, false);
   assert.throws(() => keyof(Schema.from({})), { code: 'ERR_INVALID_ENUM' });
+  // A schema of an enum has no kind: the metadata option names nothing.
+  assert.throws(() => keyof(Account, { metadata: { kind: 'struct' } }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'keyof takes a name only: a schema of an enum has no kind in "Account"',
+  });
 });
 
 test('Derive: a derived schema has the name of its source, the namespaces too', () => {

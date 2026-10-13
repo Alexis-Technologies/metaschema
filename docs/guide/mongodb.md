@@ -192,7 +192,7 @@ if (bson.checkUpdate(Account, update).valid) {
 | Type | A value | The mongodb target | JSON Schema | Coerced from |
 | --- | --- | --- | --- | --- |
 | `objectId` | an ObjectId of bson 4 to 6 or of the driver | `objectId` | a string of 24 hex digits | a string of 24 hex digits |
-| `decimal128` | a Decimal128 | `decimal` | a string | a decimal string, a number |
+| `decimal128` | a Decimal128 | `decimal` | a string | a decimal written as one (`'12.50'`, never `NaN`, `inf` or an exponent), a finite number |
 | `binary` | a Binary (a bson `UUID` is one), a Uint8Array | `binData` | base64 text | text of the base64 shape |
 
 A value of bson is recognized by its `_bsontype` and a method JSON cannot give a value, never by

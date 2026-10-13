@@ -579,18 +579,45 @@ const walkUnion = (info, node, value, context, key, phase, want) => {
     if (index === undefined) return value;
     return apply(infos[index], children[index], value, context, key, phase, want);
   }
+  if (phase !== DEFAULTS) {
+    const scratch = scratchOf(context);
+    for (let index = 0; index < children.length; index += 1) {
+      if (!accepts(children[index], value, scratch, context.path, key)) continue;
+      return apply(infos[index], children[index], value, context, key, phase, want);
+    }
+    return value;
+  }
+  // Before the check, every branch is prepared first, with all the pass
+  // wants: when none of them changes the value (no default to fill, nothing
+  // to convert below) there is nothing to pick between, and the check picks
+  // the branch. The trial is a check of the subtree, so over a union of
+  // records that nest unions this is the difference between a linear and an
+  // exponential parse. What was prepared is what the last round picks from.
+  const prepared = [];
+  let same = true;
+  for (let index = 0; index < children.length; index += 1) {
+    const out = apply(infos[index], children[index], value, context, key, phase, want);
+    prepared.push(out);
+    if (out !== value) same = false;
+  }
+  if (same) return value;
   const scratch = scratchOf(context);
-  for (let round = want & ~COERCE; ; round = want) {
+  if ((want & COERCE) !== 0) {
+    // As given first (with the defaults): a branch that accepts the value as
+    // it is wins, and nothing is converted.
+    const given = want & ~COERCE;
     for (let index = 0; index < children.length; index += 1) {
       const branch = children[index];
-      const sub = infos[index];
-      const prepared =
-        phase === DEFAULTS ? apply(sub, branch, value, context, key, phase, round) : value;
-      if (!accepts(branch, prepared, scratch, context.path, key)) continue;
-      return phase === DEFAULTS ? prepared : apply(sub, branch, value, context, key, phase, round);
+      const out = apply(infos[index], branch, value, context, key, phase, given);
+      if (accepts(branch, out, scratch, context.path, key)) return out;
     }
-    if (round === want) return value;
   }
+  for (let index = 0; index < children.length; index += 1) {
+    if (accepts(children[index], prepared[index], scratch, context.path, key)) {
+      return prepared[index];
+    }
+  }
+  return value;
 };
 
 // A reference resolved at parse time, as the check resolves it: an id stays

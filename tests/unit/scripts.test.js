@@ -8,6 +8,33 @@ const ROOT = path.join(__dirname, '../..');
 const run = (script, args) =>
   spawnSync(process.execPath, [path.join(ROOT, script), ...args], { cwd: ROOT, encoding: 'utf8' });
 
+test('Scripts: a subpath is measured on top of the core and the subpaths it requires', async () => {
+  const { SUBPATHS, extrasOf } = require('../../scripts/size.js');
+  // A fake measure: a size per subpath in the bundle, over a core of 1000.
+  const sizes = {
+    './src/coerce/index.js': 300,
+    './src/mongodb/index.js': 400,
+    './src/generators/index.js': 70,
+  };
+  const size = (entry, subpaths) => {
+    let total = 1000;
+    for (const subpath of subpaths) total += sizes[subpath] ?? 10;
+    return { label: entry.label, raw: total * 3, min: total * 2, gzip: total };
+  };
+  const core = size({ label: 'core' }, []);
+  const extras = await extrasOf(core, size);
+  const byLabel = new Map(extras.map((row) => [row.label, row]));
+  const mongodb = byLabel.get('MongoDB (./mongodb) on top of the Node entry and ./coerce');
+  // (core + coerce + mongodb) − (core + coerce): the base is not charged.
+  assert.deepStrictEqual([mongodb.gzip, mongodb.min, mongodb.raw], [400, 800, 1200]);
+  assert.strictEqual(byLabel.get('Coerce (./coerce) on top of the Node entry').gzip, 300);
+  assert.strictEqual(byLabel.get('Generators (./generators) on top of the Node entry').gzip, 70);
+  assert.strictEqual(extras.length, SUBPATHS.length);
+  assert.deepStrictEqual(SUBPATHS.find((entry) => entry.flag === '--max-gzip-mongodb').base, [
+    './src/coerce/index.js',
+  ]);
+});
+
 test('Scripts: size reports the entries and the subpaths and enforces the budgets', () => {
   const budgets = [
     '--max-gzip',

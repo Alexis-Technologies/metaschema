@@ -543,6 +543,41 @@ test('Mongodb: checkUpdate checks what each operator does to the field of each p
       'Field "Account.visits" not of expected type: integer',
     ],
   );
+  // An element of a list of ids is an id, and has no parts; the elements
+  // `$[]` and `$[name]` of a list of records.
+  assert.deepStrictEqual(
+    issuesOf({ $set: { 'partners.0': C, 'partners.$': B, 'partners.$[x]': C } }),
+    [],
+  );
+  assert.deepStrictEqual(issuesOf({ $set: { 'partners.0': 5, 'partners.0.name': 'x' } }), [
+    'partners.0 type',
+    'partners.0 unexpected',
+  ]);
+  assert.deepStrictEqual(issuesOf({ $inc: { 'partners.0': 1 }, $push: { 'partners.0': C } }), [
+    'partners.0 type',
+    'partners.0 type',
+  ]);
+  assert.deepStrictEqual(
+    issuesOf({ $set: { 'partners.0.name': 'x', 'partners.$[].name': 1 } }, { references: 'embed' }),
+    ['partners.$[].name type'],
+  );
+  assert.deepStrictEqual(issuesOf({ $set: { 'tags.$[].label': 'z', 'tags.$[el].weight': 1 } }), []);
+  assert.deepStrictEqual(issuesOf({ $set: { 'tags.$[el].nope': 1 } }), ['tags.$[el] unexpected']);
+  // The errors render the path of the update: `$` dotted, an index bracketed.
+  assert.deepStrictEqual(
+    checkUpdate(Account, { $set: { 'tags.$.label': 1, 'tags.0.label': 1 } }).errors,
+    [
+      'Field "Account.tags.$.label" not of expected type: string',
+      'Field "Account.tags[0].label" not of expected type: string',
+    ],
+  );
+  // $inc on a bigint, and on an integer with a fraction.
+  const amounts = Schema.from({ Entity: {}, big: 'bigint', count: 'integer' });
+  assert.strictEqual(checkUpdate(amounts, { $inc: { big: 2n, count: 1 } }).valid, true);
+  assert.deepStrictEqual(checkUpdate(amounts, { $inc: { big: 2, count: 1.5 } }).errors, [
+    'Field "big" not of expected type: bigint',
+    'Field "count" not of expected type: integer',
+  ]);
   // A path through more embedded records than maxDepth.
   const chain = new Model({}, [['Node', { Struct: {}, name: 'string', 'next?': 'Node' }]]);
   const Node = chain.entities.get('Node');
@@ -623,6 +658,22 @@ test('Mongodb: toUpdate serializes the values and makes their ids ObjectIds', ()
   assert.deepStrictEqual(update.$inc, { visits: 1 });
   assert.deepStrictEqual(update.$unset, { nope: '' });
   assert.strictEqual(update.$pop, 5);
+  // $min, $max and $setOnInsert serialize their values; an element of a list
+  // of ids is an id; an operator the subpath does not read passes through.
+  const more = toUpdate(Account, {
+    $min: { joined: new Date(7), company: B },
+    $max: { 'partners.0': C },
+    $setOnInsert: { company: C, visits: 1, 'tags.0': { label: 'x' } },
+    $rename: { login: 'name' },
+    $bit: { visits: { and: 1 } },
+  });
+  assert.strictEqual(more.$min.joined.getTime(), 7);
+  assert.strictEqual(hex(more.$min.company), B);
+  assert.strictEqual(hex(more.$max['partners.0']), C);
+  assert.strictEqual(hex(more.$setOnInsert.company), C);
+  assert.deepStrictEqual(more.$setOnInsert['tags.0'], { label: 'x' });
+  assert.deepStrictEqual(more.$rename, { login: 'name' });
+  assert.deepStrictEqual(more.$bit, { visits: { and: 1 } });
   // A condition of $pull stays a condition; ids as strings on request.
   const condition = { $in: [B] };
   assert.strictEqual(

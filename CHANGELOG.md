@@ -44,6 +44,12 @@ place) are listed under Changed.
   than with a lookup per value, a parse of enums of 32 members 2.3 times: the members and their
   written forms are indexed once). `pnpm bench` has rows for a nested struct, plain unions,
   enums and a plain and a coercing parse in turn, and for `toDocument`/`fromDocument`.
+  `coerce(schema, value, { report })` fills the array given with the path of every key the
+  pass changed; `new Model(types, entities, database, { coercions })` gives a model converters
+  of its own type names, read before the process-wide table for the fields of its entities
+  (what an isolated registry is to the types); the branches of a plain union are prepared
+  first and tried only when one of them changes the value, so a parse over a union of records
+  that nest unions is linear where nothing applies (4 times faster at a depth of 12).
 - **`@alexify/metaschema/derive`.** `pick`, `omit`, `partial` (`keys`, `deep`, `defaults`),
   `required`, `extend` and `keyof` build a new Schema from the definition a schema was built
   from: a stored kind or a projection becomes a struct without the id of the kind (unless
@@ -61,7 +67,8 @@ place) are listed under Changed.
   `base64`. No built-in test overflows the stack of the regex engine on a string of
   megabytes: `email`, `json-pointer`, `relative-json-pointer`, `uri-template`, `slug` and
   `semver` are read by a scanner with the same verdicts, and a `regex` longer than 4096
-  characters is not one (compiling it costs memory in proportion).
+  characters is not one (compiling it costs memory in proportion). `register()` returns the
+  names of the built-in formats the call replaced with the program's own.
 - **`@alexify/metaschema/mongodb`.** The BSON types `objectId`, `decimal128` and `binary`
   (recognized without importing bson), `register({ bson })` with the program's driver,
   `toDocument`/`fromDocument` (the id of a stored record as `_id`, ids of references as
@@ -77,7 +84,11 @@ place) are listed under Changed.
   the policy for unknown keys says, a path through more records than `maxDepth` as a `depth`
   issue, and names what an operator takes in its issues (`array` for a `$push` on a field
   that is no list, `number` for an `$inc` on a string); `register({ bson })` installs the
-  converters of the BSON types the module can build only.
+  converters of the BSON types the module can build only, `decimal128` is coerced from a
+  decimal written as one or a finite number (`fromString` of the driver reads `NaN`, `inf`
+  and an exponent), and an element of a list of ids (`partners.0`) is an id in `checkUpdate`
+  and `toUpdate`. The subpath is tested against the real `bson` (a devDependency) as well as
+  the fakes.
 - **`ids: 'objectId'`** for the mongodb target of `toJSONSchema`: the validator of the
   documents `toDocument` writes.
 - `pnpm size` measures a subpath on top of another it requires (`./mongodb` on `./coerce`).
@@ -99,7 +110,9 @@ place) are listed under Changed.
   `coerce` of a parse, and of the options of `./stream`, `./derive` and `./mongodb` had no
   code. The options of `./derive` are the call's (`keys` that is no list, options that are no
   object are `ERR_INVALID_OPTION`, a `TypeError`; they were `ERR_INVALID_OPTIONS`, a
-  `SchemaDefinitionError`); its `metadata` stays a definition (`ERR_INVALID_OPTIONS`).
+  `SchemaDefinitionError`); its `metadata` stays a definition (`ERR_INVALID_OPTIONS`), and
+  `keyof` with a `metadata` is `ERR_INVALID_OPTIONS` (a schema of an enum has no kind; it was
+  ignored).
 - The rule of the id field of a stored kind (`orderId`, `id` for an anonymous schema) is
   `idFieldOf` of `kinds.js`, read by `./derive`, `./mongodb` and `toJSONSchema`; the alias
   chain of a custom type ends in `baseTypeOf` of `types.js`, read by the generators, `sample`

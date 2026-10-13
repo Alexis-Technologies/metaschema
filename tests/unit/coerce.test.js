@@ -5,7 +5,7 @@ const util = require('node:util');
 const { Schema, Model } = require('../../index.js');
 const { COERCIONS, coerce, register } = require('../../src/coerce/index.js');
 const { compile, canEval } = require('../../src/compile/index.js');
-const { parseEach } = require('../../src/stream/index.js');
+const { parseEach, parseEachAsync, transform } = require('../../src/stream/index.js');
 const { sample, fromJSON } = require('../../src/model/index.js');
 
 // A schema checked on both backends: the schema, and a compiled copy.
@@ -591,6 +591,156 @@ test('Coerce: alias types convert as their base, a custom converter as its own',
   for (const options of [null, 'log', { onError: true }]) {
     assert.throws(() => register({}, options), { code: 'ERR_INVALID_COERCION' });
   }
+});
+
+test('Coerce: coerce() reports the paths of what it changed', () => {
+  const schema = new Schema('Order', {
+    Struct: {},
+    id: 'integer',
+    qty: { type: 'integer', default: 1 },
+    tags: { array: 'string' },
+    prices: { array: 'number' },
+    at: 'date',
+    address: { city: 'string', zip: { type: 'integer', default: 0 } },
+    scores: { map: { string: 'number' } },
+    raw: 'json',
+  });
+  const value = {
+    id: '7',
+    tags: 'a',
+    prices: ['1', 2, '3.5'],
+    at: '2026-01-01T00:00:00Z',
+    address: { city: 'Kyiv' },
+    scores: { a: '1', b: 2 },
+    raw: { nested: '1' },
+  };
+  const report = [];
+  const out = coerce(schema, value, { report });
+  // In the order of the keys of the output: a default filled in comes last.
+  assert.deepStrictEqual(report, [
+    ['id'],
+    ['tags'],
+    ['prices', 0],
+    ['prices', 2],
+    ['at'],
+    ['address', 'zip'],
+    ['scores'],
+    ['qty'],
+  ]);
+  assert.strictEqual(out.raw, value.raw);
+  assert.strictEqual(schema.check(out).valid, true);
+  // Nothing changed: nothing reported, the value itself.
+  const same = [];
+  assert.strictEqual(coerce(schema, out, { report: same }), out);
+  assert.deepStrictEqual(same, []);
+  // A map given as a Map with values to convert reports the entries.
+  const entries = [];
+  coerce(
+    Schema.from({ m: { map: { string: 'number' } } }),
+    { m: new Map([['k', '1']]) },
+    {
+      report: entries,
+    },
+  );
+  assert.deepStrictEqual(entries, [['m', 'k']]);
+  // A scalar schema reports the root.
+  const root = [];
+  assert.strictEqual(coerce(Schema.from('number'), '1', { report: root }), 1);
+  assert.deepStrictEqual(root, [[]]);
+  assert.throws(() => coerce(schema, value, { report: 'yes' }), {
+    code: 'ERR_INVALID_OPTION',
+    message: 'report must be an array, got "yes"',
+  });
+  // parse reports nothing: the option is coerce()'s.
+  assert.strictEqual(schema.parse(value, { coerce: true, report }).valid, true);
+});
+
+test('Coerce: a model gives converters for its own type names', () => {
+  const entities = [['Item', { Struct: {}, price: 'money', name: 'string' }]];
+  const cents = new Model({ money: { js: 'number' } }, entities, null, {
+    registry: 'isolated',
+    coercions: { money: (value) => (typeof value === 'string' ? Number(value) * 100 : value) },
+  });
+  const plain = new Model({ money: { js: 'number' } }, entities, null, { registry: 'isolated' });
+  const asCents = cents.entities.get('Item');
+  const asIs = plain.entities.get('Item');
+  assert.deepStrictEqual(valueOf(asCents, { price: '1.5', name: 'x' }), { price: 150, name: 'x' });
+  assert.deepStrictEqual(valueOf(asIs, { price: '1.5', name: 'x' }), { price: 1.5, name: 'x' });
+  // A schema that attaches the model gets them too; one that does not, the
+  // process-wide table.
+  const attached = Schema.from({ total: 'money' }, [cents]);
+  assert.deepStrictEqual(valueOf(attached, { total: '2' }), { total: 200 });
+  // A model's converter of a built-in name wins over the process-wide one
+  // for its entities only.
+  const flags = new Model({}, [['Flag', { Struct: {}, on: 'boolean' }]], null, {
+    coercions: { boolean: (value) => (value === 'yes' ? true : value === 'no' ? false : value) },
+  });
+  assert.deepStrictEqual(valueOf(flags.entities.get('Flag'), { on: 'yes' }), { on: true });
+  assert.strictEqual(
+    Schema.from({ on: 'boolean' }).parse({ on: 'yes' }, { coerce: true }).valid,
+    false,
+  );
+  assert.strictEqual(Object.isFrozen(cents.coercions), true);
+  assert.strictEqual(plain.coercions, null);
+  for (const coercions of ['money', [], { Money: () => 1 }, { money: 'number' }]) {
+    assert.throws(() => new Model({}, [], null, { coercions }), {
+      code: 'ERR_INVALID_OPTIONS',
+      message: /^Model option "coercions" must be an object of functions by type name/,
+    });
+  }
+});
+
+test('Coerce: the standalone coerce() follows references, and the streams take the policy', async () => {
+  const model = new Model({}, [
+    ['Company', { Struct: {}, name: 'string', staff: 'integer' }],
+    ['Office', { Struct: {}, company: 'Company', floor: 'integer' }],
+  ]);
+  const office = model.entities.get('Office');
+  const given = { company: { name: 'Acme', staff: '3' }, floor: '2' };
+  assert.deepStrictEqual(coerce(office, given, { references: 'embed' }), {
+    company: { name: 'Acme', staff: 3 },
+    floor: 2,
+  });
+  // A set from '' or a Set stays what it is; a map from a Map, a map of
+  // numbers with a key that is no number.
+  const sets = Schema.from({ s: { set: 'integer' }, 'm?': { map: { number: 'boolean' } } });
+  assert.strictEqual(sets.parse({ s: '' }, { coerce: true }).valid, false);
+  assert.deepStrictEqual(valueOf(sets, { s: new Set(['1']) }), { s: new Set([1]) });
+  assert.deepStrictEqual(valueOf(sets, { s: ['1'], m: new Map([[1, 'true']]) }), {
+    s: new Set([1]),
+    m: new Map([[1, true]]),
+  });
+  assert.strictEqual(sets.parse({ s: [], m: { x: 'true' } }, { coerce: true }).valid, false);
+  // The async stream and the transform take the option of parse.
+  const row = Schema.from({ n: 'integer' });
+  const rows = [{ n: '1' }, { n: '2' }];
+  const parsed = [];
+  for await (const entry of parseEachAsync(row, rows, { coerce: true })) {
+    parsed.push(entry.result.value);
+  }
+  assert.deepStrictEqual(parsed, [{ n: 1 }, { n: 2 }]);
+  const out = [];
+  const readable = new ReadableStream({
+    start(controller) {
+      for (const item of rows) controller.enqueue(item);
+      controller.close();
+    },
+  });
+  await readable.pipeThrough(transform(row, { coerce: true })).pipeTo(
+    new WritableStream({
+      write(chunk) {
+        out.push(chunk);
+      },
+    }),
+  );
+  assert.deepStrictEqual(out, [{ n: 1 }, { n: 2 }]);
+  // An async schema through Standard Schema, with the policy of the schema.
+  const form = new Schema('Form', {
+    Form: { coerce: true },
+    n: { type: 'integer', validate: async (n) => (n > 0 ? null : 'positive') },
+  });
+  assert.deepStrictEqual(await form['~standard'].validate({ n: '5' }), { value: { n: 5 } });
+  assert.strictEqual((await form['~standard'].validate({ n: '0' })).issues.length, 1);
 });
 
 test('Coerce: the policy is an own key, never one of Object.prototype', () => {
