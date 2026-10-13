@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+3.3 closes the gaps the comparison with the alternatives showed. `parse` converts the text of a
+query string, a form or a file to the types of the fields when asked (coercion), schemas are
+derived from schemas (`pick`, `omit`, `partial`, `required`, `extend`, `keyof`), the string
+formats grow from nine to 35, and the `@alexify/metaschema/mongodb` subpath is the schema side
+of a MongoDB program without a dependency on the driver. Nothing breaks; the changes in
+behaviour (`infer` writes the more specific formats, a format of the program under the name of a
+new built-in takes its place) are listed under Changed.
+
+### Added
+
+- **Coercion.** `parse(value, { coerce: true })`, the kind metadata
+  `{ Form: { coerce: true } }` (so `~standard.validate` too) or a field's `coerce: true|false`
+  converts the input to the types of the fields before the check: decimal strings to numbers
+  and bigints, `'true'`/`'false'`/`'1'`/`'0'` to booleans, ISO dates with their zone (and epoch
+  milliseconds) to `Date`, a single value to a list, an array to a `Set`, an object to a `Map`,
+  the written form of an enum member to the member. The converters are strict and never touch
+  the empty string; a value a union branch accepts as it is is not converted; `check` never
+  converts, and `Infer` does not change. The core has the policy and a step in the pass before
+  the check; the converters are the new `@alexify/metaschema/coerce` subpath's
+  (`register(custom)` adds the program's own by type name, an alias type converts as its base),
+  and `coerce(schema, value)` is that pass alone. A parse that coerces before `register()` is
+  `ERR_NOT_REGISTERED`; `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` are new codes.
+- **`@alexify/metaschema/derive`.** `pick`, `omit`, `partial` (`keys`, `deep`, `defaults`),
+  `required`, `extend` and `keyof` build a new Schema from the definition a schema was built
+  from: a stored kind or a projection becomes a struct without the id of the kind (unless
+  named), `partial` leaves the defaults out, `pick`, `omit` and `partial` drop the schema's own
+  functions, `extend` replaces fields in place (where `merge` unifies), indexes stay while their
+  columns do. `register()` installs them as methods (`schema.omit(['id']).partial()`), typed by
+  the definition. `ERR_UNKNOWN_FIELD` names a key the schema has no field of.
+- **26 string formats.** `ulid`, `jwt`, `nanoid`, `cuid2`, `iso-date-time`, `iso-time`,
+  `duration`, `cidrv4`, `cidrv6`, `mac`, `url`, `uri-reference`, `uri-template`,
+  `json-pointer`, `relative-json-pointer`, `regex`, `e164`, `iban`, `hex-color`, `base64`,
+  `base64url`, `hex`, `emoji`, `semver`, `slug` and `credit-card` (the expressions of
+  ajv-formats, zod, valibot and semver.org, held to them value by value). A format entry may
+  carry a `pattern`, which `toJSONSchema` writes beside a name JSON Schema does not know (the
+  one assertion of the mongodb target) and `fromJSONSchema` drops again; OpenAPI's `byte` is
+  `base64`.
+- **`@alexify/metaschema/mongodb`.** The BSON types `objectId`, `decimal128` and `binary`
+  (recognized without importing bson), `register({ bson })` with the program's driver,
+  `toDocument`/`fromDocument` (the id of a stored record as `_id`, ids of references as
+  ObjectIds, and back), `indexesOf` for `createIndexes`, `checkUpdate`/`toUpdate` for the
+  driver's updates by dotted path. No I/O and no dependency.
+- **`ids: 'objectId'`** for the mongodb target of `toJSONSchema`: the validator of the
+  documents `toDocument` writes.
+- `pnpm size` measures a subpath on top of another it requires (`./mongodb` on `./coerce`).
+
+### Changed
+
+- **The core gate is 19 KB** (was 17.75 KB): coercion costs the core about 360 bytes; the core
+  measures 18.1 KB. The formats gate is 4 KB (was 2 KB); new gates: 2.5 KB for `./derive`,
+  2 KB for `./coerce`, 3.5 KB for `./mongodb`.
+- **`infer` writes the more specific formats**: a column of http(s) addresses is `url` (was
+  `uri`), local date-times are `iso-date-time`, ULIDs `ulid`, durations `duration`.
+- **A format of the program under the name of a built-in takes its place** instead of throwing
+  `ERR_FORMAT_REGISTERED`, so a format a program registered as `ulid` before 3.3 keeps working.
+- `merge` and `derive` share the code that turns a schema back into a definition
+  (`model/data.js`).
+
 ## [3.2.0] - 2026-10-12
 
 3.2 takes a schema to the records around it. The new `@alexify/metaschema/stream` subpath runs

@@ -10,8 +10,11 @@ package validates values against them (`Schema#check`), assembles them into doma
 (`Model`), renders TypeScript interfaces and JSON Schema through the
 `@alexify/metaschema/generators` subpath (`toTypeScript`, `toJSONSchema`), and compiles checks
 into generated code through the `@alexify/metaschema/compile` subpath (`compile`, `register`,
-with a fallback to the closures where `new Function` is not allowed). It has zero runtime
-dependencies and runs in Node.js ≥ 18 and browsers.
+with a fallback to the closures where `new Function` is not allowed). Since 3.3 `parse`
+coerces the input when asked (the converters are the `./coerce` subpath's), schemas are
+derived from schemas through `./derive`, and `./mongodb` is the schema side of a MongoDB
+program without the driver. It has zero runtime dependencies and runs in Node.js ≥ 18 and
+browsers.
 
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
@@ -36,7 +39,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>]   # esbuild bundle sizes; CI gates at 17.75 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model, 1.5 KB for ./stream and 2 KB for ./formats on top
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model, 1.5 KB for ./stream, 4 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 3.5 KB for ./mongodb on top of the core and ./coerce
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
 node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
@@ -48,7 +51,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2`
+`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -62,9 +65,11 @@ There is no build step.
   never by spreading module objects. cjs-module-lexer only sees named keys, and ESM
   `import { Schema } from '@alexify/metaschema'` depends on it.
 - `index.d.ts` is the only source of the public types, written by hand, plus the two one-line
-  `src/locales/*.d.ts` that type the locale subpath exports through it and the four subpath
-  typings `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts` and
-  `src/stream/index.d.ts`, which import the shared types from it. A public API change touches
+  `src/locales/*.d.ts` that type the locale subpath exports through it and the subpath
+  typings `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts`,
+  `src/stream/index.d.ts`, `src/formats/index.d.ts`, `src/derive/index.d.ts`,
+  `src/coerce/index.d.ts` and `src/mongodb/index.d.ts`, which import the shared types from it
+  (the mongodb one also augments `CustomTypes` with the BSON types). A public API change touches
   `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
   `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
   `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
@@ -75,7 +80,8 @@ There is no build step.
   needs `--target es2022` because there is no tsconfig.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
   `default`; `./locales/en`, `./locales/uk`, `./generators`, `./compile`, `./model`,
-  `./stream` and `./formats`, each with its own `types`), `sideEffects: false` (nothing
+  `./stream`, `./formats`, `./derive`, `./coerce` and `./mongodb`, each with its own
+  `types`), `sideEffects: false` (nothing
   registers on import, so a bundler may drop a subpath a program imports and never calls; the
   size script exports what it bundles for that reason) and a
   `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
@@ -145,6 +151,40 @@ is a rule and not a type on purpose (Alex's decision, 2026-10-11): a type named 
 `{ email: 'string', name: 'string' }` read as the shorthand of that type (the first key
 decides), which was reproduced before the design was changed. The generators, `sample` and
 `infer` read `FORMATS` of the core; the subpath requires `rules.js` and `errors.js` only.
+Since 3.3 it registers 35 formats (ajv-formats', zod's, valibot's and semver.org's
+expressions, held to those libraries value by value in `formats.test.js`), an entry may carry
+a `pattern` the JSON Schema export writes beside a name JSON Schema does not know, and the
+program's own format under the name of a built-in takes its place (Alex's decision,
+2026-10-13: a 3.2 program that registered `ulid` keeps working).
+
+**Coercion is a policy of parse with a slot in the core and converters in `./coerce` (3.3).**
+`parse(value, { coerce: true })`, the kind metadata `{ Form: { coerce: true } }` (in `custom`,
+read once into `#coerce` of the schema: an own property would shadow the `coerce` method) and
+a field's `coerce: true|false` (its subtree) decide; `check` never converts. The core has the
+`COERCE` bit of the pass before the check and the `COERCION` slot in `codec.js` (its `convert`
+throws `ERR_NOT_REGISTERED` until `register()` of `@alexify/metaschema/coerce` installs the
+dispatcher); the converters by type name, the program's own included, are the subpath's
+`COERCIONS` (Alex's decision, 2026-10-13, like the formats). The converters are strict (Alex's
+decision): decimal strings, `'true'`/`'false'`/`'1'`/`'0'` and 1/0, ISO dates with a zone or
+epoch ms, never `''`. `coerce(schema, value)` of the subpath is the pass before the check with
+coercion on, conversions **and defaults** (Alex's decision), nothing checked. `Infer` does not
+change.
+
+**Deriving a schema is the `./derive` subpath (3.3).** `pick`, `omit`, `partial`, `required`,
+`extend`, `keyof` build a new Schema from `structDefinitionOf` of the source (shared with
+`merge` in `model/data.js`); the core and `./model` did not grow. A stored kind or a
+projection becomes a struct without the id of its kind (unless the call names it), `partial`
+drops defaults (a patch keeps what is stored) and, with `pick` and `omit`, the schema's own
+functions; `extend` replaces where `merge` unifies.
+
+**`./mongodb` does no I/O and has no driver dependency (3.3).** The program registers the
+module of its driver (`register({ bson })`), which also installs the converters of the BSON
+types into `./coerce`; a value of bson is recognized by `_bsontype` and a method, never by
+`instanceof`. The program keeps ids as strings, `toDocument` writes `_id` and references as
+ObjectIds, `fromDocument` reads them back and parses with coercion, `indexesOf` and
+`checkUpdate`/`toUpdate` are data. A persistence layer with a `mongodb` peer dependency is a
+separate package, planned (Alex's decision, 2026-10-13); Mongoose stays the recommendation for
+an ODM (populate, middleware, change tracking).
 
 ## Repository layout
 
@@ -192,8 +232,15 @@ src/
                     the dictionary and enum heuristics, the self-check, ERR_INFER_DEPTH/ERR_INFER_MISMATCH)
   stream/           the ./stream subpath: index.js (checkEach, parseEach, checkEachAsync, parseEachAsync,
                     transform, register), index.d.ts
-  formats/          the ./formats subpath: index.js (the nine built-in formats, register, FORMATS of the
+  formats/          the ./formats subpath: index.js (the 35 built-in formats, register, FORMATS of the
                     core re-exported), index.d.ts
+  derive/           the ./derive subpath: index.js (pick, omit, partial, required, extend, keyof, register),
+                    index.d.ts
+  coerce/           the ./coerce subpath: index.js (the strict converters, COERCIONS, coerce, register:
+                    the dispatcher into COERCION of codec.js), index.d.ts
+  mongodb/          the ./mongodb subpath: bson.js (types, register, the driver, idOf), document.js
+                    (toDocument, fromDocument, the walk), update.js (checkUpdate, toUpdate, the dotted
+                    paths), indexes.js (indexesOf), index.js, index.d.ts
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
@@ -238,7 +285,8 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `src/index.js` requires nothing else (no runtime).
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
   `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
-  generators), never `schema.js` or `model.js`: they take the instances and read `fields`,
+  generators), `jsonschema.js` also `rules` (`FORMATS`, the pattern of a format) and `kinds`
+  (`KIND_STORED`, for `ids: 'objectId'`), never `schema.js` or `model.js`: they take the instances and read `fields`,
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
   `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
   generators; nothing in the core requires `generators/`.
@@ -269,7 +317,18 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `stream/`.
 - `formats/index.js` requires `rules` (`FORMATS`) and `errors` only. Nothing in the core
   requires `formats/`; the `install` helper of `register()` is a copy per subpath (generators,
-  model, stream) rather than a helper of the core, which is measured on its own.
+  model, stream, derive, coerce) rather than a helper of the core, which is measured on its own.
+- `codec.js` holds the `COERCION` slot and the `COERCE` bit; `coerce/index.js` requires
+  `util`, `metautil`, `schema.js`, `context`, `codec` (`COERCION`, `PREPARE`, `infoOf`,
+  `apply`, `wantOf`, `looped`) and `errors`.
+- `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`KIND_STORED`),
+  `errors` and `model/data.js` (`structDefinitionOf`, `metadataOf`, `structDefinition`,
+  `atSchema`): one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
+  other, `mongodb/bson.js` → `coerce/index.js`. The rest of `mongodb/` requires core modules
+  (`util`, `struct`, `prototypes/reference`, `codec` for `infoOf`/`apply`/`SERIALIZE`,
+  `context`, `issues`, `result`, `errors`, `kinds`, `metautil`) and its own files; it tells
+  the shape of a node by `infoOf(node).shape` with the numbers of `codec.js` (named locally).
+  Nothing in the core requires a subpath (`graph.test.js`).
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -304,7 +363,9 @@ kind or the `schema` shorthand.
 `ERR_UNSUPPORTED_SCHEMA` of the generators, `ERR_NO_EVAL` and `ERR_JIT_BUILD` of the compile
 subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`,
 `ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH` and `ERR_INFER_MISMATCH` of the model subpath,
-`ERR_INVALID_FORMAT` and `ERR_FORMAT_REGISTERED` of the formats subpath), `schema` and `field`. A function of a subpath
+`ERR_INVALID_FORMAT` and `ERR_FORMAT_REGISTERED` of the formats subpath, `ERR_UNKNOWN_FIELD` of
+the derive subpath, `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` of the coerce
+subpath), `schema` and `field`. A function of a subpath
 given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
 JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
 (`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
@@ -516,11 +577,35 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.2 bundle budgets are 17.75 KB min+gzip per core entry, 7.5 KB for the generators,
-4.25 KB for the compile subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath
-and 2 KB for the formats subpath on top of it** (`pnpm size --max-gzip 17.75
---max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5
---max-gzip-formats 2` in CI). After the review of 3.2 (2026-10-11, before the tag) the entries
+**The 3.3 bundle budgets are 19 KB min+gzip per core entry, 7.5 KB for the generators,
+4.25 KB for the compile subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath,
+4 KB for the formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on
+top of it, and 3.5 KB for the mongodb subpath on top of it and `./coerce`** (`pnpm size
+--max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12
+--max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2
+--max-gzip-mongodb 3.5` in CI). In 3.3 (2026-10-13) the entries measure 18509 / 18528 bytes
+(18.1 KB; 18145 / 18153 before 3.3, not the 18137 quoted below), the generators 7553 bytes
+(7.4 KB: the patterns of the formats and `ids` added about 250), the compile subpath 4342
+(10 bytes under its 4.25 KB gate: its code did not change, the difference of two gzips
+moved with the core), the model subpath 12260 (12276 before 3.3), the stream subpath 1010, the
+formats subpath 3564 (3.5 KB, 35 formats), the derive subpath 1918 (1.9 KB, of which
+`model/data.js` is about 600), the coerce subpath 1343 (1.3 KB) and the mongodb subpath 3342
+bytes on top of the core and `./coerce` (3.3 KB). Coercion cost the core about 360 bytes (the
+`COERCE` bit and the `COERCION` slot, the conversions in the walkers, the flag check of a
+field, the option and the metadata check, the pass before the check written out in `parse`
+and `parseAsync`); the core gate moved from 17.75 to 19 KB for it (Alex's decision,
+2026-10-13). The plan gave `./mongodb` 3 KB; it came out about 270 bytes over after the
+obvious trims, so its gate is 3.5 KB, pending Alex's confirmation. `scripts/size.js` measures a
+subpath with a `base` (the subpaths it requires) as (core + base + subpath) − (core + base).
+**The inlining budget of `parse`:** the first version of coercion put the pass before the
+check in `#prepare` and the conversion in `apply`, and `parse (jit)` lost 13% (flat) and 8%
+(nested): `--trace-turbo-inlining` showed `#prepare` no longer inlined into `parse`, then the
+second `apply` not inlined. The pass is written out in `parse` and `parseAsync`, `apply` is
+byte for byte what it was (the conversion is in the walkers of a leaf, a list and a
+dictionary, a field's policy is `info.walk`), and an A/B of 11 `parse`/`check` rows against
+the commit before coercion is at parity (−0.2% to +2.6%, `Schema.from` −3.2%). Check the
+inlining of `parse` (`#pass`, `apply` and `wantOf` twice each) after touching its path.
+After the review of 3.2 (2026-10-11, before the tag) the entries
 measure 18137 bytes (17.7 KB) each, the generators 7286 bytes (7.1 KB), the compile subpath
 4298 bytes (4.2 KB), the model subpath 12245 bytes (12.0 KB, 43 bytes under its gate: the
 formats cost `infer` and `sample` about 260 bytes), the stream subpath 978 bytes (1.0 KB) and
@@ -832,6 +917,25 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
+- 3.3 suites: `derive.test.js` (every operation over structs, nested structs, stored kinds,
+  aliases, defaults, indexes, schema functions, references and unions on both backends; the
+  kind and id rule, `deep` stopping at collections, the source never changed, `__proto__`,
+  every error, `register()`), `coerce.test.js` (the before-`register()` block first, the
+  converters row by row with what they leave, the three levels of the policy, `''`, unions as
+  given first, containers, references, aliases, alias types, decoders, strip, async, streams,
+  `~standard`, the input never written, cycles, the standalone `coerce()`, snapshots),
+  `formats.test.js` (the 26 formats of 3.3 against ajv-formats, zod, valibot, a browser's URL
+  and ArkType, the deliberate differences pinned with opposite verdicts, the hostile strings,
+  infer, the patterns of the export) and `formats-override.test.js` (a format of the program
+  over a built-in, its own process since the table is process-wide), `mongodb.test.js` (fake
+  bson classes: a getter of `_bsontype`, bson 4's `ObjectID`, a JSON body that claims to be
+  one, another realm; documents both ways over every container, embedded records, an own
+  `_id`, an anonymous stored schema; the fixture's indexes; every operator of `checkUpdate`
+  and `toUpdate`; the collection validator of `ids: 'objectId'` against `toDocument`), the
+  `RULES` rows of `coerce` in `evolution.test.js` (full), and `tests/types/derive.test-d.ts`,
+  `coerce.test-d.ts`, `mongodb.test-d.ts` (the `CustomTypes` augmentation included).
+  `graph.test.js` pins that nothing in the core requires a subpath and the two allowed
+  subpath-to-subpath edges.
 - Review of 3.2 suites: `formats.test.js` (the rule before and after `register()`, the table
   of valid and invalid values of every built-in format cross-checked with ajv-formats' full
   mode on both backends, the issue and both locales, the order with `length` and `pattern`
@@ -1246,6 +1350,36 @@ change. **This file wins** if they ever disagree.
 - **The async pair keeps the order of the records whatever `concurrency` is**, so a slow record
   holds the ones after it; the window overlaps the waits, it does not reorder. The queue is as
   long as `concurrency` (an array with `shift`), which is small by design.
+- **`check` never coerces, and a value it accepts is never converted.** Coercion is a step of
+  `parse` before its check; a plain union tries its branches as given (with their defaults)
+  first and converts only when none accepts the value, so `{ union: ['number', 'string'] }`
+  keeps `'3'`. A converter that throws leaves the value for the check.
+- **The empty string is never converted**, not even to `null` for a nullable field or to the
+  default of an optional one (Alex's decision: strict converters); a decoder or the program
+  does that. A date-time without a zone is not converted either (it would depend on the zone of
+  the server).
+- **`coerce()` fills the defaults too**: it is the pass before the check of a coercing parse,
+  so `check(coerce(s, v)).valid` is the verdict of `parse(v, { coerce: true })`.
+- **The metadata `coerce` of an embedded or referenced schema is not read**: the policy is the
+  parse's, as `unknown` is. The kind metadata lives in `schema.custom.coerce`, never as
+  `schema.coerce`, which is the method `register()` of `./coerce` installs.
+- **A change of `coerce` is `full` in `compatibility`**: neither what `check` accepts nor what
+  `parse` gives changes (the plan said "like `nullable`"; the rule was corrected while
+  implementing it).
+- **A schema derived from a stored kind is a struct without the id field**, and `pick`, `omit`
+  and `partial` leave the schema's own `validate`/`parse`/`serialize`/`format` out; `partial`
+  drops the defaults of the fields it makes optional (`defaults: true` keeps them); `deep` stops
+  at collections, tuples, unions and references. The name is the source's unless `name`, so a
+  Model refuses a derived schema under another name without it.
+- **The methods of `./derive` are typed through `this`, never through `D` of the class.** A
+  member that maps `D` makes every comparison of two Schema types instantiate the mapping
+  ("excessively deep", 10.7 s against 0.77 s for `tsd`).
+- **A built-in format replaced by the program's own does not change the schemas built before**:
+  the test is captured when a field is built.
+- **`./mongodb` turns any string of 24 hex digits in an id or a reference into an ObjectId**,
+  and `checkUpdate` cannot know the document stored (a length after `$push`, a bound after
+  `$inc`): the collection validator is the last check. A deep partial is not the shape of an
+  update (`$set` replaces what a path names whole).
 - **A string is not a sequence of records.** It is iterable, over its characters, and
   `checkEach(schema, 'rows')` is `ERR_INVALID_TARGET`.
 
@@ -1285,7 +1419,12 @@ the generated code contains, the boundaries). The 3.1 pages are `guide/evolution
 model subpath, `aliases` and `deprecated`, `diff`, the change shape, `compatibility` with the
 rules table, the boundaries) and `guide/samples.md` (`sample`, the options, what is drawn per
 type, the pattern subset, the unsatisfiable cases); `guide/model.md` has the snapshot format and
-`fromJSON`, `guide/schema-syntax.md` the merge rules. The 3.2 pages are `guide/streaming.md`
+`fromJSON`, `guide/schema-syntax.md` the merge rules. The 3.3 pages are `guide/coercion.md`
+(the policy, the converters, unions, `coerce()`, your own converters), `guide/derive.md` (the
+six functions, the kind and the id, the schema's functions, indexes, names and models) and
+`guide/mongodb.md` (the comparison with Mongoose, setup, collections, writing, reading,
+updates, the BSON types, when Mongoose still fits); `guide/formats.md` has the five tables of
+the 35 formats. The 3.2 pages are `guide/streaming.md`
 (the stream subpath: the entries, `parseEach`, `maxInvalid`, the async pair and `concurrency`,
 `transform`, the boundaries), `guide/infer.md` (`infer`, the options, what is inferred per
 value, optional/nullable/null, the enum, format and dictionary rules, the keys, the root, the

@@ -8,7 +8,9 @@ import type { DefinitionErrorCode, InferSchema, IssueCode, IssueOf } from '../..
 expectType<void>(register());
 expectType<void>(register({ phone: { test: (value) => value.length > 3, examples: ['+380'] } }));
 expectType<void>(register({ word: { test: () => true, examples: ['a'], infer: false } }));
-expectType<void>(register({ sku: { test: () => true, examples: ['A-1'], pattern: '^[A-Z]-\\d$' } }));
+expectType<void>(
+  register({ sku: { test: () => true, examples: ['A-1'], pattern: '^[A-Z]-\\d$' } }),
+);
 expectError(register({ sku: { test: () => true, examples: ['A-1'], pattern: /^[A-Z]-\d$/ } }));
 expectType<string | undefined>(FORMATS.ulid?.pattern);
 expectError(register({ phone: { test: 1, examples: [] } }));
