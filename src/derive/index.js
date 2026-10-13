@@ -6,18 +6,16 @@
 // too), so the source is never touched and every rule of a field comes along.
 // `register()` installs the functions as methods of Schema, so they chain.
 const { hasBrand, define, formatters } = require('../util.js');
-const { isFirstUpper, firstKey, toLowerCamel } = require('../metautil.js');
+const { isFirstUpper, firstKey } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
-const { constants } = require('../kinds.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { idFieldOf } = require('../kinds.js');
+const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
 const { structDefinitionOf, metadataOf, structDefinition, atSchema } = require('../model/data.js');
 
 // The functions of a nested struct that are its own: written for the whole
 // struct, they do not hold for a part of it.
 const CODECS = ['validate', 'parse', 'serialize'];
-
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
 
 const sourceOf = (schema) => {
   if (!hasBrand(schema, 'Schema') || !isStruct(schema.fields)) {
@@ -26,33 +24,32 @@ const sourceOf = (schema) => {
   return schema;
 };
 
+// The options of a call are the call's (ERR_INVALID_OPTION); the metadata
+// among them is a definition, and a wrong one is a definition error.
 const optionsOf = (options = {}) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Derive options must be an object');
+    throw invalidOption('options', 'an object', options);
   }
   const { metadata } = options;
   if (metadata !== undefined && (metadata === null || typeof metadata !== 'object')) {
-    throw invalidOptions('Option "metadata" must be an object');
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Option "metadata" must be an object');
   }
   return options;
 };
 
-const isStored = (schema) => constants.KIND_STORED.includes(schema.kind);
+// The id field a stored kind adds, which goes with the kind unless a call
+// names it.
+const idOf = idFieldOf;
 
-// The id field a stored kind adds (kinds.js names it the same way), which
-// goes with the kind unless a call names it.
-const idOf = (schema) => {
-  if (!isStored(schema)) return null;
-  return schema.name ? `${toLowerCamel(schema.name)}Id` : 'id';
-};
+const isStored = (schema) => idFieldOf(schema) !== null;
 
 // The names a call gives, each a field (or a calculated field) of the
 // schema; one it does not have is located in it.
 const namesOf = (schema, keys) => {
-  if (!Array.isArray(keys)) throw invalidOptions('The keys must be a list of field names');
+  if (!Array.isArray(keys)) throw invalidOption('keys', 'a list of field names', keys);
   const names = new Set();
   for (const key of keys) {
-    if (typeof key !== 'string') throw invalidOptions('The keys must be a list of field names');
+    if (typeof key !== 'string') throw invalidOption('keys', 'a list of field names', keys);
     if (!(key in schema.fields)) {
       throw new SchemaDefinitionError('ERR_UNKNOWN_FIELD', 'No such field').locate(
         schema.name,

@@ -9,18 +9,25 @@ const { hasBrand, define, isMap } = require('../util.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const { embeds } = require('../prototypes/reference.js');
 const { infoOf } = require('../codec.js');
+const { referencesOf } = require('../context.js');
 const { invalidTarget, invalidOption } = require('../errors.js');
 const { ID, HEX, driverOf, idOf, isObjectId } = require('./bson.js');
 
-// The shapes of infoOf in codec.js.
-const SCHEMA = 1;
-const FIELDS = 2;
-const NESTED = 3;
-const LIST = 4;
-const KEYED = 5;
-const TUPLE = 6;
-const UNION = 7;
-const REFERENCE = 8;
+// The shapes of infoOf in codec.js, by name, for the three walks of the
+// subpath; `mongodb.test.js` holds them to the numbers of the core.
+const SHAPES = Object.freeze({
+  LEAF: 0,
+  SCHEMA: 1,
+  FIELDS: 2,
+  NESTED: 3,
+  LIST: 4,
+  KEYED: 5,
+  TUPLE: 6,
+  UNION: 7,
+  REFERENCE: 8,
+});
+
+const { SCHEMA, FIELDS, NESTED, LIST, KEYED, TUPLE, UNION, REFERENCE } = SHAPES;
 
 // A plain object of any realm: its prototype is the root of its realm or
 // none (an Array, a Date, a Map or a value of bson has one in between).
@@ -139,9 +146,7 @@ const stateOf = (target, options, out) => {
   if (ids !== 'objectId' && ids !== 'string') {
     throw invalidOption('ids', '"objectId" or "string"', ids);
   }
-  if (references !== 'kind' && references !== 'embed' && references !== 'id') {
-    throw invalidOption('references', '"kind", "embed" or "id"', references);
-  }
+  referencesOf(references);
   if (!Number.isInteger(maxDepth) || maxDepth < 1) {
     throw invalidOption('maxDepth', 'a positive integer', maxDepth);
   }
@@ -185,4 +190,13 @@ const fromDocumentAsync = async (target, document, options) => {
   return target.parseAsync(value, parsing(options));
 };
 
-module.exports = { toDocument, fromDocument, fromDocumentAsync, walk, idValue, stateOf, listOf };
+module.exports = {
+  SHAPES,
+  toDocument,
+  fromDocument,
+  fromDocumentAsync,
+  walk,
+  idValue,
+  stateOf,
+  listOf,
+};

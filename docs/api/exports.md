@@ -165,7 +165,8 @@ core); see [Records and streams](/guide/streaming).
 
 A target that is not a `Schema`, or a source that is not iterable (a string included), is a
 `TypeError` with `code: 'ERR_INVALID_TARGET'`; a wrong option of the subpath is a `TypeError`
-like a wrong option of `check` (`maxInvalid must be an integer of at least 1, got 0`).
+with `code: 'ERR_INVALID_OPTION'`, like a wrong option of `check` (`maxInvalid must be an
+integer of at least 1, got 0`).
 
 ## `@alexify/metaschema/formats`
 
@@ -199,8 +200,10 @@ source was built from, with `options.name` (the source's by default) and `option
 | `register()` | installs the six as methods of `Schema`, once per process |
 
 A key the schema has no field of is `ERR_UNKNOWN_FIELD`, located in the schema; keys that are
-not a list of names and options that are not an object are `ERR_INVALID_OPTIONS`; a target that
-is not a Schema of a struct is a `TypeError` with `code: 'ERR_INVALID_TARGET'`.
+not a list of names and options that are not an object are a `TypeError` with
+`code: 'ERR_INVALID_OPTION'` (the call is wrong), a `metadata` that is not an object
+`ERR_INVALID_OPTIONS` (a definition is); a target that is not a Schema of a struct is a
+`TypeError` with `code: 'ERR_INVALID_TARGET'`.
 
 ## `@alexify/metaschema/coerce`
 
@@ -250,7 +253,11 @@ them. A `transform` of the stream subpath ends its stream with a `TypeError` wit
 `code: 'ERR_INVALID_RECORD'` for an invalid record it was not told to drop. A parse that
 coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value
 holds), and a document or an update written with ObjectIds before `register({ bson })` of the
-mongodb subpath, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. The type of the codes is
+mongodb subpath, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. An option of a call that
+is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the
+stream, derive and mongodb subpaths) is a `TypeError` with `code: 'ERR_INVALID_OPTION'`; the
+kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is a
+`SchemaDefinitionError` with `ERR_INVALID_OPTIONS`. The type of the codes is
 `RuntimeErrorCode`.
 
 ## `ValidationResult`
@@ -337,7 +344,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'`, and `coerce` (whether the input is converted before the check; the kind metadata's default) |
 | `CoerceOptions` | the options of `coerce` of the coerce subpath: `references`, `maxDepth` |
 | `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
-| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered) |
+| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_OPTION'` (an option of a call is not what it must be), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered) |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |

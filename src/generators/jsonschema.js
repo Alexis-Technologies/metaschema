@@ -10,8 +10,8 @@ const { isStruct } = require('../struct.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { FORMATS } = require('../rules.js');
-const { constants } = require('../kinds.js');
-const { toLowerCamel } = require('../metautil.js');
+const { idFieldOf } = require('../kinds.js');
+const { baseTypeOf } = require('../types.js');
 
 // What differs between the dialects: the keyword of a type, where the
 // definitions live, whether `const`, tuples, `propertyNames` and siblings of
@@ -395,12 +395,7 @@ const RENDER = Object.assign(Object.create(null), {
 
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in.
-const baseOf = (field) => {
-  const { types } = field.root;
-  let Type = field.constructor;
-  while (Type.source !== undefined && Type.source.js !== undefined) Type = types[Type.source.js];
-  return Type.type;
-};
+const baseOf = (field) => baseTypeOf(field).type;
 
 // The schema of the type of a field: the metadata of a custom type when it
 // says (`jsonSchema`, or `bson` for mongodb), else the built-in it is or
@@ -458,14 +453,12 @@ const struct = (fields, context, id = null, root = false) => {
   return json;
 };
 
-// The id field a stored kind adds (kinds.js names it the same way), which
-// `ids: 'objectId'` writes as `_id`, unless the schema has an `_id` of its own.
+// The id field a stored kind adds, which `ids: 'objectId'` writes as `_id`,
+// unless the schema has an `_id` of its own.
 const idOf = (schema, context) => {
-  const { fields } = schema;
-  if (!context.objectIds || !constants.KIND_STORED.includes(schema.kind) || ID in fields) {
-    return null;
-  }
-  return schema.name ? `${toLowerCamel(schema.name)}Id` : 'id';
+  if (!context.objectIds) return null;
+  const id = idFieldOf(schema);
+  return id === null || ID in schema.fields ? null : id;
 };
 
 // The schema being rendered owns the location of an error met in it, and

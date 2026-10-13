@@ -5,8 +5,7 @@
 // its `_bsontype` and by a method that JSON cannot give a value (a body of a
 // request claiming to be an ObjectId is data), never by `instanceof`, so a
 // value of another realm or of another copy of bson is one too.
-const { toLowerCamel } = require('../metautil.js');
-const { constants } = require('../kinds.js');
+const { idFieldOf } = require('../kinds.js');
 const { invalidOption, notRegistered } = require('../errors.js');
 const { register: coercion } = require('../coerce/index.js');
 
@@ -102,12 +101,11 @@ const register = (options) => {
   coercion(converters);
 };
 
-// The id field a stored kind adds (kinds.js names it the same way), which a
-// document holds as `_id`, unless the schema has an `_id` of its own.
+// The id field a stored kind adds, which a document holds as `_id`, unless
+// the schema has an `_id` of its own.
 const idOf = (schema) => {
-  const { fields, kind, name } = schema;
-  if (!constants.KIND_STORED.includes(kind) || ID in fields) return null;
-  return name ? `${toLowerCamel(name)}Id` : 'id';
+  const id = idFieldOf(schema);
+  return id === null || ID in schema.fields ? null : id;
 };
 
 module.exports = { ID, HEX, types, register, driverOf, idOf, isObjectId };

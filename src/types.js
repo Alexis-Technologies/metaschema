@@ -137,4 +137,23 @@ const typeFactory = (customTypes, registry = TYPES) => {
   return registry;
 };
 
-module.exports = { TYPES, createRegistry, readsAsStruct, typeFactory };
+// The type a field validates as: its own class, or the one its alias chain
+// ends in (`{ money: { js: 'number' } }` validates as a number, and so does
+// `{ cents: { js: 'money' } }`); a custom type with a check of its own ends
+// the chain with `source.js` undefined, and a name the registry cannot
+// resolve (a namespace detached since) ends it where it stands. Read by the
+// generators, the samples and the mongodb subpath, which look at `.type` and
+// `.source` of what comes back.
+const baseTypeOf = (field) => {
+  const { types } = field.root;
+  let Type = field.constructor;
+  for (;;) {
+    const js = Type.source?.js;
+    if (js === undefined) return Type;
+    const next = types[js];
+    if (next === undefined) return Type;
+    Type = next;
+  }
+};
+
+module.exports = { TYPES, createRegistry, readsAsStruct, typeFactory, baseTypeOf };

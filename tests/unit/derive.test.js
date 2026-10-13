@@ -451,15 +451,24 @@ test('Derive: what is not a struct schema, keys or options throws', () => {
       assert.throws(call, { name: 'TypeError', code: 'ERR_INVALID_TARGET' });
     }
   }
+  // The options of a call are the call's; the metadata among them is a
+  // definition.
   for (const keys of ['login', [1], undefined]) {
     assert.throws(() => pick(Account, keys), {
-      code: 'ERR_INVALID_OPTIONS',
-      message: 'The keys must be a list of field names',
+      name: 'TypeError',
+      code: 'ERR_INVALID_OPTION',
+      message: /^keys must be a list of field names, got /,
     });
   }
-  assert.throws(() => partial(Account, 'deep'), { code: 'ERR_INVALID_OPTIONS' });
-  assert.throws(() => partial(Account, { metadata: 'entity' }), { code: 'ERR_INVALID_OPTIONS' });
-  assert.throws(() => partial(Account, { keys: 'login' }), { code: 'ERR_INVALID_OPTIONS' });
+  assert.throws(() => partial(Account, 'deep'), {
+    code: 'ERR_INVALID_OPTION',
+    message: 'options must be an object, got "deep"',
+  });
+  assert.throws(() => partial(Account, { metadata: 'entity' }), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_INVALID_OPTIONS',
+  });
+  assert.throws(() => partial(Account, { keys: 'login' }), { code: 'ERR_INVALID_OPTION' });
   unknownField(() => omit(Account, ['nmae']), 'No such field in "Account.nmae"');
   for (const extension of [null, 'string', ['a']]) {
     assert.throws(() => extend(Account, extension), { code: 'ERR_INVALID_TARGET' });

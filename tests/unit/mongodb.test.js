@@ -552,6 +552,24 @@ test('Mongodb: checkUpdate checks what each operator does to the field of each p
   assert.deepStrictEqual(Object.keys(toUpdate(Node, { $set: { [deep]: 'x' } }).$set), [deep]);
 });
 
+test('Mongodb: the shapes of the walks are those of the passes of the core', () => {
+  const { SHAPES } = require('../../src/mongodb/document.js');
+  const { infoOf } = require('../../src/codec.js');
+  const { fields } = Account;
+  assert.strictEqual(infoOf(Account).shape, SHAPES.SCHEMA);
+  assert.strictEqual(infoOf(fields).shape, SHAPES.FIELDS);
+  assert.strictEqual(infoOf(fields.address).shape, SHAPES.NESTED);
+  assert.strictEqual(infoOf(fields.tags).shape, SHAPES.LIST);
+  assert.strictEqual(infoOf(fields.notes).shape, SHAPES.KEYED);
+  assert.strictEqual(infoOf(fields.pair).shape, SHAPES.TUPLE);
+  assert.strictEqual(infoOf(fields.shape).shape, SHAPES.UNION);
+  assert.strictEqual(infoOf(fields.company).shape, SHAPES.REFERENCE);
+  assert.strictEqual(infoOf(fields.partners).shape, SHAPES.REFERENCE);
+  assert.strictEqual(infoOf(fields.login).shape, SHAPES.LEAF);
+  assert.strictEqual(infoOf(fields.meta).shape, SHAPES.LEAF);
+  assert.strictEqual(Object.isFrozen(SHAPES), true);
+});
+
 test('Mongodb: the walks of a document stop at maxDepth as the check does', () => {
   register({ bson });
   const chain = new Model({}, [['Node', { Struct: {}, name: 'string', 'next?': 'Node' }]]);

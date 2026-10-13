@@ -3,6 +3,7 @@ import type {
   DeriveOptions,
   DerivedSchema,
   ExtendDefinition,
+  ExtendedSchema,
   KeyofDefinition,
   OmitDefinition,
   PartialDefinition,
@@ -61,7 +62,9 @@ export function required<
 
 // The fields of the extension (an object of fields, or a Schema of a
 // struct) over the schema's: one of the same name takes the place of the
-// schema's, the others come after. `merge` of `./model` unifies instead.
+// schema's, the others come after. `merge` of `./model` unifies instead. An
+// extension whose definition is not known (an entity of a model) gives a
+// `Schema` of an unknown one, as a source whose definition is not known does.
 export function extend<
   D extends string | object,
   const X extends object,
@@ -70,7 +73,7 @@ export function extend<
   schema: Schema<D> & StructGuardOf<D>,
   extension: X,
   options?: O,
-): DerivedSchema<D, ExtendDefinition<D, X, O>>;
+): ExtendedSchema<D, X, ExtendDefinition<D, X, O>>;
 
 // The names of the fields a value carries, as a schema of an enum.
 export function keyof<D extends string | object>(

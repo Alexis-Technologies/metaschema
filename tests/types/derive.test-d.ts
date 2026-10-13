@@ -1,6 +1,12 @@
 import { expectAssignable, expectError, expectType } from 'tsd';
 import { Schema } from '../../index.js';
-import type { DefinitionErrorCode, InferOutput, InferSchema, Model } from '../../index.js';
+import type {
+  DefinitionErrorCode,
+  DefinitionOf,
+  InferOutput,
+  InferSchema,
+  Model,
+} from '../../index.js';
 import { extend, keyof, omit, partial, pick, register, required } from '../../src/derive/index.js';
 
 const account = new Schema('Account', {
@@ -91,11 +97,41 @@ expectAssignable<Schema>(stored);
 // Only a struct is derived from.
 expectError(pick(Schema.from('string'), []));
 expectError(partial(Schema.from({ array: 'string' })));
-// A schema of an unknown definition gives one.
+// A schema of an unknown definition gives one, as a source and as an extension.
 declare const model: Model;
 const entity = model.entities.get('Account')!;
 expectType<Schema>(pick(entity, ['anything']));
 expectType<Schema>(entity.partial({ keys: ['x'] }));
+expectType<Schema>(omit(entity, ['x']));
+expectType<Schema>(required(entity));
+expectType<Schema>(keyof(entity));
+expectType<Schema>(extend(entity, { a: 'string' }));
+expectType<Schema>(extend(view, entity));
+expectType<Schema>(view.extend(entity));
+
+// required with `deep` goes into the nested struct, and reads the long form.
+const loose = Schema.from({ 'a?': { type: '?string' }, nested: { schema: { 'b?': 'number' } } });
+const strict = required(loose, { deep: true });
+expectType<{ a: string; nested: { b: number } }>({} as InferSchema<typeof strict>);
+
+// partial with `deep` over the `{ schema }` form and over a Schema as a field.
+const inner = Schema.from({ city: 'string' });
+const outer = Schema.from({ place: { schema: { city: 'string' } }, home: inner });
+const loosened = partial(outer, { deep: true });
+expectType<{ city?: string | null | undefined } | null | undefined>(
+  {} as InferSchema<typeof loosened>['place'],
+);
+expectType<{ city?: string | null | undefined } | null | undefined>(
+  {} as InferSchema<typeof loosened>['home'],
+);
+
+// The kind of a derived schema: a memory kind keeps its metadata, a stored
+// kind becomes a struct, the kind of the options wins.
+const form = new Schema('Form', { Form: { unknown: 'ignore' }, a: 'string' });
+const kept = pick(form, ['a']);
+expectType<{ readonly unknown: 'ignore' }>({} as DefinitionOf<typeof kept>['Form']);
+expectType<{}>({} as DefinitionOf<typeof view>['Struct']);
+expectType<{}>({} as DefinitionOf<typeof stored>['Entity']);
 
 // The methods, once register() ran, chain with the same types.
 register();

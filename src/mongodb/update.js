@@ -12,16 +12,12 @@ const { infoOf, apply, SERIALIZE } = require('../codec.js');
 const { createContext } = require('../context.js');
 const { issues, finalize } = require('../issues.js');
 const { ValidationResult } = require('../result.js');
+const { baseTypeOf } = require('../types.js');
 const { invalidTarget } = require('../errors.js');
 const { ID: KEY, idOf } = require('./bson.js');
-const { walk, idValue, stateOf, listOf } = require('./document.js');
+const { SHAPES, walk, idValue, stateOf, listOf } = require('./document.js');
 
-// The shapes of infoOf in codec.js.
-const NESTED = 3;
-const LIST = 4;
-const KEYED = 5;
-const TUPLE = 6;
-const REFERENCE = 8;
+const { NESTED, LIST, KEYED, TUPLE, REFERENCE } = SHAPES;
 
 // A place an update is not checked at: a union, any, json.
 const LOOSE = Symbol('loose');
@@ -44,15 +40,7 @@ const LISTS = ['$push', '$addToSet', '$pull', '$pullAll'];
 const OPERATORS = [...VALUES, ...LISTS, '$unset', '$inc', '$mul', '$currentDate', '$pop'];
 
 // The type a field is of, through the aliases of custom types.
-const baseOf = (field) => {
-  let Type = field.constructor;
-  let name = field.type;
-  while (typeof Type?.source?.js === 'string') {
-    name = Type.source.js;
-    Type = field.root.types[name];
-  }
-  return name;
-};
+const baseOf = (field) => baseTypeOf(field).type;
 
 // The record of a reference where it is embedded, else null.
 const targetOf = (node, references) => {

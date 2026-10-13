@@ -416,6 +416,10 @@ export class SchemaDefinitionError extends TypeError {
 export type RuntimeErrorCode =
   | 'ERR_ASYNC_VALIDATOR'
   | 'ERR_INVALID_TARGET'
+  // An option of a call that is not what it must be (`maxErrors`, the
+  // `coerce` of a parse, the options of the stream, derive and mongodb
+  // subpaths): the call is wrong, not the definition.
+  | 'ERR_INVALID_OPTION'
   | 'ERR_INVALID_RECORD'
   // A parse that coerces before `register()` of the `@alexify/metaschema/coerce`
   // subpath ran (there is no converter to run), and a document written with
@@ -1440,6 +1444,11 @@ export type RequiredDefinition<D, O = {}> = DerivedKind<D, O> & RequiredOf<D, O>
 // What an extension adds: its fields (a Schema's, without its kind).
 type ExtensionOf<X> = X extends Schema<infer S> ? Omit<S, KindKey<S>> : X;
 
+// An extension whose fields are not known (a `Schema`, an entity of a
+// model): what it extends is not known either.
+export type ExtendedSchema<D, X, R> =
+  X extends Schema<infer S> ? (IsWide<S> extends true ? Schema : DerivedSchema<D, R>) : DerivedSchema<D, R>;
+
 export type ExtendDefinition<D, X, O = {}> = DerivedKind<D, O> & {
   [P in keyof D as P extends KindKey<D>
     ? never
@@ -1608,7 +1617,7 @@ export class Schema<const D extends string | object = string | object> {
     this: S & StructGuardOf<DefinitionOf<S>>,
     extension: X,
     options?: O,
-  ): DerivedSchema<DefinitionOf<S>, ExtendDefinition<DefinitionOf<S>, X, O>>;
+  ): ExtendedSchema<DefinitionOf<S>, X, ExtendDefinition<DefinitionOf<S>, X, O>>;
   keyof<S extends Schema>(
     this: S & StructGuardOf<DefinitionOf<S>>,
     options?: DeriveOptions,

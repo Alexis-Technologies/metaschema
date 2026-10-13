@@ -56,9 +56,13 @@ const shown = (value) =>
   typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 
 // An option of a call that is not what it must be (`maxErrors`, the options
-// of the stream subpath): a TypeError naming it, as invalidTarget is.
-const invalidOption = (name, expected, value) =>
-  new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
+// of the stream subpath): a TypeError naming it, with a code of its own, as
+// invalidTarget is.
+const invalidOption = (name, expected, value) => {
+  const error = new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
+  error.code = 'ERR_INVALID_OPTION';
+  return error;
+};
 
 module.exports = {
   SchemaDefinitionError,

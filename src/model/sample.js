@@ -9,6 +9,7 @@ const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { isStruct } = require('../struct.js');
+const { baseTypeOf } = require('../types.js');
 const { embeds } = require('../prototypes/reference.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
@@ -48,9 +49,7 @@ const ABSENT = Symbol('absent');
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in; a custom type with a check of its own has none.
 const baseOf = (field) => {
-  const { types } = field.root;
-  let Type = field.constructor;
-  while (Type.source !== undefined && Type.source.js !== undefined) Type = types[Type.source.js];
+  const Type = baseTypeOf(field);
   return Type.source === undefined ? Type.type : null;
 };
 

@@ -142,4 +142,4 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
   return context;
 };
 
-module.exports = { createContext, UNLIMITED, MAX_DEPTH };
+module.exports = { createContext, referencesOf, UNLIMITED, MAX_DEPTH };

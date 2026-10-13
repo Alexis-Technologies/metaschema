@@ -90,6 +90,17 @@ place) are listed under Changed.
   a kind metadata `coerce` that is not a boolean is `ERR_INVALID_OPTIONS` (was an ordinary
   custom key), and a kind metadata `coerce: true` makes every `parse` of the schema need
   `register()` of `./coerce`.
+- **An option of a call that is not what it must be carries `code: 'ERR_INVALID_OPTION'`**
+  (a new `RuntimeErrorCode`): the `TypeError` of `maxErrors`, `references`, `root`, the
+  `coerce` of a parse, and of the options of `./stream`, `./derive` and `./mongodb` had no
+  code. The options of `./derive` are the call's (`keys` that is no list, options that are no
+  object are `ERR_INVALID_OPTION`, a `TypeError`; they were `ERR_INVALID_OPTIONS`, a
+  `SchemaDefinitionError`); its `metadata` stays a definition (`ERR_INVALID_OPTIONS`).
+- The rule of the id field of a stored kind (`orderId`, `id` for an anonymous schema) is
+  `idFieldOf` of `kinds.js`, read by `./derive`, `./mongodb` and `toJSONSchema`; the alias
+  chain of a custom type ends in `baseTypeOf` of `types.js`, read by the generators, `sample`
+  and `checkUpdate`; the shapes of the walks of `./mongodb` are named once (`SHAPES`) and held
+  to the core's by a test.
 - **`infer` writes the more specific formats**: a column of http(s) addresses is `url` (was
   `uri`), local date-times are `iso-date-time`, ULIDs `ulid`, durations `duration`.
 - **A format of the program under the name of a built-in takes its place** instead of throwing

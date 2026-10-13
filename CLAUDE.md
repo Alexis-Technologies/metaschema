@@ -192,7 +192,8 @@ an ODM (populate, middleware, change tracking).
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
 src/
   index.js          public barrel (explicit named exports)
-  kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata
+  kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata, idFieldOf (the one rule
+                    of the id field a stored kind adds, read by derive, mongodb and the generators)
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
   schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], ~standard
   struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
@@ -207,7 +208,8 @@ src/
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true })
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
-  types.js          TYPES registry, createType (static rules/options per type), typeFactory
+  types.js          TYPES registry, createType (static rules/options per type), typeFactory, baseTypeOf (the
+                    type at the end of the alias chain of a field, read by the generators, sample and mongodb)
   model.js          Model: entities, ordering, warnings (lazy); branded 'Model'
   util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
   errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR)
@@ -284,10 +286,11 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `struct`, `lint` and `codec`, plus `metautil`, `util` and `errors`; `snapshot.js` requires
   only `util`; `model.js` requires `schema`, `types`, `lint`, `util`, `snapshot`;
   `src/index.js` requires nothing else (no runtime).
-- `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`,
-  `metautil` and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
-  generators), `jsonschema.js` also `rules` (`FORMATS`, the pattern of a format) and `kinds`
-  (`KIND_STORED`, for `ids: 'objectId'`), never `schema.js` or `model.js`: they take the instances and read `fields`,
+- `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`
+  and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
+  generators), `typescript.js` also `metautil`, `jsonschema.js` also `rules` (`FORMATS`, the
+  pattern of a format), `kinds` (`idFieldOf`, for `ids: 'objectId'`) and `types`
+  (`baseTypeOf`), never `schema.js` or `model.js`: they take the instances and read `fields`,
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
   `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
   generators; nothing in the core requires `generators/`.
@@ -328,9 +331,11 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `atSchema`): one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
   other, `mongodb/bson.js` → `coerce/index.js`. The rest of `mongodb/` requires core modules
   (`util`, `struct`, `prototypes/reference`, `codec` for `infoOf`/`apply`/`SERIALIZE`,
-  `context`, `issues`, `result`, `errors`, `kinds`, `metautil`) and its own files; it tells
-  the shape of a node by `infoOf(node).shape` with the numbers of `codec.js` (named locally).
-  Nothing in the core requires a subpath (`graph.test.js`).
+  `context` for `createContext`/`referencesOf`, `issues`, `result`, `errors`, `kinds` for
+  `idFieldOf`, `types` for `baseTypeOf`) and its own files; it tells the shape of a node by
+  `infoOf(node).shape` with the numbers of `codec.js`, named once in `document.js`
+  (`SHAPES`, which `mongodb.test.js` holds to `infoOf` of the core). Nothing in the core
+  requires a subpath (`graph.test.js`).
 
 **Parsing a definition: the first key decides.** `new Schema(name, raw, namespaces)` builds a
 `Preprocessor`, and `Preprocessor#parse(source)` picks parsers by source type (`PARSERS` in
@@ -371,8 +376,13 @@ subpath), `schema` and `field`. A function of a subpath
 given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
 JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
 (`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
-wrong, not a definition. `ERR_NOT_REGISTERED` (`notRegistered` in `errors.js`) is the same
-kind of error for a call that needs what `register()` of a subpath installs before it ran: a
+wrong, not a definition. `ERR_INVALID_OPTION` (`invalidOption` in `errors.js`) is the same
+kind of error for an option of a call that is not what it must be (`maxErrors`, `references`,
+the `coerce` of a parse, the options of the stream, derive and mongodb subpaths): the kind
+metadata and the `metadata` of `merge` and `derive` are definitions, so a wrong one is
+`ERR_INVALID_OPTIONS`, a `SchemaDefinitionError`. `ERR_NOT_REGISTERED` (`notRegistered` in
+`errors.js`) is the same kind of error for a call that needs what `register()` of a subpath
+installs before it ran: a
 parse that coerces without `./coerce` (thrown as the pass enters the schema, whatever the
 value holds: an empty body in a test must not hide it), a document written with ObjectIds
 without `register({ bson })` of `./mongodb`. A

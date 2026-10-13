@@ -8,12 +8,12 @@
 const { hasBrand, define } = require('../util.js');
 const { isStruct } = require('../struct.js');
 const { infoOf } = require('../codec.js');
+const { idFieldOf } = require('../kinds.js');
 const { invalidTarget } = require('../errors.js');
 const { idOf } = require('./bson.js');
+const { SHAPES } = require('./document.js');
 
-// The shapes of infoOf in codec.js.
-const NESTED = 3;
-const LIST = 4;
+const { NESTED, LIST } = SHAPES;
 
 const keyOf = (columns) => {
   const key = {};
@@ -59,7 +59,8 @@ const indexesOfSchema = (schema) => {
   return list;
 };
 
-// The indexes of a schema, or of every stored entity of a model by name.
+// The indexes of a schema, or of every stored entity of a model by name: a
+// collection is what a stored kind (one with an id field) is kept in.
 const indexesOf = (target) => {
   if (hasBrand(target, 'Schema') && isStruct(target.fields)) return indexesOfSchema(target);
   if (!hasBrand(target, 'Model')) {
@@ -68,7 +69,7 @@ const indexesOf = (target) => {
   const out = {};
   for (const name of target.order) {
     const schema = target.entities.get(name);
-    if (schema.store === 'persistent' && isStruct(schema.fields)) {
+    if (idFieldOf(schema) !== null && isStruct(schema.fields)) {
       define(out, name, indexesOfSchema(schema));
     }
   }
