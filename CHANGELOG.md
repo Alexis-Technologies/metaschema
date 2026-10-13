@@ -96,7 +96,7 @@ place) are listed under Changed.
 ### Changed
 
 - **The core gate is 19 KB** (was 17.75 KB): coercion costs the core about 360 bytes; the core
-  measures 18.1 KB. The formats gate is 5 KB (was 2 KB; the scanners of the review took the
+  measures 18.6 KB. The formats gate is 5 KB (was 2 KB; the scanners of the review took the
   subpath to 4.0 KB), the compile gate 5 KB (was 4.25) and the model gate 13 KB (was 12): a
   gate is raised to the next whole KB when a fix needs it, and never sits a few bytes over a
   subpath. New gates: 2.5 KB for `./derive`, 2 KB for `./coerce`, 4 KB for `./mongodb` (3.5 before the review: the depth limit and the markers of the paths took the subpath over it).

@@ -1,274 +1,302 @@
 {
   "node": "v24.14.1",
-  "date": "2026-10-13T18:09:20.031Z",
+  "date": "2026-10-13T20:04:46.991Z",
   "results": [
     {
       "name": "Schema.from — flat struct (4 fields)",
-      "opsPerSec": 259871
+      "opsPerSec": 255393
     },
     {
       "name": "Schema.from — nested struct, collections, tuple",
-      "opsPerSec": 86474
+      "opsPerSec": 84454
     },
     {
       "name": "check — flat struct, valid",
-      "opsPerSec": 10485521
+      "opsPerSec": 10332683
     },
     {
       "name": "check — flat struct, invalid",
-      "opsPerSec": 3301696
+      "opsPerSec": 3241819
     },
     {
       "name": "check — nested struct, valid",
-      "opsPerSec": 2707783
+      "opsPerSec": 2673373
     },
     {
       "name": "check — nested struct, invalid",
-      "opsPerSec": 1492364
+      "opsPerSec": 1457278
     },
     {
       "name": "check (jit) — flat struct, valid",
-      "opsPerSec": 29664491
+      "opsPerSec": 29038110
     },
     {
       "name": "check (jit) — flat struct, invalid",
-      "opsPerSec": 5694674
+      "opsPerSec": 5536050
     },
     {
       "name": "check (jit) — nested struct, valid",
-      "opsPerSec": 17147863
+      "opsPerSec": 16922665
     },
     {
       "name": "check (jit) — nested struct, invalid",
-      "opsPerSec": 2019525
+      "opsPerSec": 1974713
     },
     {
       "name": "check — sparse struct, two optional fields absent",
-      "opsPerSec": 7449050
+      "opsPerSec": 7367355
     },
     {
       "name": "check (jit) — sparse struct, two optional fields absent",
-      "opsPerSec": 31448195
+      "opsPerSec": 30993817
     },
     {
       "name": "parse — flat struct, valid",
-      "opsPerSec": 9276697
+      "opsPerSec": 9208234
     },
     {
       "name": "parse — nested struct, valid",
-      "opsPerSec": 2538535
+      "opsPerSec": 2499734
     },
     {
       "name": "parse — flat struct, defaults and a decoder",
-      "opsPerSec": 2181105
+      "opsPerSec": 2139308
     },
     {
       "name": "parse — flat struct with an alias, no alias in the input",
-      "opsPerSec": 8202190
+      "opsPerSec": 8168339
     },
     {
       "name": "parse — flat struct with an alias, the alias in the input",
-      "opsPerSec": 3251493
+      "opsPerSec": 3166284
     },
     {
       "name": "parse (jit) — flat struct, valid",
-      "opsPerSec": 25923445
+      "opsPerSec": 25990100
     },
     {
       "name": "parse (jit) — nested struct, valid",
-      "opsPerSec": 14273060
+      "opsPerSec": 14088448
     },
     {
       "name": "parse (jit) — flat struct, defaults and a decoder",
-      "opsPerSec": 2968077
+      "opsPerSec": 2947344
     },
     {
       "name": "parse (jit) — flat struct with an alias, no alias in the input",
-      "opsPerSec": 27494607
+      "opsPerSec": 27019006
     },
     {
       "name": "parse (jit) — flat struct with an alias, the alias in the input",
-      "opsPerSec": 4625582
+      "opsPerSec": 4523345
     },
     {
       "name": "parse — nested struct, strip (extra keys at every level)",
-      "opsPerSec": 1278034
+      "opsPerSec": 1238710
     },
     {
       "name": "parse — array of 100 records, strip",
-      "opsPerSec": 66483
+      "opsPerSec": 64216
     },
     {
       "name": "parse (jit) — nested struct, strip (extra keys at every level)",
-      "opsPerSec": 2048707
+      "opsPerSec": 1997933
     },
     {
       "name": "parse (jit) — array of 100 records, strip",
-      "opsPerSec": 96292
+      "opsPerSec": 94557
     },
     {
       "name": "parse — flat struct, coerce: two strings converted",
-      "opsPerSec": 2996104
+      "opsPerSec": 3130197
     },
     {
       "name": "parse — flat struct, coerce: nothing to convert",
-      "opsPerSec": 3374164
+      "opsPerSec": 3483276
     },
     {
       "name": "coerce — flat struct, two strings converted",
-      "opsPerSec": 3867237
+      "opsPerSec": 4125668
     },
     {
       "name": "parse (jit) — flat struct, coerce: two strings converted",
-      "opsPerSec": 3681983
+      "opsPerSec": 4010448
     },
     {
       "name": "parse (jit) — flat struct, coerce: nothing to convert",
-      "opsPerSec": 4277846
+      "opsPerSec": 4690506
+    },
+    {
+      "name": "parse — nested struct, coerce: the numbers as text",
+      "opsPerSec": 403700
+    },
+    {
+      "name": "parse (jit) — nested struct, coerce: the numbers as text",
+      "opsPerSec": 461511
+    },
+    {
+      "name": "parse — plain unions, coerce: a number and a boolean as text",
+      "opsPerSec": 1154649
+    },
+    {
+      "name": "parse — enums of 32 members, coerce: a member as text",
+      "opsPerSec": 3249599
+    },
+    {
+      "name": "parse — flat struct, plain and coerce in turn",
+      "opsPerSec": 3972120
+    },
+    {
+      "name": "mongodb — toDocument, an entity with a reference, a struct and a list",
+      "opsPerSec": 739622
+    },
+    {
+      "name": "mongodb — fromDocument, the same document (parse with coerce)",
+      "opsPerSec": 466757
     },
     {
       "name": "check — 4 sync validators",
-      "opsPerSec": 3761421
+      "opsPerSec": 3688691
     },
     {
       "name": "checkAsync — 4 sync validators",
-      "opsPerSec": 2762365
+      "opsPerSec": 2752045
     },
     {
       "name": "checkAsync — 4 async validators, resolved promises",
-      "opsPerSec": 1457966
+      "opsPerSec": 1452238
     },
     {
       "name": "checkAsync — 4 independent validators, setImmediate",
-      "opsPerSec": 65035
+      "opsPerSec": 65810
     },
     {
       "name": "checkAsync — 4 independent validators, setTimeout(1)",
-      "opsPerSec": 814
+      "opsPerSec": 850
     },
     {
       "name": "checkAsync — 32 records, a validator each, setImmediate",
-      "opsPerSec": 44096
+      "opsPerSec": 44295
     },
     {
       "name": "parseAsync — an async decoder",
-      "opsPerSec": 1221669
+      "opsPerSec": 1126936
     },
     {
       "name": "check (jit) — 4 sync validators",
-      "opsPerSec": 5682473
+      "opsPerSec": 5687632
     },
     {
       "name": "checkAsync (jit) — 4 sync validators",
-      "opsPerSec": 3753004
+      "opsPerSec": 3705272
     },
     {
       "name": "checkAsync (jit) — 4 async validators, resolved promises",
-      "opsPerSec": 1695696
+      "opsPerSec": 1681003
     },
     {
       "name": "checkAsync (jit) — 4 independent validators, setImmediate",
-      "opsPerSec": 65211
+      "opsPerSec": 69037
     },
     {
       "name": "checkAsync (jit) — 4 independent validators, setTimeout(1)",
-      "opsPerSec": 839
+      "opsPerSec": 848
     },
     {
       "name": "checkAsync (jit) — 32 records, a validator each, setImmediate",
-      "opsPerSec": 44580
+      "opsPerSec": 44956
     },
     {
       "name": "parseAsync (jit) — an async decoder",
-      "opsPerSec": 1411531
+      "opsPerSec": 1287976
     },
     {
       "name": "check — 1 000 flat records in a loop",
-      "opsPerSec": 9275
+      "opsPerSec": 9004
     },
     {
       "name": "checkEach — 1 000 flat records",
-      "opsPerSec": 7822
+      "opsPerSec": 7561
     },
     {
       "name": "check (jit) — 1 000 flat records in a loop",
-      "opsPerSec": 31035
+      "opsPerSec": 31076
     },
     {
       "name": "checkEach (jit) — 1 000 flat records",
-      "opsPerSec": 18554
+      "opsPerSec": 18929
     },
     {
       "name": "parseSafe — moltar flat (6 fields)",
-      "opsPerSec": 7220199
+      "opsPerSec": 7104737
     },
     {
       "name": "parseStrict — moltar flat (6 fields)",
-      "opsPerSec": 7218249
+      "opsPerSec": 7085138
     },
     {
       "name": "assertLoose — moltar flat (6 fields)",
-      "opsPerSec": 7179340
+      "opsPerSec": 7023184
     },
     {
       "name": "assertStrict — moltar flat (6 fields)",
-      "opsPerSec": 7258846
+      "opsPerSec": 7132389
     },
     {
       "name": "parseSafe — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4554842
+      "opsPerSec": 4443805
     },
     {
       "name": "parseStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4481795
+      "opsPerSec": 4360338
     },
     {
       "name": "assertLoose — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4525448
+      "opsPerSec": 4456267
     },
     {
       "name": "assertStrict — moltar nested (6 + 3 fields)",
-      "opsPerSec": 4424629
+      "opsPerSec": 4369730
     },
     {
       "name": "parseSafe (jit) — moltar flat (6 fields)",
-      "opsPerSec": 27755780
+      "opsPerSec": 26488161
     },
     {
       "name": "parseStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 28974816
+      "opsPerSec": 29059866
     },
     {
       "name": "assertLoose (jit) — moltar flat (6 fields)",
-      "opsPerSec": 27086436
+      "opsPerSec": 26805423
     },
     {
       "name": "assertStrict (jit) — moltar flat (6 fields)",
-      "opsPerSec": 29010147
+      "opsPerSec": 29577083
     },
     {
       "name": "parseSafe (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 25570279
+      "opsPerSec": 24718581
     },
     {
       "name": "parseStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 23462071
+      "opsPerSec": 23587563
     },
     {
       "name": "assertLoose (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 24942825
+      "opsPerSec": 24384550
     },
     {
       "name": "assertStrict (jit) — moltar nested (6 + 3 fields)",
-      "opsPerSec": 23875662
+      "opsPerSec": 23599395
     },
     {
       "name": "new Model — fixture model (6 entities)",
-      "opsPerSec": 17034
+      "opsPerSec": 15850
     },
     {
       "name": "model.dts — fixture model (6 entities)",
-      "opsPerSec": 90542
+      "opsPerSec": 88095
     }
   ]
 }

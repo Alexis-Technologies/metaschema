@@ -83,36 +83,42 @@ run (the call sites are warmer); the figures are from the whole run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
-| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 260 K ops/s | — |
-| `Schema.from`, nested struct, collections, tuple | 94 K | 86 K | — |
-| `check`, flat struct, valid | 2.1 M | 10.5 M | 29.7 M |
-| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.3 M | 5.7 M |
-| `check`, nested struct, valid | 0.33 M | 2.7 M | 17.1 M |
+| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 255 K ops/s | — |
+| `Schema.from`, nested struct, collections, tuple | 94 K | 84 K | — |
+| `check`, flat struct, valid | 2.1 M | 10.3 M | 29.0 M |
+| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.2 M | 5.5 M |
+| `check`, nested struct, valid | 0.33 M | 2.7 M | 16.9 M |
 | `check`, nested struct, invalid | 0.23 M | 1.5 M | 2.0 M |
-| `check`, sparse struct, two optional fields absent | — | 7.4 M | 31.4 M |
-| `parse`, flat struct, valid | — | 9.3 M | 25.9 M |
-| `parse`, nested struct, valid | — | 2.5 M | 14.3 M |
-| `parse`, flat struct, a default and a `Date` decoder | — | 2.2 M | 3.0 M |
-| `parse`, flat struct with an alias, no alias in the input | — | 8.2 M | 27.5 M |
-| `parse`, flat struct with an alias, the alias in the input | — | 3.3 M | 4.6 M |
-| `parse`, nested struct under `strip`, an extra key at every level | — | 1.3 M | 2.0 M |
-| `parse`, 100 records under `strip` | — | 66 K | 96 K |
-| `parse` with `coerce: true`, flat struct, two strings converted | — | 3.0 M | 3.7 M |
-| `parse` with `coerce: true`, flat struct, nothing to convert | — | 3.4 M | 4.3 M |
-| `coerce()`, flat struct, two strings converted | — | 3.9 M | — |
-| `check`, flat struct, four sync validators | — | 3.8 M | 5.7 M |
-| `checkAsync`, the same four sync validators | — | 2.8 M | 3.8 M |
+| `check`, sparse struct, two optional fields absent | — | 7.4 M | 31.0 M |
+| `parse`, flat struct, valid | — | 9.2 M | 26.0 M |
+| `parse`, nested struct, valid | — | 2.5 M | 14.1 M |
+| `parse`, flat struct, a default and a `Date` decoder | — | 2.1 M | 2.9 M |
+| `parse`, flat struct with an alias, no alias in the input | — | 8.2 M | 27.0 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.2 M | 4.5 M |
+| `parse`, nested struct under `strip`, an extra key at every level | — | 1.2 M | 2.0 M |
+| `parse`, 100 records under `strip` | — | 64 K | 95 K |
+| `parse` with `coerce: true`, flat struct, two strings converted | — | 3.1 M | 4.0 M |
+| `parse` with `coerce: true`, flat struct, nothing to convert | — | 3.5 M | 4.7 M |
+| `coerce()`, flat struct, two strings converted | — | 4.1 M | — |
+| `parse` with `coerce: true`, nested struct, the numbers as text | — | 404 K | 462 K |
+| `parse` with `coerce: true`, plain unions, a number and a boolean as text | — | 1.2 M | — |
+| `parse` with `coerce: true`, enums of 32 members, a member as text | — | 3.2 M | — |
+| `parse`, flat struct, a plain and a coercing parse in turn | — | 4.0 M | — |
+| `toDocument` of `./mongodb`, an entity with a reference, a struct and a list | — | 740 K | — |
+| `fromDocument` of `./mongodb`, the same document (`parse` with `coerce`) | — | 467 K | — |
+| `check`, flat struct, four sync validators | — | 3.7 M | 5.7 M |
+| `checkAsync`, the same four sync validators | — | 2.8 M | 3.7 M |
 | `checkAsync`, four async validators, resolved promises | — | 1.5 M | 1.7 M |
-| `checkAsync`, four independent validators awaiting `setImmediate` | — | 65 K | 65 K |
-| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 814 | 839 |
+| `checkAsync`, four independent validators awaiting `setImmediate` | — | 66 K | 69 K |
+| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 850 | 848 |
 | `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 44 K | 45 K |
-| `parseAsync`, flat struct, an async decoder | — | 1.2 M | 1.4 M |
-| `check`, 1 000 flat records in a loop | — | 9.2 K | 31 K |
-| `checkEach`, the same 1 000 records | — | 7.8 K | 19 K |
-| moltar flat (6 fields), four modes | — | 7.2 M | 27.1–29.0 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.4–4.6 M | 23.5–25.6 M |
-| `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
-| `toTypeScript(model)`, fixture model | — | 91 K | — |
+| `parseAsync`, flat struct, an async decoder | — | 1.1 M | 1.3 M |
+| `check`, 1 000 flat records in a loop | — | 9.0 K | 31 K |
+| `checkEach`, the same 1 000 records | — | 7.6 K | 19 K |
+| moltar flat (6 fields), four modes | — | 7.0–7.1 M | 26.5–29.6 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.6–24.7 M |
+| `new Model`, fixture model (6 entities) | 18 K | 16 K | — |
+| `toTypeScript(model)`, fixture model | — | 88 K | — |
 
 The moltar scenarios are the object of the
 [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)

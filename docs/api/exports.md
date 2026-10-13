@@ -99,7 +99,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (18.1 KB min+gzip) does not carry them (7.4 KB more); see
+subpath so that the core entry (18.6 KB min+gzip) does not carry them (7.3 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -208,7 +208,7 @@ not a list of names and options that are not an object are a `TypeError` with
 
 ## `@alexify/metaschema/coerce`
 
-The converters of [coercion](/guide/coercion), in a subpath of its own (1.4 KB min+gzip on top
+The converters of [coercion](/guide/coercion), in a subpath of its own (1.7 KB min+gzip on top
 of the core); the policy (`coerce` of a parse call, of the kind metadata, of a field) and the
 step in the pass before the check are the core's.
 

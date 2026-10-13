@@ -606,20 +606,26 @@ and never sits a few bytes over a subpath** (Alex's decision, 2026-10-13, at the
 subpaths were 10 and 28 bytes under them and a change of the core alone, which shifts the
 difference of two gzips, could fail CI on code that did not change; the formats gate from 4 to
 5 KB for the scanners of the review; the mongodb gate from 3.5 to 4 KB for the depth limit and
-the markers of the paths). After the review of 3.3 (2026-10-13) the entries measure 18744
-bytes (18.3 KB) each, the generators 7551 bytes (7.4 KB), the compile subpath 4328, the model
-subpath 12263, the stream subpath 1013, the formats subpath 4077 (4.0 KB, 35 formats, six of
-them scanners), the derive subpath 1933 (1.9 KB, of which `model/data.js` is about 600), the
-coerce subpath 1466 (1.4 KB) and the mongodb subpath 3594 bytes on top of the core and
-`./coerce` (3.5 KB). The review's phase 0 cost the core about 70 bytes (`notRegistered` in
-`errors.js`, the `POLICY` bit and the check at the entry of `walkSchema`), the formats
-subpath about 480 (the scanners of `email`, the two JSON pointers, `uri-template`, `slug` and
-`semver`, and the cap of `regex`), the coerce subpath 30 (`isPlain` of `toMap`, the atomic
-`register`) and the mongodb subpath 40 (`rootOf`, the `_id` of a body left out, the driver
-read only when ObjectIds are written); phase 1 cost the core about 160 (`dead-coerce` with
-its require of `prototypes/reference`, `Object.hasOwn` for the policy at two places), the
-coerce subpath 90 (`onError`) and the mongodb subpath 210 (`maxDepth` of the walks, the
-`NONE` and `DEEP` markers of a path, the converters a slim module can build).
+the markers of the paths). After the review of 3.3 (2026-10-13) the entries measure 19073
+bytes (18.6 KB) each, 383 bytes under the 19 KB gate, the generators 7507 bytes (7.3 KB), the
+compile subpath 4331, the model subpath 12270, the stream subpath 1027, the formats subpath
+4072 (4.0 KB, 35 formats, six of them scanners), the derive subpath 1927 (1.9 KB, of which
+`model/data.js` is about 600), the coerce subpath 1762 (1.7 KB) and the mongodb subpath 3629
+bytes on top of the core and `./coerce` (3.5 KB). The review cost the core about 560 bytes in
+all: phase 0 about 70 (`notRegistered` in `errors.js`, the `POLICY` bit and the check at the
+entry of `walkSchema`), phase 1 about 160 (`dead-coerce` with its require of
+`prototypes/reference`, `Object.hasOwn` for the policy at two places), phase 2 about 90
+(`idFieldOf`, `baseTypeOf`, the code of `invalidOption`, `referencesOf` exported), phase 3
+about 60 (the converter kept on the info under a version) and phase 4 about 180 (the branches
+of a union prepared before the trial, `coercions` of a model). The formats subpath took about
+480 (the scanners of `email`, the two JSON pointers, `uri-template`, `slug` and `semver`, the
+cap of `regex`, the names `register` returns), the coerce subpath about 420 (`isPlain` of
+`toMap`, the atomic `register`, `onError`, the converter resolved per node with the indexed
+enum, the `report` of `coerce()`, the converters of a model) and the mongodb subpath about
+290 (`rootOf`, the `_id` of a body left out, the driver read only when ObjectIds are written,
+`maxDepth` of the walks, the `NONE` and `DEEP` markers of a path, the converters a slim module
+can build, the strict `decimal128`, an element of a list of ids), while the generators, the
+derive and the mongodb subpaths gave a little back to `idFieldOf` and `baseTypeOf`.
 Before the review the entries measured 18509 / 18528 bytes (18.1 KB; 18145 / 18153 before
 3.3, not the 18137 quoted below), the generators 7553 bytes (7.4 KB: the patterns of the
 formats and `ids` added about 250), the compile subpath 4342, the model subpath 12260 (12276
@@ -740,6 +746,13 @@ every call (`schema.options.validate` was one for a day) is in dictionary mode a
 harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
+
+`bench/baseline.json` was re-saved after the review of 3.3 (2026-10-13, 74 rows): the rows of
+3.2 and the coercion rows of 3.3 moved within the band of the machine (a whole run sits a few
+percent under the rows run alone), the new rows are a nested struct, plain unions, enums of 32
+members and a plain and a coercing parse in turn under coercion (404 K, 1.2 M, 3.2 M and 4.0 M
+on the closures) and `toDocument`/`fromDocument` of `./mongodb` (740 K / 467 K);
+`docs/guide/performance.md` has the table. The paragraph that follows is the re-save of 3.2.
 
 `bench/baseline.json` was re-saved on the 3.2 branch (2026-10-11): the rows of 3.1 moved by
 less than the run-to-run band, the strip rows gained from the walkers without a state object

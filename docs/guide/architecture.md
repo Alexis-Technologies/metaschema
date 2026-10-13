@@ -37,16 +37,16 @@ a subpath that imports the core and registers nothing until it is asked to.
 
 ```mermaid
 flowchart LR
-    GEN["./generators · 7.4 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
+    GEN["./generators · 7.3 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
     COMP["./compile · 4.2 KB<br/>compile · register · canEval"] --> CORE
     MOD["./model · 12.0 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
     STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
     FMT["./formats · 4.0 KB<br/>35 formats · your own"] --> CORE
     DER["./derive · 1.9 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
-    COE["./coerce · 1.4 KB<br/>converters · coerce()"] --> CORE
+    COE["./coerce · 1.7 KB<br/>converters · coerce()"] --> CORE
     MDB["./mongodb · 3.5 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
-    CORE["@alexify/metaschema · 18.1 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
+    CORE["@alexify/metaschema · 18.6 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
 ```
 
 The sizes are min+gzip, a subpath measured as what it adds to the core (`./mongodb` to the core

@@ -65,7 +65,7 @@ features:
     linkText: Sample values
   - icon: 📦
     title: Zero dependencies, any runtime
-    details: "No runtime dependencies and 18.1 KB min+gzip for the core; generators, the JIT, the model tools, coercion, derive and MongoDB are subpaths you import when you need them. CommonJS with ESM named imports, Node.js 18+ and browsers, no build step."
+    details: "No runtime dependencies and 18.6 KB min+gzip for the core; generators, the JIT, the model tools, coercion, derive and MongoDB are subpaths you import when you need them. CommonJS with ESM named imports, Node.js 18+ and browsers, no build step."
     link: /guide/browser
     linkText: Browser usage
 ---
