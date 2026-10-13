@@ -26,6 +26,7 @@ const { toTypeScript } = require('../src/generators/index.js');
 const { compile } = require('../src/compile/index.js');
 const { checkEach } = require('../src/stream/index.js');
 const coercion = require('../src/coerce/index.js');
+const mongodb = require('../src/mongodb/index.js');
 const {
   bench,
   benchAsync,
@@ -36,6 +37,14 @@ const {
   callCoerce,
   COERCE_VALUE,
   COERCE,
+  NESTED_COERCE_VALUE,
+  UNION_SCHEMA,
+  UNION_COERCE_VALUE,
+  ENUM_SCHEMA,
+  ENUM_COERCE_VALUE,
+  BSON_FAKE,
+  MONGODB_ENTITIES,
+  MONGODB_VALUE,
   SYNC_VALIDATORS_SCHEMA,
   RESOLVED_VALIDATORS_SCHEMA,
   LATER_VALIDATORS_SCHEMA,
@@ -188,8 +197,20 @@ const asyncSchemas = (build) => ({
 const main = async () => {
   if (!json) console.log(`Node ${process.version} | ${new Date().toISOString()}\n`);
   coercion.register();
+  mongodb.register({ bson: BSON_FAKE });
   const flat = Schema.from(FLAT_SCHEMA);
   const nested = Schema.from(NESTED_SCHEMA);
+  const union = Schema.from(UNION_SCHEMA);
+  const enumeration = Schema.from(ENUM_SCHEMA);
+  const store = new Model({ ...mongodb.types }, MONGODB_ENTITIES);
+  const account = store.entities.get('Account');
+  const document = mongodb.toDocument(account, MONGODB_VALUE);
+  // A call site that sees a plain parse and a coercing one in turn.
+  let turn = 0;
+  const alternating = () => {
+    turn ^= 1;
+    return turn === 1 ? callParse(FLAT_VALID) : callParse(COERCE_VALUE, COERCE);
+  };
   const moltarFlat = Schema.from(MOLTAR_FLAT_SCHEMA);
   const moltarNested = Schema.from(MOLTAR_NESTED_SCHEMA);
   const codec = Schema.from(CODEC_SCHEMA);
@@ -297,6 +318,37 @@ const main = async () => {
       'parse (jit) — flat struct, coerce: nothing to convert',
       () => callParse(FLAT_VALID, COERCE),
       flatJit,
+    ],
+    [
+      'parse — nested struct, coerce: the numbers as text',
+      () => callParse(NESTED_COERCE_VALUE, COERCE),
+      nested,
+    ],
+    [
+      'parse (jit) — nested struct, coerce: the numbers as text',
+      () => callParse(NESTED_COERCE_VALUE, COERCE),
+      nestedJit,
+    ],
+    [
+      'parse — plain unions, coerce: a number and a boolean as text',
+      () => callParse(UNION_COERCE_VALUE, COERCE),
+      union,
+    ],
+    [
+      'parse — enums of 32 members, coerce: a member as text',
+      () => callParse(ENUM_COERCE_VALUE, COERCE),
+      enumeration,
+    ],
+    ['parse — flat struct, plain and coerce in turn', alternating, flat],
+    [
+      'mongodb — toDocument, an entity with a reference, a struct and a list',
+      () => mongodb.toDocument(account, MONGODB_VALUE),
+      account,
+    ],
+    [
+      'mongodb — fromDocument, the same document (parse with coerce)',
+      () => mongodb.fromDocument(account, document),
+      account,
     ],
     ...asyncRows(asyncSchemas(Schema.from)),
     ...asyncRows(asyncSchemas(jit), ' (jit)'),

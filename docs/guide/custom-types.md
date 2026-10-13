@@ -137,5 +137,7 @@ const catalog = new Model(catalogTypes, catalogEntities, null, { registry: 'isol
 
 An isolated model starts from its own copy of the built-in types and registers its table into
 that copy. Its entities, and any schema that attaches it as a namespace, resolve types through
-it; the shared registry, and `Schema.from` without a namespace, are untouched. The table of
-[string formats](/guide/formats) is not isolated: it is one per process.
+it; the shared registry, and `Schema.from` without a namespace, are untouched. The tables of
+[string formats](/guide/formats) and of the [converters of coercion](/guide/coercion), and
+the module of the driver [`./mongodb`](/guide/mongodb) keeps, are not isolated: they are one
+per process.

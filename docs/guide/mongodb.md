@@ -126,6 +126,20 @@ aggregation that `$lookup`s records reads with `{ references: 'embed' }`. The `n
 `findOne` that found nothing is a `type` issue of the result, not a throw. Reading needs no
 driver: an ObjectId is read by its method.
 
+A collection is read through its cursor, one document at a time, the same way; a document the
+program itself wrote (validated on the way in, kept as the schema says) reads with
+`coerce: false`, since there is nothing to convert, at the cost of a plain `parse`:
+
+```js
+for await (const document of db.collection('Account').find(filter)) {
+  const { valid, value, issues } = bson.fromDocument(Account, document, { coerce: false });
+  if (valid) accounts.push(value);
+  else logger.warn('a document the schema no longer accepts', issues);
+}
+```
+
+[`parseEach`](/guide/streaming) over `cursor.map(…)` does the same for a pipeline of records.
+
 ## Updates
 
 The driver's updates name fields by dotted paths and replace what a path names whole, so a

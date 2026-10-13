@@ -100,6 +100,28 @@ const toEnum = (value, field) => {
   return value;
 };
 
+// The same, with the members and their written forms indexed once for the
+// field: a visit of a large enum is a lookup, not a scan.
+const enumConverterOf = (field) => {
+  const members = new Set(field.enum);
+  const written = new Map();
+  const strings = new Set();
+  for (const member of field.enum) {
+    if (typeof member === 'string') strings.add(member);
+    else if (isPrimitive(member)) {
+      const text = String(member);
+      if (!written.has(text)) written.set(text, member);
+    }
+  }
+  return (value) => {
+    if (members.has(value)) return value;
+    if (typeof value === 'string') return written.has(value) ? written.get(value) : value;
+    if (!isPrimitive(value)) return value;
+    const text = String(value);
+    return strings.has(text) ? text : value;
+  };
+};
+
 // A single value where a list is expected (`?tag=a` against `?tag=a&tag=b`).
 const isItem = (value) => (typeof value === 'string' ? value !== '' : isPrimitive(value));
 
@@ -159,10 +181,8 @@ const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERC
 
 // The converter of a field: its type's, or the one of the type it is an
 // alias of (`{ money: { js: 'number' } }` converts as a number); an alias
-// names a type registered before it, so the chain ends. Cached per field,
-// and dropped when the table changes.
-let converters = new WeakMap();
-
+// names a type registered before it, so the chain ends. The core keeps what
+// is resolved on the info of the node, under the version of the table.
 const converterOf = (field) => {
   let Type = field.constructor;
   let name = field.type;
@@ -182,22 +202,22 @@ const converterOf = (field) => {
 // same.
 let onError = null;
 
-// What the core calls for every node of a coercing pass: a node that is not
-// a field (a schema, a struct) has nothing to convert of its own, and a
+// What the core asks once per node of a coercing pass (and again after a
+// register()): the converter of the node, closed over it, or null for a
+// node that is not a field (a schema, a struct) or whose type has none. A
 // converter that throws leaves the value to the check.
-const convert = (value, node) => {
-  let converter = converters.get(node);
-  if (converter === undefined) {
-    converter = hasBrand(node, 'Type') ? converterOf(node) : null;
-    converters.set(node, converter);
-  }
-  if (converter === null) return value;
-  try {
-    return converter(value, node);
-  } catch (error) {
-    if (onError !== null) onError(error, node);
-    return value;
-  }
+const resolve = (node) => {
+  const converter = hasBrand(node, 'Type') ? converterOf(node) : null;
+  if (converter === null) return null;
+  const run = converter === toEnum ? enumConverterOf(node) : converter;
+  return (value) => {
+    try {
+      return run(value, node);
+    } catch (error) {
+      if (onError !== null) onError(error, node);
+      return value;
+    }
+  };
 };
 
 // An entry of the program: the name of a type, a function, and not another
@@ -261,9 +281,9 @@ const register = (custom = {}, settings = {}) => {
   for (const name of Object.keys(BUILT_IN)) COERCIONS[name] = BUILT_IN[name];
   for (const name of names) COERCIONS[name] = custom[name];
   if (hook !== undefined) onError = hook;
-  converters = new WeakMap();
-  COERCION.convert = convert;
+  COERCION.resolve = resolve;
   COERCION.installed = true;
+  COERCION.version += 1;
   if (installed) return;
   installed = true;
   install(Schema.prototype, {

@@ -173,6 +173,11 @@ const AccountPatch = Account.omit(['password']).partial({ name: 'AccountPatch' }
 
 Importing the subpath registers nothing; `register()` runs once per process.
 
+Derive once, where the schemas are built, not in a request handler: every call builds a whole
+`Schema` (`omit([...]).partial()` builds two), and under `register({ jit })` of
+[`./compile`](/guide/compile) each of them is compiled by the JIT backend as it is built. The
+lint is lazy and costs nothing until `warnings` is read.
+
 ## TypeScript
 
 Each function is typed by the definition: `InferSchema` of a derived schema is the value it

@@ -45,12 +45,16 @@ const COERCE = 64;
 const POLICY = 128;
 
 // The converters of coercion, by type name, are the `./coerce` subpath's:
-// its register() installs `convert` here and says so. Until then a pass
+// its register() installs `resolve` here (the converter of a node, or null)
+// and says so. The converter resolved is kept on the info of the node with
+// the `version` it was resolved under, which every register() bumps, so a
+// leaf pays no lookup per visit. Until the subpath is registered a pass
 // that coerces is a call that cannot work, and says so as it enters the
 // schema (`walkSchema`), whatever the value holds.
 const COERCION = {
   installed: false,
-  convert() {
+  version: 0,
+  resolve() {
     throw notRegistered('coerce', 'coerce');
   },
 };
@@ -182,6 +186,8 @@ const infoOf = (node) => {
     decode,
     encode,
     coerce,
+    convert: null,
+    version: -1,
     children,
     infos,
     plan,
@@ -323,10 +329,16 @@ const decode = (info, node, value, context, key) => {
 // and an `object` have no built-in converter, and get the value back). Done
 // by the walkers so that apply stays as small as parse needs it to be
 // inlined.
-const convert = (want, value, node) =>
-  (want & COERCE) === 0 ? value : COERCION.convert(value, node);
+const convert = (want, value, node, info) => {
+  if ((want & COERCE) === 0) return value;
+  if (info.version !== COERCION.version) {
+    info.convert = COERCION.resolve(node);
+    info.version = COERCION.version;
+  }
+  return info.convert === null ? value : info.convert(value);
+};
 
-const walkLeaf = (info, node, value, context, key, phase, want) => convert(want, value, node);
+const walkLeaf = (info, node, value, context, key, phase, want) => convert(want, value, node, info);
 
 const walkInner = (info, node, value, context, key, phase, want) =>
   apply(info.infos[0], info.children[0], value, context, key, phase, want);
@@ -466,7 +478,7 @@ const walkItems = (children, infos, fixed, value, context, key, phase, want) => 
 };
 
 const walkList = (info, node, value, context, key, phase, want) => {
-  const input = convert(want, value, node);
+  const input = convert(want, value, node, info);
   if (input == null) return input;
   return walkItems(
     info.children,
@@ -482,7 +494,7 @@ const walkList = (info, node, value, context, key, phase, want) => {
 
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, given, context, key, phase, want) => {
-  const value = convert(want, given, node);
+  const value = convert(want, given, node, info);
   if (value == null) return value;
   const map = isMap(value);
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;

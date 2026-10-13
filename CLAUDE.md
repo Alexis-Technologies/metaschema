@@ -640,7 +640,15 @@ walkers of a leaf, a list and a dictionary), and an A/B of 11 `parse`/`check` ro
 the commit before coercion is at parity (−0.2% to +2.6%, `Schema.from` −3.2%). Check the
 inlining of `parse` (`#pass`, `apply` and `wantOf` twice each) after touching its path. The
 check for a missing `register()` of `./coerce` sits at the entry of `walkSchema` (one bit test
-per schema node of a pass), not in `parse`, for the same budget.
+per schema node of a pass), not in `parse`, for the same budget. **The converter of a node is
+resolved once and kept on its info** (`info.convert`, under `info.version` against
+`COERCION.version`, which every `register()` bumps; the subpath's `resolve(node)` closes the
+converter over the node with its `try/catch`, and indexes the members of an enum in a Set and
+their written forms in a Map): an A/B against the WeakMap lookup per leaf it replaced (review
+of 3.3, the two files stashed in turn, same process) gave `parse (jit) — flat struct, coerce:
+nothing to convert` 4.93 → 5.48 M (+11%), the closures 3.68 → 3.92 M (+6.5%), `parse — enums
+of 32 members, coerce` 1.41 → 3.23 M, nested +4%, plain unions and the alternating row within
+the band, and the plain `parse` rows at parity (−0.4 to −1.7%).
 After the review of 3.2 (2026-10-11, before the tag) the entries
 measure 18137 bytes (17.7 KB) each, the generators 7286 bytes (7.1 KB), the compile subpath
 4298 bytes (4.2 KB), the model subpath 12245 bytes (12.0 KB, 43 bytes under its gate: the

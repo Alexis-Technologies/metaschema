@@ -44,6 +44,13 @@ const idValue = (state, value) => {
   return new state.driver.ObjectId(value);
 };
 
+// A key of the output: assigned, defined only where assignment would reach
+// the prototype (as the passes of codec.js write theirs).
+const put = (out, key, value) => {
+  if (key === '__proto__') define(out, key, value);
+  else out[key] = value;
+};
+
 const listOf = (value, each) => {
   const out = [];
   for (let index = 0; index < value.length; index += 1) out.push(each(value[index], index));
@@ -74,11 +81,11 @@ const record = (state, owner, value) => {
       if (key === ID && id !== null && !(ID in fields)) continue;
     } else if (key === ID && !(ID in fields)) {
       // The key of the database: the record's id field, or nothing.
-      if (id !== null) define(out, id, idValue(state, item));
+      if (id !== null) put(out, id, idValue(state, item));
       continue;
     }
     const field = fields[key];
-    define(out, key, hasBrand(field, 'Type') ? walk(state, field, item) : item);
+    put(out, key, hasBrand(field, 'Type') ? walk(state, field, item) : item);
   }
   state.seen.delete(value);
   return out;
@@ -125,7 +132,7 @@ const walk = (state, node, value) => {
     }
     if (typeof value !== 'object' || !isPlain(value)) return value;
     const out = {};
-    for (const key of Object.keys(value)) define(out, key, walk(state, node.value, value[key]));
+    for (const key of Object.keys(value)) put(out, key, walk(state, node.value, value[key]));
     return out;
   }
   if (shape === UNION && info.table !== null && typeof value === 'object') {
