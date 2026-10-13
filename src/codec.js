@@ -167,7 +167,24 @@ const infoOf = (node) => {
       parts[STRUCTS].push(index);
     }
   }
-  info = { shape, bits, decode, encode, coerce, children, infos, plan, parts, extra, table, refs };
+  // The walker of the node: the one of its shape, or for a field with a
+  // coercion policy of its own the one that applies the policy first.
+  const walk = coerce === undefined ? WALKERS[shape] : walkPolicy;
+  info = {
+    shape,
+    walk,
+    bits,
+    decode,
+    encode,
+    coerce,
+    children,
+    infos,
+    plan,
+    parts,
+    extra,
+    table,
+    refs,
+  };
   INFO.set(node, info);
   return info;
 };
@@ -295,7 +312,14 @@ const decode = (info, node, value, context, key) => {
   });
 };
 
-const walkLeaf = (info, node, value) => value;
+// Under coercion a leaf, a list or a dictionary converts its value before
+// anything else looks at it (a struct, a tuple, a union or a reference has
+// no conversion of its own: their parts convert). Done by the walkers so
+// that apply stays as small as parse needs it to be inlined.
+const convert = (want, value, node) =>
+  (want & COERCE) === 0 ? value : COERCION.convert(value, node);
+
+const walkLeaf = (info, node, value, context, key, phase, want) => convert(want, value, node);
 
 const walkInner = (info, node, value, context, key, phase, want) =>
   apply(info.infos[0], info.children[0], value, context, key, phase, want);
@@ -429,11 +453,25 @@ const walkItems = (children, infos, fixed, value, context, key, phase, want) => 
   return settled(value, out, pending, putIndex, set ? toSet : undefined);
 };
 
-const walkList = (info, node, value, context, key, phase, want) =>
-  walkItems(info.children, info.infos, info.shape === TUPLE, value, context, key, phase, want);
+const walkList = (info, node, value, context, key, phase, want) => {
+  const input = convert(want, value, node);
+  if (input == null) return input;
+  return walkItems(
+    info.children,
+    info.infos,
+    info.shape === TUPLE,
+    input,
+    context,
+    key,
+    phase,
+    want,
+  );
+};
 
 // The values of an object or a Map, by key.
-const walkKeyed = (info, node, value, context, key, phase, want) => {
+const walkKeyed = (info, node, given, context, key, phase, want) => {
+  const value = convert(want, given, node);
+  if (value == null) return value;
   const map = isMap(value);
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;
   const child = info.children[0];
@@ -556,6 +594,14 @@ const walkReference = (info, node, value, context, key, phase, want) => {
   return out;
 };
 
+// A field's own `coerce` turns coercion on or off for its subtree, in the
+// pass before the check.
+const walkPolicy = (info, node, value, context, key, phase, want) => {
+  let mode = want;
+  if (phase === DEFAULTS) mode = info.coerce ? want | COERCE : want & ~COERCE;
+  return WALKERS[info.shape](info, node, value, context, key, phase, mode);
+};
+
 const WALKERS = [
   walkLeaf,
   walkSchema,
@@ -568,38 +614,33 @@ const WALKERS = [
   walkReference,
 ];
 
-// The bits a pass wants of a subtree, decided once per pass: its own, for
-// the pass after the check the structs (under `strip`) and the fields with
-// aliases (after a check that read one), and for the pass before it every
-// subtree when the parse coerces.
-const wantOf = (phase, context, coerce) => {
+// The bits a pass wants of a subtree, decided once per pass: its own, and
+// for the pass after the check the structs (under `strip`) and the fields
+// with aliases (after a check that read one); a parse that coerces adds
+// COERCE to the pass before it.
+const wantOf = (phase, context) => {
   let want = phase;
   if (phase === DECODERS) {
     if (context.unknown === 'strip') want |= STRUCTS;
     if (context.renamed) want |= ALIASES;
-  } else if (phase === DEFAULTS && coerce === true) want |= COERCE;
+  }
   return want;
 };
 
 // One pass over a value from a node whose info is known, by the shape of
 // each node. A serializer runs before the parts of its value, a decoder
-// after them, a conversion before them (a field's own policy holds for its
-// subtree); a subtree without the bits the pass wants is returned as it is,
-// which is the one test a value nothing applies to costs.
+// after them, a conversion before them (in the walkers); a subtree without
+// the bits the pass wants is returned as it is, which is the one test a
+// value nothing applies to costs.
 const apply = (info, node, value, context, key, phase, want) => {
   if (value == null) return value;
   if ((info.bits & want) === 0) return value;
   let input = value;
-  if (phase !== DECODERS) {
-    if (phase === ENCODERS) {
-      if (info.encode !== undefined) input = info.encode.call(node, value);
-    } else {
-      if (info.coerce !== undefined) want = info.coerce ? want | COERCE : want & ~COERCE;
-      if ((want & COERCE) !== 0) input = COERCION.convert(value, node);
-    }
+  if (phase === ENCODERS && info.encode !== undefined) {
+    input = info.encode.call(node, value);
     if (input == null) return input;
   }
-  const out = WALKERS[info.shape](info, node, input, context, key, phase, want);
+  const out = info.walk(info, node, input, context, key, phase, want);
   return phase === DECODERS ? decode(info, node, out, context, key) : out;
 };
 
@@ -607,6 +648,7 @@ module.exports = {
   PREPARE: DEFAULTS,
   FINISH: DECODERS,
   SERIALIZE: ENCODERS,
+  COERCE,
   COERCION,
   infoOf,
   apply,

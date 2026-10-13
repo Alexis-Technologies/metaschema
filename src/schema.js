@@ -14,6 +14,7 @@ const {
   PREPARE,
   FINISH,
   SERIALIZE,
+  COERCE,
   infoOf,
   apply,
   looped,
@@ -233,50 +234,52 @@ class Schema extends SchemaMetadata {
     return resultOf(context);
   }
 
-  #pass(phase, source, context, coerce) {
+  #pass(phase, source, context, extra) {
     if (this.#codec === null) this.#codec = infoOf(this);
-    const want = wantOf(phase, context, coerce);
+    const want = wantOf(phase, context) | extra;
     return apply(this.#codec, this, source, context, undefined, phase, want);
   }
 
-  // The coercion (when the call, else the schema, asks for it) and the
-  // defaults of the schema over a value, before its check; the objects met
-  // on the way down are not the check's, and a value that loops through its
-  // references is checked as it was given.
-  #prepare(source, context, options) {
-    const own = options == null ? undefined : options.coerce;
+  // Validates a value and builds the value of the program from it: the input
+  // coerced (when the call, else the schema, asks for it) and the defaults
+  // filled in, the check, and on a valid value `unknown: 'strip'`, the
+  // decoders of its fields (the parts of a value before the value) and the
+  // schema's own `parse`. `{ valid, value, issues }`: the value is undefined
+  // when invalid, and the value given when there was nothing to apply; the
+  // value given is never written to. The objects met before the check are
+  // not the check's, and a value that loops through its references is
+  // checked as it was given. The pass before the check is written out here
+  // and in parseAsync, not in a method of its own: with coercion such a
+  // method no longer fit the bytecode V8 inlines into parse, and the call
+  // cost the JIT backend 13%.
+  parse(source, options) {
+    const context = createContext(options, this.name, this.unknown, true);
+    const own = options === undefined ? undefined : options.coerce;
     const coerce = own === undefined ? this.#coerce : own;
-    const prepared = this.#pass(PREPARE, source, context, coerce);
+    const prepared = this.#pass(PREPARE, source, context, coerce === true ? COERCE : 0);
     const value = looped(context) ? source : prepared;
     context.seen = null;
     if (this.#tracked) context.source = value;
-    return value;
-  }
-
-  // Validates a value and builds the value of the program from it: the
-  // defaults fill the missing keys, the check runs, and a valid value goes
-  // through `unknown: 'strip'`, the decoders of its fields (the parts of a
-  // value before the value) and the schema's own `parse`. `{ valid, value,
-  // issues }`: the value is undefined when invalid, and the value given when
-  // there was nothing to apply; the value given is never written to.
-  parse(source, options) {
-    const context = createContext(options, this.name, this.unknown, true);
-    const value = this.#prepare(source, context, options);
     this[RUN](value, context);
-    const output = context.count === 0 ? this.#pass(FINISH, value, context) : undefined;
+    const output = context.count === 0 ? this.#pass(FINISH, value, context, 0) : undefined;
     return parsed(context, output);
   }
 
   async parseAsync(source, options) {
     const context = createContext(options, this.name, this.unknown, true);
     context.async = [];
-    const value = this.#prepare(source, context, options);
+    const own = options === undefined ? undefined : options.coerce;
+    const coerce = own === undefined ? this.#coerce : own;
+    const prepared = this.#pass(PREPARE, source, context, coerce === true ? COERCE : 0);
+    const value = looped(context) ? source : prepared;
+    context.seen = null;
+    if (this.#tracked) context.source = value;
     walkAsync(this, value, context);
     if (context.async.length > 0) await settle(context);
     let output;
     if (context.count === 0) {
       // Only a promise of the pass is awaited: a thenable in the value is data.
-      output = this.#pass(FINISH, value, context);
+      output = this.#pass(FINISH, value, context, 0);
       if (output instanceof Promise) output = (await output).value;
     }
     return parsed(context, output);
@@ -287,7 +290,7 @@ class Schema extends SchemaMetadata {
   // `options.check` the verdict of `check` over the result as well.
   serialize(source, options) {
     const context = createContext(options, this.name, this.unknown);
-    const value = this.#pass(SERIALIZE, source, context);
+    const value = this.#pass(SERIALIZE, source, context, 0);
     if (options === undefined || options.check !== true) return { value };
     context.seen = null;
     if (this.#tracked) context.source = value;

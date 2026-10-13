@@ -10,7 +10,7 @@ const { hasBrand, isSet, isMap } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { createContext } = require('../context.js');
-const { COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
+const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
 const DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
@@ -204,7 +204,7 @@ const add = (name, converter) => {
 const coerce = (schema, value, options) => {
   if (!hasBrand(schema, 'Schema')) throw invalidTarget('A Schema is expected');
   const context = createContext(options, schema.name, schema.unknown, true);
-  const want = wantOf(PREPARE, context, true);
+  const want = wantOf(PREPARE, context) | COERCE;
   const out = apply(infoOf(schema), schema, value, context, undefined, PREPARE, want);
   return looped(context) ? value : out;
 };
