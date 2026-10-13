@@ -9,6 +9,7 @@ const { hasBrand, define } = require('../util.js');
 const { isStruct } = require('../struct.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
+const { FORMATS } = require('../rules.js');
 
 // What differs between the dialects: the keyword of a type, where the
 // definitions live, whether `const`, tuples, `propertyNames` and siblings of
@@ -40,6 +41,8 @@ const TARGETS = Object.assign(Object.create(null), {
     definitions: '#/components/schemas/',
     nullable: true,
     oneOf: true,
+    // OpenAPI's name of base64 text.
+    byte: true,
     annotations: ['title', 'description', 'default', 'example', 'deprecated'],
   },
   mongodb: {
@@ -331,9 +334,16 @@ const RENDER = Object.assign(Object.create(null), {
     const json = typed('string', context);
     if (context.strict) return json;
     bounds(json, field.length, 'minLength', 'maxLength');
+    // A format a validator may not know (`ulid`, `iban`) is asserted by its
+    // shape too, where the field has no pattern of its own.
+    const shape = field.format === undefined ? undefined : FORMATS[field.format]?.pattern;
     if (field.pattern !== undefined) json.pattern = field.pattern.source;
+    else if (shape !== undefined) json.pattern = shape;
     // The names are those of JSON Schema; a $jsonSchema has no `format`.
-    if (field.format !== undefined && !context.mongo) json.format = field.format;
+    if (field.format !== undefined && !context.mongo) {
+      const byte = field.format === 'base64' && context.target.byte === true;
+      json.format = byte ? 'byte' : field.format;
+    }
     return json;
   },
   number: (field, context) => ranged(typed('number', context), field, context),

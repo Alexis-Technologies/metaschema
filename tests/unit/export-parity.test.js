@@ -164,7 +164,7 @@ test('Exports: the formats subpath is reachable through its subpath export', () 
   ].join('\n');
   const args = ['--input-type=module', '-e', source];
   const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
-  assert.deepStrictEqual(JSON.parse(output), [0, 9, [true, false]]);
+  assert.deepStrictEqual(JSON.parse(output), [0, 35, [true, false]]);
 });
 
 test('Exports: the derive subpath is reachable through its subpath export', () => {

@@ -45,8 +45,8 @@ const loadBrowser = async (minify) => {
     globalName: 'metaschema',
     minify,
   });
-  // A browser has the Web Streams; a bare context has not.
-  const context = vm.createContext({ TransformStream });
+  // A browser has the Web Streams and atob; a bare context has not.
+  const context = vm.createContext({ TransformStream, atob });
   vm.runInContext(code, context);
   return context.metaschema;
 };
@@ -146,6 +146,18 @@ const checkBundle = async (
   assert.deepStrictEqual(errorsOf(formatted.check({ email: 'nope' })), [
     'Field "email" is not a valid email',
   ]);
+  const token = Schema.from({
+    jwt: { type: 'string', format: 'jwt' },
+    id: { type: 'string', format: 'ulid' },
+  });
+  assert.strictEqual(
+    token.check({ jwt: 'eyJhbGciOiJub25lIn0.e30.', id: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }).valid,
+    true,
+  );
+  assert.strictEqual(
+    token.check({ jwt: 'e30.e30.', id: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }).valid,
+    false,
+  );
   // The model subpath through the bundle: a snapshot of the bundled Model
   // class comes back as one, and the changes between two versions classify.
   const prev = new Model({}, [['Item', { Entity: {}, name: 'string', qty: 'integer' }]]);
