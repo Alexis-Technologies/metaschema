@@ -75,41 +75,44 @@ closures stay.
 
 <BenchFigure chart="engine" />
 
-`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.2 branch (Node
-24, Apple silicon, 2026-10-11). The 1.0 column is the same scenarios on the same machine the day
+`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.3 branch (Node
+24, Apple silicon, 2026-10-13). The 1.0 column is the same scenarios on the same machine the day
 before 2.0; the closure column is what every `check` does, the JIT column the same schemas after
 `compile`. A run of one scenario on its own comes out higher than the same scenario in the whole
 run (the call sites are warmer); the figures are from the whole run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
-| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 257 K ops/s | — |
-| `Schema.from`, nested struct, collections, tuple | 94 K | 89 K | — |
-| `check`, flat struct, valid | 2.1 M | 10.5 M | 29.3 M |
+| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 260 K ops/s | — |
+| `Schema.from`, nested struct, collections, tuple | 94 K | 86 K | — |
+| `check`, flat struct, valid | 2.1 M | 10.5 M | 29.7 M |
 | `check`, flat struct, invalid (4 issues) | 0.87 M | 3.3 M | 5.7 M |
-| `check`, nested struct, valid | 0.33 M | 2.7 M | 17.4 M |
+| `check`, nested struct, valid | 0.33 M | 2.7 M | 17.1 M |
 | `check`, nested struct, invalid | 0.23 M | 1.5 M | 2.0 M |
-| `check`, sparse struct, two optional fields absent | — | 7.2 M | 31.2 M |
-| `parse`, flat struct, valid | — | 9.0 M | 26.7 M |
-| `parse`, nested struct, valid | — | 2.5 M | 14.5 M |
-| `parse`, flat struct, a default and a `Date` decoder | — | 2.0 M | 2.8 M |
-| `parse`, flat struct with an alias, no alias in the input | — | 8.0 M | 27.6 M |
-| `parse`, flat struct with an alias, the alias in the input | — | 3.2 M | 4.6 M |
+| `check`, sparse struct, two optional fields absent | — | 7.4 M | 31.4 M |
+| `parse`, flat struct, valid | — | 9.3 M | 25.9 M |
+| `parse`, nested struct, valid | — | 2.5 M | 14.3 M |
+| `parse`, flat struct, a default and a `Date` decoder | — | 2.2 M | 3.0 M |
+| `parse`, flat struct with an alias, no alias in the input | — | 8.2 M | 27.5 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.3 M | 4.6 M |
 | `parse`, nested struct under `strip`, an extra key at every level | — | 1.3 M | 2.0 M |
-| `parse`, 100 records under `strip` | — | 66 K | 95 K |
-| `check`, flat struct, four sync validators | — | 3.8 M | 5.6 M |
-| `checkAsync`, the same four sync validators | — | 2.9 M | 3.7 M |
+| `parse`, 100 records under `strip` | — | 66 K | 96 K |
+| `parse` with `coerce: true`, flat struct, two strings converted | — | 3.0 M | 3.7 M |
+| `parse` with `coerce: true`, flat struct, nothing to convert | — | 3.4 M | 4.3 M |
+| `coerce()`, flat struct, two strings converted | — | 3.9 M | — |
+| `check`, flat struct, four sync validators | — | 3.8 M | 5.7 M |
+| `checkAsync`, the same four sync validators | — | 2.8 M | 3.8 M |
 | `checkAsync`, four async validators, resolved promises | — | 1.5 M | 1.7 M |
-| `checkAsync`, four independent validators awaiting `setImmediate` | — | 65 K | 66 K |
-| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 812 | 841 |
-| `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 43 K | 44 K |
-| `parseAsync`, flat struct, an async decoder | — | 1.3 M | 1.4 M |
+| `checkAsync`, four independent validators awaiting `setImmediate` | — | 65 K | 65 K |
+| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 814 | 839 |
+| `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 44 K | 45 K |
+| `parseAsync`, flat struct, an async decoder | — | 1.2 M | 1.4 M |
 | `check`, 1 000 flat records in a loop | — | 9.2 K | 31 K |
-| `checkEach`, the same 1 000 records | — | 7.6 K | 19 K |
-| moltar flat (6 fields), four modes | — | 7.2 M | 27.7–29.4 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.5–25.6 M |
+| `checkEach`, the same 1 000 records | — | 7.8 K | 19 K |
+| moltar flat (6 fields), four modes | — | 7.2 M | 27.1–29.0 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.4–4.6 M | 23.5–25.6 M |
 | `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
-| `toTypeScript(model)`, fixture model | — | 89 K | — |
+| `toTypeScript(model)`, fixture model | — | 91 K | — |
 
 The moltar scenarios are the object of the
 [typescript-runtime-type-benchmarks](https://github.com/moltar/typescript-runtime-type-benchmarks)
@@ -120,6 +123,12 @@ first-key rule, so every check failed on the root at once. The bench marks the s
 since 3.0, and the closure numbers above are what 2.0 and 3.0 do on it. The strict modes count
 the keys of the value (`for...in`) to know whether to look for unknown ones; the loose modes skip
 it, which is the gap between the two on the JIT.
+
+A parse with coercion visits every field of the value and looks up the converter of each,
+which is why it runs at about a third of a plain parse whether anything converts or not; the
+JIT does not generate the passes of parse, so its gain there is small. A parse without
+coercion costs what it did in 3.2: an A/B of the parse and check rows against the commit
+before coercion is at parity on both backends.
 
 Where the time goes: on a valid value, in the plan loop of the closures (a keyed load and a call
 per field) and, on the JIT, in the context and the result a check allocates (about a third of

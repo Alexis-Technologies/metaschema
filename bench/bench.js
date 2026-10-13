@@ -250,24 +250,7 @@ const main = async () => {
       () => callParse(ALIASED_VALID),
       aliased,
     ],
-    [
-      'parse — flat struct, coerce: two strings converted',
-      () => callParse(COERCE_VALUE, COERCE),
-      flat,
-    ],
-    ['parse — flat struct, coerce: nothing to convert', () => callParse(FLAT_VALID, COERCE), flat],
-    ['coerce — flat struct, two strings converted', () => callCoerce(COERCE_VALUE), flat],
     ['parse (jit) — flat struct, valid', () => callParse(FLAT_VALID), flatJit],
-    [
-      'parse (jit) — flat struct, coerce: two strings converted',
-      () => callParse(COERCE_VALUE, COERCE),
-      flatJit,
-    ],
-    [
-      'parse (jit) — flat struct, coerce: nothing to convert',
-      () => callParse(FLAT_VALID, COERCE),
-      flatJit,
-    ],
     ['parse (jit) — nested struct, valid', () => callParse(NESTED_VALID), nestedJit],
     ['parse (jit) — flat struct, defaults and a decoder', () => callParse(CODEC_VALID), codecJit],
     [
@@ -295,6 +278,25 @@ const main = async () => {
       'parse (jit) — array of 100 records, strip',
       () => callParse(RECORDS_VALUE, STRIP),
       recordsJit,
+    ],
+    // Coercion last among the parse rows: its options give parse the feedback
+    // of an object with `coerce`, which the rows of 3.2 did not have.
+    [
+      'parse — flat struct, coerce: two strings converted',
+      () => callParse(COERCE_VALUE, COERCE),
+      flat,
+    ],
+    ['parse — flat struct, coerce: nothing to convert', () => callParse(FLAT_VALID, COERCE), flat],
+    ['coerce — flat struct, two strings converted', () => callCoerce(COERCE_VALUE), flat],
+    [
+      'parse (jit) — flat struct, coerce: two strings converted',
+      () => callParse(COERCE_VALUE, COERCE),
+      flatJit,
+    ],
+    [
+      'parse (jit) — flat struct, coerce: nothing to convert',
+      () => callParse(FLAT_VALID, COERCE),
+      flatJit,
     ],
     ...asyncRows(asyncSchemas(Schema.from)),
     ...asyncRows(asyncSchemas(jit), ' (jit)'),
