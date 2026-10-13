@@ -232,6 +232,10 @@ test('Merge: nested structs, collections, tuples, references and custom types', 
   assert.strictEqual(named.scope, 'global');
   assert.deepStrictEqual(named.custom, { table: 'merged' });
   assert.strictEqual(Object.hasOwn(named.fields, 'docId'), true);
+  // A kind given as undefined is the first schema's.
+  const kept = merge(a, b, { metadata: { kind: undefined, scope: 'global' } });
+  assert.strictEqual(kept.kind, a.kind);
+  assert.strictEqual(kept.scope, 'global');
 });
 
 test('Merge: what no value can satisfy is a conflict with the field', () => {
