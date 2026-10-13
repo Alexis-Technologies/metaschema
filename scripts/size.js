@@ -6,12 +6,14 @@
  * subpath does, with `--max-gzip-model <KB>` when the `./model` subpath does,
  * with `--max-gzip-stream <KB>` when the `./stream` subpath does, with
  * `--max-gzip-formats <KB>` when the `./formats` subpath does, with
- * `--max-gzip-derive <KB>` when the `./derive` subpath does and with
- * `--max-gzip-coerce <KB>` when the `./coerce` subpath does (CI uses the
- * eight as gates). The budgets are 19 KB per core entry, 7.5 KB for the
- * generators, 4.25 KB for the compile subpath, 12 KB for the model subpath,
- * 1.5 KB for the stream subpath, 4 KB for the formats subpath, 2.5 KB for
- * the derive subpath and 2 KB for the coerce subpath (CLAUDE.md "Budgets").
+ * `--max-gzip-derive <KB>` when the `./derive` subpath does, with
+ * `--max-gzip-coerce <KB>` when the `./coerce` subpath does and with
+ * `--max-gzip-mongodb <KB>` when the `./mongodb` subpath does on top of
+ * `./coerce`, which it requires (CI uses the nine as gates). The budgets are
+ * 19 KB per core entry, 7.5 KB for the generators, 4.25 KB for the compile
+ * subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath, 4 KB
+ * for the formats subpath, 2.5 KB for the derive subpath, 2 KB for the
+ * coerce subpath and 3.5 KB for the mongodb subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -22,7 +24,8 @@
  * The subpaths require the core (register() reaches Schema and Model), so on
  * their own they would bundle the core again; each is measured as the
  * difference between a bundle of the core entry plus the subpath and the core
- * entry alone, which is what a consumer that imports both pays for it.
+ * entry alone, which is what a consumer that imports both pays for it. A
+ * subpath that requires another (`base`) is measured on top of both.
  *
  * The browser entry is bundled with `platform: 'browser'`, which resolves the
  * package.json `browser` map (src/runtime/node.js → src/runtime/browser.js).
@@ -91,13 +94,22 @@ const SUBPATHS = [
     subpath: './src/coerce/index.js',
     flag: '--max-gzip-coerce',
   },
+  {
+    label: 'MongoDB (./mongodb) on top of the Node entry and ./coerce',
+    entry: 'index.js',
+    platform: 'node',
+    subpath: './src/mongodb/index.js',
+    base: ['./src/coerce/index.js'],
+    flag: '--max-gzip-mongodb',
+  },
 ];
 
-// `entry` alone, or `entry` plus a subpath in one bundle, exported so that
+// `entry` alone, or `entry` plus subpaths in one bundle, exported so that
 // the bundle keeps them: the package says `sideEffects: false`, and esbuild
 // drops a require whose result nothing uses.
-const bundle = async (entry, platform, minify, subpath = null) => {
-  const extra = subpath === null ? '' : `, require('${subpath}')`;
+const bundle = async (entry, platform, minify, subpaths = []) => {
+  let extra = '';
+  for (const subpath of subpaths) extra += `, require('${subpath}')`;
   const contents = `module.exports = [require('./${entry}')${extra}];`;
   const result = await esbuild.build({
     stdin: { contents, resolveDir: ROOT },
@@ -123,9 +135,9 @@ const budget = (flag) => {
   return limit * 1024;
 };
 
-const measure = async ({ label, entry, platform }, subpath) => {
-  const raw = await bundle(entry, platform, false, subpath);
-  const min = await bundle(entry, platform, true, subpath);
+const measure = async ({ label, entry, platform }, subpaths) => {
+  const raw = await bundle(entry, platform, false, subpaths);
+  const min = await bundle(entry, platform, true, subpaths);
   const gzip = gzipSync(min, { level: 9 });
   return { label, raw: raw.length, min: min.length, gzip: gzip.length };
 };
@@ -142,13 +154,15 @@ const main = async () => {
   const core = rows[0];
   const extras = [];
   for (const entry of SUBPATHS) {
-    const both = await measure(entry, entry.subpath);
+    const { base = [] } = entry;
+    const under = base.length === 0 ? core : await measure(entry, base);
+    const both = await measure(entry, [...base, entry.subpath]);
     extras.push({
       label: entry.label,
       max: budget(entry.flag),
-      raw: both.raw - core.raw,
-      min: both.min - core.min,
-      gzip: both.gzip - core.gzip,
+      raw: both.raw - under.raw,
+      min: both.min - under.min,
+      gzip: both.gzip - under.gzip,
     });
   }
   console.log('| Entry | raw | min | min+gzip |');

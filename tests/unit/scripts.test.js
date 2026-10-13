@@ -26,6 +26,8 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-coerce',
     '100',
+    '--max-gzip-mongodb',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -38,6 +40,10 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(ok.stdout, /\| Formats \(\.\/formats\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Derive \(\.\/derive\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Coerce \(\.\/coerce\) on top of the Node entry \| [1-9]/);
+  assert.match(
+    ok.stdout,
+    /\| MongoDB \(\.\/mongodb\) on top of the Node entry and \.\/coerce \| [1-9]/,
+  );
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -83,6 +89,11 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(coerce.stderr, /Bundle budget exceeded: Coerce \(\.\/coerce\)/);
   assert.doesNotMatch(coerce.stderr, /exceeded: Derive/);
 
+  const mongodb = run('scripts/size.js', ['--max-gzip-mongodb', '1']);
+  assert.strictEqual(mongodb.status, 1);
+  assert.match(mongodb.stderr, /Bundle budget exceeded: MongoDB \(\.\/mongodb\)/);
+  assert.doesNotMatch(mongodb.stderr, /exceeded: Coerce/);
+
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
   assert.match(bad.stderr, /--max-gzip needs a positive number of kilobytes/);
@@ -107,4 +118,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   const badCoerce = run('scripts/size.js', ['--max-gzip-coerce', '-1']);
   assert.strictEqual(badCoerce.status, 1);
   assert.match(badCoerce.stderr, /--max-gzip-coerce needs a positive number/);
+  const badMongodb = run('scripts/size.js', ['--max-gzip-mongodb', 'x']);
+  assert.strictEqual(badMongodb.status, 1);
+  assert.match(badMongodb.stderr, /--max-gzip-mongodb needs a positive number/);
 });

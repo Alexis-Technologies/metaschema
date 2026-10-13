@@ -26,6 +26,7 @@ const bundle = async (entry, options) => {
     "formats: require('./src/formats/index.js'),",
     "derive: require('./src/derive/index.js'),",
     "coerce: require('./src/coerce/index.js'),",
+    "mongodb: require('./src/mongodb/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -77,7 +78,7 @@ const evaluates = (() => {
 })();
 
 const checkBundle = async (
-  { core, generators, compile, model: tools, stream, formats, derive, coerce },
+  { core, generators, compile, model: tools, stream, formats, derive, coerce, mongodb },
   browser,
 ) => {
   const { Schema, Model } = core;
@@ -97,6 +98,36 @@ const checkBundle = async (
     },
   );
   assert.strictEqual(query.check({ page: '2', all: true }).valid, false);
+  // The mongodb subpath through the bundle, with a driver of its own: the
+  // id of a stored record is `_id`, an ObjectId, and comes back.
+  class ObjectId {
+    constructor(hex) {
+      this.hex = hex;
+    }
+
+    get _bsontype() {
+      return 'ObjectId';
+    }
+
+    toHexString() {
+      return this.hex;
+    }
+  }
+  const stores = new Model({ ...mongodb.types }, [
+    ['Shop', { Entity: {}, name: { type: 'string', unique: true } }],
+  ]);
+  const shop = stores.entities.get('Shop');
+  assert.throws(() => mongodb.toDocument(shop, {}), { code: 'ERR_NOT_REGISTERED' });
+  mongodb.register({ bson: { ObjectId } });
+  const id = 'c'.repeat(24);
+  const stored = mongodb.toDocument(shop, { shopId: id, name: 'x' });
+  assert.deepStrictEqual(Object.keys(stored), ['_id', 'name']);
+  assert.strictEqual(stored['_id'].toHexString(), id);
+  assert.deepStrictEqual(
+    { ...mongodb.fromDocument(shop, stored).value },
+    { shopId: id, name: 'x' },
+  );
+  assert.strictEqual(mongodb.checkUpdate(shop, { $set: { name: 1 } }).valid, false);
   // The derive subpath through the bundle: a stored kind becomes a struct
   // without its id, the index whose columns stay stays, and the methods
   // chain once registered.

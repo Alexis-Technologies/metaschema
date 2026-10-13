@@ -63,6 +63,10 @@
     "./coerce": {
       "types": "./src/coerce/index.d.ts",
       "default": "./src/coerce/index.js"
+    },
+    "./mongodb": {
+      "types": "./src/mongodb/index.d.ts",
+      "default": "./src/mongodb/index.js"
     }
   },
   "directories": {
@@ -88,7 +92,7 @@
     "test:nojit": "node --disallow-code-generation-from-strings --require ./tests/helpers/jit.js --test tests/unit/*.test.js",
     "test:coverage": "c8 --all --include 'src/**' --check-coverage --lines 98 --statements 98 --branches 90 --functions 100 --reporter text --reporter lcov node --test tests/unit/*.test.js",
     "test:types": "tsd",
-    "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts src/locales/en.d.ts src/locales/uk.d.ts src/generators/index.d.ts src/compile/index.d.ts src/model/index.d.ts src/stream/index.d.ts src/formats/index.d.ts src/derive/index.d.ts src/coerce/index.d.ts",
+    "check:dts": "tsc --noEmit --strict --target es2022 --skipLibCheck false index.d.ts src/locales/en.d.ts src/locales/uk.d.ts src/generators/index.d.ts src/compile/index.d.ts src/model/index.d.ts src/stream/index.d.ts src/formats/index.d.ts src/derive/index.d.ts src/coerce/index.d.ts src/mongodb/index.d.ts",
     "lint": "oxlint index.js browser.js src tests scripts bench",
     "format": "oxfmt index.js browser.js src tests scripts bench",
     "format:check": "oxfmt --check index.js browser.js src tests scripts bench",
@@ -109,6 +113,8 @@
     "directory": "tests/types"
   },
   "keywords": [
+    "mongodb",
+    "bson",
     "schema",
     "metaschema",
     "metadata",

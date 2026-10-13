@@ -713,6 +713,11 @@ export interface JSONSchemaOptions {
   // the default: a stored kind as an id, a memory kind as a `$ref` to its
   // definition), every reference as the record ('embed') or as an id ('id').
   references?: 'kind' | 'embed' | 'id';
+  // The mongodb target only: the ids of stored records as the database holds
+  // them ('objectId': `_id` an ObjectId, required at the root, and every
+  // reference an ObjectId, as `toDocument` of `@alexify/metaschema/mongodb`
+  // writes them), or as the program does ('string', the default).
+  ids?: 'string' | 'objectId';
   // The pointer the `$ref` of a definition starts with, and where the
   // definitions are placed in the document: '#/$defs/' for draft-2020-12,
   // '#/definitions/' for draft-07, '#/components/schemas/' for openapi-3.0.

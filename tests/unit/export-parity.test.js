@@ -27,6 +27,7 @@ const entryPoints = [
   ['src/formats/index.js', 'src/formats/index.d.ts'],
   ['src/derive/index.js', 'src/derive/index.d.ts'],
   ['src/coerce/index.js', 'src/coerce/index.d.ts'],
+  ['src/mongodb/index.js', 'src/mongodb/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -217,6 +218,46 @@ test('Exports: the coerce subpath is reachable through its subpath export', () =
     { age: 42, on: true },
     { age: 7, on: false },
     'function',
+  ]);
+});
+
+test('Exports: the mongodb subpath is reachable through its subpath export', () => {
+  const mongodb = require('@alexify/metaschema/mongodb');
+  assert.strictEqual(mongodb, require(path.join(ROOT, 'src/mongodb/index.js')));
+  assert.deepStrictEqual(Object.keys(mongodb), [
+    'types',
+    'register',
+    'toDocument',
+    'fromDocument',
+    'fromDocumentAsync',
+    'indexesOf',
+    'checkUpdate',
+    'toUpdate',
+  ]);
+  const source = [
+    "import { types, register, toDocument, indexesOf } from '@alexify/metaschema/mongodb';",
+    "import { Model } from '@alexify/metaschema';",
+    'class ObjectId {',
+    '  constructor(hex) { this.hex = hex; }',
+    "  get _bsontype() { return 'ObjectId'; }",
+    '  toHexString() { return this.hex; }',
+    '}',
+    'register({ bson: { ObjectId } });',
+    'const model = new Model({ ...types }, [',
+    "  ['User', { Entity: {}, login: { type: 'string', unique: true } }],",
+    ']);',
+    "const user = model.entities.get('User');",
+    "const document = toDocument(user, { userId: 'a'.repeat(24), login: 'ann' });",
+    'process.stdout.write(JSON.stringify([',
+    '  Object.keys(document), document._id.hex, indexesOf(model),',
+    ']));',
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), [
+    ['_id', 'login'],
+    'a'.repeat(24),
+    { User: [{ key: { login: 1 }, unique: true }] },
   ]);
 });
 

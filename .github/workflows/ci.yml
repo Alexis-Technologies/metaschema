@@ -35,9 +35,10 @@ jobs:
       # 19 KB per core entry, 7.5 KB for the ./generators subpath, 4.25 KB for
       # the ./compile subpath, 12 KB for the ./model subpath, 1.5 KB for the
       # ./stream subpath, 4 KB for the ./formats subpath, 2.5 KB for the
-      # ./derive subpath and 2 KB for the ./coerce subpath on top of it are
-      # the 3.3 budgets (CLAUDE.md "Budgets").
-      - run: pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2
+      # ./derive subpath, 2 KB for the ./coerce subpath on top of it and 3.5 KB
+      # for the ./mongodb subpath on top of both are the 3.3 budgets
+      # (CLAUDE.md "Budgets").
+      - run: pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5
 
   types:
     runs-on: ubuntu-latest

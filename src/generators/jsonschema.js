@@ -10,6 +10,8 @@ const { isStruct } = require('../struct.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { FORMATS } = require('../rules.js');
+const { constants } = require('../kinds.js');
+const { toLowerCamel } = require('../metautil.js');
 
 // What differs between the dialects: the keyword of a type, where the
 // definitions live, whether `const`, tuples, `propertyNames` and siblings of
@@ -114,6 +116,14 @@ const createContext = (options, unknown) => {
     );
   }
   const mongo = name === 'mongodb';
+  // The ids of stored records as MongoDB holds them (the ./mongodb subpath
+  // writes them so): an ObjectId under `_id`, and in every reference.
+  const objectIds = option(options, 'ids', ['string', 'objectId']) === 'objectId';
+  if (objectIds && !mongo) {
+    throw invalidOptions(
+      `JSON Schema option "ids" "objectId" needs target "mongodb", got "${name}"`,
+    );
+  }
   if (!mongo && !isPointer(definitions)) {
     throw invalidOptions('JSON Schema option "definitions" must be a pointer such as "#/$defs/"');
   }
@@ -127,6 +137,7 @@ const createContext = (options, unknown) => {
     input: mongo || io === 'input',
     any,
     references,
+    objectIds,
     strict,
     closed: strict || unknown !== 'ignore',
     prefix: mongo ? null : definitions,
@@ -298,11 +309,12 @@ const reference = (field, context) => {
   const name = field.type;
   const target = field.root.findReference(name);
   let json;
+  const id = context.objectIds ? { bsonType: 'objectId' } : typed('string', context);
   if (target === null) {
     if (field.embed === true) json = unrepresentable(context, `Reference "${name}" (embed)`);
-    else json = typed('string', context);
+    else json = id;
   } else if (!embeds(target, field.embed, context.references)) {
-    json = typed('string', context);
+    json = id;
   } else {
     json = definition(target, context);
   }
@@ -417,14 +429,20 @@ const render = (field, context) => {
 // A struct: its validated fields as properties (a calculated field is a
 // function and has no schema), the required ones listed, no other keys
 // unless the schema ignores them. The strict profile lists every property.
-const struct = (fields, context) => {
+const struct = (fields, context, id = null, root = false) => {
   const properties = {};
   const required = [];
+  // The id field of a stored record is `_id` in the document, the first key;
+  // the database gives one to a record inserted without it.
+  if (id !== null) {
+    properties[ID] = { bsonType: 'objectId' };
+    if (root) required.push(ID);
+  }
   // A struct is a null-prototype dictionary: its own keys, in order; a key
   // such as `__proto__` is defined as data on the document.
   for (const key in fields) {
     const field = fields[key];
-    if (!hasBrand(field, 'Type')) continue;
+    if (key === id || !hasBrand(field, 'Type')) continue;
     try {
       define(properties, key, render(field, context));
     } catch (error) {
@@ -440,14 +458,25 @@ const struct = (fields, context) => {
   return json;
 };
 
+// The id field a stored kind adds (kinds.js names it the same way), which
+// `ids: 'objectId'` writes as `_id`, unless the schema has an `_id` of its own.
+const idOf = (schema, context) => {
+  const { fields } = schema;
+  if (!context.objectIds || !constants.KIND_STORED.includes(schema.kind) || ID in fields) {
+    return null;
+  }
+  return schema.name ? `${toLowerCamel(schema.name)}Id` : 'id';
+};
+
 // The schema being rendered owns the location of an error met in it, and
 // is restored when the rendering leaves it, thrown out of or not.
-const renderSchema = (schema, context) => {
+const renderSchema = (schema, context, root = false) => {
   const { owner } = context;
   const { fields } = schema;
   context.owner = schema.name;
   try {
-    return isStruct(fields) ? struct(fields, context) : render(fields, context);
+    if (!isStruct(fields)) return render(fields, context);
+    return struct(fields, context, idOf(schema, context), root);
   } finally {
     context.owner = owner;
   }
@@ -462,7 +491,7 @@ const renderRoot = (schema, context) => {
       `Profile "strict" needs a struct at the root, got "${schema.fields.type}"`,
     );
   }
-  const json = renderSchema(schema, context);
+  const json = renderSchema(schema, context, true);
   // Every stored document has an `_id`; a closed mongodb root must let it in.
   if (context.mongo && json.additionalProperties === false && json.properties[ID] === undefined) {
     json.properties[ID] = {};
