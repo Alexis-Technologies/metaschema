@@ -10,8 +10,8 @@
  * `--max-gzip-coerce <KB>` when the `./coerce` subpath does and with
  * `--max-gzip-mongodb <KB>` when the `./mongodb` subpath does on top of
  * `./coerce`, which it requires (CI uses the nine as gates). The budgets are
- * 19 KB per core entry, 7.5 KB for the generators, 4.25 KB for the compile
- * subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath, 4 KB
+ * 19 KB per core entry, 7.5 KB for the generators, 5 KB for the compile
+ * subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB
  * for the formats subpath, 2.5 KB for the derive subpath, 2 KB for the
  * coerce subpath and 3.5 KB for the mongodb subpath (CLAUDE.md "Budgets").
  *

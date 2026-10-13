@@ -41,19 +41,24 @@ Three places say whether a parse coerces, in this order:
   through Standard Schema gets converted values.
 
 The metadata of a schema reached through a field or a reference is not read: the policy is the
-parse's, as `unknown` is. `coerce` must be a boolean in each place.
+parse's, as `unknown` is. `coerce` must be a boolean in each place. A nested struct takes the
+key in its long form, `address: { schema: { city: 'string' }, coerce: false }`: in the
+shorthand `address: { city: 'string', coerce: false }` the key would be a field.
 
 ## register()
 
 The core has the policy and the step; the converters are those of the
-`@alexify/metaschema/coerce` subpath, which `register()` installs. A parse that has to convert a
-value before that is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`; a schema with `coerce`
-builds without it, and a parse that does not coerce never needs it.
+`@alexify/metaschema/coerce` subpath, which `register()` installs. A parse that coerces (by the
+call, the kind metadata or a field's own `coerce: true`) before that is a `TypeError` with
+`code: 'ERR_NOT_REGISTERED'`, thrown as the pass enters the schema, whatever the value holds:
+an empty body in a test does not hide a missing `register()` from the program. A schema with
+`coerce` builds without it, and a parse that does not coerce never needs it.
 
 `register(custom)` also takes converters of the program's own, by type name, for its custom
 types (below), and installs `schema.coerce(value)`. It runs once per name, process-wide, like
-the type registry; another function under a registered name is `ERR_COERCION_REGISTERED`, a
-name that is not the name of a type or an entry that is not a function `ERR_INVALID_COERCION`.
+the type registry, and checks every entry before it writes any; another function under a
+registered name is `ERR_COERCION_REGISTERED`, a name that does not start with a lowercase letter
+(the names of types do) or an entry that is not a function `ERR_INVALID_COERCION`.
 
 ## What is converted
 
@@ -117,9 +122,14 @@ const converted = coerce(Query, { page: '3', all: '0', tags: [] });
 Query.check(converted).valid; // true
 ```
 
-`check(coerce(schema, value)).valid` is the verdict of `parse(value, { coerce: true })`. After
-`register()`, `schema.coerce(value)` is the same. The options are `references` and `maxDepth`,
-as for `check`.
+`check(coerce(schema, value)).valid` is the verdict of `parse(value, { coerce: true })`, short
+of what only the pass after the check can say (a decoder that throws is an `exception` issue
+of `parse`). After `register()`, `schema.coerce(value)` is the same. The options are
+`references` and `maxDepth`, as for `check`.
+
+The converters run before the check, so the `length` of a field does not bound what they
+read; they are linear on any string (a run of a hundred thousand digits that is not a number
+costs what reading it once costs), and a converter of your own should be too.
 
 ## Converters of your own
 

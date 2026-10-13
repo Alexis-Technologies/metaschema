@@ -41,7 +41,7 @@ flowchart LR
     COMP["./compile · 4.2 KB<br/>compile · register · canEval"] --> CORE
     MOD["./model · 12.0 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
     STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
-    FMT["./formats · 3.5 KB<br/>35 formats · your own"] --> CORE
+    FMT["./formats · 4.0 KB<br/>35 formats · your own"] --> CORE
     DER["./derive · 1.9 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
     COE["./coerce · 1.3 KB<br/>converters · coerce()"] --> CORE
     MDB["./mongodb · 3.3 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE

@@ -110,9 +110,9 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   JSON Schema document back.
 - **Zero dependencies, 18.1 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers; the generators add 7.4 KB, the JIT backend 4.2 KB, the
-  model tools 12.0 KB, the record tools 1.0 KB, the string formats 3.5 KB, the derive tools
-  1.9 KB, the converters of coercion 1.3 KB and the MongoDB tools 3.3 KB where they are
-  imported.
+  model tools 12.0 KB, the record tools 1.0 KB, the string formats 4.0 KB, the derive tools
+  1.9 KB, the converters of coercion 1.3 KB and the MongoDB tools 3.3 KB (on top of the
+  converters, which they require) where they are imported.
 
 ## Benchmarks
 
@@ -664,7 +664,8 @@ const model = new Model({ ...bson.types }, entities);
 const validators = toJSONSchema(model, { target: 'mongodb', ids: 'objectId' });
 const indexes = bson.indexesOf(model); // for createIndexes
 
-await accounts.insertOne(bson.toDocument(Account, Account.parse(body).value));
+const parsed = Account.parse(body);
+if (parsed.valid) await accounts.insertOne(bson.toDocument(Account, parsed.value));
 const { value } = bson.fromDocument(Account, await accounts.findOne({ login: 'ann' }));
 if (bson.checkUpdate(Account, update).valid) await accounts.updateOne(filter, bson.toUpdate(Account, update));
 ```

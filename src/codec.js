@@ -21,7 +21,7 @@ const {
 } = require('./issues.js');
 const { createContext } = require('./context.js');
 const { STRUCT, isStruct, aliasOf } = require('./struct.js');
-const { asyncReturn } = require('./errors.js');
+const { asyncReturn, notRegistered } = require('./errors.js');
 const collections = require('./prototypes/collections.js');
 const { schema: struct } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
@@ -40,15 +40,18 @@ const ALIASES = 32;
 // On every info: a pass before the check that coerces enters every subtree,
 // since any value of the input may need a conversion.
 const COERCE = 64;
+// A field with `coerce: true` of its own below: the pass before the check
+// converts there whatever the policy of the call.
+const POLICY = 128;
 
 // The converters of coercion, by type name, are the `./coerce` subpath's:
-// its register() installs `convert` here. Until then a pass that has to
-// convert a value is a call that cannot work.
+// its register() installs `convert` here and says so. Until then a pass
+// that coerces is a call that cannot work, and says so as it enters the
+// schema (`walkSchema`), whatever the value holds.
 const COERCION = {
+  installed: false,
   convert() {
-    const error = new TypeError('coerce needs register() of @alexify/metaschema/coerce');
-    error.code = 'ERR_NOT_REGISTERED';
-    throw error;
+    throw notRegistered('coerce', 'coerce');
   },
 };
 
@@ -107,7 +110,7 @@ const infoOf = (node) => {
   const coerce = own.coerce === true ? true : own.coerce === false ? false : undefined;
   let bits = decode === undefined ? COERCE : COERCE | DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
-  if (coerce === true) bits |= DEFAULTS;
+  if (coerce === true) bits |= DEFAULTS | POLICY;
   if (isAsyncFunction(own.validate) || isAsyncFunction(decode) || isAsyncFunction(own.checkType)) {
     bits |= ASYNC;
   }
@@ -312,10 +315,12 @@ const decode = (info, node, value, context, key) => {
   });
 };
 
-// Under coercion a leaf, a list or a dictionary converts its value before
-// anything else looks at it (a struct, a tuple, a union or a reference has
-// no conversion of its own: their parts convert). Done by the walkers so
-// that apply stays as small as parse needs it to be inlined.
+// Under coercion a leaf, a list, a tuple or a dictionary asks for a
+// conversion of its value before anything else looks at it (a struct, a
+// union or a reference has none of its own: their parts convert; a tuple
+// and an `object` have no built-in converter, and get the value back). Done
+// by the walkers so that apply stays as small as parse needs it to be
+// inlined.
 const convert = (want, value, node) =>
   (want & COERCE) === 0 ? value : COERCION.convert(value, node);
 
@@ -335,6 +340,11 @@ const LOOP = Symbol('loop');
 const looped = (context) => context.seen !== null && context.seen.has(LOOP);
 
 const walkSchema = (info, node, value, context, key, phase, want) => {
+  // A pass that converts somewhere below (the policy of the call, or a
+  // field's own) needs the converters, whatever the value holds.
+  if (phase === DEFAULTS && !COERCION.installed && ((want & COERCE) | (info.bits & POLICY)) !== 0) {
+    throw notRegistered('coerce', 'coerce');
+  }
   if (phase === DECODERS || info.refs.length === 0 || typeof value !== 'object') {
     return walkInner(info, node, value, context, key, phase, want);
   }

@@ -170,7 +170,7 @@ like a wrong option of `check` (`maxInvalid must be an integer of at least 1, go
 ## `@alexify/metaschema/formats`
 
 The formats a string field may name with the [`format`](/guide/formats) rule, in a subpath of
-its own (3.5 KB min+gzip on top of the core); the rule is the core's, the table of formats the
+its own (4.0 KB min+gzip on top of the core); the rule is the core's, the table of formats the
 subpath's, empty until `register()` ran.
 
 | Export | Description |
@@ -214,8 +214,9 @@ step in the pass before the check are the core's.
 | `coerce(schema, value, options?)` | the pass parse runs before its check with coercion on: the value converted and its defaults filled, nothing checked; `options`: `references`, `maxDepth` |
 | `COERCIONS` | the table of the converters by type name, to read |
 
-A parse that has to convert a value before `register()` ran is a `TypeError` with
-`code: 'ERR_NOT_REGISTERED'`. The type of a converter is `Coercion`.
+A parse that coerces (by the call, the kind metadata or a field's own `coerce: true`) before
+`register()` ran is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`, thrown as the pass
+enters the schema, whatever the value holds. The type of a converter is `Coercion`.
 
 ## `@alexify/metaschema/mongodb`
 
@@ -227,15 +228,18 @@ see [MongoDB](/guide/mongodb).
 | --- | --- |
 | `types` | the BSON types `objectId`, `decimal128`, `binary` to give a model (`new Model({ ...types }, entities)`); a value is one by its `_bsontype` and a method, never by `instanceof` |
 | `register({ bson })` | keeps the module of the driver (or of bson) and installs the converters of the BSON types into `./coerce`; another module after the first is a `TypeError` |
-| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id`, ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references` |
-| `fromDocument(target, document, options?)`, `fromDocumentAsync(…)` | `_id` back to the id field, ObjectIds to hex strings, then `parse` (`parseAsync`) with `coerce: true` unless the options say otherwise |
+| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id` (an `_id` beside it in the value is left out), ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references`; a value of a class at the root is `ERR_INVALID_TARGET` |
+| `fromDocument(target, document, options?)`, `fromDocumentAsync(…)` | `_id` back to the id field, ObjectIds to hex strings, then `parse` (`parseAsync`) with `coerce: true` unless the options say otherwise; `null` (what `findOne` gives for nothing) is a `type` issue |
 | `indexesOf(target)` | the indexes of a schema for `createIndexes`, or of every stored entity of a model by name |
 | `checkUpdate(target, update, options?)` | the issues of an update of the driver (`$set`, `$unset`, `$inc`, `$push`, …) against the schema, as a `ValidationResult`; `options`: those of `check` |
 | `toUpdate(target, update, options?)` | the update as the database takes it: values serialized, ids as ObjectIds, the id as `_id` |
 
-`toDocument`, `fromDocument` and `toUpdate` before `register()` are a `TypeError` with
-`code: 'ERR_NOT_REGISTERED'`; a target that is not a Schema of a struct (or a Model, for
-`indexesOf`) and an update that is not an object of operators are `ERR_INVALID_TARGET`.
+`toDocument` and `toUpdate` with `ids: 'objectId'` (the default) before `register()` are a
+`TypeError` with `code: 'ERR_NOT_REGISTERED'`: an ObjectId is built by the driver. Reading a
+document needs no driver (`fromDocument` parses with `coerce: true`, which needs `register()`
+of `./coerce`, the one `register({ bson })` runs too). A target that is not a Schema of a
+struct (or a Model, for `indexesOf`) and an update that is not an object of operators are
+`ERR_INVALID_TARGET`.
 
 ## Runtime errors
 
@@ -244,9 +248,10 @@ Validation of data never throws because of the value. A synchronous `check` or `
 `checkType` or a field's `parse` function returns a promise; `checkAsync` and `parseAsync` await
 them. A `transform` of the stream subpath ends its stream with a `TypeError` with
 `code: 'ERR_INVALID_RECORD'` for an invalid record it was not told to drop. A parse that
-coerces before `register()` of the coerce subpath, and a document made or read before
-`register({ bson })` of the mongodb subpath, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`.
-The type of the codes is `RuntimeErrorCode`.
+coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value
+holds), and a document or an update written with ObjectIds before `register({ bson })` of the
+mongodb subpath, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. The type of the codes is
+`RuntimeErrorCode`.
 
 ## `ValidationResult`
 
@@ -312,7 +317,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, two formats, a calculated field or an index that differs; the message names the field |
 | `ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
 | `ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
-| `ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings) |
+| `ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings, an `infer` that is not a boolean, a `pattern` that is not a string or does not compile under the `u` flag) |
 | `ERR_FORMAT_REGISTERED` | a format name the program registered, registered again with another `test` |
 | `ERR_UNKNOWN_FIELD` | a function of the derive subpath was given a key the schema has no field of; the message names the schema and the key |
 | `ERR_INVALID_COERCION` | an entry given to `register` of the coerce subpath is not a converter of a type (a name not led by a lowercase letter, a value that is not a function) |
@@ -329,7 +334,8 @@ it; see [Validation](/guide/validation#the-result).
 | `Infer<D, E?>` | the type of a value `check` and `parse` accept for the definition type `D` (a key with a `default` may be left out); `E` is an optional entity map (an object of definitions by name) that resolves references to memory kinds and projections |
 | `InferOutput<D, E?>` | the type of the value `parse` gives: `Infer` with the result of every `parse` function in place of the value it decodes and every defaulted key present; see [TypeScript](/guide/typescript#the-output-of-parse) |
 | `ParseResult<T>` | what `parse` returns: `{ valid: true, value: T, issues: [] }` or `{ valid: false, value: undefined, issues }` |
-| `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'` |
+| `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'`, and `coerce` (whether the input is converted before the check; the kind metadata's default) |
+| `CoerceOptions` | the options of `coerce` of the coerce subpath: `references`, `maxDepth` |
 | `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
 | `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered) |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
@@ -348,7 +354,10 @@ it; see [Validation](/guide/validation#the-result).
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
 | `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`) |
-| `FormatDefinition` | an entry of the formats subpath: `{ test: (value: string) => boolean; examples: readonly string[]; infer?: boolean }` |
+| `FormatDefinition` | an entry of the formats subpath: `{ test: (value: string) => boolean; examples: readonly string[]; infer?: boolean; pattern?: string }` |
+| `Coercion` | a converter of the coerce subpath: `(value: unknown, field: FieldType) => unknown` |
+| `BSONModule`, `ObjectIdLike`, `Decimal128Like`, `BinaryLike` | the mongodb subpath: the module of the driver `register` takes (`ObjectId`, and `Decimal128`, `Binary` when it has them) and what the subpath reads of their values (`_bsontype` and a method) |
+| `DocumentOptions`, `IndexDescription`, `Update`, `UpdateOperator` | the mongodb subpath: the options of `toDocument`/`toUpdate` (`ids`, `references`), an index as `createIndexes` takes it, an update of the driver and its operators |
 | `EachOptions`, `ParseEachOptions`, `EachAsyncOptions` | the options of `checkEach` (`CheckOptions` and `maxInvalid`), of `parseEach` (`ParseOptions` and `maxInvalid`) and the one the async pair adds (`concurrency`) |
 | `TransformOptions` | the options of `transform`: `ParseOptions`, `mode`, `async`, `onInvalid`, `maxInvalid` |
 | `RecordEntry<T, R>` | what the generators of the stream subpath yield: `{ index, record: T, result: R }`, `T` the type of the records of the source |

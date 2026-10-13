@@ -418,7 +418,8 @@ export type RuntimeErrorCode =
   | 'ERR_INVALID_TARGET'
   | 'ERR_INVALID_RECORD'
   // A parse that coerces before `register()` of the `@alexify/metaschema/coerce`
-  // subpath ran: there is no converter to run.
+  // subpath ran (there is no converter to run), and a document written with
+  // ObjectIds before `register({ bson })` of `@alexify/metaschema/mongodb`.
   | 'ERR_NOT_REGISTERED';
 
 // ---------------------------------------------------------------------------

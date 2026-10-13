@@ -54,9 +54,9 @@ description of its data:
   [`./mongodb`](/guide/mongodb) writes and reads the documents of MongoDB.
 - **Zero dependencies, any runtime.** Nothing is installed besides the package; the core entry
   is 18.1 KB min+gzip, and the generators (7.4 KB), the JIT backend (4.2 KB), the model tools
-  (12.0 KB), the record tools (1.0 KB), the string formats (3.5 KB), the derive tools (1.9 KB),
-  the converters of coercion (1.3 KB) and the MongoDB tools (3.3 KB) are subpaths a program
-  pays for only when it imports them. CommonJS with ESM named imports, no build step,
+  (12.0 KB), the record tools (1.0 KB), the string formats (4.0 KB), the derive tools (1.9 KB),
+  the converters of coercion (1.3 KB) and the MongoDB tools (3.3 KB on top of the converters)
+  are subpaths a program pays for only when it imports them. CommonJS with ESM named imports, no build step,
   hand-written typings, Node.js 18+ and browsers, and nothing that needs `eval` unless you ask
   for the JIT.
 

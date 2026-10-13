@@ -6,14 +6,17 @@
 // `false`, `1` or `0`, a date only with its zone, and the empty string is
 // never converted. A value a converter cannot read comes back as it was, so
 // the check reports it as given.
-const { hasBrand, isSet, isMap } = require('../util.js');
+const { hasBrand, isSet } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
-const DECIMAL = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
+// The integer digits and the fraction are told apart by the dot alone:
+// `\d+\.?\d*` reads a run of digits two ways and is quadratic on a run
+// that ends in something else.
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const INTEGER = /^[+-]?\d+$/;
 const ISO =
   /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ]([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/;
@@ -115,12 +118,19 @@ const isPairs = (value) => {
   return true;
 };
 
+// A plain object of any realm: a Set, a Date or a typed array has a
+// prototype in between, and its entries are not the entries of a map.
+const isPlain = (value) => {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+};
+
 // A plain object or a list of pairs; the keys of a map of numbers that are
 // written as numbers become numbers.
 const toMap = (value, field) => {
-  if (value === null || typeof value !== 'object' || isMap(value)) return value;
+  if (value === null || typeof value !== 'object') return value;
   const list = Array.isArray(value);
-  if (list && !isPairs(value)) return value;
+  if (list ? !isPairs(value) : !isPlain(value)) return value;
   const map = new Map();
   for (const pair of list ? value : Object.entries(value)) {
     const key = field.key === 'number' && typeof pair[0] === 'string' ? toNumber(pair[0]) : pair[0];
@@ -183,18 +193,18 @@ const convert = (value, node) => {
   }
 };
 
-const add = (name, converter) => {
+// An entry of the program: the name of a type, a function, and not another
+// function under a name the table has (a built-in name included).
+const check = (name, converter) => {
   if (!isFirstLower(name)) throw invalidCoercion(`Converter "${name}" needs the name of a type`);
   if (typeof converter !== 'function') {
     throw invalidCoercion(`Converter "${name}" must be a function`);
   }
-  const known = COERCIONS[name];
-  if (known === converter) return;
-  if (known !== undefined) {
+  const known = COERCIONS[name] ?? BUILT_IN[name];
+  if (known !== undefined && known !== converter) {
     const reason = `Converter "${name}" is registered already with another function`;
     throw new SchemaDefinitionError('ERR_COERCION_REGISTERED', reason);
   }
-  COERCIONS[name] = converter;
 };
 
 // The value with the conversions of the schema applied, and its defaults:
@@ -225,15 +235,20 @@ let installed = false;
 // Fills the table with the built-in converters and the program's own, once
 // per name, process-wide (another function under a registered name is
 // ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
-// type differently), and adds `schema.coerce(value, options)`.
+// type differently), and adds `schema.coerce(value, options)`. Every entry
+// is checked before any is written, so a call that throws leaves the table
+// as it was.
 const register = (custom = {}) => {
   if (custom === null || typeof custom !== 'object' || Array.isArray(custom)) {
     throw invalidCoercion('The converters must be an object of functions by type name');
   }
-  for (const name of Object.keys(BUILT_IN)) add(name, BUILT_IN[name]);
-  for (const name of Object.keys(custom)) add(name, custom[name]);
+  const names = Object.keys(custom);
+  for (const name of names) check(name, custom[name]);
+  for (const name of Object.keys(BUILT_IN)) COERCIONS[name] = BUILT_IN[name];
+  for (const name of names) COERCIONS[name] = custom[name];
   converters = new WeakMap();
   COERCION.convert = convert;
+  COERCION.installed = true;
   if (installed) return;
   installed = true;
   install(Schema.prototype, {

@@ -7,7 +7,7 @@
 // value of another realm or of another copy of bson is one too.
 const { toLowerCamel } = require('../metautil.js');
 const { constants } = require('../kinds.js');
-const { invalidOption } = require('../errors.js');
+const { invalidOption, notRegistered } = require('../errors.js');
 const { register: coercion } = require('../coerce/index.js');
 
 // The tag every value of bson carries, and the key of a document.
@@ -53,11 +53,7 @@ const types = Object.freeze({
 let driver = null;
 
 const driverOf = () => {
-  if (driver === null) {
-    const error = new TypeError('register({ bson }) of @alexify/metaschema/mongodb first');
-    error.code = 'ERR_NOT_REGISTERED';
-    throw error;
-  }
+  if (driver === null) throw notRegistered('An ObjectId', 'mongodb');
   return driver;
 };
 
@@ -74,8 +70,14 @@ const toDecimal128 = (value) => {
   return driver.Decimal128.fromString(String(value));
 };
 
+// Text of the base64 shape only: the decoder of the driver reads anything,
+// and the empty string is never converted.
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
 const toBinary = (value) =>
-  typeof value === 'string' ? driver.Binary.createFromBase64(value) : value;
+  typeof value === 'string' && value.length % 4 === 0 && BASE64.test(value)
+    ? driver.Binary.createFromBase64(value)
+    : value;
 
 // Takes the module of the driver (`require('mongodb')`, which carries the
 // bson it was built with) or of bson, and installs the converters of the

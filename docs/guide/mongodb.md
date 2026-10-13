@@ -50,7 +50,8 @@ const Account = model.entities.get('Account');
 ```
 
 `register({ bson })` also teaches [coercion](/guide/coercion) the BSON types: a string of 24
-hex digits is an ObjectId, a decimal string a Decimal128, base64 text a Binary. The types are
+hex digits is an ObjectId, a decimal string a Decimal128, text of the base64 shape (never the
+empty string: the decoder of the driver would read anything) a Binary. The types are
 given to the model and not registered process-wide, because a type name is the shorthand key of
 a definition: `{ binary: … }` as the first key of a struct would change meaning everywhere.
 
@@ -99,7 +100,13 @@ first key, and leaves it out when there is none yet so that the driver gives one
 ids of the references ObjectIds (a list of them for `many`), walks nested structs, lists,
 dictionaries, maps, tuples, discriminated unions and embedded records (which get their own
 `_id`), and leaves out undefined values and the keys of calculated fields. `ids: 'string'` keeps
-the ids strings. The value given is never written to.
+the ids strings (and needs no driver). The value given is never written to. An `_id` beside the
+id field (a body checked with `unknown: 'ignore'`, or not checked, cannot choose the `_id` of
+the document) is left out; a value of a class at the root (a model instance) is
+`ERR_INVALID_TARGET` rather than a document with its id a string. The `ids` of this subpath
+default to `'objectId'`, the way the documents are stored; `toJSONSchema` of the generators
+defaults to `'string'`, the way a program's JSON is, and names `'objectId'` for the collection
+validator.
 
 ## Reading
 
@@ -114,7 +121,9 @@ then `parse` with `coerce: true` (a `Long` read as a number for a `bigint` field
 as text) unless the options say otherwise. An `_id` the schema has no field for is the
 database's and is dropped; a key the schema does not have is what `unknown` says (`strip` drops
 Mongoose's `__v`). `fromDocumentAsync` is the same through `parseAsync`. The result of an
-aggregation that `$lookup`s records reads with `{ references: 'embed' }`.
+aggregation that `$lookup`s records reads with `{ references: 'embed' }`. The `null` of a
+`findOne` that found nothing is a `type` issue of the result, not a throw. Reading needs no
+driver: an ObjectId is read by its method.
 
 ## Updates
 
@@ -146,7 +155,10 @@ bson.checkUpdate(Account, {
   record is set by `$setOnInsert` only.
 
 `toUpdate` turns a checked update into the driver's: the values serialized, their ids
-ObjectIds, the id of the record as `_id`.
+ObjectIds, the id of the record as `_id`. It converts what the schema knows and passes the rest
+through as given (an operator the subpath does not read, such as `$rename` or `$bit`, a path
+the schema has no field of): what `checkUpdate` would reject is not checked here, so check
+first.
 
 ```js
 const update = { $set: { 'address.city': 'Lviv' }, $inc: { visits: 1 } };
@@ -161,7 +173,7 @@ if (bson.checkUpdate(Account, update).valid) {
 | --- | --- | --- | --- | --- |
 | `objectId` | an ObjectId of bson 4 to 6 or of the driver | `objectId` | a string of 24 hex digits | a string of 24 hex digits |
 | `decimal128` | a Decimal128 | `decimal` | a string | a decimal string, a number |
-| `binary` | a Binary (a bson `UUID` is one), a Uint8Array | `binData` | base64 text | base64 text |
+| `binary` | a Binary (a bson `UUID` is one), a Uint8Array | `binData` | base64 text | text of the base64 shape |
 
 A value of bson is recognized by its `_bsontype` and a method JSON cannot give a value, never by
 `instanceof`: a value of another realm or of another copy of bson is one, and a body of a

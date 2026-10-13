@@ -43,6 +43,15 @@ const invalidTarget = (message) => {
   return error;
 };
 
+// A call that needs what `register()` of a subpath installs (the converters
+// of coercion, the module of the mongodb driver) before that ran: the
+// program is wired wrong, not a value or a definition.
+const notRegistered = (what, where) => {
+  const error = new TypeError(`${what} needs register() of @alexify/metaschema/${where} first`);
+  error.code = 'ERR_NOT_REGISTERED';
+  return error;
+};
+
 const shown = (value) =>
   typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 
@@ -51,4 +60,10 @@ const shown = (value) =>
 const invalidOption = (name, expected, value) =>
   new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
 
-module.exports = { SchemaDefinitionError, asyncReturn, invalidTarget, invalidOption };
+module.exports = {
+  SchemaDefinitionError,
+  asyncReturn,
+  invalidTarget,
+  notRegistered,
+  invalidOption,
+};

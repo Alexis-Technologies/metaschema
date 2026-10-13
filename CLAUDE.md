@@ -39,7 +39,7 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 4.25 KB for ./compile, 12 KB for ./model, 1.5 KB for ./stream, 4 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 3.5 KB for ./mongodb on top of the core and ./coerce
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 5 KB for ./compile, 13 KB for ./model, 1.5 KB for ./stream, 5 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 3.5 KB for ./mongodb on top of the core and ./coerce
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
 node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
@@ -51,7 +51,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5`
+`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 3.5`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -318,9 +318,10 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 - `formats/index.js` requires `rules` (`FORMATS`) and `errors` only. Nothing in the core
   requires `formats/`; the `install` helper of `register()` is a copy per subpath (generators,
   model, stream, derive, coerce) rather than a helper of the core, which is measured on its own.
-- `codec.js` holds the `COERCION` slot and the `COERCE` bit; `coerce/index.js` requires
-  `util`, `metautil`, `schema.js`, `context`, `codec` (`COERCION`, `PREPARE`, `infoOf`,
-  `apply`, `wantOf`, `looped`) and `errors`.
+- `codec.js` holds the `COERCION` slot (`installed`, `convert`), the `COERCE` bit of a pass
+  and the `POLICY` bit of a subtree with a field's own `coerce: true`; `coerce/index.js`
+  requires `util`, `metautil`, `schema.js`, `context`, `codec` (`COERCE`, `COERCION`,
+  `PREPARE`, `infoOf`, `apply`, `wantOf`, `looped`) and `errors`.
 - `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`KIND_STORED`),
   `errors` and `model/data.js` (`structDefinitionOf`, `metadataOf`, `structDefinition`,
   `atSchema`): one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
@@ -369,7 +370,11 @@ subpath), `schema` and `field`. A function of a subpath
 given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
 JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
 (`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
-wrong, not a definition. A
+wrong, not a definition. `ERR_NOT_REGISTERED` (`notRegistered` in `errors.js`) is the same
+kind of error for a call that needs what `register()` of a subpath installs before it ran: a
+parse that coerces without `./coerce` (thrown as the pass enters the schema, whatever the
+value holds: an empty body in a test must not hide it), a document written with ObjectIds
+without `register({ bson })` of `./mongodb`. A
 definition
 that can never validate correctly (an `enum` without values, a `length` that is not numeric or
 whose min is above its max, a `max` below `min`, a rule on a type that does not accept it, a
@@ -578,33 +583,49 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 ## Budgets
 
 **The 3.3 bundle budgets are 19 KB min+gzip per core entry, 7.5 KB for the generators,
-4.25 KB for the compile subpath, 12 KB for the model subpath, 1.5 KB for the stream subpath,
-4 KB for the formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on
+5 KB for the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath,
+5 KB for the formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on
 top of it, and 3.5 KB for the mongodb subpath on top of it and `./coerce`** (`pnpm size
---max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12
---max-gzip-stream 1.5 --max-gzip-formats 4 --max-gzip-derive 2.5 --max-gzip-coerce 2
---max-gzip-mongodb 3.5` in CI). In 3.3 (2026-10-13) the entries measure 18509 / 18528 bytes
-(18.1 KB; 18145 / 18153 before 3.3, not the 18137 quoted below), the generators 7553 bytes
-(7.4 KB: the patterns of the formats and `ids` added about 250), the compile subpath 4342
-(10 bytes under its 4.25 KB gate: its code did not change, the difference of two gzips
-moved with the core), the model subpath 12260 (12276 before 3.3), the stream subpath 1010, the
-formats subpath 3564 (3.5 KB, 35 formats), the derive subpath 1918 (1.9 KB, of which
-`model/data.js` is about 600), the coerce subpath 1343 (1.3 KB) and the mongodb subpath 3342
-bytes on top of the core and `./coerce` (3.3 KB). Coercion cost the core about 360 bytes (the
-`COERCE` bit and the `COERCION` slot, the conversions in the walkers, the flag check of a
-field, the option and the metadata check, the pass before the check written out in `parse`
-and `parseAsync`); the core gate moved from 17.75 to 19 KB for it (Alex's decision,
+--max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13
+--max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2
+--max-gzip-mongodb 3.5` in CI). **A gate is raised to the next whole KB when a fix needs it,
+and never sits a few bytes over a subpath** (Alex's decision, 2026-10-13, at the review of
+3.3: the compile and model gates moved from 4.25 and 12 KB to 5 and 13 KB because the two
+subpaths were 10 and 28 bytes under them and a change of the core alone, which shifts the
+difference of two gzips, could fail CI on code that did not change; the formats gate from 4 to
+5 KB for the scanners of the review; the mongodb gate of 3.5 KB is confirmed). After the
+review of 3.3 (2026-10-13) the entries measure 18582 bytes (18.1 KB) each, the generators
+7556 bytes (7.4 KB), the compile subpath 4320, the model subpath 12253, the stream subpath
+1006, the formats subpath 4049 (4.0 KB, 35 formats, five of them scanners), the derive
+subpath 1921 (1.9 KB, of which `model/data.js` is about 600), the coerce subpath 1373 (1.3 KB)
+and the mongodb subpath 3382 bytes on top of the core and `./coerce` (3.3 KB). The review's
+phase 0 cost the core about 70 bytes (`notRegistered` in `errors.js`, the `POLICY` bit and
+the check at the entry of `walkSchema`), the formats subpath about 480 (the scanners of
+`email`, the two JSON pointers, `uri-template`, `slug` and `semver`, and the cap of `regex`),
+the coerce subpath 30 (`isPlain` of `toMap`, the atomic `register`) and the mongodb subpath
+40 (`rootOf`, the `_id` of a body left out, the driver read only when ObjectIds are written).
+Before the review the entries measured 18509 / 18528 bytes (18.1 KB; 18145 / 18153 before
+3.3, not the 18137 quoted below), the generators 7553 bytes (7.4 KB: the patterns of the
+formats and `ids` added about 250), the compile subpath 4342, the model subpath 12260 (12276
+before 3.3), the stream subpath 1010, the formats subpath 3564 (3.5 KB), the derive subpath
+1918, the coerce subpath 1343 and the mongodb subpath 3342. Coercion cost the core about 360
+bytes (the `COERCE` bit and the `COERCION` slot, the conversions in the walkers, the flag
+check of a field, the option and the metadata check, the pass before the check written out in
+`parse` and `parseAsync`); the core gate moved from 17.75 to 19 KB for it (Alex's decision,
 2026-10-13). The plan gave `./mongodb` 3 KB; it came out about 270 bytes over after the
-obvious trims, so its gate is 3.5 KB, pending Alex's confirmation. `scripts/size.js` measures a
+obvious trims, so its gate is 3.5 KB. `scripts/size.js` measures a
 subpath with a `base` (the subpaths it requires) as (core + base + subpath) − (core + base).
 **The inlining budget of `parse`:** the first version of coercion put the pass before the
 check in `#prepare` and the conversion in `apply`, and `parse (jit)` lost 13% (flat) and 8%
 (nested): `--trace-turbo-inlining` showed `#prepare` no longer inlined into `parse`, then the
 second `apply` not inlined. The pass is written out in `parse` and `parseAsync`, `apply` is
-byte for byte what it was (the conversion is in the walkers of a leaf, a list and a
-dictionary, a field's policy is `info.walk`), and an A/B of 11 `parse`/`check` rows against
+what it was but for the dispatch (`info.walk`, the walker of the shape or `walkPolicy` for a
+field with a `coerce` of its own, in place of `WALKERS[info.shape]`; the conversion is in the
+walkers of a leaf, a list and a dictionary), and an A/B of 11 `parse`/`check` rows against
 the commit before coercion is at parity (−0.2% to +2.6%, `Schema.from` −3.2%). Check the
-inlining of `parse` (`#pass`, `apply` and `wantOf` twice each) after touching its path.
+inlining of `parse` (`#pass`, `apply` and `wantOf` twice each) after touching its path. The
+check for a missing `register()` of `./coerce` sits at the entry of `walkSchema` (one bit test
+per schema node of a pass), not in `parse`, for the same budget.
 After the review of 3.2 (2026-10-11, before the tag) the entries
 measure 18137 bytes (17.7 KB) each, the generators 7286 bytes (7.1 KB), the compile subpath
 4298 bytes (4.2 KB), the model subpath 12245 bytes (12.0 KB, 43 bytes under its gate: the
@@ -1382,6 +1403,27 @@ change. **This file wins** if they ever disagree.
   update (`$set` replaces what a path names whole).
 - **A string is not a sequence of records.** It is iterable, over its characters, and
   `checkEach(schema, 'rows')` is `ERR_INVALID_TARGET`.
+- **`toDocument` leaves out an `_id` beside the id field of a record.** The `_id` of a
+  document is the id field (`accountId`) and nothing else: a body checked with `unknown:
+  'ignore'` (or not checked) that carries `_id: { $gt: '' }` must not write it. A schema with
+  an `_id` field of its own keeps it. `fromDocument(schema, null)` (what `findOne` gives for
+  nothing) is a `type` issue, not a throw; a value of a class at the root (a model instance, a
+  value of bson) is `ERR_INVALID_TARGET` rather than passed through with its id a string.
+  Reading a document and `ids: 'string'` need no driver.
+- **A `regex` longer than 4096 characters is not a regex** (`REGEX_MAX` in
+  `formats/index.js`): compiling one costs memory in proportion to its text (a property
+  escape expands as it is parsed, about 1 KB of heap per byte), and no program writes a
+  pattern that long; `length.max` on the field bounds it further. Five built-in formats
+  (`email`, `json-pointer`, `relative-json-pointer`, `uri-template`, `slug`, `semver`) are
+  scanners over the string rather than one expression: a repeated group with an alternative
+  in it (`(?:a|bc)*`) grows the stack of the engine by a frame per repetition and overflowed
+  it out of `check` on a string of megabytes (`RangeError`), which `formats.test.js` now pins
+  at 20 million characters. The expression stays as the `pattern` of the export.
+- **A converter runs before the check, so `length.max` does not bound it.** The converters
+  are linear on purpose (`DECIMAL` reads a run of digits one way; pinned on hostile strings in
+  `coerce.test.js`); a converter of the program's own is the program's.
+- **`toMap` converts a plain object or a list of pairs only**: a `Set`, a `Date` or a typed
+  array is an object with entries of its own, which are not those of a map.
 
 ## Documentation site
 

@@ -206,11 +206,12 @@ const MORE = {
   },
   regex: {
     oracle: ajvOf('regex'),
-    valid: ['^[a-z]+$', '\\d{3}-\\d{4}', '(a|b)*', ''],
+    valid: ['^[a-z]+$', '\\d{3}-\\d{4}', '(a|b)*', '', `^${'a'.repeat(4000)}$`],
     invalid: ['(', '[', '*a'],
     // A pattern of JSON Schema 2020-12 compiles in unicode mode, where the
-    // forms Annex B allows are errors.
-    pinned: ['{', '\\a', ']'],
+    // forms Annex B allows are errors; and a text longer than 4 KB is not a
+    // pattern a program wrote (compiling one costs memory in proportion).
+    pinned: ['{', '\\a', ']', '\\p{L}'.repeat(2000)],
   },
   cidrv4: {
     oracle: zodOf(z.cidrv4()),
@@ -900,4 +901,27 @@ test('Formats: the built-in tests are linear', () => {
       assert.ok(took < 50, `${name} took ${took.toFixed(0)} ms on ${text.length} characters`);
     }
   }
+});
+
+// A repeated group with an alternative in it is linear in time but grows
+// the stack of the engine by one frame per repetition, and a string of
+// megabytes overflowed it out of `check` as a RangeError (a JSON pointer, a
+// URI template, a slug, a semantic version, an email). No built-in test
+// throws on a string of 20 million characters shaped for it.
+test('Formats: no built-in test overflows the stack of the engine', () => {
+  register();
+  const n = 10_000_000;
+  const shaped = {
+    'json-pointer': `/${'a'.repeat(2 * n)}~`,
+    'relative-json-pointer': `0/${'a'.repeat(2 * n)}~`,
+    'uri-template': `${'a'.repeat(n)}{${'a,'.repeat(n / 2)}}`,
+    slug: 'a-'.repeat(n),
+    semver: `1.2.3-${'a.'.repeat(n)}!`,
+    email: `${'a'.repeat(n)}@${'a.'.repeat(n / 2)}!`,
+  };
+  for (const name of Object.keys(shaped)) {
+    assert.doesNotThrow(() => FORMATS[name].test(shaped[name]), name);
+  }
+  const plain = 'a'.repeat(n);
+  for (const name of NAMES) assert.doesNotThrow(() => FORMATS[name].test(plain), name);
 });

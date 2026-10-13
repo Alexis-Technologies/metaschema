@@ -136,10 +136,22 @@ test('Mongodb: before register() a document cannot be made, the types are data',
   assert.throws(() => toDocument(Account, account), {
     name: 'TypeError',
     code: 'ERR_NOT_REGISTERED',
-    message: 'register({ bson }) of @alexify/metaschema/mongodb first',
+    message: 'An ObjectId needs register() of @alexify/metaschema/mongodb first',
   });
-  assert.throws(() => fromDocument(Account, {}), { code: 'ERR_NOT_REGISTERED' });
+  // Reading needs no driver (an ObjectId is read by its method); the parse
+  // that follows coerces, which is the other table nothing registered yet.
+  assert.throws(() => fromDocument(Account, {}), {
+    code: 'ERR_NOT_REGISTERED',
+    message: 'coerce needs register() of @alexify/metaschema/coerce first',
+  });
   assert.throws(() => toUpdate(Account, { $set: {} }), { code: 'ERR_NOT_REGISTERED' });
+  // Ids kept as strings need no driver either.
+  const strings = toDocument(Account, account, { ids: 'string' });
+  assert.strictEqual(strings[ID], A);
+  assert.strictEqual(strings.company, B);
+  assert.deepStrictEqual(toUpdate(Account, { $set: { company: B } }, { ids: 'string' }), {
+    $set: { company: B },
+  });
   // The types, the indexes and the check of an update need no driver.
   assert.strictEqual(Object.isFrozen(types), true);
   assert.deepStrictEqual(Object.keys(types), ['objectId', 'decimal128', 'binary']);
@@ -300,6 +312,16 @@ test('Mongodb: embedded records, an own _id, an anonymous stored schema, loops',
   const own = new Schema('Own', { Entity: {}, _id: 'string', name: 'string' });
   assert.deepStrictEqual(toDocument(own, { _id: 'x', name: 'n' }), { _id: 'x', name: 'n' });
   assert.deepStrictEqual(fromDocument(own, { _id: 'x', name: 'n' }).value, { _id: 'x', name: 'n' });
+  // An `_id` beside the id field of a record (a body checked with `unknown:
+  // 'ignore'`, or not checked) is not the record's id and is left out.
+  const injected = toDocument(Order, { orderId: A, company: B, _id: { $gt: '' } });
+  assert.strictEqual(injected[ID].toHexString(), A);
+  assert.deepStrictEqual(Object.keys(injected), [ID, 'company']);
+  assert.deepStrictEqual(Object.keys(toDocument(Order, { company: B, _id: 'x' })), ['company']);
+  // What `findOne` gives for nothing is reported by the check, not thrown.
+  assert.deepStrictEqual(fromDocument(Order, null).issues[0].code, 'type');
+  assert.deepStrictEqual(toDocument(Order, null), null);
+  assert.strictEqual(fromDocument(Order, undefined).valid, false);
   // An anonymous stored schema names its id `id`.
   const anonymous = Schema.from({ Entity: {}, name: 'string' });
   assert.strictEqual(toDocument(anonymous, { id: A, name: 'n' })[ID].toHexString(), A);
@@ -370,6 +392,17 @@ test('Mongodb: what is not a schema of a struct, or options that are not, throws
     message: 'ids must be "objectId" or "string", got "uuid"',
   });
   assert.throws(() => toDocument(Account, account, { references: 'all' }), { name: 'TypeError' });
+  // A value of a class has no document: it is not passed through with its
+  // id left a string and no `_id`.
+  class Row {}
+  for (const root of [new Row(), new Map(), new ObjectId(A)]) {
+    assert.throws(() => toDocument(Account, root), {
+      code: 'ERR_INVALID_TARGET',
+      message: 'A plain object is expected',
+    });
+    assert.throws(() => fromDocument(Account, root), { code: 'ERR_INVALID_TARGET' });
+  }
+  assert.strictEqual(toDocument(Account, Object.create(null)) !== null, true);
 });
 
 test('Mongodb: the indexes of a schema and of a model', () => {
@@ -573,4 +606,13 @@ test('Mongodb: maps, alias types and what the BSON converters leave', () => {
     ['d', 'b'],
   );
   assert.strictEqual(values.parse({ d: 12 }, { coerce: true }).value.d.text, '12');
+  // The decoder of the driver reads any text as base64; the converter
+  // takes text of the base64 shape only, and never the empty string.
+  for (const b of ['', 'not base64 !!!', 'aGk', 'aGk=x']) {
+    assert.strictEqual(values.parse({ b }, { coerce: true }).issues[0]?.path[0], 'b', b);
+  }
+  assert.deepStrictEqual(
+    Array.from(values.parse({ b: 'aGk=' }, { coerce: true }).value.b.bytes),
+    [104, 105],
+  );
 });

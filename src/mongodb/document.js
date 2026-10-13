@@ -45,13 +45,16 @@ const listOf = (value, each) => {
 
 // A record of a schema or a nested struct: the id field of a stored kind is
 // `_id` in the document (first, and left out when there is none yet, so
-// that the database gives one); the keys of calculated fields and the
+// that the database gives one; an `_id` the value carries beside it is not
+// the record's and is left out); the keys of calculated fields and the
 // undefined values are not written. A key the schema does not have comes as
-// it is; a record met again on its own path (a loop) too.
+// it is; a record met again on its own path (a loop) too, and a `null` (what
+// `findOne` gives for nothing) for the check to report.
 const record = (state, owner, value) => {
   const fields = hasBrand(owner, 'Schema') ? owner.fields : owner;
   if (!isStruct(fields)) return walk(state, fields, value);
-  if (typeof value !== 'object' || !isPlain(value) || state.seen.has(value)) return value;
+  if (value === null || typeof value !== 'object' || !isPlain(value)) return value;
+  if (state.seen.has(value)) return value;
   state.seen.add(value);
   const id = hasBrand(owner, 'Schema') ? idOf(owner) : null;
   const { calculated } = fields[STRUCT];
@@ -61,6 +64,7 @@ const record = (state, owner, value) => {
     const item = value[key];
     if (state.out) {
       if (key === id || item === undefined || calculated.includes(key)) continue;
+      if (key === ID && id !== null && !(ID in fields)) continue;
     } else if (key === ID && !(ID in fields)) {
       // The key of the database: the record's id field, or nothing.
       if (id !== null) define(out, id, idValue(state, item));
@@ -115,7 +119,9 @@ const walk = (state, node, value) => {
   return value;
 };
 
-// The state of one walk, the options of the call checked.
+// The state of one walk, the options of the call checked. The driver is
+// needed to build ObjectIds, so on the way out with `ids: 'objectId'`
+// only: a document is read back without it.
 const stateOf = (target, options, out) => {
   if (!hasBrand(target, 'Schema') || !isStruct(target.fields)) {
     throw invalidTarget('A Schema of a struct is expected');
@@ -127,20 +133,31 @@ const stateOf = (target, options, out) => {
   if (references !== 'kind' && references !== 'embed' && references !== 'id') {
     throw invalidOption('references', '"kind", "embed" or "id"', references);
   }
-  const driver = driverOf();
-  return { out, objectIds: ids === 'objectId', references, seen: new Set(), driver };
+  const objectIds = ids === 'objectId';
+  const driver = out && objectIds ? driverOf() : null;
+  return { out, objectIds, references, seen: new Set(), driver };
+};
+
+// The root of a walk is the record itself: a value of a class (a model
+// instance, a value of bson) has no document, and is reported rather than
+// passed through unchanged.
+const rootOf = (value) => {
+  if (value !== null && typeof value === 'object' && !isPlain(value)) {
+    throw invalidTarget('A plain object is expected');
+  }
+  return value;
 };
 
 // The document of a value: its serializers run, its ids made ObjectIds and
 // the id of the record moved to `_id`.
 const toDocument = (target, value, options) => {
   const state = stateOf(target, options, true);
-  const serialized = target.serialize(value, { references: state.references }).value;
+  const serialized = target.serialize(rootOf(value), { references: state.references }).value;
   return record(state, target, serialized);
 };
 
 const read = (target, document, options) =>
-  record(stateOf(target, options, false), target, document);
+  record(stateOf(target, options, false), target, rootOf(document));
 
 const parsing = (options) => ({ coerce: true, ...options });
 

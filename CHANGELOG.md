@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 query string, a form or a file to the types of the fields when asked (coercion), schemas are
 derived from schemas (`pick`, `omit`, `partial`, `required`, `extend`, `keyof`), the string
 formats grow from nine to 35, and the `@alexify/metaschema/mongodb` subpath is the schema side
-of a MongoDB program without a dependency on the driver. Nothing breaks; the changes in
-behaviour (`infer` writes the more specific formats, a format of the program under the name of a
-new built-in takes its place) are listed under Changed.
+of a MongoDB program without a dependency on the driver. The review of the release before its
+tag made the converters and five formats linear in the stack as well as in time on strings of
+megabytes, capped the `regex` format, and closed the ways a document could carry a foreign
+`_id` or throw on `null`. The changes in behaviour (`coerce` is a reserved key, `infer` writes
+the more specific formats, a format of the program under the name of a new built-in takes its
+place) are listed under Changed.
 
 ### Added
 
@@ -28,7 +31,11 @@ new built-in takes its place) are listed under Changed.
   the check; the converters are the new `@alexify/metaschema/coerce` subpath's
   (`register(custom)` adds the program's own by type name, an alias type converts as its base),
   and `coerce(schema, value)` is that pass alone. A parse that coerces before `register()` is
-  `ERR_NOT_REGISTERED`; `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` are new codes.
+  `ERR_NOT_REGISTERED` as it enters the schema, whatever the value holds (an empty body does
+  not hide a missing `register()`); `register(custom)` checks every entry before it writes
+  any; `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` are new codes. The converters are
+  linear on hostile strings (a run of a hundred thousand digits that is not a number costs
+  nothing), and `toMap` converts a plain object or a list of pairs only.
 - **`@alexify/metaschema/derive`.** `pick`, `omit`, `partial` (`keys`, `deep`, `defaults`),
   `required`, `extend` and `keyof` build a new Schema from the definition a schema was built
   from: a stored kind or a projection becomes a struct without the id of the kind (unless
@@ -43,12 +50,19 @@ new built-in takes its place) are listed under Changed.
   ajv-formats, zod, valibot and semver.org, held to them value by value). A format entry may
   carry a `pattern`, which `toJSONSchema` writes beside a name JSON Schema does not know (the
   one assertion of the mongodb target) and `fromJSONSchema` drops again; OpenAPI's `byte` is
-  `base64`.
+  `base64`. No built-in test overflows the stack of the regex engine on a string of
+  megabytes: `email`, `json-pointer`, `relative-json-pointer`, `uri-template`, `slug` and
+  `semver` are read by a scanner with the same verdicts, and a `regex` longer than 4096
+  characters is not one (compiling it costs memory in proportion).
 - **`@alexify/metaschema/mongodb`.** The BSON types `objectId`, `decimal128` and `binary`
   (recognized without importing bson), `register({ bson })` with the program's driver,
   `toDocument`/`fromDocument` (the id of a stored record as `_id`, ids of references as
   ObjectIds, and back), `indexesOf` for `createIndexes`, `checkUpdate`/`toUpdate` for the
-  driver's updates by dotted path. No I/O and no dependency.
+  driver's updates by dotted path. No I/O and no dependency. An `_id` beside the id field of a
+  record is not written (`toDocument` of a body checked with `unknown: 'ignore'` cannot
+  choose the `_id`), `fromDocument(schema, null)` is a `type` issue rather than a throw, a
+  value of a class at the root is `ERR_INVALID_TARGET`, reading a document and `ids:
+  'string'` need no driver, and `binary` is coerced from text of the base64 shape only.
 - **`ids: 'objectId'`** for the mongodb target of `toJSONSchema`: the validator of the
   documents `toDocument` writes.
 - `pnpm size` measures a subpath on top of another it requires (`./mongodb` on `./coerce`).
@@ -56,8 +70,15 @@ new built-in takes its place) are listed under Changed.
 ### Changed
 
 - **The core gate is 19 KB** (was 17.75 KB): coercion costs the core about 360 bytes; the core
-  measures 18.1 KB. The formats gate is 4 KB (was 2 KB); new gates: 2.5 KB for `./derive`,
-  2 KB for `./coerce`, 3.5 KB for `./mongodb`.
+  measures 18.1 KB. The formats gate is 5 KB (was 2 KB; the scanners of the review took the
+  subpath to 4.0 KB), the compile gate 5 KB (was 4.25) and the model gate 13 KB (was 12): a
+  gate is raised to the next whole KB when a fix needs it, and never sits a few bytes over a
+  subpath. New gates: 2.5 KB for `./derive`, 2 KB for `./coerce`, 3.5 KB for `./mongodb`.
+- **`coerce` is a reserved key** of a field definition and of the kind metadata. A field
+  `coerce` that is not a boolean is `ERR_INVALID_DEFINITION` (was an `unknown-option` warning),
+  a kind metadata `coerce` that is not a boolean is `ERR_INVALID_OPTIONS` (was an ordinary
+  custom key), and a kind metadata `coerce: true` makes every `parse` of the schema need
+  `register()` of `./coerce`.
 - **`infer` writes the more specific formats**: a column of http(s) addresses is `url` (was
   `uri`), local date-times are `iso-date-time`, ULIDs `ulid`, durations `duration`.
 - **A format of the program under the name of a built-in takes its place** instead of throwing

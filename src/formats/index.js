@@ -22,17 +22,36 @@
 //   and the MAC-48 forms;
 // - semver.org (CC BY 3.0): the expression of a semantic version.
 // They are anchored and linear, every repetition bounded or separated by a
-// character its class excludes. The date and time forms are RFC 3339 with
-// the ranges checked (a 31st of February is not a date), and `url` is an
-// http or https address whose host is a hostname or an address.
+// character its class excludes. A repeated group with an alternative in it
+// (`(?:a|bc)*`) is linear in time but not in the stack of the engine, which
+// overflows on a string of megabytes: the forms that had one (an email's
+// domain, a JSON pointer, a URI template, a slug, a semantic version) are
+// read by a scanner over the string instead, with the same verdicts, and
+// the expression stays as the `pattern` of the export where there is one.
+// The date and time forms are RFC 3339 with the ranges checked (a 31st of
+// February is not a date), and `url` is an http or https address whose host
+// is a hostname or an address.
 const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidFormat = (name, reason) =>
   new SchemaDefinitionError('ERR_INVALID_FORMAT', `Format "${name}" ${reason}`);
 
-const EMAIL =
-  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+// ajv-formats' fast email: a local part of its characters, an `@`, and
+// labels of at most 63 characters joined by dots.
+const LOCAL = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i;
+
+const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+
+const isEmail = (text) => {
+  const at = text.indexOf('@');
+  if (at < 1 || !LOCAL.test(text.slice(0, at))) return false;
+  const labels = text.slice(at + 1).split('.');
+  for (let index = 0; index < labels.length; index += 1) {
+    if (!LABEL.test(labels[index])) return false;
+  }
+  return true;
+};
 
 const UUID = /^(?:urn:uuid:)?[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
@@ -95,16 +114,100 @@ const DURATION = /^P(?!$)((\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?|(
 
 const URI_REFERENCE = /^(?:(?:[a-z][a-z0-9+\-.]*:)?\/?\/)?(?:[^\\\s#][^\s#]*)?(?:#[^\\\s]*)?$/i;
 
-const URI_TEMPLATE =
-  // oxlint-disable-next-line no-control-regex
-  /^(?:(?:[^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*\})*$/i;
+// Every character from `from` to `to` is one `allowed` accepts or a
+// percent-encoded byte.
+const HEX2 = /^[0-9a-f]{2}$/i;
 
-const JSON_POINTER = /^(?:\/(?:[^~/]|~0|~1)*)*$/;
+const encoded = (text, from, to, allowed) => {
+  let index = from;
+  while (index < to) {
+    if (text[index] === '%') {
+      if (index + 3 > to || !HEX2.test(text.slice(index + 1, index + 3))) return false;
+      index += 3;
+    } else {
+      if (!allowed.test(text[index])) return false;
+      index += 1;
+    }
+  }
+  return true;
+};
 
-const RELATIVE_JSON_POINTER = /^(?:0|[1-9][0-9]*)(?:#|(?:\/(?:[^~/]|~0|~1)*)*)$/;
+// A URI template of RFC 6570 as ajv-formats reads it: literals outside the
+// braces, and in each pair of braces an optional operator and a list of
+// variable names, each with an optional prefix (`:1` to `:9999`) or `*`.
+// oxlint-disable-next-line no-control-regex
+const LITERAL = /[^\x00-\x20"'<>%\\^`{|}]/;
 
-// A pattern of JSON Schema 2020-12 is an ECMA-262 expression in unicode mode.
+const VARCHAR = /[a-z0-9_]/i;
+
+const OPERATOR = /[+#./;?&=,!@|]/;
+
+const MODIFIER = /^:[1-9][0-9]{0,3}$/;
+
+const isVariable = (spec) => {
+  let name = spec;
+  if (spec.endsWith('*')) name = spec.slice(0, -1);
+  else {
+    const colon = spec.indexOf(':');
+    if (colon !== -1) {
+      if (!MODIFIER.test(spec.slice(colon))) return false;
+      name = spec.slice(0, colon);
+    }
+  }
+  return name !== '' && encoded(name, 0, name.length, VARCHAR);
+};
+
+const isExpression = (expression) => {
+  const body = OPERATOR.test(expression[0] ?? '') ? expression.slice(1) : expression;
+  if (body === '') return false;
+  const specs = body.split(',');
+  for (let index = 0; index < specs.length; index += 1) {
+    if (!isVariable(specs[index])) return false;
+  }
+  return true;
+};
+
+const isTemplate = (text) => {
+  let index = 0;
+  for (;;) {
+    const open = text.indexOf('{', index);
+    if (!encoded(text, index, open === -1 ? text.length : open, LITERAL)) return false;
+    if (open === -1) return true;
+    const close = text.indexOf('}', open + 1);
+    if (close === -1 || !isExpression(text.slice(open + 1, close))) return false;
+    index = close + 1;
+  }
+};
+
+// A JSON pointer of RFC 6901: empty, or segments led by `/` in which a `~`
+// escapes a `0` or a `1` and nothing else.
+const isPointer = (text) => {
+  if (text === '') return true;
+  if (text[0] !== '/') return false;
+  for (let at = text.indexOf('~'); at !== -1; at = text.indexOf('~', at + 2)) {
+    const next = text[at + 1];
+    if (next !== '0' && next !== '1') return false;
+  }
+  return true;
+};
+
+const RELATIVE = /^(?:0|[1-9][0-9]*)/;
+
+const isRelativePointer = (text) => {
+  const match = RELATIVE.exec(text);
+  if (match === null) return false;
+  const rest = text.slice(match[0].length);
+  return rest === '#' || isPointer(rest);
+};
+
+// A pattern of JSON Schema 2020-12 is an ECMA-262 expression in unicode
+// mode. Compiling one costs memory in proportion to its text (a property
+// escape expands as it is parsed), so a text longer than any pattern a
+// program writes is not one; `length.max` on the field bounds it further.
+const REGEX_MAX = 4096;
+
 const isRegex = (text) => {
+  if (text.length > REGEX_MAX) return false;
   try {
     return RegExp(text, 'u') instanceof RegExp;
   } catch {
@@ -124,13 +227,47 @@ const HEX = /^[0-9a-fA-F]*$/;
 
 const HEX_COLOR = /^#(?:[\da-fA-F]{3,4}|[\da-fA-F]{6}|[\da-fA-F]{8})$/;
 
+// Words of digits and lowercase letters joined by single dashes or
+// underscores (valibot's slug); the expression is the pattern of the export.
 const SLUG = /^[\da-z]+(?:[-_][\da-z]+)*$/;
+
+const SLUG_CHARS = /^[\da-z](?:[\da-z_-]*[\da-z])?$/;
+
+const SEPARATORS = /[-_]{2}/;
+
+const isSlug = (text) => SLUG_CHARS.test(text) && !SEPARATORS.test(text);
 
 const MAC =
   /^(?:[\da-fA-F]{2}:){5}[\da-fA-F]{2}$|^(?:[\da-fA-F]{2}-){5}[\da-fA-F]{2}$|^(?:[\da-fA-F]{4}\.){2}[\da-fA-F]{4}$/;
 
+// semver.org's expression, the pattern of the export; the test reads the
+// three parts (the core, the pre-release after the first `-`, the build
+// after the `+`) and their dot-separated identifiers one by one.
 const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][\dA-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][\dA-Za-z-]*))*))?(?:\+([\dA-Za-z-]+(?:\.[\dA-Za-z-]+)*))?$/;
+
+const CORE = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/;
+
+const PRERELEASE = /^(?:0|[1-9]\d*|\d*[A-Za-z-][\dA-Za-z-]*)$/;
+
+const BUILD = /^[\dA-Za-z-]+$/;
+
+const identifiers = (text, form) => {
+  const parts = text.split('.');
+  for (let index = 0; index < parts.length; index += 1) {
+    if (!form.test(parts[index])) return false;
+  }
+  return true;
+};
+
+const isSemver = (text) => {
+  const plus = text.indexOf('+');
+  const version = plus === -1 ? text : text.slice(0, plus);
+  if (plus !== -1 && !identifiers(text.slice(plus + 1), BUILD)) return false;
+  const dash = version.indexOf('-');
+  if (dash === -1) return CORE.test(version);
+  return CORE.test(version.slice(0, dash)) && identifiers(version.slice(dash + 1), PRERELEASE);
+};
 
 const EMOJI =
   /^(?=[\s\S]*[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3])[\p{Extended_Pictographic}\p{Emoji_Component}]+$/u;
@@ -245,7 +382,7 @@ const BUILT_IN = {
     ],
     pattern: '^[\\w-]+\\.[\\w-]*\\.[\\w-]*$',
   },
-  email: { test: tested(EMAIL), examples: ['ann@example.com', 'ann.lee@mail.example.org'] },
+  email: { test: isEmail, examples: ['ann@example.com', 'ann.lee@mail.example.org'] },
   'date-time': {
     test: dateTimeOf(isTime),
     examples: ['2026-10-11T12:00:00Z', '2026-10-11T12:00:00.000+02:00'],
@@ -287,17 +424,17 @@ const BUILT_IN = {
     infer: false,
   },
   'uri-template': {
-    test: tested(URI_TEMPLATE),
+    test: isTemplate,
     examples: ['https://example.com/users/{id}', '/search{?q,page}'],
     infer: false,
   },
   'json-pointer': {
-    test: tested(JSON_POINTER),
+    test: isPointer,
     examples: ['/users/0/name', '/a~1b'],
     infer: false,
   },
   'relative-json-pointer': {
-    test: tested(RELATIVE_JSON_POINTER),
+    test: isRelativePointer,
     examples: ['1/name', '0#'],
     infer: false,
   },
@@ -324,13 +461,13 @@ const BUILT_IN = {
   hex: { test: tested(HEX), examples: ['deadbeef', '0A1B2C'], infer: false, pattern: HEX.source },
   emoji: { test: tested(EMOJI), examples: ['👍', '🇺🇦'], infer: false },
   semver: {
-    test: tested(SEMVER),
+    test: isSemver,
     examples: ['1.0.0', '2.1.3-beta.1+build.5'],
     infer: false,
     pattern: SEMVER.source,
   },
   slug: {
-    test: tested(SLUG),
+    test: isSlug,
     examples: ['hello-world', 'metaschema-3-3'],
     infer: false,
     pattern: SLUG.source,

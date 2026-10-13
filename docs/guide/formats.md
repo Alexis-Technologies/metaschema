@@ -110,7 +110,7 @@ the specific forms first, and never one that ordinary words or numbers pass.
 | `uri-template` | an RFC 6570 template | no | `/search{?q,page}` |
 | `json-pointer` | an RFC 6901 pointer (`''` is the whole document) | no | `/users/0/name` |
 | `relative-json-pointer` | a relative JSON pointer | no | `1/name` |
-| `regex` | an expression that compiles in unicode mode, as a `pattern` of JSON Schema 2020-12 does | no | `^[a-z]+$` |
+| `regex` | an expression of at most 4096 characters that compiles in unicode mode, as a `pattern` of JSON Schema 2020-12 does | no | `^[a-z]+$` |
 
 **Text and numbers**
 
@@ -143,7 +143,10 @@ they differ on purpose:
   (`http://1.2.3`), no empty port, no backslash, one `@`.
 - `jwt` takes any `typ` (RFC 7519 allows `at+jwt`) and wants a string `alg`; nothing is
   verified, and the payload is not read.
-- `regex` compiles in unicode mode, where the forms Annex B allows (`{`, `]`, `\a`) are errors.
+- `regex` compiles in unicode mode, where the forms Annex B allows (`{`, `]`, `\a`) are errors,
+  and takes at most 4096 characters: compiling an expression costs memory in proportion to its
+  text (a property escape such as `\p{L}` expands as it is parsed), and no program writes a
+  pattern that long. `length.max` on the field bounds it further.
 - `cuid2` is 2 to 32 characters long, the lengths cuid2 makes.
 - A card number whose Luhn sum holds and an IBAN whose check digits hold are numbers that may
   exist, not numbers that do.
@@ -251,7 +254,7 @@ and throws `ERR_MERGE_CONFLICT` for two.
   [`fromJSON`](/guide/model#restoring-a-model) needs the formats registered first, or its
   `format` is `ERR_INVALID_RULE` at the field; a format registered after a schema was built
   does not reach that schema.
-- **The subpath is 3.5 KB min+gzip on top of the core**, gated at 4 KB; the rule itself is in
+- **The subpath is 4.0 KB min+gzip on top of the core**, gated at 5 KB; the rule itself is in
   the core. The expressions are written out in one file, so a program that registers the
   formats carries all 35.
 - **`emoji` follows the engine.** Its classes are the Unicode properties of the JavaScript

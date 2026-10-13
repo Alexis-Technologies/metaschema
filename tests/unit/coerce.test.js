@@ -30,11 +30,23 @@ test('Coerce: before register() nothing converts, and a parse that would says so
   const field = Schema.from({ age: { type: 'integer', coerce: true } });
   const plain = Schema.from({ age: 'integer' });
   // Built without a complaint: the converters are looked up when a value
-  // is converted, not when a schema is built.
+  // is converted, not when a schema is built. A parse that coerces says so
+  // as it enters the schema, whatever the value holds: an empty body in a
+  // test does not hide a missing register() from the program.
   assert.throws(() => form.parse({ age: '42' }), notRegistered);
+  assert.throws(() => form.parse({}), notRegistered);
+  assert.throws(() => form['~standard'].validate({}), notRegistered);
   assert.throws(() => field.parse({ age: '42' }), notRegistered);
   assert.throws(() => plain.parse({ age: '42' }, { coerce: true }), notRegistered);
+  assert.throws(() => plain.parse({}, { coerce: true }), {
+    ...notRegistered,
+    message: 'coerce needs register() of @alexify/metaschema/coerce first',
+  });
   assert.throws(() => coerce(plain, { age: '42' }), notRegistered);
+  assert.throws(() => coerce(plain, {}), notRegistered);
+  // A field's own policy is the one place a parse without the policy of
+  // the call or the schema enters the subtree: it says so too.
+  assert.throws(() => field.parse({}), notRegistered);
   // Check, serialize and a parse without the policy never convert.
   assert.strictEqual(form.check({ age: 1 }).valid, true);
   assert.deepStrictEqual(form.serialize({ age: 1 }).value, { age: 1 });
@@ -94,6 +106,13 @@ test('Coerce: register() fills the table once, and only with converters of types
   register({ ownType: own });
   register({ ownType: own });
   assert.strictEqual(COERCIONS.ownType, own);
+  // A call with a bad entry registers nothing, whatever came before it.
+  assert.throws(() => register({ firstType: own, Second: own }), { code: 'ERR_INVALID_COERCION' });
+  assert.throws(() => register({ thirdType: own, number: own }), {
+    code: 'ERR_COERCION_REGISTERED',
+  });
+  assert.strictEqual(COERCIONS.firstType, undefined);
+  assert.strictEqual(COERCIONS.thirdType, undefined);
 });
 
 const TABLE = {
@@ -245,11 +264,39 @@ test('Coerce: enums, collections and maps', () => {
   assert.deepStrictEqual(valueOf(Schema.from({ l: { array: 'number' } }), { l: new Set(['1']) }), {
     l: [1],
   });
-  // Pairs that are not pairs stay.
-  assert.strictEqual(
-    Schema.from({ m: { map: { string: 'string' } } }).parse({ m: [['a']] }, { coerce: true }).valid,
-    false,
-  );
+  // Pairs that are not pairs stay, and so does an object that is not plain:
+  // the entries of a Set, a Date or a typed array are not those of a map.
+  const maps = Schema.from({
+    m: { map: { string: 'string' } },
+    'n?': { map: { string: 'number' } },
+  });
+  assert.strictEqual(maps.parse({ m: [['a']] }, { coerce: true }).valid, false);
+  for (const m of [new Set(['a']), new Date(0), new Uint8Array([1, 2]), Buffer.from('ab')]) {
+    const result = maps.parse({ m }, { coerce: true });
+    assert.strictEqual(result.valid, false, String(m));
+    assert.strictEqual(maps.parse({ m: new Map(), n: m }, { coerce: true }).valid, false);
+  }
+  const bare = Object.assign(Object.create(null), { a: 'x' });
+  assert.deepStrictEqual(valueOf(maps, { m: bare }), { m: new Map([['a', 'x']]) });
+});
+
+test('Coerce: the converters are linear on hostile strings', () => {
+  const schema = Schema.from({ n: '?number', i: '?integer', b: '?bigint', d: '?date' });
+  const hostile = [
+    `${'1'.repeat(100_000)}x`,
+    `${'1'.repeat(100_000)}.`,
+    `${'1'.repeat(100_000)}e`,
+    `.${'1'.repeat(100_000)}e+`,
+    `-${'0'.repeat(100_000)}.${'0'.repeat(100_000)}!`,
+    `2026-01-01T00:00:00.${'0'.repeat(100_000)}+`,
+  ];
+  for (const text of hostile) {
+    const started = performance.now();
+    const result = schema.parse({ n: text, i: text, b: text, d: text }, { coerce: true });
+    const took = performance.now() - started;
+    assert.strictEqual(result.valid, false);
+    assert.ok(took < 50, `took ${took.toFixed(0)} ms on ${text.length} characters`);
+  }
 });
 
 test('Coerce: the empty string is never converted', () => {

@@ -113,6 +113,7 @@ what a `sort` or a `fields` parameter of a query takes. The calculated fields an
 stored kind are not among them.
 
 ```js
+const { Schema } = require('@alexify/metaschema');
 const { keyof } = require('@alexify/metaschema/derive');
 
 const Query = new Schema('Query', { sort: keyof(Account), 'limit?': 'integer' });
