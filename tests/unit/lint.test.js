@@ -127,6 +127,37 @@ test('Lint: aliases anywhere but on a field of a struct are dead', () => {
   assert.deepStrictEqual(Schema.from({ name: { type: 'string', aliases: ['x'] } }).warnings, []);
 });
 
+test('Lint: coerce where no conversion can happen is dead', () => {
+  const model = new Model({}, [
+    ['Company', { Registry: {}, name: 'string' }],
+    ['Tag', { Struct: {}, label: 'string' }],
+    [
+      'Order',
+      {
+        Struct: {},
+        company: { type: 'Company', coerce: true },
+        seller: { type: 'Company', coerce: true, embed: true },
+        tag: { type: 'Tag', coerce: false },
+        meta: { type: 'json', coerce: true },
+        raw: { type: 'any', coerce: true },
+        qty: { type: 'integer', coerce: true },
+        items: { array: { type: 'integer', coerce: true } },
+      },
+    ],
+  ]);
+  const dead = (path, what) =>
+    `Warning [dead-coerce]: "${path}" has coerce, but ${what} is never converted`;
+  assert.deepStrictEqual(model.entities.get('Order').warnings, [
+    dead('Order.company', 'a reference checked as an id'),
+    dead('Order.meta', 'a value of type "json"'),
+    dead('Order.raw', 'a value of type "any"'),
+  ]);
+  // A reference that cannot be resolved is checked as an id too.
+  assert.deepStrictEqual(Schema.from({ owner: { type: 'Owner', coerce: true } }).warnings, [
+    dead('owner', 'a reference checked as an id'),
+  ]);
+});
+
 test('Lint: a model collects the warnings of its entities and its own', () => {
   const model = new Model({}, [
     ['A', { Entity: {}, b: 'B', name: { type: 'string', typo: 1 } }],

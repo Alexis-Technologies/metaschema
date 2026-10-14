@@ -11,8 +11,12 @@ const RESERVED = new Set(['__proto__', 'prototype', 'check', 'checkType', 'compi
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
 
-const invalidNullable = () =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Option "nullable" needs a boolean');
+// The options of a field that are flags: `nullable` (null in place of a
+// value) and `coerce` (whether parse converts the input of its subtree).
+const FLAGS = ['nullable', 'coerce'];
+
+const invalidFlag = (key) =>
+  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a boolean`);
 
 const invalidCodec = (key) =>
   new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
@@ -86,7 +90,9 @@ class AbstractType {
     }
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
-    if (this.nullable !== undefined && typeof this.nullable !== 'boolean') throw invalidNullable();
+    for (const key of FLAGS) {
+      if (this[key] !== undefined && typeof this[key] !== 'boolean') throw invalidFlag(key);
+    }
     checkCodecs(this);
     // The rule checks that apply to this field, compiled once: a field
     // without rules is its type check alone, and check is the hot path.

@@ -351,11 +351,11 @@
         },
         "formats": {
           "mark": "✅",
-          "text": "9 + your own (`./formats`)"
+          "text": "35 + your own (`./formats`)"
         },
         "jsTypes": {
           "mark": "✅",
-          "text": "Date, BigInt, Map, Set"
+          "text": "Date, BigInt, Map, Set; BSON (`./mongodb`)"
         },
         "refinements": {
           "mark": "✅",
@@ -402,8 +402,9 @@
           "text": "a field's `parse` (decoder)"
         },
         "coercion": {
-          "mark": "❌",
-          "text": "a decoder on a string field"
+          "mark": "✅",
+          "text": "`coerce: true` (call, kind or field) + `./coerce`",
+          "note": "Opt-in, in parse only (check never converts): strict decimal strings, `true`/`false`/`1`/`0`, ISO dates with a zone, never the empty string; a value a union branch accepts as it is is not converted; `coerce()` is the step alone."
         },
         "encode": {
           "mark": "✅",
@@ -447,15 +448,15 @@
         },
         "indexes": {
           "mark": "✅",
-          "text": "`index`, `primary`, `unique`"
+          "text": "`index`, `primary`, `unique`; driver specs (`./mongodb`)"
         },
         "relations": {
           "mark": "✅",
           "text": "`schema.relations`"
         },
         "derive": {
-          "mark": "⚠️",
-          "text": "`Projection`, `merge`; no partial"
+          "mark": "✅",
+          "text": "pick, omit, partial (deep), required, extend, keyof (`./derive`)"
         },
         "model": {
           "mark": "✅",

@@ -98,6 +98,35 @@ test('Types: js must name a registered type, built-in or custom', () => {
   assert.strictEqual(model.types.stamp.metadata.pg, 'timestamp');
 });
 
+test('Types: baseTypeOf follows the alias chain to the type a field validates as', () => {
+  const { baseTypeOf } = require('../../src/types.js');
+  const model = new Model(
+    {
+      money: { js: 'number' },
+      cents: { js: 'money' },
+      point: { construct() {}, checkType: () => true },
+    },
+    [['T', { Struct: {}, a: 'cents', b: 'money', c: 'number', d: 'point', e: 'T' }]],
+    null,
+    { registry: 'isolated' },
+  );
+  const { fields } = model.entities.get('T');
+  assert.strictEqual(baseTypeOf(fields.a).type, 'number');
+  assert.strictEqual(baseTypeOf(fields.b).type, 'number');
+  assert.strictEqual(baseTypeOf(fields.c).type, 'number');
+  assert.strictEqual(baseTypeOf(fields.c).source, undefined);
+  // A custom type with a check of its own ends the chain.
+  assert.strictEqual(baseTypeOf(fields.d).type, 'point');
+  assert.strictEqual(baseTypeOf(fields.d).source.js, undefined);
+  // The class of a reference field is the reference prototype's, whatever
+  // entity it names (`field.type` has the name).
+  assert.strictEqual(baseTypeOf(fields.e).type, 'reference');
+  assert.strictEqual(fields.e.type, 'T');
+  // A name the registry cannot resolve ends it where it stands.
+  const orphan = Object.create(fields.a, { root: { value: { types: {} } } });
+  assert.strictEqual(baseTypeOf(orphan).type, 'cents');
+});
+
 test('Types: an isolated model keeps its types to itself', () => {
   const asString = { js: 'string', metadata: { pg: 'text' } };
   const asNumber = { js: 'number', metadata: { pg: 'integer' } };

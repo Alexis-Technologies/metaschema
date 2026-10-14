@@ -82,11 +82,12 @@ const stripped = user.parse({ ...input, extra: 1 }, { unknown: 'strip' }).value;
 
 ## Options
 
-The [options of `check`](/guide/validation#options), plus one value of `unknown`:
+The [options of `check`](/guide/validation#options), plus one value of `unknown` and `coerce`:
 
 | Option | Meaning |
 | --- | --- |
 | `unknown: 'strip'` | keys the schema does not have are accepted by the check and left out of the output, at every depth; `'reject'` and `'ignore'` are what they are in `check`. `strip` is an option of `parse` alone: `check` throws for it |
+| `coerce` | `true` converts the input to the types of the fields before the check (`'42'` to a number, an ISO string to a Date), `false` does not; the schema's `coerce` metadata by default. See [Coercion](/guide/coercion) |
 | `root`, `maxErrors`, `references`, `messages` | as in `check`; `references` also decides which records the decoders enter (an id is never entered) |
 
 A schema's own `unknown` metadata (`{ Form: { unknown: 'ignore' } }`) is the default of its
@@ -297,6 +298,7 @@ and `serialize` takes an `InferOutput<D>` and gives an `Infer<D>`.
 | | `check` | `parse` | `~standard.validate` |
 | --- | --- | --- | --- |
 | returns | `ValidationResult` (`valid`, `issues`, `errors`, …) | `{ valid, value, issues }` | `{ value }` or `{ issues }`, or a promise of one |
+| coercion | never | with `coerce: true` (the call, the schema or a field), before the check | the schema's own metadata, or `libraryOptions` |
 | defaults | not applied: a missing required key is `required` | applied before the check | applied |
 | decoders, the schema's `parse` | not called | called on a valid value | called |
 | `unknown` | `reject` or `ignore`; the schema's own metadata by default | `reject`, `ignore` or `strip` | the schema's own metadata, or `libraryOptions` |

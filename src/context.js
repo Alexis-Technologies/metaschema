@@ -92,6 +92,11 @@ const configure = (context, options, parsing) => {
   if (options.unknown !== undefined) context.unknown = unknownOf(options.unknown, parsing);
   if (options.references !== undefined) context.references = referencesOf(options.references);
   if (options.root !== undefined) context.root = rootOf(options.root);
+  // Read by parse and parseAsync themselves, checked here with the rest.
+  const { coerce } = options;
+  if (parsing && coerce !== undefined && typeof coerce !== 'boolean') {
+    throw invalid('coerce', 'a boolean', coerce);
+  }
 };
 
 // One object shape for every context: the keys are always present, in this
@@ -137,4 +142,4 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
   return context;
 };
 
-module.exports = { createContext, UNLIMITED, MAX_DEPTH };
+module.exports = { createContext, referencesOf, UNLIMITED, MAX_DEPTH };

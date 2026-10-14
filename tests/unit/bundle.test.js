@@ -12,7 +12,7 @@ const ROOT = path.join(__dirname, '../..');
 // refers to itself) and minifiers mangle them, so any identity check based on
 // a class name silently breaks in a consumer's build. These tests load both
 // entry points the way a bundler would and validate through the result.
-// One bundle of the core entry and the three subpaths, the way an
+// One bundle of the core entry and the subpaths, the way an
 // application that uses them gets them: a subpath shares the core's modules,
 // and its register() reaches the same Schema and Model classes.
 const bundle = async (entry, options) => {
@@ -24,6 +24,9 @@ const bundle = async (entry, options) => {
     "model: require('./src/model/index.js'),",
     "stream: require('./src/stream/index.js'),",
     "formats: require('./src/formats/index.js'),",
+    "derive: require('./src/derive/index.js'),",
+    "coerce: require('./src/coerce/index.js'),",
+    "mongodb: require('./src/mongodb/index.js'),",
     '};',
   ].join(' ');
   const result = await esbuild.build({
@@ -43,8 +46,8 @@ const loadBrowser = async (minify) => {
     globalName: 'metaschema',
     minify,
   });
-  // A browser has the Web Streams; a bare context has not.
-  const context = vm.createContext({ TransformStream });
+  // A browser has the Web Streams and atob; a bare context has not.
+  const context = vm.createContext({ TransformStream, atob });
   vm.runInContext(code, context);
   return context.metaschema;
 };
@@ -75,11 +78,69 @@ const evaluates = (() => {
 })();
 
 const checkBundle = async (
-  { core, generators, compile, model: tools, stream, formats },
+  { core, generators, compile, model: tools, stream, formats, derive, coerce, mongodb },
   browser,
 ) => {
   const { Schema, Model } = core;
   assert.strictEqual('saveTypes' in core, false);
+  // The coerce subpath through the bundle: the policy is the core's, the
+  // converters the subpath's, and a parse that coerces before register()
+  // says so.
+  const query = new Schema('Query', { Form: { coerce: true }, page: 'integer', all: 'boolean' });
+  assert.throws(() => query.parse({ page: '2' }), { code: 'ERR_NOT_REGISTERED' });
+  coerce.register();
+  assert.deepStrictEqual({ ...query.parse({ page: '2', all: '1' }).value }, { page: 2, all: true });
+  assert.deepStrictEqual(
+    { ...coerce.coerce(query, { page: '3', all: 'false' }) },
+    {
+      page: 3,
+      all: false,
+    },
+  );
+  assert.strictEqual(query.check({ page: '2', all: true }).valid, false);
+  // The mongodb subpath through the bundle, with a driver of its own: the
+  // id of a stored record is `_id`, an ObjectId, and comes back.
+  class ObjectId {
+    constructor(hex) {
+      this.hex = hex;
+    }
+
+    get _bsontype() {
+      return 'ObjectId';
+    }
+
+    toHexString() {
+      return this.hex;
+    }
+  }
+  const stores = new Model({ ...mongodb.types }, [
+    ['Shop', { Entity: {}, name: { type: 'string', unique: true } }],
+  ]);
+  const shop = stores.entities.get('Shop');
+  assert.throws(() => mongodb.toDocument(shop, {}), { code: 'ERR_NOT_REGISTERED' });
+  mongodb.register({ bson: { ObjectId } });
+  const id = 'c'.repeat(24);
+  const stored = mongodb.toDocument(shop, { shopId: id, name: 'x' });
+  assert.deepStrictEqual(Object.keys(stored), ['_id', 'name']);
+  assert.strictEqual(stored['_id'].toHexString(), id);
+  assert.deepStrictEqual(
+    { ...mongodb.fromDocument(shop, stored).value },
+    { shopId: id, name: 'x' },
+  );
+  assert.strictEqual(mongodb.checkUpdate(shop, { $set: { name: 1 } }).valid, false);
+  // The derive subpath through the bundle: a stored kind becomes a struct
+  // without its id, the index whose columns stay stays, and the methods
+  // chain once registered.
+  const member = new Model({}, [
+    ['Member', { Entity: {}, login: 'string', password: 'string', byLogin: { unique: ['login'] } }],
+  ]).entities.get('Member');
+  const created = derive.omit(member, ['password']);
+  assert.strictEqual(created.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(created.fields), ['login']);
+  assert.deepStrictEqual(Object.keys(created.indexes), ['byLogin']);
+  assert.strictEqual(member.partial, undefined);
+  derive.register();
+  assert.strictEqual(member.omit(['password']).partial().check({}).valid, true);
   // The stream subpath through the bundle: an entry per record, and a
   // transform of a stream that lets the valid records through.
   const streamRows = [{ name: 'x', qty: 1 }, { name: 1 }];
@@ -116,6 +177,18 @@ const checkBundle = async (
   assert.deepStrictEqual(errorsOf(formatted.check({ email: 'nope' })), [
     'Field "email" is not a valid email',
   ]);
+  const token = Schema.from({
+    jwt: { type: 'string', format: 'jwt' },
+    id: { type: 'string', format: 'ulid' },
+  });
+  assert.strictEqual(
+    token.check({ jwt: 'eyJhbGciOiJub25lIn0.e30.', id: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }).valid,
+    true,
+  );
+  assert.strictEqual(
+    token.check({ jwt: 'e30.e30.', id: '01ARZ3NDEKTSV4RRFFQ69G5FAV' }).valid,
+    false,
+  );
   // The model subpath through the bundle: a snapshot of the bundled Model
   // class comes back as one, and the changes between two versions classify.
   const prev = new Model({}, [['Item', { Entity: {}, name: 'string', qty: 'integer' }]]);

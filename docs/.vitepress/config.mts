@@ -135,6 +135,7 @@ export default withMermaid(
               { text: 'Unions, nullable and null', link: '/guide/unions' },
               { text: 'References', link: '/guide/references' },
               { text: 'Kinds and Metadata', link: '/guide/kinds-and-metadata' },
+              { text: 'Deriving schemas', link: '/guide/derive' },
               { text: 'Custom Types', link: '/guide/custom-types' },
             ],
           },
@@ -143,6 +144,7 @@ export default withMermaid(
             items: [
               { text: 'Validation', link: '/guide/validation' },
               { text: 'Parse and serialize', link: '/guide/parse' },
+              { text: 'Coercion', link: '/guide/coercion' },
               { text: 'Records and streams', link: '/guide/streaming' },
               { text: 'Domain Models', link: '/guide/model' },
               { text: 'Model evolution', link: '/guide/evolution' },
@@ -151,6 +153,7 @@ export default withMermaid(
               { text: 'TypeScript', link: '/guide/typescript' },
               { text: 'Standard Schema', link: '/guide/standard-schema' },
               { text: 'JSON Schema', link: '/guide/json-schema' },
+              { text: 'MongoDB', link: '/guide/mongodb' },
               { text: 'The JIT backend', link: '/guide/compile' },
               { text: 'Browser', link: '/guide/browser' },
             ],

@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-10-14
+
+3.3 closes the gaps the comparison with the alternatives showed. `parse` converts the text of a
+query string, a form or a file to the types of the fields when asked (coercion), schemas are
+derived from schemas (`pick`, `omit`, `partial`, `required`, `extend`, `keyof`), the string
+formats grow from nine to 35, and the `@alexify/metaschema/mongodb` subpath is the schema side
+of a MongoDB program without a dependency on the driver. The review of the release before its
+tag made the converters and five formats linear in the stack as well as in time on strings of
+megabytes, capped the `regex` format, and closed the ways a document could carry a foreign
+`_id` or throw on `null`. The changes in behaviour (`coerce` is a reserved key, `infer` writes
+the more specific formats, a format of the program under the name of a new built-in takes its
+place) are listed under Changed.
+
+### Added
+
+- **Coercion.** `parse(value, { coerce: true })`, the kind metadata
+  `{ Form: { coerce: true } }` (so `~standard.validate` too) or a field's `coerce: true|false`
+  converts the input to the types of the fields before the check: decimal strings to numbers
+  and bigints, `'true'`/`'false'`/`'1'`/`'0'` to booleans, ISO dates with their zone (and epoch
+  milliseconds) to `Date`, a single value to a list, an array to a `Set`, an object to a `Map`,
+  the written form of an enum member to the member. The converters are strict and never touch
+  the empty string; a value a union branch accepts as it is is not converted; `check` never
+  converts, and `Infer` does not change. The core has the policy and a step in the pass before
+  the check; the converters are the new `@alexify/metaschema/coerce` subpath's
+  (`register(custom)` adds the program's own by type name, an alias type converts as its base),
+  and `coerce(schema, value)` is that pass alone. A parse that coerces before `register()` is
+  `ERR_NOT_REGISTERED` as it enters the schema, whatever the value holds (an empty body does
+  not hide a missing `register()`); `register(custom)` checks every entry before it writes
+  any; `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` are new codes. The converters are
+  linear on hostile strings (a run of a hundred thousand digits that is not a number costs
+  nothing), and `toMap` converts a plain object or a list of pairs only.
+  `register(custom, { onError })` is told of a converter that threw (the value is left to the
+  check either way), the policy is read from own keys only (a `coerce` set on
+  `Object.prototype` elsewhere turns nothing on), and `coerce` on a reference checked as an id
+  or on a field of `any`, `unknown`, `json` or `null` is a `dead-coerce` warning. The converter
+  of a field is resolved once and kept with the field (a JIT parse that coerces is 11% faster
+  than with a lookup per value, a parse of enums of 32 members 2.3 times: the members and their
+  written forms are indexed once). `pnpm bench` has rows for a nested struct, plain unions,
+  enums and a plain and a coercing parse in turn, and for `toDocument`/`fromDocument`.
+  `coerce(schema, value, { report })` fills the array given with the path of every key the
+  pass changed; `new Model(types, entities, database, { coercions })` gives a model converters
+  of its own type names, read before the process-wide table for the fields of its entities
+  (what an isolated registry is to the types); the branches of a plain union are prepared
+  first and tried only when one of them changes the value, so a parse over a union of records
+  that nest unions is linear where nothing applies (4 times faster at a depth of 12).
+- **`@alexify/metaschema/derive`.** `pick`, `omit`, `partial` (`keys`, `deep`, `defaults`),
+  `required`, `extend` and `keyof` build a new Schema from the definition a schema was built
+  from: a stored kind or a projection becomes a struct without the id of the kind (unless
+  named), `partial` leaves the defaults out, `pick`, `omit` and `partial` drop the schema's own
+  functions, `extend` replaces fields in place (where `merge` unifies), indexes stay while their
+  columns do. `register()` installs them as methods (`schema.omit(['id']).partial()`), typed by
+  the definition. `ERR_UNKNOWN_FIELD` names a key the schema has no field of.
+- **26 string formats.** `ulid`, `jwt`, `nanoid`, `cuid2`, `iso-date-time`, `iso-time`,
+  `duration`, `cidrv4`, `cidrv6`, `mac`, `url`, `uri-reference`, `uri-template`,
+  `json-pointer`, `relative-json-pointer`, `regex`, `e164`, `iban`, `hex-color`, `base64`,
+  `base64url`, `hex`, `emoji`, `semver`, `slug` and `credit-card` (the expressions of
+  ajv-formats, zod, valibot and semver.org, held to them value by value). A format entry may
+  carry a `pattern`, which `toJSONSchema` writes beside a name JSON Schema does not know (the
+  one assertion of the mongodb target) and `fromJSONSchema` drops again; OpenAPI's `byte` is
+  `base64`. No built-in test overflows the stack of the regex engine on a string of
+  megabytes: `email`, `json-pointer`, `relative-json-pointer`, `uri-template`, `slug` and
+  `semver` are read by a scanner with the same verdicts, and a `regex` longer than 4096
+  characters is not one (compiling it costs memory in proportion). `register()` returns the
+  names of the built-in formats the call replaced with the program's own.
+- **`@alexify/metaschema/mongodb`.** The BSON types `objectId`, `decimal128` and `binary`
+  (recognized without importing bson), `register({ bson })` with the program's driver,
+  `toDocument`/`fromDocument` (the id of a stored record as `_id`, ids of references as
+  ObjectIds, and back), `indexesOf` for `createIndexes`, `checkUpdate`/`toUpdate` for the
+  driver's updates by dotted path. No I/O and no dependency. An `_id` beside the id field of a
+  record is not written (`toDocument` of a body checked with `unknown: 'ignore'` cannot
+  choose the `_id`), `fromDocument(schema, null)` is a `type` issue rather than a throw, a
+  value of a class at the root is `ERR_INVALID_TARGET`, reading a document and `ids:
+  'string'` need no driver, and `binary` is coerced from text of the base64 shape only. The
+  walks of a document stop at `maxDepth` (128, an option of `toDocument` and `toUpdate`) as
+  the check does, instead of recursing until the stack ends; `checkUpdate` reports a path with
+  an empty segment, into a part a field cannot have or to the `_id` of the document whatever
+  the policy for unknown keys says, a path through more records than `maxDepth` as a `depth`
+  issue, and names what an operator takes in its issues (`array` for a `$push` on a field
+  that is no list, `number` for an `$inc` on a string); `register({ bson })` installs the
+  converters of the BSON types the module can build only, `decimal128` is coerced from a
+  decimal written as one or a finite number (`fromString` of the driver reads `NaN`, `inf`
+  and an exponent), and an element of a list of ids (`partners.0`) is an id in `checkUpdate`
+  and `toUpdate`. The subpath is tested against the real `bson` (a devDependency) as well as
+  the fakes.
+- **`ids: 'objectId'`** for the mongodb target of `toJSONSchema`: the validator of the
+  documents `toDocument` writes.
+- `pnpm size` measures a subpath on top of another it requires (`./mongodb` on `./coerce`).
+
+### Changed
+
+- **The core gate is 19 KB** (was 17.75 KB): coercion costs the core about 360 bytes; the core
+  measures 18.6 KB. The formats gate is 5 KB (was 2 KB; the scanners of the review took the
+  subpath to 4.0 KB), the compile gate 5 KB (was 4.25) and the model gate 13 KB (was 12): a
+  gate is raised to the next whole KB when a fix needs it, and never sits a few bytes over a
+  subpath. New gates: 2.5 KB for `./derive`, 2 KB for `./coerce`, 4 KB for `./mongodb` (3.5 before the review: the depth limit and the markers of the paths took the subpath over it).
+- **`coerce` is a reserved key** of a field definition and of the kind metadata. A field
+  `coerce` that is not a boolean is `ERR_INVALID_DEFINITION` (was an `unknown-option` warning),
+  a kind metadata `coerce` that is not a boolean is `ERR_INVALID_OPTIONS` (was an ordinary
+  custom key), and a kind metadata `coerce: true` makes every `parse` of the schema need
+  `register()` of `./coerce`.
+- **An option of a call that is not what it must be carries `code: 'ERR_INVALID_OPTION'`**
+  (a new `RuntimeErrorCode`): the `TypeError` of `maxErrors`, `references`, `root`, the
+  `coerce` of a parse, and of the options of `./stream`, `./derive` and `./mongodb` had no
+  code. The options of `./derive` are the call's (`keys` that is no list, options that are no
+  object are `ERR_INVALID_OPTION`, a `TypeError`; they were `ERR_INVALID_OPTIONS`, a
+  `SchemaDefinitionError`); its `metadata` stays a definition (`ERR_INVALID_OPTIONS`), and
+  `keyof` with a `metadata` is `ERR_INVALID_OPTIONS` (a schema of an enum has no kind; it was
+  ignored).
+- The rule of the id field of a stored kind (`orderId`, `id` for an anonymous schema) is
+  `idFieldOf` of `kinds.js`, read by `./derive`, `./mongodb` and `toJSONSchema`; the alias
+  chain of a custom type ends in `baseTypeOf` of `types.js`, read by the generators, `sample`
+  and `checkUpdate`; the shapes of the walks of `./mongodb` are named once (`SHAPES`) and held
+  to the core's by a test.
+- **`infer` writes the more specific formats**: a column of http(s) addresses is `url` (was
+  `uri`), local date-times are `iso-date-time`, ULIDs `ulid`, durations `duration`.
+- **A format of the program under the name of a built-in takes its place** instead of throwing
+  `ERR_FORMAT_REGISTERED`, so a format a program registered as `ulid` before 3.3 keeps working.
+- `merge` and `derive` share the code that turns a schema back into a definition
+  (`model/data.js`).
+
 ## [3.2.0] - 2026-10-12
 
 3.2 takes a schema to the records around it. The new `@alexify/metaschema/stream` subpath runs
@@ -1274,7 +1394,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v2.0.0...v3.0.0

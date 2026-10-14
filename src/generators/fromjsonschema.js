@@ -257,9 +257,14 @@ const typed = (context, node, type, used) => {
       }
     }
     // A format the formats subpath registered is the rule; any other stays
-    // the annotation JSON Schema says it is.
+    // the annotation JSON Schema says it is. OpenAPI's `byte` is base64, and
+    // the shape the export writes beside a format is the format's own.
     const format = take('format');
-    if (typeof format === 'string' && FORMATS[format] !== undefined) def.format = format;
+    const name = format === 'byte' && FORMATS.byte === undefined ? 'base64' : format;
+    if (typeof name === 'string' && FORMATS[name] !== undefined) {
+      def.format = name;
+      if (def.pattern === FORMATS[name].pattern) delete def.pattern;
+    }
     return def;
   }
   if (type === 'number' || type === 'integer') {

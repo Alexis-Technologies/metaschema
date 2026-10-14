@@ -43,134 +43,134 @@
 <text class="tick" x="676" y="624" text-anchor="middle">100M</text>
 <line class="axis" x1="265" y1="88" x2="265" y2="608"/>
 <g><title>TypeBox · Compile(…).Check()
-78,175,699 ops/s
-12.8 ns per call
-samples 78.1M – 78.4M
+79,929,971 ops/s
+12.5 ns per call
+samples 79.6M – 80.1M
 typebox@1.3.36</title>
 <text class="label" x="20" y="105">TypeBox</text>
 <text class="sublabel" x="20" y="120">Compile(…).Check()</text>
-<path class="bar" d="M265,101H657.3508327747087A4,4 0 0 1 661.3508327747087,105V111A4,4 0 0 1 657.3508327747087,115H265Z"/>
-<text class="value" x="667.3508327747087" y="114">78.2M</text>
+<path class="bar" d="M265,101H658.671222776763A4,4 0 0 1 662.671222776763,105V111A4,4 0 0 1 658.671222776763,115H265Z"/>
+<text class="value" x="668.671222776763" y="114">79.9M</text>
 </g>
 <g><title>metaschema · check() · compile(), JIT
-38,835,019 ops/s
+38,904,600 ops/s
 25.7 ns per call
-samples 38.1M – 39.1M
-@alexify/metaschema@3.2.0</title>
+samples 38.8M – 39M
+@alexify/metaschema@3.3.0</title>
 <text class="label primary" x="20" y="145">metaschema</text>
 <text class="sublabel" x="20" y="160">check() · compile(), JIT</text>
-<path class="bar primary" d="M265,141H615.7236232531416A4,4 0 0 1 619.7236232531416,145V151A4,4 0 0 1 615.7236232531416,155H265Z"/>
-<text class="value" x="625.7236232531416" y="154">38.8M</text>
+<path class="bar primary" d="M265,141H615.8301312702956A4,4 0 0 1 619.8301312702956,145V151A4,4 0 0 1 615.8301312702956,155H265Z"/>
+<text class="value" x="625.8301312702956" y="154">38.9M</text>
 </g>
 <g><title>Ajv · compile(…)(value), draft 2020-12
-34,081,705 ops/s
-29.3 ns per call
-samples 33.8M – 34.3M
+34,559,984 ops/s
+28.9 ns per call
+samples 34.5M – 34.6M
 ajv@8.20.0</title>
 <text class="label" x="20" y="185">Ajv</text>
 <text class="sublabel" x="20" y="200">compile(…)(value), draft 2020-12</text>
-<path class="bar" d="M265,181H607.9554193399392A4,4 0 0 1 611.9554193399392,185V191A4,4 0 0 1 607.9554193399392,195H265Z"/>
-<text class="value" x="617.9554193399392" y="194">34.1M</text>
+<path class="bar" d="M265,181H608.7845734502184A4,4 0 0 1 612.7845734502184,185V191A4,4 0 0 1 608.7845734502184,195H265Z"/>
+<text class="value" x="618.7845734502184" y="194">34.6M</text>
 </g>
 <g><title>Zod · safeParse()
-12,307,062 ops/s
-81.3 ns per call
-samples 12.3M – 12.4M
+12,765,694 ops/s
+78.3 ns per call
+samples 12.7M – 12.8M
 zod@4.6.6</title>
 <text class="label" x="20" y="225">Zod</text>
 <text class="sublabel" x="20" y="240">safeParse()</text>
-<path class="bar" d="M265,221H547.3511489347263A4,4 0 0 1 551.3511489347263,225V231A4,4 0 0 1 547.3511489347263,235H265Z"/>
-<text class="value" x="557.3511489347263" y="234">12.3M</text>
+<path class="bar" d="M265,221H549.528085479822A4,4 0 0 1 553.528085479822,225V231A4,4 0 0 1 549.528085479822,235H265Z"/>
+<text class="value" x="559.528085479822" y="234">12.8M</text>
 </g>
 <g><title>metaschema · check() · closures
-8,665,060 ops/s
-115 ns per call
-samples 8.57M – 8.72M
-@alexify/metaschema@3.2.0</title>
+9,024,731 ops/s
+111 ns per call
+samples 9M – 9.04M
+@alexify/metaschema@3.3.0</title>
 <text class="label secondary" x="20" y="265">metaschema</text>
 <text class="sublabel" x="20" y="280">check() · closures</text>
-<path class="bar secondary" d="M265,261H526.4747081662431A4,4 0 0 1 530.4747081662431,265V271A4,4 0 0 1 526.4747081662431,275H265Z"/>
-<text class="value" x="536.4747081662431" y="274">8.67M</text>
+<path class="bar secondary" d="M265,261H528.8944972827053A4,4 0 0 1 532.8944972827053,265V271A4,4 0 0 1 528.8944972827053,275H265Z"/>
+<text class="value" x="538.8944972827053" y="274">9.02M</text>
 </g>
 <g><title>ArkType · type(value) · allows()
-7,272,761 ops/s
-137 ns per call
-samples 7.24M – 7.28M
+7,404,712 ops/s
+135 ns per call
+samples 7.38M – 7.42M
 arktype@2.2.8</title>
 <text class="label" x="20" y="305">ArkType</text>
 <text class="sublabel" x="20" y="320">type(value) · allows()</text>
-<path class="bar" d="M265,301H516.0528074872503A4,4 0 0 1 520.0528074872503,305V311A4,4 0 0 1 516.0528074872503,315H265Z"/>
-<text class="value" x="526.0528074872503" y="314">7.27M</text>
+<path class="bar" d="M265,301H517.1226205934881A4,4 0 0 1 521.1226205934881,305V311A4,4 0 0 1 517.1226205934881,315H265Z"/>
+<text class="value" x="527.1226205934881" y="314">7.4M</text>
 </g>
 <g><title>Valibot · safeParse() · is()
-2,938,937 ops/s
-340 ns per call
-samples 2.87M – 2.95M
+2,952,091 ops/s
+339 ns per call
+samples 2.92M – 2.97M
 valibot@1.5.0</title>
 <text class="label" x="20" y="345">Valibot</text>
 <text class="sublabel" x="20" y="360">safeParse() · is()</text>
-<path class="bar" d="M265,341H462.1420652535977A4,4 0 0 1 466.1420652535977,345V351A4,4 0 0 1 462.1420652535977,355H265Z"/>
-<text class="value" x="472.1420652535977" y="354">2.94M</text>
+<path class="bar" d="M265,341H462.40778452287987A4,4 0 0 1 466.40778452287987,345V351A4,4 0 0 1 462.40778452287987,355H265Z"/>
+<text class="value" x="472.40778452287987" y="354">2.95M</text>
 </g>
 <g><title>Effect Schema · decodeUnknownResult() · is()
-1,925,643 ops/s
-519 ns per call
-samples 1.9M – 1.94M
+1,971,799 ops/s
+507 ns per call
+samples 1.95M – 1.98M
 effect@4.0.3</title>
 <text class="label" x="20" y="385">Effect Schema</text>
 <text class="sublabel" x="20" y="400">decodeUnknownResult() · is()</text>
-<path class="bar" d="M265,381H436.98687290297283A4,4 0 0 1 440.98687290297283,385V391A4,4 0 0 1 436.98687290297283,395H265Z"/>
-<text class="value" x="446.98687290297283" y="394">1.93M</text>
+<path class="bar" d="M265,381H438.3961941645029A4,4 0 0 1 442.3961941645029,385V391A4,4 0 0 1 438.3961941645029,395H265Z"/>
+<text class="value" x="448.3961941645029" y="394">1.97M</text>
 </g>
 <g><title>Metarhia metaschema · check() · strict only
-925,468 ops/s
-1.08 µs per call
-samples 913k – 934k
+957,759 ops/s
+1.04 µs per call
+samples 957k – 960k
 metaschema@2.2.2</title>
 <text class="label" x="20" y="425">Metarhia metaschema</text>
 <text class="sublabel" x="20" y="440">check() · strict only</text>
-<path class="bar" d="M265,421H393.3914921277031A4,4 0 0 1 397.3914921277031,425V431A4,4 0 0 1 393.3914921277031,435H265Z"/>
-<text class="value" x="403.3914921277031" y="434">925k</text>
+<path class="bar" d="M265,421H395.43213052051505A4,4 0 0 1 399.43213052051505,425V431A4,4 0 0 1 395.43213052051505,435H265Z"/>
+<text class="value" x="405.43213052051505" y="434">958k</text>
 </g>
 <g><title>Joi · validate(), convert: false
-834,171 ops/s
-1.2 µs per call
-samples 821k – 838k
+843,331 ops/s
+1.19 µs per call
+samples 828k – 849k
 joi@18.2.9</title>
 <text class="label" x="20" y="465">Joi</text>
 <text class="sublabel" x="20" y="480">validate(), convert: false</text>
-<path class="bar" d="M265,461H387.21195675532783A4,4 0 0 1 391.21195675532783,465V471A4,4 0 0 1 387.21195675532783,475H265Z"/>
-<text class="value" x="397.21195675532783" y="474">834k</text>
+<path class="bar" d="M265,461H387.8617697584051A4,4 0 0 1 391.8617697584051,465V471A4,4 0 0 1 387.8617697584051,475H265Z"/>
+<text class="value" x="397.8617697584051" y="474">843k</text>
 </g>
 <g><title>Superstruct · validate() · is()
-435,910 ops/s
-2.29 µs per call
-samples 428k – 443k
+452,622 ops/s
+2.21 µs per call
+samples 446k – 456k
 superstruct@2.0.2</title>
 <text class="label" x="20" y="505">Superstruct</text>
 <text class="sublabel" x="20" y="520">validate() · is()</text>
-<path class="bar" d="M265,501H348.5973659449138A4,4 0 0 1 352.5973659449138,505V511A4,4 0 0 1 348.5973659449138,515H265Z"/>
-<text class="value" x="358.5973659449138" y="514">436k</text>
+<path class="bar" d="M265,501H350.8357559562814A4,4 0 0 1 354.8357559562814,505V511A4,4 0 0 1 350.8357559562814,515H265Z"/>
+<text class="value" x="360.8357559562814" y="514">453k</text>
 </g>
 <g><title>Yup · validateSync() · isValidSync(), strict
-291,261 ops/s
-3.43 µs per call
-samples 288k – 293k
+297,608 ops/s
+3.36 µs per call
+samples 297k – 301k
 yup@1.7.1</title>
 <text class="label" x="20" y="545">Yup</text>
 <text class="sublabel" x="20" y="560">validateSync() · isValidSync(), strict</text>
-<path class="bar" d="M265,541H324.60668454305A4,4 0 0 1 328.60668454305,545V551A4,4 0 0 1 324.60668454305,555H265Z"/>
-<text class="value" x="334.60668454305" y="554">291k</text>
+<path class="bar" d="M265,541H325.88933455726306A4,4 0 0 1 329.88933455726306,545V551A4,4 0 0 1 325.88933455726306,555H265Z"/>
+<text class="value" x="335.88933455726306" y="554">298k</text>
 </g>
 <g><title>TypeBox · Value.Check()
-189,824 ops/s
-5.27 µs per call
-samples 188k – 190k
+190,763 ops/s
+5.24 µs per call
+samples 190k – 193k
 typebox@1.3.36</title>
 <text class="label" x="20" y="585">TypeBox</text>
 <text class="sublabel" x="20" y="600">Value.Check()</text>
-<path class="bar" d="M265,581H299.13412683038223A4,4 0 0 1 303.13412683038223,585V591A4,4 0 0 1 299.13412683038223,595H265Z"/>
-<text class="value" x="309.13412683038223" y="594">190k</text>
+<path class="bar" d="M265,581H299.42776862831624A4,4 0 0 1 303.42776862831624,585V591A4,4 0 0 1 299.42776862831624,595H265Z"/>
+<text class="value" x="309.42776862831624" y="594">191k</text>
 </g>
-<text class="caption" x="20" y="649">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each library in a fresh process · 2026-10-11</text>
+<text class="caption" x="20" y="649">Apple M3 Max · 16 cores · Node v24.14.1 · median of 5 × 1 s samples, each library in a fresh process · 2026-10-13</text>
 </svg>

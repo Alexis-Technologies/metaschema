@@ -184,7 +184,9 @@ it is to `parse`: a `TypeError` with the code `ERR_ASYNC_VALIDATOR`.
 
 ## What it is not
 
-- **Not a coercion.** `value` is the value that was given with the schema's defaults and decoders
-  applied, and nothing else: a string is not turned into a number because the field is a number.
-  A decoder is the place for that, explicitly.
+- **No coercion unless the schema asks for it.** `value` is the value that was given with the
+  schema's defaults and decoders applied: a string is not turned into a number because the field
+  is a number, unless the schema's metadata says `coerce: true` (`{ Form: { coerce: true } }`)
+  or the call passes `libraryOptions: { coerce: true }`; see [Coercion](/guide/coercion). A
+  decoder stays the place for any other transformation.
 - **Not a JSON Schema.** `jsonSchema` renders the schema; `validate` validates the value.

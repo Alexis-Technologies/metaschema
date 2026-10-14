@@ -86,6 +86,7 @@ and a model collects the warnings of its entities and adds its own:
 | `unknown-option` | a key of a field definition its type does not read (`{ type: 'string', shorthand: true }`); annotations (`default`, `unique`, `index`, `primary`, `title`, `description`, `examples`, `deprecated`) are known, and a custom type with its own `construct` owns its keys | `schema.warnings` |
 | `unbounded-pattern` | a `pattern` without a `length.max`; see [Patterns and ReDoS](/guide/validation#patterns-and-redos) | `schema.warnings` |
 | `dead-aliases` | `aliases` on anything but a field of a struct (an element, a branch, a schema of one type), where nothing reads them | `schema.warnings` |
+| `dead-coerce` | `coerce` where no conversion can happen: on a reference checked as an id (the record it names is never entered), on `any`, `unknown`, `json` or `null`; see [coercion](/guide/coercion) | `schema.warnings` |
 | `missing-index-field` | an index (`index`, `primary`, `unique`) naming a field the schema does not have | `schema.warnings` |
 | `missing-reference` | a reference to an entity that is not in the model | `model.warnings` (also `schema.checkConsistency()`) |
 | `missing-type` | a type the schema can no longer resolve after a namespace is detached | `schema.checkConsistency()` |

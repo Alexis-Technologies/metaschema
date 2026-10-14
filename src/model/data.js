@@ -106,6 +106,21 @@ const structDefinitionOf = (fields) => {
   return def;
 };
 
+// The kind metadata of a built schema, as its definition gave it.
+const metadataOf = (schema) => {
+  const { kind, scope, store, allow, unknown, custom } = schema;
+  return { kind, scope, store, allow, unknown, ...custom };
+};
+
+// A struct definition: the kind of `base` (unless `metadata` names one) as
+// its first key, so the fields after it read as a struct whatever their names.
+const structDefinition = (base, metadata, fields) => {
+  const { kind = base.kind, ...rest } = { ...base, ...metadata };
+  const definition = { [capitalize(kind)]: rest };
+  for (const key of Object.keys(fields)) define(definition, key, fields[key]);
+  return definition;
+};
+
 module.exports = {
   DEPTH,
   invalidSnapshot,
@@ -119,4 +134,6 @@ module.exports = {
   capitalize,
   definitionOf,
   structDefinitionOf,
+  metadataOf,
+  structDefinition,
 };

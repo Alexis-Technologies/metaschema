@@ -32,11 +32,15 @@ jobs:
       - run: pnpm format:check
       # Smoke: keeps the bundle-size script working, fails if a Node builtin
       # ever reaches the browser bundle, and fails over the min+gzip budgets.
-      # 17.75 KB per core entry, 7.5 KB for the ./generators subpath, 4.25 KB
-      # for the ./compile subpath, 12 KB for the ./model subpath, 1.5 KB for
-      # the ./stream subpath and 2 KB for the ./formats subpath on top of it
-      # are the 3.2 budgets (CLAUDE.md "Budgets").
-      - run: pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2
+      # 19 KB per core entry, 7.5 KB for the ./generators subpath, 5 KB for
+      # the ./compile subpath, 13 KB for the ./model subpath, 1.5 KB for the
+      # ./stream subpath, 5 KB for the ./formats subpath, 2.5 KB for the
+      # ./derive subpath, 2 KB for the ./coerce subpath on top of it and 4 KB
+      # for the ./mongodb subpath on top of both are the 3.3 budgets
+      # (CLAUDE.md "Budgets": a gate is raised to the next whole KB when a
+      # fix needs it, never lowered under a subpath that sits a few bytes
+      # below it).
+      - run: pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4
 
   types:
     runs-on: ubuntu-latest

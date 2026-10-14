@@ -37,18 +37,22 @@ a subpath that imports the core and registers nothing until it is asked to.
 
 ```mermaid
 flowchart LR
-    GEN["./generators · 7.1 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
+    GEN["./generators · 7.3 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
     COMP["./compile · 4.2 KB<br/>compile · register · canEval"] --> CORE
     MOD["./model · 12.0 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
     STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
-    FMT["./formats · 1.3 KB<br/>email · uuid · date-time …"] --> CORE
+    FMT["./formats · 4.0 KB<br/>35 formats · your own"] --> CORE
+    DER["./derive · 1.9 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
+    COE["./coerce · 1.7 KB<br/>converters · coerce()"] --> CORE
+    MDB["./mongodb · 3.5 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
-    CORE["@alexify/metaschema · 17.7 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
+    CORE["@alexify/metaschema · 18.6 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
 ```
 
-The sizes are min+gzip, a subpath measured as what it adds to the core. Each subpath exports
-functions and an explicit `register()` that installs them as methods; nothing in the core
-requires a subpath, so a bundler drops the ones a program does not import.
+The sizes are min+gzip, a subpath measured as what it adds to the core (`./mongodb` to the core
+and `./coerce`, which it requires). Each subpath exports functions and an explicit `register()`
+that installs them as methods or fills a table of the core; nothing in the core requires a
+subpath, so a bundler drops the ones a program does not import.
 
 | Layer | Modules (under `src/`) | Responsibility |
 | --- | --- | --- |
@@ -56,9 +60,9 @@ requires a subpath, so a bundler drops the ones a program does not import.
 | [Types](/guide/types) | `prototypes/*.js`, `rules.js` | one prototype per type with its `compile`; the rules (`length`, `min`/`max`, `pattern`, `format`) |
 | Structs | `struct.js` | the null-prototype field dictionary, its plan and its compiled check |
 | [Validation](/guide/validation) | `schema.js`, `context.js`, `issues.js`, `result.js`, `locales/` | the context of one call, issues as data, the async drain, messages rendered once |
-| [Parse](/guide/parse) | `codec.js` | defaults, strip, decoders and serializers as passes over the built types |
+| [Parse](/guide/parse) | `codec.js` | coercion, defaults, strip, decoders and serializers as passes over the built types |
 | [Models](/guide/model) | `model.js`, `snapshot.js`, `lint.js` | entities ordered by dependency, the snapshot, the warnings |
-| Subpaths | `generators/`, `compile/`, `model/`, `stream/`, `formats/` | each bundled only where it is imported |
+| Subpaths | `generators/`, `compile/`, `model/`, `stream/`, `formats/`, `derive/`, `coerce/`, `mongodb/` | each bundled only where it is imported |
 | [Platform](/guide/browser) | `runtime/node.js`, `runtime/browser.js` | `writeFile` behind `saveTypes`, the only file that touches a Node builtin |
 
 ## From a definition to a check
@@ -120,11 +124,13 @@ when `result.errors` is read. `count >= limit` stops every loop at `maxErrors`.
 
 `parse` is the same check between two passes of `codec.js` over the built types. A pass returns
 after one bit test when the schema carries nothing for it, so a schema without defaults and
-decoders parses at about the speed of its check.
+decoders parses at about the speed of its check. With [coercion](/guide/coercion) on, the pass
+before the check enters every field and converts the input through the converters
+`./coerce` registered.
 
 ```mermaid
 flowchart TB
-    IN["value"] --> P["prepare<br/>defaults of missing keys"]
+    IN["value"] --> P["prepare<br/>coercion (when asked) ·<br/>defaults of missing keys"]
     P --> RUN["schema[RUN]<br/>the check"]
     RUN -->|"valid"| F["finish<br/>strip · aliases renamed ·<br/>decoders, parts first"]
     RUN -->|"invalid"| BAD(["{ valid: false, issues }"])

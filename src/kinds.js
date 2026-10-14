@@ -33,12 +33,21 @@ const projection = (kind, meta, root) => {
   return { defs, metadata };
 };
 
+// The key of the id field a stored kind adds: named after the entity
+// (`orderId`), `id` for an anonymous schema.
+const idKeyOf = (name) => (name ? `${toLowerCamel(name)}Id` : 'id');
+
+// The id field of a built schema: the key above for a stored kind, null for
+// a memory kind. The one rule, read by the derive, mongodb and generators
+// subpaths (which each add what `_id` means to them).
+const idFieldOf = (schema) => (KIND_STORED.includes(schema.kind) ? idKeyOf(schema.name) : null);
+
 // The metadata of a kind over the defaults of its scope and store; a stored
 // kind adds the optional id field named after the entity.
 const kindOf = (defaultScope, defaultStore, stored) => (kind, meta, root) => {
   const { scope = defaultScope, store = defaultStore, allow = 'write' } = meta;
   const defs = Object.create(null);
-  if (stored) defs[root.name ? `${toLowerCamel(root.name)}Id` : 'id'] = '?string';
+  if (stored) defs[idKeyOf(root.name)] = '?string';
   return { defs, metadata: { ...meta, kind, scope, store, allow } };
 };
 
@@ -62,4 +71,4 @@ const getKindMetadata = (kind, meta = {}, root) => {
 
 const constants = { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW };
 
-module.exports = { constants, getKindMetadata };
+module.exports = { constants, getKindMetadata, idFieldOf };

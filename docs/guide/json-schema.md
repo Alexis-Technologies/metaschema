@@ -51,8 +51,8 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 17.7 KB min+gzip, `@alexify/metaschema/generators` adds
-7.1 KB on top. The subpath exports five functions:
+carry them: `@alexify/metaschema` is 18.6 KB min+gzip, `@alexify/metaschema/generators` adds
+7.3 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
 | --- | --- |
@@ -322,6 +322,21 @@ for (const [name, $jsonSchema] of Object.entries(toJSONSchema(model, { target: '
 
 A custom type names its BSON type as `metadata.bson` (`datetime: { js: 'string', metadata: {
 bson: 'date' } }`); without it the type renders as the built-in it aliases, or throws.
+
+The document above describes the program's values, where a stored record carries its id as a
+string field (`userId`) and a reference holds an id string. `ids: 'objectId'` (the mongodb
+target only) describes the document the database holds instead, as `toDocument` of
+[`@alexify/metaschema/mongodb`](/guide/mongodb) writes it: the id field of a stored record is
+`_id`, an ObjectId, first and required at the root (optional in an embedded record), and every
+reference is an ObjectId.
+
+```js
+toJSONSchema(model, { target: 'mongodb', ids: 'objectId' }).Account.properties;
+// { _id: { bsonType: 'objectId' }, login: {...}, company: { bsonType: 'objectId' }, ... }
+```
+
+A format that is not one of JSON Schema's carries its shape as a `pattern` here too (the target
+has no `format`); see [String formats](/guide/formats#json-schema).
 
 ## Custom types
 

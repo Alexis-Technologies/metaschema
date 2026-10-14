@@ -9,7 +9,14 @@ const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { isThenable } = require('../issues.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
-const { same, capitalize, definitionOf, structDefinitionOf, atSchema } = require('./data.js');
+const {
+  same,
+  definitionOf,
+  structDefinitionOf,
+  metadataOf,
+  structDefinition,
+  atSchema,
+} = require('./data.js');
 
 // The keys a field definition settles by a rule of its own; every other key
 // (an annotation, an option of a custom type) comes from the first schema.
@@ -216,12 +223,8 @@ const merge = (a, b, options = {}) => {
         namespaces,
       );
     }
-    const { kind, scope, store, allow, unknown, custom } = a;
-    const meta = { scope, store, allow, unknown, ...custom, ...metadata };
-    const { kind: given = kind, ...rest } = meta;
-    const definition = { [capitalize(given)]: rest };
     const fields = mergeStruct(structDefinitionOf(a.fields), structDefinitionOf(b.fields), '');
-    for (const key of Object.keys(fields)) define(definition, key, fields[key]);
+    const definition = structDefinition(metadataOf(a), metadata, fields);
     for (const source of [a, b]) {
       for (const key in source.indexes) {
         const index = source.indexes[key];

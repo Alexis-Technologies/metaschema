@@ -23,7 +23,7 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 17.7 KB min+gzip, `@alexify/metaschema/model` adds 12.0 KB on
+them: `@alexify/metaschema` is 18.6 KB min+gzip, `@alexify/metaschema/model` adds 12.0 KB on
 top. The subpath exports eight functions:
 
 | Export | Meaning |
@@ -184,6 +184,7 @@ that adds one.
 | a `default` removed from a required field | `forward` | old data written without it has no key |
 | `nullable` `false` → `true` | `backward` | new data may hold null |
 | `nullable` `true` → `false` | `forward` | old data may hold null |
+| `coerce` on or off | `full` | a conversion of the input: what `check` accepts and `parse` gives is the same |
 | `integer` → `number` | `backward` | every integer is a number |
 | `number` → `integer` | `forward` | old data may hold fractions |
 | any other type | `none` | |

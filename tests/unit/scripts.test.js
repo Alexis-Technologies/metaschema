@@ -8,6 +8,33 @@ const ROOT = path.join(__dirname, '../..');
 const run = (script, args) =>
   spawnSync(process.execPath, [path.join(ROOT, script), ...args], { cwd: ROOT, encoding: 'utf8' });
 
+test('Scripts: a subpath is measured on top of the core and the subpaths it requires', async () => {
+  const { SUBPATHS, extrasOf } = require('../../scripts/size.js');
+  // A fake measure: a size per subpath in the bundle, over a core of 1000.
+  const sizes = {
+    './src/coerce/index.js': 300,
+    './src/mongodb/index.js': 400,
+    './src/generators/index.js': 70,
+  };
+  const size = (entry, subpaths) => {
+    let total = 1000;
+    for (const subpath of subpaths) total += sizes[subpath] ?? 10;
+    return { label: entry.label, raw: total * 3, min: total * 2, gzip: total };
+  };
+  const core = size({ label: 'core' }, []);
+  const extras = await extrasOf(core, size);
+  const byLabel = new Map(extras.map((row) => [row.label, row]));
+  const mongodb = byLabel.get('MongoDB (./mongodb) on top of the Node entry and ./coerce');
+  // (core + coerce + mongodb) − (core + coerce): the base is not charged.
+  assert.deepStrictEqual([mongodb.gzip, mongodb.min, mongodb.raw], [400, 800, 1200]);
+  assert.strictEqual(byLabel.get('Coerce (./coerce) on top of the Node entry').gzip, 300);
+  assert.strictEqual(byLabel.get('Generators (./generators) on top of the Node entry').gzip, 70);
+  assert.strictEqual(extras.length, SUBPATHS.length);
+  assert.deepStrictEqual(SUBPATHS.find((entry) => entry.flag === '--max-gzip-mongodb').base, [
+    './src/coerce/index.js',
+  ]);
+});
+
 test('Scripts: size reports the entries and the subpaths and enforces the budgets', () => {
   const budgets = [
     '--max-gzip',
@@ -22,6 +49,12 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-formats',
     '100',
+    '--max-gzip-derive',
+    '100',
+    '--max-gzip-coerce',
+    '100',
+    '--max-gzip-mongodb',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -32,6 +65,12 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(ok.stdout, /\| Model \(\.\/model\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Stream \(\.\/stream\) on top of the Node entry \| [1-9]/);
   assert.match(ok.stdout, /\| Formats \(\.\/formats\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Derive \(\.\/derive\) on top of the Node entry \| [1-9]/);
+  assert.match(ok.stdout, /\| Coerce \(\.\/coerce\) on top of the Node entry \| [1-9]/);
+  assert.match(
+    ok.stdout,
+    /\| MongoDB \(\.\/mongodb\) on top of the Node entry and \.\/coerce \| [1-9]/,
+  );
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -67,6 +106,21 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.match(formats.stderr, /Bundle budget exceeded: Formats \(\.\/formats\)/);
   assert.doesNotMatch(formats.stderr, /exceeded: Stream/);
 
+  const derive = run('scripts/size.js', ['--max-gzip-derive', '1']);
+  assert.strictEqual(derive.status, 1);
+  assert.match(derive.stderr, /Bundle budget exceeded: Derive \(\.\/derive\)/);
+  assert.doesNotMatch(derive.stderr, /exceeded: Formats/);
+
+  const coerce = run('scripts/size.js', ['--max-gzip-coerce', '0.5']);
+  assert.strictEqual(coerce.status, 1);
+  assert.match(coerce.stderr, /Bundle budget exceeded: Coerce \(\.\/coerce\)/);
+  assert.doesNotMatch(coerce.stderr, /exceeded: Derive/);
+
+  const mongodb = run('scripts/size.js', ['--max-gzip-mongodb', '1']);
+  assert.strictEqual(mongodb.status, 1);
+  assert.match(mongodb.stderr, /Bundle budget exceeded: MongoDB \(\.\/mongodb\)/);
+  assert.doesNotMatch(mongodb.stderr, /exceeded: Coerce/);
+
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);
   assert.match(bad.stderr, /--max-gzip needs a positive number of kilobytes/);
@@ -85,4 +139,13 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   const badFormats = run('scripts/size.js', ['--max-gzip-formats', '']);
   assert.strictEqual(badFormats.status, 1);
   assert.match(badFormats.stderr, /--max-gzip-formats needs a positive number/);
+  const badDerive = run('scripts/size.js', ['--max-gzip-derive', 'none']);
+  assert.strictEqual(badDerive.status, 1);
+  assert.match(badDerive.stderr, /--max-gzip-derive needs a positive number/);
+  const badCoerce = run('scripts/size.js', ['--max-gzip-coerce', '-1']);
+  assert.strictEqual(badCoerce.status, 1);
+  assert.match(badCoerce.stderr, /--max-gzip-coerce needs a positive number/);
+  const badMongodb = run('scripts/size.js', ['--max-gzip-mongodb', 'x']);
+  assert.strictEqual(badMongodb.status, 1);
+  assert.match(badMongodb.stderr, /--max-gzip-mongodb needs a positive number/);
 });

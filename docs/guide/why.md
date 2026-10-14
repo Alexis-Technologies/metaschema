@@ -47,12 +47,16 @@ description of its data:
   evolution (Avro, Protocol Buffers) have no inferred types or JSON Schema export.
 - **Tools around the schema.** [`sample`](/guide/samples) draws values a schema accepts,
   [`infer`](/guide/infer) writes a definition from data, `merge` unifies two schemas,
-  [`checkEach` and `transform`](/guide/streaming) validate iterables and Web Streams of records,
-  and [`./formats`](/guide/formats) checks email, uuid, date-time and formats of your own.
+  [`pick`, `omit` and `partial`](/guide/derive) derive the bodies of an API from an entity,
+  [coercion](/guide/coercion) reads query strings and forms, [`checkEach` and
+  `transform`](/guide/streaming) validate iterables and Web Streams of records,
+  [`./formats`](/guide/formats) checks 35 formats and your own, and
+  [`./mongodb`](/guide/mongodb) writes and reads the documents of MongoDB.
 - **Zero dependencies, any runtime.** Nothing is installed besides the package; the core entry
-  is 17.7 KB min+gzip, and the generators (7.1 KB), the JIT backend (4.2 KB), the model tools
-  (12.0 KB), the record tools (1.0 KB) and the string formats (1.3 KB) are subpaths a program
-  pays for only when it imports them. CommonJS with ESM named imports, no build step,
+  is 18.6 KB min+gzip, and the generators (7.3 KB), the JIT backend (4.2 KB), the model tools
+  (12.0 KB), the record tools (1.0 KB), the string formats (4.0 KB), the derive tools (1.9 KB),
+  the converters of coercion (1.7 KB) and the MongoDB tools (3.5 KB on top of the converters)
+  are subpaths a program pays for only when it imports them. CommonJS with ESM named imports, no build step,
   hand-written typings, Node.js 18+ and browsers, and nothing that needs `eval` unless you ask
   for the JIT.
 
@@ -68,7 +72,10 @@ description of its data:
 - **Bytes on the wire across languages.** Avro (avsc) and Protocol Buffers (protobuf.js) encode
   binary data and are shared with other languages; metaschema describes and checks JavaScript
   values.
-- **Documents stored in MongoDB.** Mongoose casts, validates and persists in one step.
+- **An ODM around MongoDB.** Mongoose adds queries, `populate`, middleware and change tracking
+  around its schemas; [`./mongodb`](/guide/mongodb) covers the schema side (BSON types, `_id`
+  and references, indexes, the validator, checked updates) with your own driver, and does no
+  I/O.
 
 The [comparison](/guide/comparison) has the whole picture, feature by feature, and
 [Benchmarks](/guide/benchmarks) the numbers.

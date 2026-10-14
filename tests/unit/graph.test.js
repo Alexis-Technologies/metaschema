@@ -85,3 +85,37 @@ test('Graph: the modules of src/ require each other without a cycle', () => {
   ]);
   assert.deepStrictEqual(inspect(looped).cycles, ['a.js -> b.js -> a.js']);
 });
+
+// The directories of the subpaths: nothing in the core requires them, and a
+// subpath requires another only along the edges below (CLAUDE.md
+// "Architecture"), so a program that imports one subpath carries no other.
+const SUBPATHS = [
+  'generators',
+  'compile',
+  'model',
+  'stream',
+  'formats',
+  'derive',
+  'coerce',
+  'mongodb',
+];
+const SUBPATH_EDGES = ['derive/index.js -> model/data.js', 'mongodb/bson.js -> coerce/index.js'];
+
+const subpathOf = (name) => {
+  const top = name.split('/')[0];
+  return SUBPATHS.includes(top) ? top : null;
+};
+
+test('Graph: the core requires no subpath, a subpath another only where allowed', () => {
+  const crossings = [];
+  for (const file of modulesOf(SRC)) {
+    const from = relative(file);
+    for (const target of edgesOf(file)) {
+      const to = relative(target);
+      const source = subpathOf(from);
+      const destination = subpathOf(to);
+      if (destination !== null && destination !== source) crossings.push(`${from} -> ${to}`);
+    }
+  }
+  assert.deepStrictEqual(crossings.sort(), [...SUBPATH_EDGES].sort());
+});

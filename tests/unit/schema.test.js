@@ -4,8 +4,21 @@ const util = require('node:util');
 
 const { Schema, Model, ValidationResult } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
+const { idFieldOf } = require('../../src/kinds.js');
 
 register();
+
+test('Schema: idFieldOf names the id field a stored kind adds', () => {
+  assert.strictEqual(idFieldOf(new Schema('Order', { Entity: {}, a: 'string' })), 'orderId');
+  assert.strictEqual(idFieldOf(new Schema('Company', { Registry: {}, a: 'string' })), 'companyId');
+  assert.strictEqual(idFieldOf(Schema.from({ Entity: {}, a: 'string' })), 'id');
+  assert.strictEqual(idFieldOf(new Schema('Form', { Form: {}, a: 'string' })), null);
+  assert.strictEqual(idFieldOf(Schema.from({ a: 'string' })), null);
+  assert.strictEqual(idFieldOf(Schema.from('string')), null);
+  // The field the rule names is the one the schema has.
+  const order = new Schema('Order', { Entity: {}, a: 'string' });
+  assert.strictEqual(order.fields[idFieldOf(order)].type, 'string');
+});
 
 test('Schema: constructor', () => {
   const definition = { field1: 'string' };

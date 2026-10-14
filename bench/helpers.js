@@ -21,6 +21,7 @@ const callCheck = (value, options) => subject.schema.check(value, options);
 const callParse = (value, options) => subject.schema.parse(value, options);
 const callCheckAsync = (value, options) => subject.schema.checkAsync(value, options);
 const callParseAsync = (value, options) => subject.schema.parseAsync(value, options);
+const callCoerce = (value, options) => subject.schema.coerce(value, options);
 
 const decoy = (shape, n) => ({
   ...shape,
@@ -28,6 +29,7 @@ const decoy = (shape, n) => ({
   parse: () => n,
   checkAsync: () => n,
   parseAsync: () => n,
+  coerce: () => n,
 });
 
 const DECOYS = [
@@ -44,6 +46,7 @@ for (let round = 0; round < 2_000; round++) {
     callParse(null, undefined);
     callCheckAsync(null, undefined);
     callParseAsync(null, undefined);
+    callCoerce(null, undefined);
   }
 }
 
@@ -173,6 +176,80 @@ const CODEC_VALID = { ...FLAT_VALID, since: '2020-01-01T00:00:00.000Z' };
 const FLAT_INVALID = { name: 7, email: 'm@x', extra: true };
 const SPARSE_VALID = { name: 'Marcus', email: 'marcus@example.com', active: true };
 const ALIASED_VALID = { title: 'Marcus', email: 'marcus@example.com', age: 42, active: true };
+// The flat value as a form or a query string gives it: the number and the
+// boolean as text, for parse with `coerce: true`.
+const COERCE_VALUE = { name: 'Marcus', email: 'marcus@example.com', age: '42', active: 'true' };
+const COERCE = { coerce: true };
+
+// The nested value as a form gives it (the numbers and the enum member as
+// text), a plain union a query string gives a number and a boolean to (the
+// branches are tried as given first, then converted), and an enum of 32
+// members with one written as text.
+const NESTED_COERCE_VALUE = {
+  name: { first: 'Marcus', last: 'Aurelius' },
+  age: '58',
+  levelOne: { levelTwo: { levelThree: '2' } },
+  tags: ['emperor', 'stoic'],
+  matrix: [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+  ],
+  point: ['10', '20'],
+};
+const UNION_SCHEMA = {
+  id: { union: ['number', 'boolean'] },
+  flag: { union: ['boolean', 'number'] },
+  note: { union: ['string', 'number'] },
+  name: 'string',
+};
+const UNION_COERCE_VALUE = { id: '42', flag: 'true', note: 'as given', name: 'x' };
+const ENUM_SCHEMA = {
+  level: { enum: Array.from({ length: 32 }, (_, index) => index + 1) },
+  code: { enum: Array.from({ length: 32 }, (_, index) => `code${index}`) },
+  name: 'string',
+};
+const ENUM_COERCE_VALUE = { level: '31', code: 'code30', name: 'x' };
+
+// The schema side of a MongoDB program: an entity with a reference, a nested
+// struct and a list of structs, and the fake of the driver's ObjectId the
+// rows register (the bench has no driver).
+class FakeObjectId {
+  constructor(hex) {
+    this.hex = hex;
+  }
+
+  get _bsontype() {
+    return 'ObjectId';
+  }
+
+  toHexString() {
+    return this.hex;
+  }
+}
+
+const BSON_FAKE = { ObjectId: FakeObjectId };
+const MONGODB_ENTITIES = [
+  ['Company', { Registry: {}, name: 'string' }],
+  [
+    'Account',
+    {
+      Entity: {},
+      login: { type: 'string', unique: true },
+      company: 'Company',
+      address: { city: 'string', 'zip?': 'string' },
+      tags: { array: { label: 'string', weight: '?number' } },
+      visits: { type: 'integer', default: 0 },
+    },
+  ],
+];
+const MONGODB_VALUE = {
+  accountId: 'a'.repeat(24),
+  login: 'ann',
+  company: 'b'.repeat(24),
+  address: { city: 'Kyiv' },
+  tags: [{ label: 'x' }, { label: 'y', weight: 2 }],
+  visits: 3,
+};
 
 const NESTED_VALID = {
   name: { first: 'Marcus', last: 'Aurelius' },
@@ -268,6 +345,17 @@ module.exports = {
   callParse,
   callCheckAsync,
   callParseAsync,
+  callCoerce,
+  COERCE_VALUE,
+  COERCE,
+  NESTED_COERCE_VALUE,
+  UNION_SCHEMA,
+  UNION_COERCE_VALUE,
+  ENUM_SCHEMA,
+  ENUM_COERCE_VALUE,
+  BSON_FAKE,
+  MONGODB_ENTITIES,
+  MONGODB_VALUE,
   SYNC_VALIDATORS_SCHEMA,
   RESOLVED_VALIDATORS_SCHEMA,
   LATER_VALIDATORS_SCHEMA,

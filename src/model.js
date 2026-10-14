@@ -1,4 +1,4 @@
-const { firstKey } = require('./metautil.js');
+const { firstKey, isFirstLower } = require('./metautil.js');
 
 const { BRAND, INSPECT } = require('./util.js');
 const { Schema } = require('./schema.js');
@@ -7,13 +7,38 @@ const { SchemaDefinitionError } = require('./errors.js');
 const { warning } = require('./lint.js');
 const { snapshotOf } = require('./snapshot.js');
 
+const invalidOption = (name, expected, value) => {
+  const reason = `Model option "${name}" must be ${expected}, got ${JSON.stringify(value)}`;
+  return new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+};
+
 const registryFor = (options) => {
   const { registry = 'shared' } = options;
   if (registry !== 'shared' && registry !== 'isolated') {
-    const reason = `Model option "registry" must be "shared" or "isolated", got ${JSON.stringify(registry)}`;
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+    throw invalidOption('registry', '"shared" or "isolated"', registry);
   }
   return registry === 'isolated' ? createRegistry() : TYPES;
+};
+
+// The converters of coercion the model gives for its own type names, read
+// by the `./coerce` subpath before the process-wide table for the fields
+// of its entities (and of a schema that attaches the model): what an
+// isolated registry is to the types. Frozen, with no prototype.
+const coercionsFor = (options) => {
+  const { coercions = null } = options;
+  if (coercions === null) return null;
+  const expected = 'an object of functions by type name';
+  if (typeof coercions !== 'object' || Array.isArray(coercions)) {
+    throw invalidOption('coercions', expected, coercions);
+  }
+  const table = Object.create(null);
+  for (const name of Object.keys(coercions)) {
+    if (!isFirstLower(name) || typeof coercions[name] !== 'function') {
+      throw invalidOption('coercions', expected, name);
+    }
+    table[name] = coercions[name];
+  }
+  return Object.freeze(table);
 };
 
 class Model {
@@ -24,6 +49,7 @@ class Model {
 
   constructor(types, entities, database = null, options = {}) {
     this.types = typeFactory(types, registryFor(options));
+    this.coercions = coercionsFor(options);
     this.entities = new Map();
     this.database = database;
     this.order = new Set();
