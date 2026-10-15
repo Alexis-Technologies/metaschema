@@ -40,7 +40,7 @@ jobs:
       # ./definition subpath on its own are the 3.4 budgets (CLAUDE.md
       # "Budgets": a gate is raised to the next whole KB when a change needs
       # it, never lowered under a subpath that sits a few bytes below it).
-      - run: pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11
+      - run: pnpm run size:gate
 
   types:
     runs-on: ubuntu-latest

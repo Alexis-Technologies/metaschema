@@ -42,7 +42,8 @@ pnpm run test:types                # tsd: tests/types/*.test-d.ts against index.
 pnpm run check:dts                 # tsc --noEmit --strict over index.d.ts on its own
 pnpm run lint                      # oxlint index.js browser.js src tests scripts bench
 pnpm run format                    # oxfmt index.js browser.js src tests scripts bench (format:check in CI)
-pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>]   # esbuild bundle sizes; CI gates at 19 KB per core entry, 7.5 KB for ./generators, 5 KB for ./compile, 13 KB for ./model, 1.5 KB for ./stream, 5 KB for ./formats, 2.5 KB for ./derive, 2 KB for ./coerce on top, 4 KB for ./mongodb on top of the core and ./coerce
+pnpm size [--max-gzip <KB>] [--max-gzip-generators <KB>] [--max-gzip-compile <KB>] [--max-gzip-model <KB>] [--max-gzip-stream <KB>] [--max-gzip-formats <KB>] [--max-gzip-derive <KB>] [--max-gzip-coerce <KB>] [--max-gzip-mongodb <KB>] [--max-gzip-definition <KB>]   # esbuild bundle sizes
+pnpm run size:gate                 # the same with the budgets of "Budgets" as gates: CI and prepublishOnly run it
 pnpm bench [filter] [--json] [--save] [--compare]   # ops/sec harness (closures and JIT), manual only; --save writes bench/baseline.json
 pnpm bench:compare [--only zod,valibot] [--scenarios nested,invalid]   # 11 libraries, a fresh process per pair → bench/results/compare.json
 node bench/releases.js [--src <checkout or node_modules/metaschema>]   # release over release → bench/results/releases.json
@@ -52,10 +53,9 @@ pnpm docs:comparison               # the feature matrix of README and docs/guide
 pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build, docs:preview)
 ```
 
-`prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
-before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11`
-and `pnpm docs:build`.
+`prepublishOnly` runs lint + format:check + test:coverage + test:jit + test:nojit + test:types +
+check:dts + size:gate (the budgets are the flags of the `size:gate` script, the one place they
+are written). The full gate before a merge adds what CI also runs: `pnpm docs:build`.
 There is no build step.
 
 ## No build step: CommonJS + hand-written types
@@ -1752,9 +1752,11 @@ Manual, as in the sibling repositories. The `npm-publish` skill walks through it
 1. Bump `version` in `package.json`.
 2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD` and add its link
    reference.
-3. Commit, then tag `vX.Y.Z`.
-4. Run `pnpm run release` (`pnpm publish`, gated by `prepublishOnly`; `publishConfig.access` is
-   public).
+3. Commit (`chore(release): X.Y.Z`) on the release branch and merge it into `main` (squashed).
+4. Tag `vX.Y.Z` on the squash commit on `main`, which is what the tags of the earlier releases
+   point at, and push `main` and the tag.
+5. Run `pnpm run release` from it (`pnpm publish`, gated by `prepublishOnly`: the gates, both
+   backends and the bundle budgets; `publishConfig.access` is public).
 
 The upstream history (`metaschema` 2.2.2 and older) is kept under its own heading at the bottom of
 the CHANGELOG with `upstream-*` link references.

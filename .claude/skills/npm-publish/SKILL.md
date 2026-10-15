@@ -32,14 +32,14 @@ pnpm run format:check            # oxfmt
 pnpm run test:coverage           # tests under the c8 coverage gate
 pnpm run test:types              # tsd
 pnpm run check:dts               # tsc over index.d.ts
-```
-
-These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
-
-```bash
 pnpm run test:jit                # the suite with every schema compiled by ./compile
 pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
-pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11   # the bundle budgets (CLAUDE.md "Budgets")
+pnpm run size:gate               # the bundle budgets (CLAUDE.md "Budgets")
+```
+
+These are the same gates `prepublishOnly` runs. CI adds one more; run it too:
+
+```bash
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -184,7 +184,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm run size:gate && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.
@@ -204,10 +204,11 @@ Release preparation complete:
 
 Then list remaining manual steps:
 
-1. `git add -A && git commit -m "chore(release): vX.Y.Z"` (or ask the user if they want you to commit)
-2. `git tag vX.Y.Z`
-3. `git push && git push --tags`
-4. `pnpm run release` (runs `pnpm publish`; `prepublishOnly` re-runs the gates). For prereleases: `pnpm publish --tag <label>`
+1. `git add -A && git commit -m "chore(release): vX.Y.Z"` on the release branch (or ask the user if they want you to commit)
+2. Merge the branch into `main` (the pull request is squashed: the release is one commit there)
+3. `git tag vX.Y.Z <the squash commit on main>`: the tags of the releases are on `main`, never on a commit of the branch, which the squash leaves out of its history
+4. `git push origin main && git push origin vX.Y.Z`
+5. `pnpm run release` from that commit (runs `pnpm publish`; `prepublishOnly` re-runs the gates, the backends and the bundle budgets included). For prereleases: `pnpm publish --tag <label>`
 
 Do NOT run `pnpm publish`, `pnpm run release` or `git push` automatically — always let the user do it or explicitly confirm.
 
