@@ -443,12 +443,18 @@ export type RuntimeErrorCode =
   | 'ERR_NOT_REGISTERED';
 
 // ---------------------------------------------------------------------------
-// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
-// entities in dependency order with a fixed key order, the types the
-// entities use, and the `database` metadata as given. A function is
-// `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a Date
-// `{ $date }`, a RegExp its source (or `{ source, flags }` with flags beyond
-// `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads it back.
+// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes, and
+// `schema.toSnapshot()`, the same for one schema and the entities it
+// reaches. The entities in dependency order with a fixed key order, the
+// types the entities use, and the `database` metadata as given. A function
+// is `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a
+// Date `{ $date }`, a RegExp its source (or `{ source, flags }` with flags
+// beyond `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads
+// it back. Format 1 is a contract: the fields of a struct come in the order
+// of the definition (the id field a stored kind adds after them, unless the
+// definition has a field of that name), the entities in the order of the
+// model, and a key is only ever added to it; anything else is a major
+// release.
 // ---------------------------------------------------------------------------
 
 export interface FunctionSnapshot {
@@ -456,13 +462,143 @@ export interface FunctionSnapshot {
 }
 
 // A field of a snapshot: its type and whether it is required first, then
-// the other keys of its definition, sorted (a nested struct under `schema`,
-// an element under `value`, branches under `union`).
-export interface FieldSnapshot {
-  type: string;
+// the other keys of its definition, sorted. The type decides what else it
+// holds (narrow on `type`): the rules of its type, the element of a
+// collection, the elements of a tuple, the nested struct, the branches of a
+// union, the entity of a reference (its name is the type, capitalized), or
+// the options of a custom type, whose names are those `CustomTypes` declares
+// (as `Infer` reads them). Any field may carry the keys of
+// `FieldSnapshotBase`; a key the definition gave beyond them is kept too.
+export interface FieldSnapshotBase {
   required: boolean;
+  nullable?: boolean;
+  coerce?: boolean;
+  // A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`.
+  default?: unknown;
+  aliases?: string[];
+  deprecated?: boolean | string;
+  description?: string;
+  examples?: unknown[];
+  title?: string;
+  validate?: FunctionSnapshot;
+  parse?: FunctionSnapshot;
+  serialize?: FunctionSnapshot;
   [key: string]: unknown;
 }
+
+export interface BigintSnapshot {
+  $bigint: string;
+}
+
+export interface DateSnapshot {
+  $date: string;
+}
+
+// A `length` rule: the bounds it has.
+export interface LengthSnapshot {
+  min?: number;
+  max?: number;
+}
+
+export interface StringFieldSnapshot extends FieldSnapshotBase {
+  type: 'string';
+  length?: LengthSnapshot;
+  unicode?: boolean;
+  // The source of a pattern of the `u` flag alone, else its source and flags.
+  pattern?: string | { source: string; flags: string };
+  format?: string;
+}
+
+export interface NumberFieldSnapshot extends FieldSnapshotBase {
+  type: 'number';
+  min?: number | BigintSnapshot;
+  max?: number | BigintSnapshot;
+  decimals?: number;
+}
+
+export interface IntegerFieldSnapshot extends FieldSnapshotBase {
+  type: 'integer' | 'bigint';
+  min?: number | BigintSnapshot;
+  max?: number | BigintSnapshot;
+}
+
+export interface ScalarFieldSnapshot extends FieldSnapshotBase {
+  type: 'boolean' | 'date' | 'bytes' | 'null' | 'any' | 'unknown' | 'json';
+}
+
+export interface EnumFieldSnapshot extends FieldSnapshotBase {
+  type: 'enum';
+  enum: unknown[];
+}
+
+export interface FlagsFieldSnapshot extends FieldSnapshotBase {
+  type: 'flags';
+  flags: string[];
+}
+
+export interface ListFieldSnapshot extends FieldSnapshotBase {
+  type: 'array' | 'set';
+  value: FieldSnapshot;
+  length?: LengthSnapshot;
+}
+
+export interface KeyedFieldSnapshot extends FieldSnapshotBase {
+  type: 'object' | 'map';
+  key: 'string' | 'number';
+  value: FieldSnapshot;
+  length?: LengthSnapshot;
+}
+
+// An element of a tuple, `name` the one a named element was given.
+export type TupleElementSnapshot = FieldSnapshot & { name?: string };
+
+export interface TupleFieldSnapshot extends FieldSnapshotBase {
+  type: 'tuple';
+  value: TupleElementSnapshot[];
+}
+
+// A nested struct, or a Schema of one type held as a field.
+export interface StructFieldSnapshot extends FieldSnapshotBase {
+  type: 'schema';
+  schema: FieldsSnapshot | FieldSnapshot;
+}
+
+export interface UnionFieldSnapshot extends FieldSnapshotBase {
+  type: 'union';
+  union: FieldSnapshot[];
+  discriminator?: string;
+}
+
+type UpperLetter =
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
+
+// A reference: the type is the name of the entity, under `one` or `many`.
+export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
+  type: `${UpperLetter}${string}`;
+  one?: string;
+  many?: string;
+  embed?: boolean;
+}
+
+export interface CustomFieldSnapshot extends FieldSnapshotBase {
+  type: keyof CustomTypes & string;
+}
+
+export type FieldSnapshot =
+  | StringFieldSnapshot
+  | NumberFieldSnapshot
+  | IntegerFieldSnapshot
+  | ScalarFieldSnapshot
+  | EnumFieldSnapshot
+  | FlagsFieldSnapshot
+  | ListFieldSnapshot
+  | KeyedFieldSnapshot
+  | TupleFieldSnapshot
+  | StructFieldSnapshot
+  | UnionFieldSnapshot
+  | ReferenceFieldSnapshot
+  | CustomFieldSnapshot;
 
 // The fields of a struct in their order: a calculated field, the validate,
 // parse or serialize of the struct are `{ $function: true }`.
@@ -498,9 +634,19 @@ export interface TypeSnapshot {
 
 export interface ModelSnapshot {
   format: 1;
+  // The entity a snapshot of one schema is about (`schema.toSnapshot()`);
+  // a model's snapshot has none.
+  root?: string;
   database: Record<string, unknown> | null;
   types: Record<string, TypeSnapshot>;
   entities: Record<string, EntitySnapshot>;
+}
+
+// `schema.toSnapshot()`: the schema (under its name, '' when anonymous)
+// and every entity it reaches through its references, in dependency order.
+export interface SchemaSnapshot extends ModelSnapshot {
+  root: string;
+  database: null;
 }
 
 // The options of `fromJSON` of the `@alexify/metaschema/model` subpath.
@@ -1681,6 +1827,8 @@ export class Schema<const D extends string | object = string | object> {
   detach(...namespaces: Array<Model>): void;
   toString(): string;
   toJSON(): object;
+  // The schema as plain JSON: see `SchemaSnapshot`.
+  toSnapshot(): SchemaSnapshot;
   validate(value: unknown, path?: string): ValidationResult | null;
 }
 

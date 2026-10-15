@@ -8,7 +8,12 @@
 // Date are tagged the same way, a RegExp is its source. The metadata of the
 // program (`database`, the `custom` metadata of a kind, an index definition)
 // is written as given. `fromJSON` of the `./model` subpath reads it back.
+// `schema.toSnapshot()` is the same document for one schema and the
+// entities it reaches through its references, with the name of the schema
+// as `root`.
+const { isFirstUpper } = require('./metautil.js');
 const { hasBrand, define } = require('./util.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 const FORMAT = 1;
 
@@ -74,17 +79,27 @@ const entityOf = (schema) => {
   return out;
 };
 
-// The types the entities use, by name: an alias as its `js`, a type with a
-// check of its own as `check: true` with its kind, a built-in only when it
-// carries metadata.
-const typesOf = (model) => {
-  const names = new Set();
-  for (const entity of model.entities.values()) {
-    for (const name of entity.references) names.add(name);
+// The types the entities use, by name, each from the table `tableOf` gives
+// for the first entity that uses it, and the custom types their aliases name
+// down the chain (a model is restored from them; a built-in is in every
+// registry): an alias as its `js`, a type with a check of its own as
+// `check: true` with its kind, a built-in only when it carries metadata.
+const typesOf = (entities, tableOf) => {
+  const found = new Map();
+  const add = (name, table) => {
+    if (found.has(name)) return;
+    const Type = table[name];
+    found.set(name, Type);
+    const js = Type?.source?.js;
+    if (js !== undefined && table[js]?.source !== undefined) add(js, table);
+  };
+  for (const entity of entities) {
+    const table = tableOf(entity);
+    for (const name of entity.references) add(name, table);
   }
   const out = {};
-  for (const name of Array.from(names).sort()) {
-    const Type = model.types[name];
+  for (const name of Array.from(found.keys()).sort()) {
+    const Type = found.get(name);
     if (Type === undefined) continue;
     const { source } = Type;
     const entry = {};
@@ -101,11 +116,72 @@ const typesOf = (model) => {
   return out;
 };
 
-// The entities in dependency order (`model.order`).
-const snapshotOf = (model) => {
+// The entities by name, in dependency order: what a model writes in
+// `model.order`, a schema in the order `gather` met them.
+const entitiesOf = (names, schemaOf) => {
   const entities = {};
-  for (const name of model.order) define(entities, name, entityOf(model.entities.get(name)));
-  return { format: FORMAT, database: model.database, types: typesOf(model), entities };
+  for (const name of names) define(entities, name, entityOf(schemaOf(name)));
+  return entities;
 };
 
-module.exports = { FORMAT, snapshotOf };
+const snapshotOf = (model) => {
+  const { order } = model;
+  const schemas = [];
+  for (const name of order) schemas.push(model.entities.get(name));
+  return {
+    format: FORMAT,
+    database: model.database,
+    types: typesOf(schemas, () => model.types),
+    entities: entitiesOf(order, (name) => model.entities.get(name)),
+  };
+};
+
+const clash = (name) =>
+  new SchemaDefinitionError(
+    'ERR_UNREPRESENTABLE',
+    `Two schemas named "${name}" cannot be represented in one snapshot`,
+  );
+
+// A schema and the entities it reaches, by name, each after the ones it
+// references (the order of a model: a cycle is cut where it closes): its
+// references resolved through the schema that holds them, and the parent
+// of a projection, which restoring it needs. One entity per name.
+const gather = (schema, found, order) => {
+  const { name } = schema;
+  const known = found.get(name);
+  if (known !== undefined) {
+    if (known !== schema) throw clash(name);
+    return;
+  }
+  found.set(name, schema);
+  const names = Array.from(schema.references);
+  if (schema.parent !== '') names.push(schema.parent);
+  for (const ref of names) {
+    if (!isFirstUpper(ref)) continue;
+    const target = schema.findReference(ref);
+    if (target !== null) gather(target, found, order);
+  }
+  order.push(name);
+};
+
+// The snapshot of one schema: the format of a model's, with the schema's
+// name as `root` and no database metadata. An anonymous schema is the
+// entity ''.
+const schemaSnapshotOf = (schema) => {
+  const found = new Map();
+  const order = [];
+  gather(schema, found, order);
+  const at = order.indexOf('Identifier');
+  if (at > 0) order.unshift(order.splice(at, 1)[0]);
+  const schemas = [];
+  for (const name of order) schemas.push(found.get(name));
+  return {
+    format: FORMAT,
+    root: schema.name,
+    database: null,
+    types: typesOf(schemas, (entity) => entity.types),
+    entities: entitiesOf(order, (name) => found.get(name)),
+  };
+};
+
+module.exports = { FORMAT, snapshotOf, schemaSnapshotOf };

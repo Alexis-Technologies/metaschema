@@ -32,12 +32,23 @@ const isSnapshot = (value) =>
   isObject(value.entities) &&
   (value.types === undefined || isObject(value.types));
 
+// The entity a snapshot of one schema is about, when it names one: a key
+// format 1 gained in 3.4, read by nothing else.
+const checkRoot = (snapshot) => {
+  const { root } = snapshot;
+  if (root === undefined) return;
+  if (typeof root !== 'string' || !Object.hasOwn(snapshot.entities, root)) {
+    throw invalidSnapshot('The root of a snapshot must name one of its entities');
+  }
+};
+
 // The snapshot of a model, or the snapshot given.
 const snapshotOf = (target) => {
   if (hasBrand(target, 'Model')) return target.toJSON();
   if (!isSnapshot(target)) {
     throw invalidSnapshot(`A Model or a snapshot of format ${FORMAT} with entities is expected`);
   }
+  checkRoot(target);
   return target;
 };
 
@@ -128,6 +139,7 @@ module.exports = {
   atSchema,
   isObject,
   isSnapshot,
+  checkRoot,
   snapshotOf,
   same,
   isFunctionMarker,

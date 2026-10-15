@@ -1,4 +1,4 @@
-import { expectAssignable, expectError, expectType } from 'tsd';
+import { expectAssignable, expectError, expectNotAssignable, expectType } from 'tsd';
 import {
   ALLOW,
   getKindMetadata,
@@ -31,6 +31,10 @@ import type {
   KindMetadata,
   Locale,
   ModelSnapshot,
+  ReferenceFieldSnapshot,
+  ScalarFieldSnapshot,
+  SchemaSnapshot,
+  TupleElementSnapshot,
   Relation,
   Scope,
   TypeEntry,
@@ -208,7 +212,51 @@ expectType<Record<string, TypeSnapshot>>(snapshot.types);
 expectType<FieldsSnapshot | undefined>(snapshot.entities.Account.fields);
 expectType<FieldSnapshot | undefined>(snapshot.entities.Account.type);
 expectAssignable<FieldSnapshot | FunctionSnapshot>({ $function: true });
-expectAssignable<FieldSnapshot | FunctionSnapshot>({ type: 'string', required: true, length: 8 });
+expectAssignable<FieldSnapshot | FunctionSnapshot>({
+  type: 'string',
+  required: true,
+  length: { max: 8 },
+});
+// The length of a snapshot is normalized: a bare number is a definition's.
+expectNotAssignable<FieldSnapshot>({ type: 'string', required: true, length: 8 });
+expectNotAssignable<FieldSnapshot>({ type: 'strin', required: true });
+expectType<string | undefined>(snapshot.root);
+
+// A field of a snapshot narrows on its type.
+declare const part: FieldSnapshot;
+if (part.type === 'enum') expectType<unknown[]>(part.enum);
+if (part.type === 'flags') expectType<string[]>(part.flags);
+if (part.type === 'number') expectType<number | undefined>(part.decimals);
+if (part.type === 'string') expectType<string | undefined>(part.format);
+if (part.type === 'array' || part.type === 'set') expectType<FieldSnapshot>(part.value);
+if (part.type === 'map') expectType<'string' | 'number'>(part.key);
+if (part.type === 'tuple') expectType<TupleElementSnapshot[]>(part.value);
+if (part.type === 'union') expectType<FieldSnapshot[]>(part.union);
+if (part.type === 'schema') expectType<FieldsSnapshot | FieldSnapshot>(part.schema);
+switch (part.type) {
+  case 'bytes':
+  case 'date':
+    expectType<ScalarFieldSnapshot>(part);
+    break;
+  case 'Company':
+    expectType<ReferenceFieldSnapshot>(part);
+    expectType<string | undefined>(part.one);
+    break;
+}
+expectAssignable<FieldSnapshot>({ type: 'Company', required: true, one: 'Company', embed: true });
+expectAssignable<FieldSnapshot>({
+  type: 'tuple',
+  required: true,
+  value: [{ type: 'number', required: true, name: 'x' }],
+});
+expectAssignable<FieldSnapshot>({ type: 'flags', required: false, flags: ['read'] });
+expectAssignable<FieldSnapshot>({ type: 'bigint', required: true, min: { $bigint: '1' } });
+// A schema's snapshot names its root and has no database metadata.
+const own = Schema.from({ name: 'string' }).toSnapshot();
+expectType<SchemaSnapshot>(own);
+expectType<string>(own.root);
+expectType<null>(own.database);
+expectAssignable<ModelSnapshot>(own);
 expectAssignable<string[] | undefined>(
   (Schema.from({ a: 'string' }).fields.a as FieldType).aliases,
 );

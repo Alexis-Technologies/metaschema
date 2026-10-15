@@ -296,6 +296,21 @@ test('Snapshot: a schema of one type, custom types and metadata', () => {
     registry: 'isolated',
   });
   assert.deepStrictEqual(json(withNumber).types, { number: { metadata: { pg: 'integer' } } });
+  // An alias of an alias brings the type it names, which restoring needs.
+  const { fromJSON } = require('../../src/model/index.js');
+  const chain = new Model(
+    { ...types, cents: { js: 'money' } },
+    [['C', { Struct: {}, c: 'cents' }]],
+    null,
+    { registry: 'isolated' },
+  );
+  assert.deepStrictEqual(json(chain).types, {
+    cents: { js: 'money', metadata: {} },
+    money: { js: 'number', metadata: { pg: 'money' } },
+  });
+  const restored = fromJSON(json(chain)).entities.get('C');
+  assert.strictEqual(restored.check({ c: 1 }).valid, true);
+  assert.strictEqual(restored.check({ c: '1' }).valid, false);
 });
 
 test('Snapshot: a Schema instance as a field and as an entity', () => {
@@ -321,4 +336,313 @@ test('Snapshot: an index named __proto__ is written as a key', () => {
   assert.deepStrictEqual(JSON.parse(JSON.stringify(model)).entities.A.indexes, {
     ['__proto__']: { index: ['a'] },
   });
+});
+
+test('Snapshot: a schema writes itself and the entities it reaches, its name as root', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const model = fixtureModel();
+  const full = json(model);
+  for (const name of model.order) {
+    const schema = model.entities.get(name);
+    const snapshot = json(schema.toSnapshot());
+    assert.deepStrictEqual(Object.keys(snapshot), [
+      'format',
+      'root',
+      'database',
+      'types',
+      'entities',
+    ]);
+    assert.strictEqual(snapshot.format, 1);
+    assert.strictEqual(snapshot.root, name);
+    assert.strictEqual(snapshot.database, null);
+    // Every entity as the model writes it, in the order of the model, the
+    // schema last of the ones it needs.
+    const names = Object.keys(snapshot.entities);
+    assert.strictEqual(names.includes(name), true);
+    for (const entity of names) {
+      assert.deepStrictEqual(snapshot.entities[entity], full.entities[entity]);
+    }
+    const order = [...model.order].filter((entity) => names.includes(entity));
+    if (!names.includes('Identifier')) assert.deepStrictEqual(names, order);
+    for (const type of Object.keys(snapshot.types)) {
+      assert.deepStrictEqual(snapshot.types[type], full.types[type]);
+    }
+    // Restored, the schema writes the same text again and checks as before.
+    const restored = fromJSON(snapshot, { types: customTypes });
+    assert.strictEqual(
+      JSON.stringify(restored.entities.get(name).toSnapshot()),
+      JSON.stringify(snapshot),
+    );
+  }
+  // What each entity reaches, in the order of the model.
+  const reached = (name) => Object.keys(model.entities.get(name).toSnapshot().entities);
+  assert.deepStrictEqual(reached('Identifier'), ['Identifier']);
+  assert.deepStrictEqual(reached('Account'), ['Company', 'Address', 'Account']);
+  assert.deepStrictEqual(reached('Signin'), ['Company', 'Address', 'Account', 'Signin']);
+});
+
+test('Snapshot: references of a schema, its own name, a namespace and a projection', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const roundTrip = (schema, values) => {
+    const snapshot = json(schema.toSnapshot());
+    const restored = fromJSON(snapshot).entities.get(snapshot.root);
+    assert.strictEqual(JSON.stringify(restored.toSnapshot()), JSON.stringify(snapshot));
+    for (const value of values) {
+      assert.deepStrictEqual(restored.check(value).errors, schema.check(value).errors);
+    }
+    return snapshot;
+  };
+  // Its own name, without a model.
+  const category = new Schema('Category', { name: 'string', parent: '?Category' });
+  const own = roundTrip(category, [
+    { name: 'a', parent: { name: 'b' } },
+    { name: 'a', parent: { name: 1 } },
+  ]);
+  assert.deepStrictEqual(Object.keys(own.entities), ['Category']);
+  // Two entities that reference each other: the cycle is cut where it
+  // closes, as the model orders it.
+  const model = new Model({}, [
+    ['Person', { Struct: {}, name: 'string', 'friend?': 'Person', 'employer?': 'Company' }],
+    ['Company', { Struct: {}, title: 'string', 'boss?': 'Person' }],
+  ]);
+  const person = roundTrip(model.entities.get('Person'), [
+    { name: 'a', employer: { title: 't', boss: { name: 'b' } } },
+    { name: 'a', employer: { title: 1 } },
+  ]);
+  assert.deepStrictEqual(Object.keys(person.entities), ['Company', 'Person']);
+  assert.deepStrictEqual(Object.keys(json(model.entities.get('Company').toSnapshot()).entities), [
+    'Person',
+    'Company',
+  ]);
+  // A schema of its own that references the entities of a model it attaches.
+  const order = new Schema('Order', { buyer: 'Person', note: 'string' }, [model]);
+  assert.deepStrictEqual(
+    Object.keys(roundTrip(order, [{ buyer: { name: 'x' }, note: '' }]).entities),
+    ['Company', 'Person', 'Order'],
+  );
+  // A projection takes its parent along: restoring it needs the parent.
+  const accounts = new Model({}, [
+    ['Account', { Registry: {}, login: 'string', password: 'string' }],
+    ['Signin', { Projection: { schema: 'Account', fields: ['login'] } }],
+  ]);
+  const signin = roundTrip(accounts.entities.get('Signin'), [{ login: 'a' }, { login: 1 }]);
+  assert.deepStrictEqual(Object.keys(signin.entities), ['Account', 'Signin']);
+  // A reference that does not resolve is left out, as the model leaves it.
+  assert.deepStrictEqual(Object.keys(json(Schema.from({ who: 'Ghost' }).toSnapshot()).entities), [
+    '',
+  ]);
+  // One entity per name: a schema that shares the name of the entity it
+  // references cannot be written.
+  const copy = new Schema('Person', { Struct: {}, name: 'string', boss: 'Person' }, [model]);
+  assert.throws(() => copy.toSnapshot(), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_UNREPRESENTABLE',
+    message: 'Two schemas named "Person" cannot be represented in one snapshot',
+  });
+  // Identifier comes first, as in a model.
+  const ids = new Model({}, [
+    ['Item', { Struct: {}, tag: 'Identifier' }],
+    ['Identifier', { Struct: {}, value: 'string' }],
+  ]);
+  assert.deepStrictEqual(Object.keys(json(ids.entities.get('Item').toSnapshot()).entities), [
+    'Identifier',
+    'Item',
+  ]);
+});
+
+test('Snapshot: a schema of every form, anonymous ones and alias types', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const model = new Model(
+    { money: { js: 'number', metadata: { pg: 'numeric' } }, cents: { js: 'money' } },
+    [
+      ['Tag', { Struct: {}, label: 'string' }],
+      [
+        'Doc',
+        {
+          Entity: { unknown: 'ignore' },
+          name: { type: 'string', length: { min: 1, max: 8 }, pattern: /^[a-z]+$/i },
+          price: { type: 'number', decimals: 2, min: 0 },
+          total: { type: 'cents', decimals: 0 },
+          data: '?bytes',
+          perms: { flags: ['read', 'write'] },
+          role: { enum: ['a', 'b'] },
+          ids: { set: 'bigint' },
+          byId: { map: { number: 'boolean' } },
+          point: [{ x: 'number' }, { 'y?': 'string' }],
+          shape: { union: [{ Struct: {}, kind: { enum: ['a'] } }], discriminator: 'kind' },
+          tags: { many: 'Tag' },
+          inner: { a: 'string' },
+        },
+      ],
+    ],
+  );
+  const snapshot = json(model.entities.get('Doc').toSnapshot());
+  assert.deepStrictEqual(Object.keys(snapshot.entities), ['Tag', 'Doc']);
+  assert.deepStrictEqual(snapshot.types, {
+    cents: { js: 'money', metadata: {} },
+    money: { js: 'number', metadata: { pg: 'numeric' } },
+  });
+  const { fields } = snapshot.entities.Doc;
+  assert.deepStrictEqual(fields.price, { type: 'number', required: true, decimals: 2, min: 0 });
+  assert.deepStrictEqual(fields.total, { type: 'cents', required: true, decimals: 0 });
+  assert.deepStrictEqual(fields.data, { type: 'bytes', required: false });
+  assert.deepStrictEqual(fields.perms, { type: 'flags', required: true, flags: ['read', 'write'] });
+  // The fields in the order of the definition, the id of the stored kind
+  // after them.
+  assert.deepStrictEqual(Object.keys(fields), [
+    'name',
+    'price',
+    'total',
+    'data',
+    'perms',
+    'role',
+    'ids',
+    'byId',
+    'point',
+    'shape',
+    'tags',
+    'inner',
+    'docId',
+  ]);
+  const restored = fromJSON(snapshot).entities.get('Doc');
+  assert.strictEqual(JSON.stringify(restored.toSnapshot()), JSON.stringify(snapshot));
+  const value = {
+    name: 'abc',
+    price: 0.1 + 0.2,
+    total: 3,
+    data: new Uint8Array(1),
+    perms: { read: true },
+    role: 'a',
+    ids: new Set([1n]),
+    byId: new Map([[1, true]]),
+    point: [1],
+    shape: { kind: 'a' },
+    tags: [{ label: 'x' }],
+    inner: { a: 'x' },
+  };
+  assert.strictEqual(restored.check(value).valid, true);
+  const wrong = { ...value, price: 0.123, total: 1.5, data: [1], perms: { read: 1 } };
+  assert.deepStrictEqual(
+    restored.check(wrong).errors,
+    model.entities.get('Doc').check(wrong).errors,
+  );
+  // An anonymous schema is the entity '', of a struct or of one type.
+  for (const source of [{ a: 'string', 'b?': 'bytes' }, { array: 'number' }, 'string']) {
+    const schema = Schema.from(source);
+    const own = json(schema.toSnapshot());
+    assert.strictEqual(own.root, '');
+    assert.deepStrictEqual(Object.keys(own.entities), ['']);
+    const back = fromJSON(own).entities.get('');
+    assert.strictEqual(JSON.stringify(back.toSnapshot()), JSON.stringify(own));
+  }
+  const stored = json(Schema.from({ Entity: {}, a: 'string' }).toSnapshot());
+  assert.deepStrictEqual(Object.keys(stored.entities[''].fields), ['a', 'id']);
+});
+
+test('Snapshot: the root of a snapshot is read and checked, other keys are ignored', () => {
+  const { fromJSON, diff } = require('../../src/model/index.js');
+  const snapshot = json(new Schema('Note', { text: 'string' }).toSnapshot());
+  const restored = fromJSON(snapshot);
+  assert.strictEqual(restored.entities.get(snapshot.root).name, 'Note');
+  assert.deepStrictEqual(json(restored), json({ ...snapshot, root: undefined }));
+  for (const root of [5, null, 'Ghost', 'toString', '__proto__']) {
+    const broken = { ...snapshot, root };
+    assert.throws(() => fromJSON(broken), {
+      code: 'ERR_INVALID_SNAPSHOT',
+      message: 'The root of a snapshot must name one of its entities',
+    });
+    assert.throws(() => diff(broken, broken), { code: 'ERR_INVALID_SNAPSHOT' });
+  }
+  // A key format 1 does not have is no instruction: it changes nothing.
+  const extra = JSON.parse(
+    JSON.stringify(snapshot).replace(
+      '{"format":1,',
+      '{"format":1,"__proto__":{"x":1},"later":true,',
+    ),
+  );
+  assert.strictEqual(Object.hasOwn(extra, '__proto__'), true);
+  const model = fromJSON(extra);
+  assert.strictEqual(model.x, undefined);
+  assert.strictEqual(model.entities.get('Note').check({ text: 'a' }).valid, true);
+  assert.deepStrictEqual(diff(snapshot, extra), []);
+});
+
+test('Snapshot: what a consumer reads back checks as the schema did, on both backends', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const { compile, canEval } = require('../../src/compile/index.js');
+  // A stored entity, a memory struct, a schema that names itself, two that
+  // name each other, a union, bytes, flags and decimals.
+  const model = new Model({}, [
+    ['Owner', { Entity: {}, name: 'string', 'best?': 'Pet' }],
+    [
+      'Pet',
+      { Struct: {}, name: 'string', 'owner?': { type: 'Owner', embed: true }, 'mate?': 'Pet' },
+    ],
+    [
+      'Listing',
+      {
+        Entity: {},
+        title: { type: 'string', length: { max: 40 } },
+        price: { type: 'number', decimals: 2, min: 0 },
+        photo: '?bytes',
+        flags: { flags: ['featured', 'sold'] },
+        pet: 'Pet',
+        seller: 'Owner',
+        offer: {
+          union: [
+            { Struct: {}, kind: { enum: ['fixed'] }, amount: 'number' },
+            { Struct: {}, kind: { enum: ['auction'] }, ends: 'date' },
+          ],
+          discriminator: 'kind',
+        },
+        'related?': { many: 'Listing' },
+      },
+    ],
+  ]);
+  const listing = model.entities.get('Listing');
+  const text = JSON.stringify(listing.toSnapshot());
+  const snapshot = JSON.parse(text);
+  assert.strictEqual(snapshot.root, 'Listing');
+  assert.deepStrictEqual(Object.keys(snapshot.entities), ['Owner', 'Pet', 'Listing']);
+  const restored = fromJSON(snapshot);
+  assert.deepStrictEqual(restored.placeholders, []);
+  assert.strictEqual(JSON.stringify(restored.entities.get('Listing').toSnapshot()), text);
+  const values = [
+    {
+      title: 'a',
+      price: 19.99,
+      photo: new Uint8Array(2),
+      flags: { featured: true },
+      pet: { name: 'Rex', owner: { name: 'Ann', best: { name: 'Bo' } }, mate: { name: 'Lia' } },
+      seller: 'owner-1',
+      offer: { kind: 'fixed', amount: 10 },
+      related: ['listing-2'],
+    },
+    {
+      title: 'x'.repeat(41),
+      price: 0.123,
+      photo: [1],
+      flags: { sold: 'no', hot: true },
+      pet: { name: 1, owner: 'owner-1' },
+      seller: { name: 'Ann' },
+      offer: { kind: 'swap' },
+      related: [{}],
+    },
+  ];
+  const original = values.map((value) => listing.check(value).issues);
+  assert.strictEqual(original[0].length, 0);
+  assert.strictEqual(original[1].length > 5, true);
+  const copy = restored.entities.get('Listing');
+  assert.deepStrictEqual(
+    values.map((value) => copy.check(value).issues),
+    original,
+  );
+  assert.deepStrictEqual(
+    compile(restored, { jit: canEval() ? true : 'auto' }).accelerated,
+    canEval(),
+  );
+  assert.deepStrictEqual(
+    values.map((value) => copy.check(value).issues),
+    original,
+  );
 });

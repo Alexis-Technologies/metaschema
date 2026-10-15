@@ -10,6 +10,7 @@ const { finalize, runValidate, settle, release } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { createStruct, isStruct, checkOf } = require('./struct.js');
 const { warning, lintSchema } = require('./lint.js');
+const { schemaSnapshotOf } = require('./snapshot.js');
 const {
   PREPARE,
   FINISH,
@@ -325,6 +326,13 @@ class Schema extends SchemaMetadata {
   toJSON() {
     const { fields } = this;
     return hasBrand(fields, 'Struct') ? { ...fields } : fields.toJSON();
+  }
+
+  // The schema as plain JSON: the snapshot of a model (format 1) holding the
+  // schema and every entity it reaches through its references, in
+  // dependency order, with the name of the schema as `root`.
+  toSnapshot() {
+    return schemaSnapshotOf(this);
   }
 
   [INSPECT](depth, options, inspect) {

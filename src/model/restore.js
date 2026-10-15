@@ -21,6 +21,7 @@ const {
   atSchema,
   isObject,
   isSnapshot,
+  checkRoot,
   isFunctionMarker,
   capitalize,
 } = require('./data.js');
@@ -185,7 +186,9 @@ const typesDef = (given, context) => {
   return out;
 };
 
-// The model of a snapshot. `options.types` are entries of the table Model
+// The model of a snapshot, of a model or of one schema (`root` names the
+// entity it is about; `model.entities.get(snapshot.root)` is that schema
+// again). `options.types` are entries of the table Model
 // takes, over the ones of the snapshot (the real custom types); the
 // registry is 'isolated' unless `options.registry` says otherwise, so the
 // placeholders never reach the shared one. The model lists the paths of its
@@ -194,6 +197,7 @@ const fromJSON = (snapshot, options = {}) => {
   if (!isSnapshot(snapshot)) {
     throw invalidSnapshot('A snapshot of format 1 with entities is expected');
   }
+  checkRoot(snapshot);
   if (!isObject(options)) {
     throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Restore options must be an object');
   }
