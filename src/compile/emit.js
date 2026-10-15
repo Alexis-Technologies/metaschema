@@ -394,7 +394,7 @@ const emitStruct = (fields, x, key, state) => {
     if (entry.aliases.length > 0) {
       // A field with aliases, when the value has nothing under its own key:
       // the first alias the value carries, and the key the check reports
-      // under, as `aliasOf` in struct.js finds them.
+      // under, as `aliasOf` of checks.js finds them.
       const alias = code.name('k');
       const inherited = own ? ` || !Object.hasOwn(${x}, ${name})` : '';
       code.push(`let ${item} = ${prop(x, entry.key)}, ${alias} = ${name};`);
@@ -440,9 +440,9 @@ const emitStruct = (fields, x, key, state) => {
   code.push(`let ${total} = 0;`);
   code.push(`for (const ${name} in ${x}) ${total} += 1;`);
   code.push(`if (${total} !== ${found}) {`);
-  // The scan of struct.js with the known keys as cases: a key for...in
-  // yields is an internalized string, so a case is a pointer comparison
-  // where a dictionary lookup would hash it.
+  // The scan of `checkOf` (checks.js) with the known keys as cases: a key
+  // for...in yields is an internalized string, so a case is a pointer
+  // comparison where a dictionary lookup would hash it.
   let cases = '';
   for (const field in known) cases += `case ${quote(field)}: `;
   code.push(`let ${unexpected} = null;`);

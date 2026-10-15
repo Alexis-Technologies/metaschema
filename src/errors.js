@@ -64,7 +64,8 @@ const VALIDATION = Symbol.for('alexify.metaschema.validation');
 const noValidation = (what) => {
   const elsewhere = globalThis[VALIDATION] === true;
   const reason = elsewhere
-    ? 'the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)'
+    ? 'the core entry loaded is another copy of the package than the one that built the ' +
+      'schema (deduplicate @alexify/metaschema)'
     : './definition alone does not validate';
   const error = new TypeError(`${what} needs the core entry @alexify/metaschema: ${reason}`);
   error.code = 'ERR_NOT_REGISTERED';

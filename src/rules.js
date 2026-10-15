@@ -2,8 +2,9 @@
 // accepts (`rules: ['length']` on a prototype); a rule in a definition of a
 // type that does not accept it is a definition error, not a silent no-op. A
 // rule's value is checked and normalized when the field is built (`format`);
-// its check is the validation half's (`checks/rules.js`), compiled into a
-// closure over the field's bounds and run after the type check.
+// its check is the validation half's (`compileRules` of `checks.js`),
+// compiled into a closure over the field's bounds and run after the type
+// check.
 const { SchemaDefinitionError } = require('./errors.js');
 
 const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);

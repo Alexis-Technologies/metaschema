@@ -609,6 +609,10 @@ export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
   embed?: boolean;
 }
 
+// A field of a custom type, by the names `CustomTypes` declares: a snapshot
+// of a model whose custom types are not declared there holds fields of type
+// names no member of `FieldSnapshot` has, which an exhaustive `switch` over
+// `type` does not see; give it a `default`.
 export interface CustomFieldSnapshot extends FieldSnapshotBase {
   type: keyof CustomTypes & string;
 }

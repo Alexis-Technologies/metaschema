@@ -15,7 +15,7 @@ const valuesOf = (branch, discriminator, index) => {
 };
 
 // A value of one of several definitions: plain, or picked by the value of
-// a discriminator field (checks/union.js has the check).
+// a discriminator field (`COMPILE.union` of checks.js has the check).
 const union = {
   kind: 'struct',
   options: ['union', 'discriminator'],

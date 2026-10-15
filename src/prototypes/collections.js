@@ -10,7 +10,7 @@ const invalidKey = (type) => {
 
 // The collections: a dictionary (`object`, `map`) of a key type and a value
 // definition, a list (`array`, `set`) of an element definition. Their checks
-// are in checks/collections.js.
+// are `COMPILE` of checks.js.
 const object = {
   rules: ['length'],
   options: ['key', 'value', 'length'],

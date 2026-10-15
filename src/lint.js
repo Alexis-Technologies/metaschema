@@ -77,7 +77,10 @@ const lintField = (field, path, warnings, element = false, member = false) => {
     const bound = Math.max(Math.abs(field.min ?? 1), Math.abs(field.max ?? 1));
     const limit = 2 ** 43 / 10 ** field.decimals;
     if (bound >= limit) {
-      const text = `"${path}" has ${field.decimals} decimals, which the check tells apart only below ${Number(limit.toPrecision(2))}`;
+      const below = Number(limit.toPrecision(2));
+      const text =
+        `"${path}" has ${field.decimals} decimals, ` +
+        `which the check tells apart only below ${below}`;
       warnings.push(warning('unenforceable-decimals', text));
     }
   }

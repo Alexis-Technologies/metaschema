@@ -80,8 +80,10 @@ register({ onFallback: (schema, error) => log.warn(`JIT skipped ${schema.name}`,
 
 To tell which backend a schema runs on, ask the subpath: `compiled(schema)` is `true` while the
 schema (every entity of a model) runs generated code, `false` for a schema built before
-`register()` and after `{ jit: false }`. The generated source is
-`schema[Symbol.for('alexify.metaschema.run')].toString()`.
+`register()` and after `{ jit: false }`. The generated source of a compiled schema is
+`schema[Symbol.for('alexify.metaschema.run')].toString()` (before its first check, a schema the
+JIT has not compiled holds a stub there that builds the closures on first use: `compiled()` is
+the way to ask).
 
 ```js
 const { compile, compiled } = require('@alexify/metaschema/compile');

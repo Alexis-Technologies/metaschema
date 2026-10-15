@@ -5,8 +5,8 @@ const missingEnum = (type) => {
   return new SchemaDefinitionError('ERR_INVALID_ENUM', hint);
 };
 
-// The scalar types: what a field of each holds (its check is in
-// checks/scalars.js, the validation half of the core).
+// The scalar types: what a field of each holds (its check is `COMPILE` of
+// checks.js, the validation half of the core).
 const scalar = {
   kind: 'scalar',
   options: [],
