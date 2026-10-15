@@ -388,12 +388,21 @@ const RENDER = Object.assign(Object.create(null), {
     return unrepresentable(context, 'Type "date" (output)');
   },
   // Binary data is base64 text on a JSON wire (the input `./coerce` reads
-  // back) and binData in MongoDB; the Uint8Array parse gives is no JSON.
+  // back) and binData in MongoDB; the Uint8Array parse gives is no JSON. The
+  // length of the text bounds the bytes: four characters for every three
+  // started (a text that long may decode to two bytes more than `max`).
   bytes: (field, context) => {
     if (context.mongo) return typed('binData', context);
     if (!context.input) return unrepresentable(context, 'Type "bytes" (output)');
-    if (context.target.byte === true) return { type: 'string', format: 'byte' };
-    return { type: 'string', contentEncoding: 'base64' };
+    if (context.strict) return typed('string', context);
+    const json =
+      context.target.byte === true
+        ? { type: 'string', format: 'byte' }
+        : { type: 'string', contentEncoding: 'base64' };
+    const { length } = field;
+    if (length?.min !== undefined) json.minLength = 4 * Math.ceil(length.min / 3);
+    if (length?.max !== undefined) json.maxLength = 4 * Math.ceil(length.max / 3);
+    return json;
   },
   flags,
   null: (field, context) => typed('null', context),

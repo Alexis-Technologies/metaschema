@@ -118,9 +118,9 @@ const bigintOf = (state, field) => {
   return low + BigInt(int(state, Number(span)));
 };
 
-// Up to sixteen random bytes.
-const bytesOf = (state) => {
-  const bytes = new Uint8Array(int(state, 16));
+// Random bytes within the length rule, up to sixteen without one.
+const bytesOf = (state, field) => {
+  const bytes = new Uint8Array(countOf(state, field.length, 0, 16));
   for (let index = 0; index < bytes.length; index += 1) bytes[index] = int(state, 255);
   return bytes;
 };
@@ -283,7 +283,7 @@ const draw = (state, field, key) => {
     case 'date':
       return new Date(1_600_000_000_000 + Math.floor(state.random() * 100_000_000_000));
     case 'bytes':
-      return bytesOf(state);
+      return bytesOf(state, field);
     case 'flags':
       return flagsOf(state, field);
     case 'null':

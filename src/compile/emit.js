@@ -80,9 +80,8 @@ const emitLength = (type, x, key, state) => {
   if (min === undefined && max === undefined) return;
   const n = code.name('n');
   let measure = `${code.ref(lengthOf)}(${x})`;
-  if (type.scalar === 'string') {
-    measure = type.unicode === true ? `${code.ref(codePoints)}(${x})` : `${x}.length`;
-  }
+  if (type.scalar === 'string' && type.unicode === true) measure = `${code.ref(codePoints)}(${x})`;
+  else if (type.scalar === 'string' || type.scalar === 'bytes') measure = `${x}.length`;
   code.push(`const ${n} = ${measure};`);
   code.push(`if (${outside(state, n, min, max)}) {`);
   const bounds = `${code.value(min)}, ${code.value(max)}, ${n}, ${keyOf(key)}`;

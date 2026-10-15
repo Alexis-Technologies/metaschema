@@ -136,8 +136,20 @@ test('Values: bytes is a Uint8Array of any realm, a Buffer included', () => {
     new Schema('File', { data: 'bytes', 'thumb?': 'bytes' }).toInterface(),
     'interface File {\n  data: Uint8Array;\n  thumb?: Uint8Array;\n}',
   );
-  assert.throws(() => Schema.from({ data: { type: 'bytes', length: 4 } }), {
+  // `length` counts the bytes, on both backends (compile.test.js); the rules
+  // of text do not apply.
+  const sized = Schema.from({ data: { type: 'bytes', length: { min: 1, max: 3 } } });
+  assert.strictEqual(sized.check({ data: Buffer.from('abc') }).valid, true);
+  assert.deepStrictEqual(sized.check({ data: new Uint8Array(4) }).issues[0].params, {
+    min: 1,
+    max: 3,
+    actual: 4,
+  });
+  assert.deepStrictEqual(sized.check({ data: new Uint8Array(0) }).errors, [
+    'Field "data" value is too short',
+  ]);
+  assert.throws(() => Schema.from({ data: { type: 'bytes', pattern: /x/ } }), {
     code: 'ERR_INVALID_RULE',
-    message: 'Rule "length" does not apply to type "bytes" in "data"',
+    message: 'Rule "pattern" does not apply to type "bytes" in "data"',
   });
 });

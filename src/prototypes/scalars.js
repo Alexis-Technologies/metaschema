@@ -32,8 +32,8 @@ const integer = { ...scalar, scalar: 'number', rules: ['min', 'max'], options: [
 const date = { ...scalar, scalar: 'date' };
 
 // A Uint8Array of any realm, a Buffer included: the value of binary data,
-// base64 text on a JSON wire.
-const bytes = { ...scalar, scalar: 'bytes' };
+// base64 text on a JSON wire. `length` counts its bytes.
+const bytes = { ...scalar, scalar: 'bytes', rules: ['length'], options: ['length'] };
 
 const nothing = { ...scalar, scalar: 'null' };
 

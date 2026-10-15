@@ -46,20 +46,22 @@ const lengthOf = (value) => {
 };
 
 // A string field measures its units, or its code points when it asks for
-// them; anything else is measured by what it is. One closure per case, each
-// calling its measure directly: a measure held in a variable is a call site
-// shared by every length rule of the process, which V8 then cannot inline.
+// them, a bytes field its bytes; anything else is measured by what it is.
+// One closure per case, each calling its measure directly: a measure held in
+// a variable is a call site shared by every length rule of the process,
+// which V8 then cannot inline.
 const compileLength = (type) => {
   const { min, max } = type.length;
-  if (type.scalar === 'string') {
-    if (type.unicode === true) {
-      return (value, context, key) => {
-        const actual = codePoints(value);
-        const short = min !== undefined && actual < min;
-        const long = max !== undefined && actual > max;
-        if (short || long) issues.length(context, min, max, actual, key);
-      };
-    }
+  const { scalar } = type;
+  if (scalar === 'string' && type.unicode === true) {
+    return (value, context, key) => {
+      const actual = codePoints(value);
+      const short = min !== undefined && actual < min;
+      const long = max !== undefined && actual > max;
+      if (short || long) issues.length(context, min, max, actual, key);
+    };
+  }
+  if (scalar === 'string' || scalar === 'bytes') {
     return (value, context, key) => {
       const actual = value.length;
       const short = min !== undefined && actual < min;

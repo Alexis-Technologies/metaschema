@@ -931,6 +931,12 @@ const RULES = [
   ['flags removed', { a: { flags: ['x', 'y'] } }, { a: { flags: ['x'] } }, 'forward'],
   ['flags replaced', { a: { flags: ['x'] } }, { a: { flags: ['y'] } }, 'none'],
   ['bytes for a string', { a: 'string' }, { a: 'bytes' }, 'none'],
+  [
+    'a length of bytes tightened',
+    { a: { type: 'bytes', length: { max: 8 } } },
+    { a: { type: 'bytes', length: { max: 4 } } },
+    'forward',
+  ],
   ['a validate added', { a: 'string' }, { a: { type: 'string', validate: () => true } }, 'forward'],
   [
     'a validate removed',

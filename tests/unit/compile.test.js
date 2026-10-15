@@ -1343,7 +1343,7 @@ test('Compile: bytes and flags on both backends', () => {
   const vm = require('node:vm');
   const schema = new Schema('Binary', {
     data: 'bytes',
-    'thumb?': { type: 'bytes', nullable: true },
+    'thumb?': { type: 'bytes', nullable: true, length: { min: 1, max: 2 } },
     perms: { flags: ['read', 'write', 'constructor'] },
     'beta?': {
       type: 'flags',
@@ -1359,6 +1359,8 @@ test('Compile: bytes and flags on both backends', () => {
     { data: new Int8Array(1), perms: { toString: true }, beta: { on: false } },
     { data: null, perms: null, beta: { on: 1, off: true } },
     { data: 'AQI=', perms: Object.assign(Object.create({ read: 1 }), { write: true }) },
+    { data: new Uint8Array(1), thumb: new Uint8Array(3), perms: {} },
+    { data: new Uint8Array(1), thumb: Buffer.alloc(0), perms: {} },
   ]);
 });
 

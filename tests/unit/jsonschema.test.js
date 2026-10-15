@@ -244,6 +244,27 @@ test('JSON Schema: rules of strings and numbers', () => {
   });
 });
 
+test('JSON Schema: bytes are base64 text on the input side, bounded by the length', () => {
+  const def = { type: 'bytes', length: { min: 1, max: 4 } };
+  const input = { io: 'input' };
+  assert.deepStrictEqual(fieldOf(def, input), {
+    type: 'string',
+    contentEncoding: 'base64',
+    minLength: 4,
+    maxLength: 8,
+  });
+  assert.deepStrictEqual(fieldOf(def, { ...input, target: 'openapi-3.0' }), {
+    type: 'string',
+    format: 'byte',
+    minLength: 4,
+    maxLength: 8,
+  });
+  // The strict profile keeps the type only, as for every other value rule.
+  assert.deepStrictEqual(fieldOf(def, { ...input, profile: 'strict' }), { type: 'string' });
+  assert.deepStrictEqual(fieldOf(def, { target: 'mongodb' }), { bsonType: 'binData' });
+  assert.throws(() => fieldOf(def, { io: 'output' }), { code: 'ERR_UNREPRESENTABLE' });
+});
+
 test('JSON Schema: enum', () => {
   forEveryTarget(
     { enum: ['a', 'b', 1, null] },

@@ -10,7 +10,7 @@
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |
 | `boolean` | `typeof value === 'boolean'` | — |
 | `date` | a `Date` instance with a valid time (`new Date('nope')` is rejected) | — |
-| `bytes` | a `Uint8Array` of any realm, a `Buffer` included | — |
+| `bytes` | a `Uint8Array` of any realm, a `Buffer` included | `length` (of bytes) |
 | `null` | `null` only | — |
 | `any`, `unknown` | any value, `null` and `undefined` included | — |
 | `enum` | one of the listed values | — |
@@ -33,7 +33,10 @@ render); a required `any` field still has to be present. `bytes` is binary data:
 by the name the engine keeps in it, never by `instanceof` or a key of the value, so a
 `Uint8Array` of another realm is one, another view (`Int8Array`, `DataView`), an array of
 numbers and base64 text are not; base64 text is what [coercion](/guide/coercion) reads into bytes
-and what the [JSON Schema](/guide/json-schema) of the input side describes. `null` is for a field that must be
+and what the [JSON Schema](/guide/json-schema) of the input side describes. `length` bounds the
+number of bytes (`{ type: 'bytes', length: { max: 65536 } }`), and coercion leaves a text whose
+bytes would be over `length.max` undecoded, for the check to reject, so the bound is also what
+caps what a request can make the converter allocate. `null` is for a field that must be
 `null`; a field that may be `null` next to its type is [`nullable`](#nullable), and one that may
 be absent is optional.
 

@@ -260,6 +260,15 @@ test('Coerce: bytes from canonical base64 only', () => {
   assert.ok(Date.now() - started < 1000);
   // A valid text of megabytes: one expression of quanta overflowed the stack
   // of the engine on it, and the converter left the text to the check.
+  // A text whose bytes would be over length.max is not decoded: the check
+  // rejects what is left, and nothing of that size is allocated for it.
+  const bounded = Schema.from({ data: { type: 'bytes', length: { max: 3 } } });
+  const bytesOf = (data) => bounded.parse({ data }, { coerce: true });
+  assert.deepStrictEqual(Array.from(bytesOf('QUJD').value.data), [65, 66, 67]);
+  assert.deepStrictEqual(bytesOf('QUJDRA==').issues[0].params, {
+    expected: 'bytes',
+    received: 'string',
+  });
   const large = schema.parse({ data: `${'AAAA'.repeat(4_000_000)}/w==` }, { coerce: true });
   assert.strictEqual(large.valid, true);
   assert.strictEqual(large.value.data.length, 12_000_001);

@@ -1654,7 +1654,10 @@ change. **This file wins** if they ever disagree.
   at 20 million characters. The expression stays as the `pattern` of the export.
 - **A converter runs before the check, so `length.max` does not bound it.** The converters
   are linear on purpose (`DECIMAL` reads a run of digits one way; pinned on hostile strings in
-  `coerce.test.js`); a converter of the program's own is the program's.
+  `coerce.test.js`); a converter of the program's own is the program's. `bytes` is the
+  exception (review of 3.4): its converter leaves a text whose bytes would be over
+  `length.max` undecoded (the check reports it as not bytes), since decoding is the one
+  conversion that allocates in proportion to the input.
 - **`toMap` converts a plain object or a list of pairs only**: a `Set`, a `Date` or a typed
   array is an object with entries of its own, which are not those of a map.
 - **A plain union prepares every branch before it tries any** (`walkUnion`, the pass before

@@ -115,7 +115,7 @@ The `openapi-3.0` document is a schema object, not an OpenAPI document: put it u
 | `'json'` | `{ type: ['object', 'array'] }` |
 | `'date'` | `{ type: 'string', format: 'date-time' }` on the input side; unrepresentable on the output side; `bsonType: 'date'` for mongodb |
 | `'bigint'` | unrepresentable; `bsonType: 'long'` for mongodb |
-| `'bytes'` | `{ type: 'string', contentEncoding: 'base64' }` on the input side (`format: 'byte'` for openapi-3.0); unrepresentable on the output side; `bsonType: 'binData'` for mongodb |
+| `'bytes'` | `{ type: 'string', contentEncoding: 'base64' }` on the input side (`format: 'byte'` for openapi-3.0), `length` as `minLength`/`maxLength` of the text (four characters for every three bytes started); unrepresentable on the output side; `bsonType: 'binData'` for mongodb |
 | `{ flags: ['read', 'write'] }` | `{ type: 'object', properties: { read: { type: 'boolean' }, ... } }`, `additionalProperties: false` when the document is closed, every name `required` under the strict profile |
 | `{ enum: [...] }` | `{ enum: [...] }`; one value is `{ const: value }` where the dialect has it |
 | `{ array: T, length }` | `{ type: 'array', items: T, minItems, maxItems }` |

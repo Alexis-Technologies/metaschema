@@ -135,6 +135,15 @@ test('Sample: bytes and flags', () => {
   assert.deepStrictEqual(sample(schema, { seed: 7 }), sample(schema, { seed: 7 }));
 });
 
+test('Sample: bytes within their length', () => {
+  const schema = Schema.from({ data: { type: 'bytes', length: { min: 20, max: 24 } } });
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const value = sample(schema, { seed });
+    assert.strictEqual(schema.check(value).valid, true, `seed ${seed}`);
+    assert.strictEqual(value.data.length >= 20 && value.data.length <= 24, true);
+  }
+});
+
 test('Sample: the same seed gives the same value, another seed another one', () => {
   const schema = Schema.from({ name: 'string', n: 'number', tags: { array: 'string' } });
   assert.deepStrictEqual(sample(schema, { seed: 5 }), sample(schema, { seed: 5 }));

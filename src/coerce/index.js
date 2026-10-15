@@ -97,8 +97,14 @@ const isBase64 = (text) => {
   return 'AEIMQUYcgkosw048'.includes(text[length - 2]);
 };
 
-const toBytes = (value) => {
+// A text whose bytes would be over `length.max` is not decoded: the check
+// rejects it, and a converter runs before the check, so this is what bounds
+// what it allocates.
+const toBytes = (value, field) => {
   if (typeof value !== 'string' || !isBase64(value)) return value;
+  const max = field.length?.max;
+  const pad = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  if (max !== undefined && (value.length / 4) * 3 - pad > max) return value;
   if (Uint8Array.fromBase64 !== undefined) return Uint8Array.fromBase64(value);
   const text = atob(value);
   const bytes = new Uint8Array(text.length);
