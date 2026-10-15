@@ -110,13 +110,13 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   schemas (`merge`) and infers a definition from the values that exist (`infer`); `aliases` and
   `deprecated` let a model carry its history, and `fromJSONSchema` of the generators reads a
   JSON Schema document back.
-- **Zero dependencies, 20.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 7.6 KB, the JIT backend 4.4 KB, the
-  model tools 12.4 KB, the record tools 0.9 KB, the string formats 3.9 KB, the derive tools
-  2.0 KB, the converters of coercion 1.8 KB and the MongoDB tools 3.6 KB (on top of the
+- **Zero dependencies, 21.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.7 KB, the JIT backend 4.3 KB, the
+  model tools 12.7 KB, the record tools 0.9 KB, the string formats 3.9 KB, the derive tools
+  2.2 KB, the converters of coercion 1.9 KB and the MongoDB tools 3.6 KB (on top of the
   converters, which they require) where they are imported. A program that reads schemas
   without validating them (a client that encodes from their snapshots) imports
-  `@alexify/metaschema/definition`, the half of the core that builds them: 9.7 KB.
+  `@alexify/metaschema/definition`, the half of the core that builds them: 10.3 KB.
 
 ## Benchmarks
 

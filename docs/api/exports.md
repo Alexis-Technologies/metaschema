@@ -100,7 +100,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/definition`
 
-The half of the core that builds schemas and models and reads them, on its own (9.7 KB
+The half of the core that builds schemas and models and reads them, on its own (10.3 KB
 min+gzip); see [The definition entry](/guide/definition). Its exports are the core's own:
 `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError` and the six constants. Until the
 core entry is loaded too, `check`, `checkAsync`, `parse`, `parseAsync`, `serialize`,
@@ -111,7 +111,7 @@ no `~standard`.
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (20.3 KB min+gzip) does not carry them (7.6 KB more); see
+subpath so that the core entry (21.3 KB min+gzip) does not carry them (7.7 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -126,7 +126,7 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (12.4 KB min+gzip on top of the
+The model as the source of truth, in a subpath of its own (12.7 KB min+gzip on top of the
 core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
 [Schema inference](/guide/infer).
 
@@ -147,7 +147,7 @@ argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (4.4 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (4.3 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
@@ -197,7 +197,7 @@ of an entry is `FormatDefinition`.
 
 ## `@alexify/metaschema/derive`
 
-Schemas made from a schema of a struct, in a subpath of its own (2.0 KB min+gzip on top of the
+Schemas made from a schema of a struct, in a subpath of its own (2.2 KB min+gzip on top of the
 core); see [Deriving schemas](/guide/derive). Each builds a new `Schema` from the definition the
 source was built from, with `options.name` (the source's by default) and `options.metadata`
 (over the source's; a stored kind or a projection is a struct, keeping `unknown`).
@@ -220,7 +220,7 @@ not a list of names and options that are not an object are a `TypeError` with
 
 ## `@alexify/metaschema/coerce`
 
-The converters of [coercion](/guide/coercion), in a subpath of its own (1.8 KB min+gzip on top
+The converters of [coercion](/guide/coercion), in a subpath of its own (1.9 KB min+gzip on top
 of the core); the policy (`coerce` of a parse call, of the kind metadata, of a field) and the
 step in the pass before the check are the core's.
 

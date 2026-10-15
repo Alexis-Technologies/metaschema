@@ -10,11 +10,11 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 20.3 KB min+gzip for the core entry (the generators subpath adds
-  7.6 KB, the compile subpath 4.4 KB, the model subpath 12.4 KB, the stream subpath 0.9 KB, the
-  formats subpath 3.9 KB, the derive subpath 2.0 KB, the coerce subpath 1.8 KB, the mongodb
+- Zero runtime dependencies, 21.3 KB min+gzip for the core entry (the generators subpath adds
+  7.7 KB, the compile subpath 4.3 KB, the model subpath 12.7 KB, the stream subpath 0.9 KB, the
+  formats subpath 3.9 KB, the derive subpath 2.2 KB, the coerce subpath 1.9 KB, the mongodb
   subpath 3.6 KB on top of coerce; the definition subpath, the half of the core that builds and
-  reads schemas without validating, is 9.7 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
+  reads schemas without validating, is 10.3 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
   struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types

@@ -210,7 +210,7 @@ half's (Alex's decision, 2026-10-15: it is about 700 bytes the definition entry 
 The plan asked for 8 KB for `./definition` and at most 100 bytes of growth of the core; the
 definition half alone is 9.7 KB and the split costs the core about 610 bytes (the installation,
 the stubs, the state under symbols, the chain of the prototypes), which Alex accepted with the
-gates at the next whole KB (10 KB, 21 KB). A subpath that validates, renders or converts
+gates at the next whole KB (10 KB, 21 KB; 11 KB and 22 KB after the review of 3.4). A subpath that validates, renders or converts
 (`./generators`, `./compile`, `./model`, `./stream`, `./coerce`, `./mongodb`) requires
 `validation.js` for its Schema, so it brings the validation half along; `./derive` and
 `./formats` work beside the definition entry alone. `graph.test.js` pins that the definition
@@ -678,14 +678,24 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
-**The 3.4 bundle budgets are 21 KB min+gzip per core entry, 8 KB for the generators, 5 KB for
+**The 3.4 bundle budgets are 22 KB min+gzip per core entry, 8 KB for the generators, 5 KB for
 the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB for the
 formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on top of it,
-4 KB for the mongodb subpath on top of it and `./coerce`, and 10 KB for the definition subpath
-on its own** (`pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5
---max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5
---max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11` in CI). In 3.4
-(2026-10-15) the entries measure 20833 / 20844 bytes (20.3 KB), the generators 7781 (7.6 KB),
+4 KB for the mongodb subpath on top of it and `./coerce`, and 11 KB for the definition subpath
+on its own** (`pnpm run size:gate`, the one place the flags are written, in CI and
+`prepublishOnly`). After the review of 3.4 (2026-10-16) the entries measure 21782 / 21805 bytes
+(21.3 KB), the generators 7860 (7.7 KB), the compile subpath 4426, the model subpath 12988,
+the stream subpath 950, the formats subpath 3947, the derive subpath 2211, the coerce subpath
+1993 (55 bytes under its gate), the mongodb subpath 3675 and `./definition` 10569 bytes (10.3
+KB). The review cost the core about 950 bytes: the snapshot about 500 (`usesOf` and the
+resolution through the root of a field, the type clash, the tags of bytes, a Map and a Set,
+`orderOf` as a loop, the copies of the metadata, the shape of a Date and a RegExp), the
+validation half about 300 (`checkConsistency` over `usesOf`, `unenforceable-decimals`, the
+`received` of a `decimals` issue and its renderers, the error of a custom `compile`, the
+`length` of bytes), the stubs that look the method up and the mark of another copy about 150;
+`./definition` took about 610 of it, so its gate moved to 11 KB and the core's to 22 KB, the
+next whole KB (the rule of the review of 3.3). Before the review (2026-10-15) the entries
+measured 20833 / 20844 bytes (20.3 KB), the generators 7781 (7.6 KB),
 the compile subpath 4499, the model subpath 12656, the stream subpath 917, the formats subpath
 3973, the derive subpath 2099, the coerce subpath 1880, the mongodb subpath 3681 on top of the
 core and `./coerce`, and `./definition` 9957 bytes (9.7 KB) on its own, a bundle for the browser
@@ -1113,6 +1123,22 @@ change. **This file wins** if they ever disagree.
   its header says); the base64 converter in `coerce.test.js`; a Binary of the real bson read
   back as bytes in `mongodb-bson.test.js`; `decimals` and `flags` rows of `RULES` in
   `evolution.test.js`.
+- Review of 3.4 suites: the bare ES import of the core in `bundle.test.js` (esbuild reads
+  `sideEffects`; it fails with `ignored-bare-import` without the list); the committed text of
+  `toSnapshot()` (`tests/fixtures/schema-snapshot.json` from `forms-snapshot.js`), a Schema reused
+  as a field, an anonymous schema of a model, the order a walk meets, a chain of ten thousand
+  entities, two types of one name, the tags of bytes, a Map and a Set, the copies of the
+  metadata in `snapshot.test.js`; a value shaped like a Date or a RegExp, the hardening of
+  `fromJSON` and the parent of a struct in `evolution.test.js`; a schema that names itself
+  derived and merged in `derive.test.js` and `merge.test.js`; the numbers of a rule reaching the
+  generated source as data in `compile.test.js`; a TypeScript field with a `flags` option in
+  `flags.test.js`; the `length` of bytes in `values.test.js`, `compile.test.js`,
+  `jsonschema.test.js`, `sample.test.js`, `coerce.test.js` (a text over the bound is not decoded,
+  a valid text of 16 MB is) and a `RULES` row; the Binary subtypes in `mongodb-bson.test.js`;
+  `unenforceable-decimals` in `lint.test.js`; a method taken before the core loaded and a
+  schema of another copy in `definition.test.js` (child processes); the error of a custom
+  `compile` in `types.test.js` (backend-aware: under the JIT it is the cause of
+  `ERR_JIT_BUILD` at construction).
 - Review of 3.3 suites: `mongodb-bson.test.js` (the subpath against the real `bson`, a
   devDependency: the tag and the methods of its values, the strict converters of
   `decimal128`/`binary`/`objectId`, a document round-tripped through `bson.serialize`; a file

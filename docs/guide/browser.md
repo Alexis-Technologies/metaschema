@@ -23,17 +23,17 @@ global symbol brand (`Symbol.for`), not by class names, so a bundler that rename
 minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
 builds both entry points with esbuild, minified and not, and validates through the result.
 
-The core entry is 20.3 KB min+gzip in either environment, and CI keeps it under 21 KB; the
-`@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 7.6 KB where it is
+The core entry is 21.3 KB min+gzip in either environment, and CI keeps it under 22 KB; the
+`@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 7.7 KB where it is
 imported, under a budget of 8 KB, the `@alexify/metaschema/compile` subpath (the JIT backend)
-4.4 KB, under 5 KB, the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
-merge, inference) 12.4 KB, under 13 KB, the `@alexify/metaschema/stream` subpath (records and
+4.3 KB, under 5 KB, the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
+merge, inference) 12.7 KB, under 13 KB, the `@alexify/metaschema/stream` subpath (records and
 streams) 0.9 KB, under 1.5 KB, the `@alexify/metaschema/formats` subpath (string formats)
-3.9 KB, under 5 KB, the `@alexify/metaschema/derive` subpath (pick, omit, partial) 2.0 KB,
-under 2.5 KB, the `@alexify/metaschema/coerce` subpath (the converters of coercion) 1.8 KB,
+3.9 KB, under 5 KB, the `@alexify/metaschema/derive` subpath (pick, omit, partial) 2.2 KB,
+under 2.5 KB, the `@alexify/metaschema/coerce` subpath (the converters of coercion) 1.9 KB,
 under 2 KB, and the `@alexify/metaschema/mongodb` subpath 3.6 KB on top of `./coerce`, under
 4 KB. A client that only reads schemas imports [`@alexify/metaschema/definition`](/guide/definition)
-instead of the core: 9.7 KB, under 10 KB. `pnpm size` in the repository prints the exact numbers. The package says
+instead of the core: 10.3 KB, under 11 KB. `pnpm size` in the repository prints the exact numbers. The package says
 in `sideEffects` that only its entries have side effects (loading the core installs validation
 into the classes, so `import '@alexify/metaschema'` for that alone is kept): no subpath
 registers on import, so a bundler may drop a subpath an ESM program imports and never calls (a CommonJS `require` of a subpath keeps it whole: there is no

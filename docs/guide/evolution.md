@@ -23,7 +23,7 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 20.3 KB min+gzip, `@alexify/metaschema/model` adds 12.4 KB on
+them: `@alexify/metaschema` is 21.3 KB min+gzip, `@alexify/metaschema/model` adds 12.7 KB on
 top. The subpath exports eight functions:
 
 | Export | Meaning |
