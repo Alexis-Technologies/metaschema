@@ -10,6 +10,10 @@ const { formatOf } = require('./rules.js');
 const { STRUCT, isStruct } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
 
+// The rules of a field (`rules.js` reads and normalizes them when the field
+// is built): one closure per rule over the field's bounds, run after the type
+// check in the order the type lists them.
+
 // Code points of a string: a surrogate pair counts once, a lone surrogate
 // once too.
 const codePoints = (text) => {
@@ -215,10 +219,6 @@ const compileField = (type) => {
 // The type check of a custom type: a `checkType(value, path)` that returns
 // messages, run through the validator contract (the `compile` of
 // AbstractType). A built-in prototype compiles its own.
-
-// The type check of a custom type: a `checkType(value, path)` that returns
-// messages, run through the validator contract (the `compile` of
-// AbstractType). A built-in prototype compiles its own.
 const custom = {
   compile() {
     const type = this;
@@ -349,8 +349,8 @@ const scalarCheck = (scalar, required) => (value, context, key) => {
   issues.type(context, scalar, value, key);
 };
 
-// A string, a number, a bigint or a boolean, by `typeof`.
-
+// Any value at all, null and undefined included; `required` still says
+// whether the key must be there.
 const accept = () => {};
 
 // An array and a Set are walked the same way, by position; only the type
@@ -410,9 +410,6 @@ const runReferenced = (schema, value, context, key) => {
   seen.delete(value);
 };
 
-// The target is looked up at check time: entities of a model are built in
-// any order and a namespace may be attached later.
-
 // What a branch is called in the message of a value that matched none.
 const nameOf = (branch) => (branch.type === 'schema' ? 'object' : branch.type);
 
@@ -435,6 +432,8 @@ const tableOf = (field) => {
   return table;
 };
 
+// A plain union: the branches in order, the first that records nothing
+// wins, and what a failed branch recorded is dropped.
 const compilePlain = (type, required) => {
   const checks = [];
   const expected = [];
@@ -468,9 +467,11 @@ const compilePlain = (type, required) => {
 // a boolean share one (by `typeof`), so do any and unknown, an array and a
 // Set (by `isInstance`).
 const COMPILE = {
+  // A string, a number, a bigint or a boolean: one `typeof`.
   string() {
     return scalarCheck(this.scalar, this.required);
   },
+  // A number without a fraction.
   integer() {
     const { required } = this;
     return (value, context, key) => {
@@ -479,6 +480,7 @@ const COMPILE = {
       issues.type(context, 'integer', value, key);
     };
   },
+  // A Date instance with a time: an invalid Date is a type error.
   date() {
     const { required } = this;
     return (value, context, key) => {
@@ -487,6 +489,7 @@ const COMPILE = {
       issues.type(context, 'date', value, key);
     };
   },
+  // A Uint8Array of any realm, a Buffer included.
   bytes() {
     const { required } = this;
     return (value, context, key) => {
@@ -506,6 +509,7 @@ const COMPILE = {
   any() {
     return accept;
   },
+  // One of the values: a Set past ENUM_SET_SIZE of them.
   enum() {
     const values = this.enum;
     const { required } = this;
@@ -523,6 +527,10 @@ const COMPILE = {
       issues.enum(context, values, key);
     };
   },
+  // Collections iterate their source directly: an object with for...in
+  // over its own keys, a Map and a Set through their iterators, an array by
+  // index. A collection pushes its own key on the path before its elements
+  // and pops it after them; an element is checked with its key or index.
   object() {
     const { required, type, key: keyType } = this;
     const { check } = this.value;
@@ -581,6 +589,8 @@ const COMPILE = {
   array() {
     return compileList(this, this.isInstance);
   },
+  // The target is looked up at check time: entities of a model are built
+  // in any order and a namespace may be attached later.
   reference() {
     const { one, many, root, required, embed } = this;
     if (one) {
@@ -619,6 +629,8 @@ const COMPILE = {
       if (nested) context.path.pop();
     };
   },
+  // A nested struct: the check of its fields, or of the one type of a
+  // Schema held as a field.
   schema() {
     const { required } = this;
     const check = isStruct(this.schema) ? checkOf(this.schema) : this.schema.check;
@@ -627,6 +639,7 @@ const COMPILE = {
       check(value, context, key);
     };
   },
+  // The elements by index, no more of them than the tuple has.
   tuple() {
     const { required, type } = this;
     const checks = [];
@@ -651,6 +664,8 @@ const COMPILE = {
       if (nested) context.path.pop();
     };
   },
+  // Without a discriminator the branches are tried in order; with one, the
+  // branch is picked by the value of that field in one Map lookup.
   union() {
     const { required, discriminator } = this;
     if (discriminator === undefined) return compilePlain(this, required);
@@ -676,6 +691,7 @@ const COMPILE = {
       if (nested) context.path.pop();
     };
   },
+  // An object or an array.
   json() {
     const { required } = this;
     return (value, context, key) => {
@@ -684,6 +700,8 @@ const COMPILE = {
       issues.type(context, 'object', value, key);
     };
   },
+  // The own keys of an object, each a name of the list holding a boolean;
+  // another key is unexpected under the reject policy, as a struct's is.
   flags() {
     const { required, type } = this;
     // A null-prototype dictionary: a key such as `constructor` is not a name.
