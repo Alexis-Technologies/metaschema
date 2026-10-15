@@ -55,6 +55,8 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     '100',
     '--max-gzip-mongodb',
     '100',
+    '--max-gzip-definition',
+    '100',
   ];
   const ok = run('scripts/size.js', budgets);
   assert.strictEqual(ok.status, 0, ok.stderr);
@@ -71,6 +73,7 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
     ok.stdout,
     /\| MongoDB \(\.\/mongodb\) on top of the Node entry and \.\/coerce \| [1-9]/,
   );
+  assert.match(ok.stdout, /\| Definition \(\.\/definition\) on its own \| [1-9]/);
 
   const over = run('scripts/size.js', ['--max-gzip', '1']);
   assert.strictEqual(over.status, 1);
@@ -120,6 +123,11 @@ test('Scripts: size reports the entries and the subpaths and enforces the budget
   assert.strictEqual(mongodb.status, 1);
   assert.match(mongodb.stderr, /Bundle budget exceeded: MongoDB \(\.\/mongodb\)/);
   assert.doesNotMatch(mongodb.stderr, /exceeded: Coerce/);
+
+  const definition = run('scripts/size.js', ['--max-gzip-definition', '1']);
+  assert.strictEqual(definition.status, 1);
+  assert.match(definition.stderr, /Bundle budget exceeded: Definition \(\.\/definition\)/);
+  assert.doesNotMatch(definition.stderr, /exceeded: (Node|Browser) entry/);
 
   const bad = run('scripts/size.js', ['--max-gzip', 'lots']);
   assert.strictEqual(bad.status, 1);

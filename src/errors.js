@@ -52,6 +52,16 @@ const notRegistered = (what, where) => {
   return error;
 };
 
+// A schema of `./definition` asked to validate before the core entry was
+// loaded: the half of the core that validates is not installed.
+const noValidation = (what) => {
+  const error = new TypeError(
+    `${what} needs the core entry @alexify/metaschema: ./definition alone does not validate`,
+  );
+  error.code = 'ERR_NOT_REGISTERED';
+  return error;
+};
+
 const shown = (value) =>
   typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 
@@ -69,5 +79,6 @@ module.exports = {
   asyncReturn,
   invalidTarget,
   notRegistered,
+  noValidation,
   invalidOption,
 };

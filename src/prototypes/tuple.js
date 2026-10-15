@@ -1,7 +1,6 @@
 const { isFirstUpper } = require('../metautil.js');
 const { formatters } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
-const { issues } = require('../issues.js');
 
 const invalidTuple = (reason) => new SchemaDefinitionError('ERR_INVALID_TUPLE', `Tuple ${reason}`);
 
@@ -42,31 +41,6 @@ const tuple = {
       built.push(type);
     }
     this.value = built;
-  },
-
-  compile() {
-    const { required, type } = this;
-    const checks = [];
-    for (let index = 0; index < this.value.length; index += 1) checks.push(this.value[index].check);
-    const { length } = checks;
-    return (value, context, key) => {
-      if (!Array.isArray(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
-      }
-      if (value.length > length) {
-        issues.length(context, undefined, length, value.length, key);
-        return;
-      }
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      for (let index = 0; index < length; index += 1) {
-        if (context.count >= context.limit) break;
-        checks[index](value[index], context, index);
-      }
-      if (nested) context.path.pop();
-    };
   },
 };
 

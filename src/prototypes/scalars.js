@@ -1,30 +1,17 @@
 const { SchemaDefinitionError } = require('../errors.js');
-const { issues } = require('../issues.js');
-const { ENUM_SET_SIZE, isDate, isBytes } = require('../util.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
   return new SchemaDefinitionError('ERR_INVALID_ENUM', hint);
 };
 
-// A single comparison on the way through for a valid value; the optional
-// case is looked at only when it fails.
-const scalarCheck = (scalar, required) => (value, context, key) => {
-  // oxlint-disable-next-line valid-typeof
-  if (typeof value === scalar) return;
-  if (!required && value == null) return;
-  issues.type(context, scalar, value, key);
-};
-
+// The scalar types: what a field of each holds (its check is in
+// checks/scalars.js, the validation half of the core).
 const scalar = {
   kind: 'scalar',
   options: [],
 
   construct() {},
-
-  compile() {
-    return scalarCheck(this.scalar, this.required);
-  },
 };
 
 const enumerable = {
@@ -36,116 +23,25 @@ const enumerable = {
     if (!Array.isArray(values) || values.length === 0) throw missingEnum(this.type);
     this.enum = values;
   },
-
-  compile() {
-    const values = this.enum;
-    const { required } = this;
-    if (values.length > ENUM_SET_SIZE) {
-      const set = new Set(values);
-      return (value, context, key) => {
-        if (set.has(value)) return;
-        if (!required && value == null) return;
-        issues.enum(context, values, key);
-      };
-    }
-    return (value, context, key) => {
-      if (values.includes(value)) return;
-      if (!required && value == null) return;
-      issues.enum(context, values, key);
-    };
-  },
 };
 
 // A number without a fraction; it renders as a number in TypeScript.
-const integer = {
-  kind: 'scalar',
-  scalar: 'number',
-  rules: ['min', 'max'],
-  options: ['min', 'max'],
-
-  construct() {},
-
-  compile() {
-    const { required } = this;
-    return (value, context, key) => {
-      if (Number.isInteger(value)) return;
-      if (!required && value == null) return;
-      issues.type(context, 'integer', value, key);
-    };
-  },
-};
+const integer = { ...scalar, scalar: 'number', rules: ['min', 'max'], options: ['min', 'max'] };
 
 // A Date instance with a time: an invalid Date is a type error.
-const date = {
-  kind: 'scalar',
-  scalar: 'date',
-  options: [],
-
-  construct() {},
-
-  compile() {
-    const { required } = this;
-    return (value, context, key) => {
-      if (isDate(value) && !Number.isNaN(value.getTime())) return;
-      if (!required && value == null) return;
-      issues.type(context, 'date', value, key);
-    };
-  },
-};
+const date = { ...scalar, scalar: 'date' };
 
 // A Uint8Array of any realm, a Buffer included: the value of binary data,
 // base64 text on a JSON wire.
-const bytes = {
-  kind: 'scalar',
-  scalar: 'bytes',
-  options: [],
+const bytes = { ...scalar, scalar: 'bytes' };
 
-  construct() {},
-
-  compile() {
-    const { required } = this;
-    return (value, context, key) => {
-      if (isBytes(value)) return;
-      if (!required && value == null) return;
-      issues.type(context, 'bytes', value, key);
-    };
-  },
-};
-
-const nothing = {
-  kind: 'scalar',
-  scalar: 'null',
-  options: [],
-
-  construct() {},
-
-  compile() {
-    const { required } = this;
-    return (value, context, key) => {
-      if (value === null) return;
-      if (value === undefined && !required) return;
-      issues.type(context, 'null', value, key);
-    };
-  },
-};
+const nothing = { ...scalar, scalar: 'null' };
 
 // Any value at all, null and undefined included; `required` still says
 // whether the key must be there.
-const accept = () => {};
+const any = { ...scalar, scalar: 'any' };
 
-const any = {
-  kind: 'scalar',
-  scalar: 'any',
-  options: [],
-
-  construct() {},
-
-  compile() {
-    return accept;
-  },
-};
-
-const unknown = { ...any, scalar: 'unknown' };
+const unknown = { ...scalar, scalar: 'unknown' };
 
 const string = {
   ...scalar,

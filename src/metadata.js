@@ -1,8 +1,5 @@
 const { getKindMetadata } = require('./kinds.js');
-const { ValidationResult } = require('./result.js');
-const { SchemaDefinitionError, asyncReturn } = require('./errors.js');
-const { isThenable } = require('./issues.js');
-const { safeString } = require('./util.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 // The functions of a schema definition that are the schema's own: its
 // validate, its decoder, its serializer and `format`.
@@ -95,25 +92,6 @@ class SchemaMetadata {
     }
     return fields;
   }
-
-  // Runs only the schema-level validate function, as a result of its own; a
-  // function that returns a promise is an error here, as in check.
-  validate(value, path = '') {
-    if (!this.options.validate) return null;
-    const result = new ValidationResult();
-    try {
-      const output = this.options.validate.call(this, value, path);
-      if (isThenable(output)) throw asyncReturn('validator', path, 'checkAsync');
-      return result.add(output);
-    } catch (error) {
-      if (error?.code === 'ERR_ASYNC_VALIDATOR') throw error;
-      return result.add({
-        code: 'exception',
-        message: `validation failed ${safeString(error)}`,
-        params: { error },
-      });
-    }
-  }
 }
 
-module.exports = { ValidationResult, SchemaMetadata };
+module.exports = { SchemaMetadata };

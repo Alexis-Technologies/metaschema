@@ -7,7 +7,7 @@
 // `node --disallow-code-generation-from-strings`) the closures stay, silently
 // in the default mode. Nothing happens on import.
 const { hasBrand, RUN, HOOK } = require('../util.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');

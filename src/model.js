@@ -1,10 +1,9 @@
 const { firstKey, isFirstLower } = require('./metautil.js');
 
-const { BRAND, INSPECT } = require('./util.js');
+const { BRAND, INSPECT, CYCLES } = require('./util.js');
 const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
-const { SchemaDefinitionError } = require('./errors.js');
-const { warning } = require('./lint.js');
+const { SchemaDefinitionError, noValidation } = require('./errors.js');
 const { snapshotOf } = require('./snapshot.js');
 
 const invalidOption = (name, expected, value) => {
@@ -42,17 +41,13 @@ const coercionsFor = (options) => {
 };
 
 class Model {
-  // The model's own warnings (the cycles met while ordering), found while
-  // building; the rest comes from the entities on first use.
-  #cycles = [];
-  #warnings = null;
-
   constructor(types, entities, database = null, options = {}) {
     this.types = typeFactory(types, registryFor(options));
     this.coercions = coercionsFor(options);
     this.entities = new Map();
     this.database = database;
     this.order = new Set();
+    this[CYCLES] = [];
     const projections = [];
     for (const pair of entities) {
       const name = pair[0];
@@ -72,26 +67,6 @@ class Model {
       this.entities.set(name, schema);
     }
     this.#preprocess();
-  }
-
-  // The lint warnings of every entity, the references and types they cannot
-  // resolve, and the recursive dependencies, as `Warning [code]: text`.
-  get warnings() {
-    if (this.#warnings !== null) return this.#warnings;
-    const warnings = [];
-    const add = (list) => {
-      for (let index = 0; index < list.length; index += 1) warnings.push(list[index]);
-    };
-    for (const pair of this.entities) {
-      const name = pair[0];
-      const entity = pair[1];
-      if (name.startsWith('.')) continue;
-      add(entity.warnings);
-      add(entity.checkConsistency());
-    }
-    add(this.#cycles);
-    this.#warnings = warnings;
-    return warnings;
   }
 
   // The model as plain JSON: `{ format, database, types, entities }`, the
@@ -124,9 +99,7 @@ class Model {
     for (const ref of entity.references) {
       if (ref === name) continue;
       if (visiting.has(ref)) {
-        this.#cycles.push(
-          warning('recursive-reference', `"${name}" depends on "${ref}" recursively`),
-        );
+        this[CYCLES].push([name, ref]);
         continue;
       }
       this.#reorderEntity(ref, visiting);
@@ -135,6 +108,14 @@ class Model {
     this.order.add(name);
   }
 }
+
+// The warnings of a model are the validation half's, as a schema's are.
+Object.defineProperty(Model.prototype, 'warnings', {
+  get() {
+    throw noValidation('warnings');
+  },
+  configurable: true,
+});
 
 Model.prototype[BRAND] = 'Model';
 

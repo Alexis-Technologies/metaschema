@@ -368,7 +368,8 @@ test('Structs: fields enumerate and serialize as plain data', () => {
 });
 
 test('Structs: a struct carries its plan and known keys, its check compiled apart', () => {
-  const { STRUCT, checkOf } = require('../../src/struct.js');
+  const { STRUCT } = require('../../src/struct.js');
+  const { checkOf } = require('../../src/checks.js');
   const schema = Schema.from({
     name: 'string',
     'tags?': { array: 'string' },

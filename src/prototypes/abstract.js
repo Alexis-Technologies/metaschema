@@ -1,7 +1,6 @@
 const { BRAND, INSPECT } = require('../util.js');
-const { FORMAT, checkBounds, notApplicable, compileRules } = require('../rules.js');
-const { runValidate, runCheckType } = require('../issues.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { FORMAT, checkBounds, notApplicable } = require('../rules.js');
+const { SchemaDefinitionError, noValidation } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
 // names one of its methods (or the prototype itself) would replace it. The
@@ -30,48 +29,16 @@ const checkCodecs = (type) => {
   }
 };
 
-// A nullable field accepts null in place of a value of its type, whatever
-// its rules; `required` still says whether the key must be there.
-const nullable = (inner) => (value, context, key) => {
-  if (value === null) return;
-  inner(value, context, key);
-};
-
-// The check of a field with rules or a validate function: the type check,
-// then the rules, then the validate function. A type failure cancels the
-// rest (a length or a validator makes no sense for a value of another type),
-// and validate runs only on a value that passed everything before it, so it
-// can rely on the type and the rules. A field with neither is its type check
-// alone.
-const withRules = (type, inner, rules) => {
-  const { required, validate } = type;
-  return (value, context, key) => {
-    if (value == null && !required) return;
-    const before = context.count;
-    inner(value, context, key);
-    if (context.count !== before) return;
-    for (let index = 0; index < rules.length; index += 1) {
-      if (context.count >= context.limit) break;
-      rules[index](value, context, key);
-    }
-    if (validate && context.count === before) {
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      runValidate(type, validate, value, context);
-      if (nested) context.path.pop();
-    }
-  };
-};
-
-// The check of a field: the type check, wrapped in the rules and the
-// validate function when it has any, and in the null test when nullable. A
-// field without rules is its type check alone, and check is the hot path.
-const compileField = (type) => {
-  const checks = compileRules(type);
-  const inner = type.compile();
-  const plain = checks.length === 0 && !type.validate;
-  const check = plain ? inner : withRules(type, inner, checks);
-  return type.nullable === true ? nullable(check) : check;
+// What builds the checks of a schema and of its fields on their first use:
+// the validation half of the core installs them (`validation.js`), and a
+// schema built through `./definition` alone says that it cannot validate.
+const BUILD = {
+  field() {
+    throw noValidation('check');
+  },
+  schema() {
+    throw noValidation('check');
+  },
 };
 
 class AbstractType {
@@ -113,24 +80,8 @@ class AbstractType {
   // Records the problems of a value into the context of the current check,
   // under `key` when the field is reached through one.
   get check() {
-    if (this.#check === undefined) this.#check = compileField(this);
+    if (this.#check === undefined) this.#check = BUILD.field(this);
     return this.#check;
-  }
-
-  // The type check of a field, as a closure built once from the field. A
-  // built-in prototype compiles its own; a custom type has a
-  // `checkType(value, path)` that returns messages, run through the
-  // validator contract.
-  compile() {
-    const type = this;
-    const { required } = this;
-    return (value, context, key) => {
-      if (value == null && !required) return;
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      runCheckType(type, value, context);
-      if (nested) context.path.pop();
-    };
   }
 
   toJSON() {
@@ -145,4 +96,4 @@ class AbstractType {
 
 AbstractType.prototype[BRAND] = 'Type';
 
-module.exports = { AbstractType };
+module.exports = { AbstractType, BUILD };

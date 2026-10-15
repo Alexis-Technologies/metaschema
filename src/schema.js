@@ -1,114 +1,45 @@
-const { isFirstUpper } = require('./metautil.js');
-
-const { BRAND, INSPECT, RUN, HOOK, hasBrand } = require('./util.js');
-const { createContext } = require('./context.js');
+const {
+  BRAND,
+  INSPECT,
+  RUN,
+  HOOK,
+  TRACKED,
+  COERCES,
+  CODEC,
+  STANDARD,
+  hasBrand,
+} = require('./util.js');
 const { TYPES } = require('./types.js');
 const { Preprocessor } = require('./preprocessor.js');
 const { SchemaMetadata } = require('./metadata.js');
-const { ValidationResult } = require('./result.js');
-const { finalize, runValidate, settle, release } = require('./issues.js');
-const { SchemaDefinitionError } = require('./errors.js');
-const { createStruct, isStruct, checkOf } = require('./struct.js');
-const { warning, lintSchema } = require('./lint.js');
+const { SchemaDefinitionError, noValidation } = require('./errors.js');
+const { createStruct } = require('./struct.js');
+const { BUILD } = require('./prototypes/abstract.js');
 const { schemaSnapshotOf } = require('./snapshot.js');
-const {
-  PREPARE,
-  FINISH,
-  SERIALIZE,
-  COERCE,
-  infoOf,
-  apply,
-  looped,
-  hasAsync,
-  wantOf,
-} = require('./codec.js');
 
-// The validation of a schema inside an existing context: `check` starts one,
-// and a reference field checks its target entity within the context of the
-// outer check, so the error limit and the cycle detection span the whole
-// value. The schema-level validate runs last, and only on a value whose
-// fields all passed, so it can rely on their shape. Built once per schema,
-// as Schema[RUN].
-const compileSchema = (schema) => {
-  const { fields, options } = schema;
-  const run = isStruct(fields) ? checkOf(fields) : fields.check;
-  return (value, context, key) => {
-    const before = context.count;
-    run(value, context, key);
-    const { validate } = options;
-    if (validate && context.count === before) {
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      runValidate(schema, validate, value, context);
-      if (nested) context.path.pop();
-    }
-  };
-};
-
-// The check of a schema until it is first used: it compiles the closures,
-// takes their place and runs them. A schema built to be read (rendered,
-// written as a snapshot) never compiles them; one the JIT replaced before
-// its first use (`register()` of `./compile`) is not touched.
+// The check of a schema until it is first used: it builds the closures
+// (`BUILD.schema`, the validation half's), takes their place and runs them.
+// A schema built to be read (rendered, written as a snapshot) never builds
+// them; one the JIT replaced before its first use (`register()` of
+// `./compile`) is not touched.
 const lazyRun = (schema) => {
   const run = (value, context, key) => {
-    const check = compileSchema(schema);
+    const check = BUILD.schema(schema);
     if (schema[RUN] === run) schema[RUN] = check;
     return check(value, context, key);
   };
   return run;
 };
 
-const resultOf = (context) => {
-  finalize(context.issues, context.messages);
-  return new ValidationResult(context);
-};
-
-// What parse returns: the output only for a valid value, the issues always.
-const parsed = (context, output) => {
-  finalize(context.issues, context.messages);
-  const valid = context.count === 0;
-  return { valid, value: valid ? output : undefined, issues: context.issues };
-};
-
-// The result of parse read as Standard Schema does.
-const standardize = (result) =>
-  result.valid ? { value: result.value } : { issues: result.issues };
-
-// The walk of an async check: a throw out of it (a getter of the value that
-// throws, the engine's limit on a pattern) leaves the promises the walk
-// queued observed, so that none of them rejects unhandled.
-const walkAsync = (schema, value, context) => {
-  try {
-    schema[RUN](value, context);
-  } catch (error) {
-    release(context.async, 0);
-    throw error;
-  }
-};
-
+// The half of the core that builds a schema and reads it: its fields and
+// metadata, its JSON and its snapshot. The validation half (`validation.js`,
+// which the core entry loads) installs `check`, `parse`, `serialize` and
+// their kin, `~standard` and the warnings of the lint on this class; until
+// then they say so (`./definition` alone).
 class Schema extends SchemaMetadata {
   // The merged type table of the attached namespaces, rebuilt only when they
   // change.
   #types = null;
-
-  // Whether the root value joins the cycle detection (`context.source`):
-  // only a struct with references can reach it again.
-  #tracked = false;
-
-  // The lint of the definition, run on first use: a schema built in a hot
-  // path never pays for it.
-  #warnings = null;
-
-  // The Standard Schema props, built on first use.
-  #standard = null;
-
-  // What the passes of parse and serialize know about the schema, on first use.
-  #codec = null;
-
-  // Whether parse coerces the input unless the call says otherwise: the
-  // `coerce` of the kind metadata, read once (an own property would shadow
-  // the method the `./coerce` subpath installs).
-  #coerce = false;
 
   static from(source, namespaces) {
     return new Schema('', source, namespaces);
@@ -148,42 +79,18 @@ class Schema extends SchemaMetadata {
       const combined = { ...fields, ...extras };
       this.fields = createStruct(combined, preprocessor);
     }
-    this.#tracked = isSchemaType && this.relations.size > 0;
-    this.#coerce = Object.hasOwn(this.custom, 'coerce') && this.custom.coerce === true;
+    // What the validation half reads (util.js): whether the root value joins
+    // the cycle detection (only a struct with references can reach it
+    // again), whether parse coerces unless the call says otherwise (the
+    // `coerce` of the kind metadata, read once: an own property would shadow
+    // the method the `./coerce` subpath installs), and its caches.
+    this[TRACKED] = isSchemaType && this.relations.size > 0;
+    this[COERCES] = Object.hasOwn(this.custom, 'coerce') && this.custom.coerce === true;
+    this[CODEC] = null;
+    this[STANDARD] = null;
     this[RUN] = lazyRun(this);
     const hook = Schema[HOOK];
     if (hook !== undefined) hook(this);
-  }
-
-  // What is not wrong enough to throw: `Warning [code]: text` strings.
-  get warnings() {
-    if (this.#warnings === null) this.#warnings = lintSchema(this);
-    return this.#warnings;
-  }
-
-  // Standard Schema v1 (https://standardschema.dev): the interface tRPC,
-  // TanStack Form, Hono and the other consumers of the specification validate
-  // through. `validate` is `parse` with the policies of the schema: the value
-  // that comes back has the defaults and the decoders applied (the value
-  // itself when there was nothing to apply), and the issues of an invalid one
-  // are the result's own (a message and a path of keys each). A schema with
-  // an async validator or decoder validates through parseAsync, as the
-  // specification allows. The vendor-specific `libraryOptions` of a call are
-  // the options of `parse`. An accessor of the prototype stays out of toJSON,
-  // inspect and Object.keys, and `validate` closes over the schema because a
-  // consumer calls it unbound. The `./generators` subpath adds the
-  // `jsonSchema` converter of Standard JSON Schema to the props.
-  get '~standard'() {
-    if (this.#standard === null) {
-      const async = hasAsync(this);
-      const validate = (value, options) => {
-        const libraryOptions = options == null ? undefined : options.libraryOptions;
-        if (async) return this.parseAsync(value, libraryOptions).then(standardize);
-        return standardize(this.parse(value, libraryOptions));
-      };
-      this.#standard = { version: 1, vendor: 'alexify.metaschema', validate };
-    }
-    return this.#standard;
   }
 
   get types() {
@@ -194,24 +101,6 @@ class Schema extends SchemaMetadata {
       this.#types = types;
     }
     return this.#types;
-  }
-
-  // The warnings that need the namespaces: references and types that do
-  // not resolve.
-  checkConsistency() {
-    const warn = [];
-    const { name, references } = this;
-    for (const ref of references) {
-      if (isFirstUpper(ref)) {
-        const entity = this.findReference(ref);
-        if (!entity) {
-          warn.push(warning('missing-reference', `"${ref}" referenced by "${name}" is not found`));
-        }
-      } else if (!this.types[ref]) {
-        warn.push(warning('missing-type', `type "${ref}" is not found in "${name}"`));
-      }
-    }
-    return warn;
   }
 
   // An entity of the attached models, else the schema itself: a schema that
@@ -226,110 +115,19 @@ class Schema extends SchemaMetadata {
     return name === this.name && name !== '' ? this : null;
   }
 
-  // Validates a value: every problem is collected as an issue, and the result
-  // never throws because of the value. `options`: root (the label of the
-  // error lines, the schema name by default), maxErrors, unknown ('reject'
-  // or 'ignore' keys the schema does not have), references, messages (a
-  // locale). A validator that returns a promise is an error here.
-  // `createContext` is called directly in every method here, never through a
-  // helper: V8 inlines the allocation into `check` that way (the context is
-  // the one allocation of a valid check), and a method in between cost 7%.
-  check(source, options) {
-    const context = createContext(options, this.name, this.unknown);
-    if (this.#tracked) context.source = source;
-    this[RUN](source, context);
-    return resultOf(context);
-  }
-
-  // The same check, with the validators that return a promise in flight
-  // together and settled after the walk, in field order.
-  async checkAsync(source, options) {
-    const context = createContext(options, this.name, this.unknown);
-    context.async = [];
-    if (this.#tracked) context.source = source;
-    walkAsync(this, source, context);
-    if (context.async.length > 0) await settle(context);
-    return resultOf(context);
-  }
-
-  #pass(phase, source, context, extra) {
-    if (this.#codec === null) this.#codec = infoOf(this);
-    const want = wantOf(phase, context) | extra;
-    return apply(this.#codec, this, source, context, undefined, phase, want);
-  }
-
-  // Validates a value and builds the value of the program from it: the input
-  // coerced (when the call, else the schema, asks for it) and the defaults
-  // filled in, the check, and on a valid value `unknown: 'strip'`, the
-  // decoders of its fields (the parts of a value before the value) and the
-  // schema's own `parse`. `{ valid, value, issues }`: the value is undefined
-  // when invalid, and the value given when there was nothing to apply; the
-  // value given is never written to. The objects met before the check are
-  // not the check's, and a value that loops through its references is
-  // checked as it was given. The pass before the check is written out here
-  // and in parseAsync, not in a method of its own: with coercion such a
-  // method no longer fit the bytecode V8 inlines into parse, and the call
-  // cost the JIT backend 13%.
-  parse(source, options) {
-    const context = createContext(options, this.name, this.unknown, true);
-    const own = options === undefined ? undefined : options.coerce;
-    const coerce = own === undefined ? this.#coerce : own;
-    const prepared = this.#pass(PREPARE, source, context, coerce === true ? COERCE : 0);
-    const value = looped(context) ? source : prepared;
-    context.seen = null;
-    if (this.#tracked) context.source = value;
-    this[RUN](value, context);
-    const output = context.count === 0 ? this.#pass(FINISH, value, context, 0) : undefined;
-    return parsed(context, output);
-  }
-
-  async parseAsync(source, options) {
-    const context = createContext(options, this.name, this.unknown, true);
-    context.async = [];
-    const own = options === undefined ? undefined : options.coerce;
-    const coerce = own === undefined ? this.#coerce : own;
-    const prepared = this.#pass(PREPARE, source, context, coerce === true ? COERCE : 0);
-    const value = looped(context) ? source : prepared;
-    context.seen = null;
-    if (this.#tracked) context.source = value;
-    walkAsync(this, value, context);
-    if (context.async.length > 0) await settle(context);
-    let output;
-    if (context.count === 0) {
-      // Only a promise of the pass is awaited: a thenable in the value is data.
-      output = this.#pass(FINISH, value, context, 0);
-      if (output instanceof Promise) output = (await output).value;
-    }
-    return parsed(context, output);
-  }
-
-  // The other direction: the schema's own `serialize`, then the serializers
-  // of the fields, from the value down to its parts. `{ value }`, or with
-  // `options.check` the verdict of `check` over the result as well.
-  serialize(source, options) {
-    const context = createContext(options, this.name, this.unknown);
-    const value = this.#pass(SERIALIZE, source, context, 0);
-    if (options === undefined || options.check !== true) return { value };
-    context.seen = null;
-    if (this.#tracked) context.source = value;
-    this[RUN](value, context);
-    finalize(context.issues, context.messages);
-    return { valid: context.count === 0, value, issues: context.issues };
-  }
-
   // The types and the Standard Schema props depend on the namespaces (the
   // latter through the entities an async validator may be in), so both are
   // rebuilt on the next use.
   attach(...namespaces) {
     for (const ns of namespaces) this.namespaces.add(ns);
     this.#types = null;
-    this.#standard = null;
+    this[STANDARD] = null;
   }
 
   detach(...namespaces) {
     for (const ns of namespaces) this.namespaces.delete(ns);
     this.#types = null;
-    this.#standard = null;
+    this[STANDARD] = null;
   }
 
   toString() {
@@ -353,6 +151,38 @@ class Schema extends SchemaMetadata {
     return `${label} ${inspect(this.toJSON(), options)}`;
   }
 }
+
+// Until the validation half is installed, a schema builds and reads, and a
+// call that validates says what is missing.
+const unavailable = (name) => () => {
+  throw noValidation(name);
+};
+
+const deferred = (name) => async () => {
+  throw noValidation(name);
+};
+
+const STUBS = {
+  checkConsistency: unavailable('checkConsistency'),
+  check: unavailable('check'),
+  checkAsync: deferred('checkAsync'),
+  parse: unavailable('parse'),
+  parseAsync: deferred('parseAsync'),
+  serialize: unavailable('serialize'),
+  validate: unavailable('validate'),
+};
+
+for (const name of Object.keys(STUBS)) {
+  Object.defineProperty(Schema.prototype, name, {
+    value: STUBS[name],
+    writable: true,
+    configurable: true,
+  });
+}
+Object.defineProperty(Schema.prototype, 'warnings', {
+  get: unavailable('warnings'),
+  configurable: true,
+});
 
 Schema.prototype[BRAND] = 'Schema';
 

@@ -8,7 +8,7 @@
 // the check reports it as given.
 const { hasBrand, isSet, isMap } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');

@@ -20,14 +20,10 @@ const {
   toDotPath,
 } = require('./issues.js');
 const { createContext } = require('./context.js');
-const { STRUCT, isStruct, aliasOf } = require('./struct.js');
+const { STRUCT, isStruct } = require('./struct.js');
+const { COMPILE, aliasOf, tableOf } = require('./checks.js');
 const { asyncReturn, notRegistered } = require('./errors.js');
-const collections = require('./prototypes/collections.js');
-const { schema: struct } = require('./prototypes/schema.js');
-const { tuple } = require('./prototypes/tuple.js');
-const { union, tableOf } = require('./prototypes/union.js');
-const { reference, embeds } = require('./prototypes/reference.js');
-const { flags } = require('./prototypes/flags.js');
+const { embeds } = require('./prototypes/reference.js');
 
 // What a subtree carries, as bits; a phase is the bit it applies.
 const DEFAULTS = 1;
@@ -75,14 +71,14 @@ const REFERENCE = 8;
 const FLAGS = 9;
 
 const SHAPES = new Map([
-  [struct.compile, NESTED],
-  [collections.array.compile, LIST],
-  [collections.object.compile, KEYED],
-  [collections.map.compile, KEYED],
-  [tuple.compile, TUPLE],
-  [union.compile, UNION],
-  [reference.compile, REFERENCE],
-  [flags.compile, FLAGS],
+  [COMPILE.schema, NESTED],
+  [COMPILE.array, LIST],
+  [COMPILE.object, KEYED],
+  [COMPILE.map, KEYED],
+  [COMPILE.tuple, TUPLE],
+  [COMPILE.union, UNION],
+  [COMPILE.reference, REFERENCE],
+  [COMPILE.flags, FLAGS],
 ]);
 
 const shapeOf = (node) => {

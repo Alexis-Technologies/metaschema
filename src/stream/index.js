@@ -10,7 +10,7 @@
 const { hasBrand } = require('../util.js');
 const { abandon } = require('../issues.js');
 const { invalidTarget, invalidOption: invalid } = require('../errors.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 
 const optionsOf = (options) => {
   if (options === undefined || (options !== null && typeof options === 'object')) return options;

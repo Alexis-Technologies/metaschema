@@ -9,7 +9,7 @@
 // pass. The samples are input: the walk is bounded, no key is trusted, and
 // what no type describes is `any` rather than an error.
 const { define, IDENTIFIER, shorten, isBytes } = require('../util.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');

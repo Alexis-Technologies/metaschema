@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
-const { codePoints } = require('../../src/rules.js');
+const { codePoints } = require('../../src/checks.js');
 
 register();
 

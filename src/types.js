@@ -23,6 +23,22 @@ const PROTOTYPES = {
   flags,
 };
 
+// The prototype objects of the built-in types inherit from AbstractType, so
+// that a class made from one inherits from it (below), and what the
+// validation half of the core installs on them (their `compile`) reaches
+// every class made from them, in every registry, whenever it is installed.
+for (const prototype of new Set(Object.values(PROTOTYPES))) {
+  Object.setPrototypeOf(prototype, AbstractType.prototype);
+}
+
+// What the class of a type inherits from: a built-in's prototype object, the
+// class of the base of an alias, or for a custom type a copy of its entry
+// (the program's own object is left as it is).
+const parentOf = (prototype) =>
+  Object.prototype.isPrototypeOf.call(AbstractType.prototype, prototype)
+    ? prototype
+    : Object.assign(Object.create(AbstractType.prototype), prototype);
+
 const customTypeError = (name, reason) =>
   new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', `Custom type "${name}" ${reason}`);
 
@@ -42,7 +58,8 @@ const createType = (name, prototype) => {
       this.type = type;
     }
   }
-  Object.assign(Type.prototype, prototype, { type: name });
+  Object.setPrototypeOf(Type.prototype, parentOf(prototype));
+  Type.prototype.type = name;
   return Type;
 };
 
@@ -78,8 +95,8 @@ const updateTypeMetadata = (Type, metadata) => {
   Object.assign(Type.metadata, metadata);
 };
 
-// A custom prototype brings `construct` and `checkType`; a built-in one, reused
-// through a `js` alias, compiles its own check instead.
+// A custom prototype brings `construct` and `checkType` (or a `compile` of
+// its own); an alias takes its base's, a registered type.
 const checkCustomType = (name, proto) => {
   const { construct } = proto;
   const checkType = proto.checkType || proto.compile;
@@ -129,8 +146,7 @@ const typeFactory = (customTypes, registry = TYPES) => {
         throw new SchemaDefinitionError('ERR_UNKNOWN_JS_TYPE', reason);
       }
       proto = base.prototype;
-    }
-    checkCustomType(name, proto);
+    } else checkCustomType(name, proto);
     const Type = createType(name, proto);
     Type.source = { js, construct: rest.construct, checkType: rest.checkType };
     updateTypeMetadata(Type, metadata);
@@ -158,4 +174,4 @@ const baseTypeOf = (field) => {
   }
 };
 
-module.exports = { TYPES, createRegistry, readsAsStruct, typeFactory, baseTypeOf };
+module.exports = { PROTOTYPES, TYPES, createRegistry, readsAsStruct, typeFactory, baseTypeOf };

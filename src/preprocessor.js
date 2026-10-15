@@ -1,8 +1,7 @@
 const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
-const { hasBrand, formatters } = require('./util.js');
+const { hasBrand, formatters, typeOf } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
-const { typeOf } = require('./issues.js');
 
 // The first key of an object decides what it is: a Schema or a built field is
 // used as it is, a capitalized key is a kind, `type` is the long form, a type

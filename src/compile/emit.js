@@ -9,15 +9,19 @@
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE, isBytes } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
-const { formatOf, NEAR, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
+const { formatOf } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
-const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
-const { schema } = require('../prototypes/schema.js');
-const { tuple } = require('../prototypes/tuple.js');
-const { union, nameOf, tableOf } = require('../prototypes/union.js');
-const { json } = require('../prototypes/json.js');
-const { flags } = require('../prototypes/flags.js');
+const {
+  COMPILE,
+  NEAR,
+  codePoints,
+  lengthOf,
+  ruleNames,
+  patternLimit,
+  nameOf,
+  tableOf,
+} = require('../checks.js');
 const { prop, quote, literal } = require('./code.js');
 
 // The key of the field under check, as source: a quoted name, an index, a
@@ -549,21 +553,21 @@ const emitUnion = (type, x, key, state) => {
 };
 
 const EMITTERS = new Map([
-  [scalars.string.compile, emitScalar],
-  [scalars.integer.compile, emitInteger],
-  [scalars.date.compile, emitDate],
-  [scalars.bytes.compile, emitBytes],
-  [flags.compile, emitFlags],
-  [scalars.null.compile, emitNull],
-  [scalars.any.compile, emitAny],
-  [scalars.enum.compile, emitEnum],
-  [json.compile, emitJson],
-  [collections.object.compile, emitObject],
-  [collections.map.compile, emitMap],
-  [collections.array.compile, emitList],
-  [tuple.compile, emitTuple],
-  [union.compile, emitUnion],
-  [schema.compile, emitSchema],
+  [COMPILE.string, emitScalar],
+  [COMPILE.integer, emitInteger],
+  [COMPILE.date, emitDate],
+  [COMPILE.bytes, emitBytes],
+  [COMPILE.flags, emitFlags],
+  [COMPILE.null, emitNull],
+  [COMPILE.any, emitAny],
+  [COMPILE.enum, emitEnum],
+  [COMPILE.json, emitJson],
+  [COMPILE.object, emitObject],
+  [COMPILE.map, emitMap],
+  [COMPILE.array, emitList],
+  [COMPILE.tuple, emitTuple],
+  [COMPILE.union, emitUnion],
+  [COMPILE.schema, emitSchema],
 ]);
 
 // The check of one field over the local `x`. A built-in prototype is

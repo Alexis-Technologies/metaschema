@@ -4,7 +4,7 @@
 // are rendered once, at the end of the check, through the locale of that check.
 // Every issue has the same keys in the same order, so loops over them see one
 // shape.
-const { hasBrand, shorten, safeString } = require('./util.js');
+const { hasBrand, shorten, safeString, typeOf } = require('./util.js');
 const { asyncReturn } = require('./errors.js');
 const en = require('./locales/en.js');
 
@@ -35,12 +35,6 @@ const pathOf = (context, key) => {
 
 const record = (context, code, params, key, message = '') => {
   push(context, { code, path: pathOf(context, key), message, params });
-};
-
-const typeOf = (value) => {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
 };
 
 const issues = {
