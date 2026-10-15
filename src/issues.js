@@ -49,7 +49,14 @@ const issues = {
   range: (context, min, max, actual, key) => record(context, 'range', { min, max, actual }, key),
   pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
   format: (context, format, key) => record(context, 'format', { format }, key),
-  decimals: (context, decimals, key) => record(context, 'decimals', { decimals }, key),
+  // NaN and the infinities have no decimals: the value is named then.
+  decimals: (context, decimals, value, key) =>
+    record(
+      context,
+      'decimals',
+      Number.isFinite(value) ? { decimals } : { decimals, received: String(value) },
+      key,
+    ),
   union: (context, expected, discriminator, key) =>
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),

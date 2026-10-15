@@ -203,7 +203,7 @@ test('Numbers: decimals bounds the digits after the point of a number', () => {
   for (const price of [0, 19.99, 0.1 + 0.2, 19.99 * 3, -0 + 1.5, 1e300, 12345678.12]) {
     assert.strictEqual(schema.check({ price }).valid, true, String(price));
   }
-  for (const price of [0.123, 1.005, 12345678.123, 1e10 + 0.005, NaN, Infinity]) {
+  for (const price of [0.123, 1.005, 12345678.123, 1e10 + 0.005]) {
     const result = schema.check({ price });
     assert.deepStrictEqual(
       result.issues,
@@ -213,6 +213,21 @@ test('Numbers: decimals bounds the digits after the point of a number', () => {
           path: ['price'],
           message: 'has more than 2 decimals',
           params: { decimals: 2 },
+        },
+      ],
+      String(price),
+    );
+  }
+  // NaN and the infinities have no decimals to count: the value is named.
+  for (const price of [NaN, Infinity]) {
+    assert.deepStrictEqual(
+      schema.check({ price }).issues,
+      [
+        {
+          code: 'decimals',
+          path: ['price'],
+          message: `is ${price}, not a finite number`,
+          params: { decimals: 2, received: String(price) },
         },
       ],
       String(price),
@@ -228,10 +243,18 @@ test('Numbers: decimals bounds the digits after the point of a number', () => {
     ['decimals', 'range'],
   );
   assert.deepStrictEqual(schema.check({ price: '1.5' }).issues[0].code, 'type');
-  assert.deepStrictEqual(schema.warnings, []);
+  // Fifteen decimals are told apart only below 2⁴³ units of the last one.
+  assert.deepStrictEqual(schema.warnings, [
+    'Warning [unenforceable-decimals]: "fine" has 15 decimals, which the check tells apart only below 0.0088',
+  ]);
+  const uk = require('../../src/locales/uk.js');
   assert.strictEqual(
-    schema.check({ price: 0.123 }, { messages: require('../../src/locales/uk.js') }).errors[0],
+    schema.check({ price: 0.123 }, { messages: uk }).errors[0],
     'Поле "price" має більше знаків після коми, ніж 2',
+  );
+  assert.strictEqual(
+    schema.check({ price: NaN }, { messages: uk }).errors[0],
+    'Поле "price" дорівнює NaN і не є скінченним числом',
   );
   assert.strictEqual(schema.fields.price.decimals, 2);
   for (const decimals of [-1, 16, 1.5, '2', null, true]) {

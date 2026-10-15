@@ -108,6 +108,21 @@ test('Lint: a pattern without length.max and an index over a missing field', () 
   ]);
 });
 
+test('Lint: decimals the check cannot tell apart at the bounds of the field', () => {
+  const schema = Schema.from({
+    fine: { type: 'number', decimals: 15 },
+    price: { type: 'number', decimals: 2 },
+    huge: { type: 'number', decimals: 2, min: 0, max: 1e12 },
+    near: { type: 'number', decimals: 12, max: 8 },
+    far: { type: 'number', decimals: 12, min: -9 },
+  });
+  assert.deepStrictEqual(schema.warnings, [
+    'Warning [unenforceable-decimals]: "fine" has 15 decimals, which the check tells apart only below 0.0088',
+    'Warning [unenforceable-decimals]: "huge" has 2 decimals, which the check tells apart only below 88000000000',
+    'Warning [unenforceable-decimals]: "far" has 12 decimals, which the check tells apart only below 8.8',
+  ]);
+});
+
 test('Lint: aliases anywhere but on a field of a struct are dead', () => {
   const schema = new Schema('Dead', {
     tags: { array: { type: 'string', aliases: ['tag'] } },

@@ -54,7 +54,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11`
+`pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -243,7 +243,8 @@ src/
   rules.js          the rules as a definition reads them: FORMAT (length, min, max, pattern, format,
                     decimals), FORMATS (the table the formats subpath fills), formatOf (the entry a field's
                     format named when it was built), checkBounds, notApplicable
-  lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases, dead-coerce)
+  lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases,
+                    dead-coerce, unenforceable-decimals)
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true });
                     schemaSnapshotOf: schema.toSnapshot() (the entities a schema reaches, `root`);
                     orderOf (the iterative order of a model and of a snapshot), usesOf (every name
@@ -680,7 +681,7 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB for the
 formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on top of it,
 4 KB for the mongodb subpath on top of it and `./coerce`, and 10 KB for the definition subpath
-on its own** (`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5
+on its own** (`pnpm size --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5
 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5
 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11` in CI). In 3.4
 (2026-10-15) the entries measure 20833 / 20844 bytes (20.3 KB), the generators 7781 (7.6 KB),
@@ -1227,12 +1228,14 @@ change. **This file wins** if they ever disagree.
 - **`schema.toSnapshot()` of a schema that shares the name of an entity it references is
   `ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
   reference reaches the original entity is such a case.
-- **`decimals` accepts the error of a sum and rejects a decimal too many below 10¹² units.**
+- **`decimals` accepts the error of a sum and rejects a decimal too many below 2⁴³ units.**
   The tolerance is 256 ulps of the scaled value (`ULPS` and `decimalsOff` of `checks.js`, the
   one test of both backends); the plan's 1e-9 of
   the value would accept `12345678.123` as two decimals. A value large enough that every double
-  is a whole number at that scale passes; NaN and the infinities are `decimals` issues. ajv
-  divides by `multipleOf`, so the differential test leaves `decimals` out.
+  is a whole number at that scale passes, and a field whose bounds reach that is an
+  `unenforceable-decimals` warning (Alex's decision at the review of 3.4: the limit stays 15);
+  NaN and the infinities are `decimals` issues with `params.received`. ajv divides by
+  `multipleOf`, so the differential test leaves `decimals` out.
 - **`flags` follows the unknown-keys policy** (Alex's decision, 2026-10-15): a name the list
   does not have is `unexpected` under `reject`, ignored under `ignore`, dropped by `parse`
   under `strip` (the `FLAGS` shape of `codec.js`, `walkFlags`, the names in a Set on the info),

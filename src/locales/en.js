@@ -36,7 +36,10 @@ const pattern = ({ pattern: source }) => `does not match the pattern ${source}`;
 
 const format = ({ format: name }) => `is not a valid ${name}`;
 
-const decimals = ({ decimals: count }) => `has more than ${count} decimals`;
+const decimals = ({ decimals: count, received }) =>
+  received === undefined
+    ? `has more than ${count} decimals`
+    : `is ${received}, not a finite number`;
 
 const union = ({ expected, discriminator }) =>
   discriminator === undefined

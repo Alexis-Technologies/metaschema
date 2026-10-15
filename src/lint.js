@@ -70,6 +70,17 @@ const lintField = (field, path, warnings, element = false, member = false) => {
     const text = `"${path}" has a pattern without length.max (see the note on ReDoS)`;
     warnings.push(warning('unbounded-pattern', text));
   }
+  if (field.decimals !== undefined) {
+    // The check tells a decimal too many apart below 2⁴³ units of the last
+    // decimal (ULPS of checks.js); a bound past it lets any number through.
+    // A side without a bound counts as 1.
+    const bound = Math.max(Math.abs(field.min ?? 1), Math.abs(field.max ?? 1));
+    const limit = 2 ** 43 / 10 ** field.decimals;
+    if (bound >= limit) {
+      const text = `"${path}" has ${field.decimals} decimals, which the check tells apart only below ${Number(limit.toPrecision(2))}`;
+      warnings.push(warning('unenforceable-decimals', text));
+    }
+  }
   if (field.coerce !== undefined) {
     const dead = deadCoerce(field);
     if (dead !== '') {

@@ -60,8 +60,9 @@ export interface IssueParams {
   pattern: { pattern: string };
   // The name of the format the string is not of.
   format: { format: string };
-  // The decimals the number may have (it has more, or it is not finite).
-  decimals: { decimals: number };
+  // The decimals the number may have: it has more, or it is not finite
+  // (`received` names NaN or the infinity then).
+  decimals: { decimals: number; received?: string };
   // No branch of a union matched: the branch names, or the discriminator
   // values when the union has a discriminator (the path then ends with it).
   union: { expected: unknown[]; discriminator: string | undefined };

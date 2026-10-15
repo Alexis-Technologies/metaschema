@@ -12,7 +12,7 @@
  * `./coerce`, which it requires, and with `--max-gzip-definition <KB>` when
  * the `./definition` subpath on its own (the half of the core that builds
  * schemas, bundled for the browser without the other) exceeds that (CI uses
- * the ten as gates). The budgets are 21 KB per core entry, 8 KB for the
+ * the ten as gates). The budgets are 22 KB per core entry, 8 KB for the
  * generators, 5 KB for the compile subpath, 13 KB for the model subpath,
  * 1.5 KB for the stream subpath, 5 KB for the formats subpath, 2.5 KB for
  * the derive subpath, 2 KB for the coerce subpath, 4 KB for the mongodb

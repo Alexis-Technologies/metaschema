@@ -98,7 +98,9 @@ const numberOf = (state, field, whole) => {
   const high = max ?? low + 100;
   const value = low + state.random() * (high - low);
   const scale = whole ? 1 : field.decimals === undefined ? 0 : 10 ** field.decimals;
-  if (scale === 0) return value;
+  // Past 2⁵³ units of the last decimal every double is a whole number of
+  // them (and the product may be no number at all): the value is one.
+  if (scale === 0 || !(Math.abs(value * scale) < 2 ** 53)) return value;
   const up = Math.ceil(value * scale) / scale;
   return up > high ? Math.floor(value * scale) / scale : up;
 };

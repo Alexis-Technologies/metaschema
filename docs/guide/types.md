@@ -228,7 +228,8 @@ A `max` below `min` throws `ERR_INVALID_RULE`.
 `decimals` bounds the digits after the point of a `number` (an integer from 0 to 15): the value
 times 10ⁿ is a whole number, to within the error the arithmetic of doubles leaves on the way, so
 `0.1 + 0.2` has two decimals and `19.999` has three. `NaN` and the infinities have none to
-count. A failed test is a `decimals` issue:
+count (the issue names them: `params.received` is `'NaN'`, and the message says it is not a
+finite number). A failed test is a `decimals` issue:
 
 ```js
 const schema = Schema.from({ price: { type: 'number', decimals: 2, min: 0 } });
@@ -238,8 +239,11 @@ schema.check({ price: 19.999 }).issues;
 ```
 
 The tolerance is 256 units in the last place of the scaled value: a decimal too many is told
-apart while the value is under 10¹² units of its last decimal (ten billion at two decimals),
-where a bound of 1e-9 of the value would let `12345678.123` pass as two decimals. The JSON Schema
+apart while the value is under 2⁴³ units of its last decimal (about 88 billion at two
+decimals, 8.8 at twelve, 0.0088 at fifteen), where a bound of 1e-9 of the value would let
+`12345678.123` pass as two decimals. Past that every number passes, so a field whose bounds
+reach it (`max`, `min`, or 1 for a side without one) is an `unenforceable-decimals` warning in
+`schema.warnings`: thirteen decimals or more without bounds, two with `max: 1e12`. The JSON Schema
 export writes `multipleOf: 0.01` (a validator that divides may disagree with the last bit of a
 sum), and an `integer`, a `bigint` or a `string` with `decimals` is `ERR_INVALID_RULE`.
 

@@ -148,7 +148,7 @@ const compileDecimals = (type) => {
   const { decimals } = type;
   const scale = 10 ** decimals;
   return (value, context, key) => {
-    if (decimalsOff(value, scale)) issues.decimals(context, decimals, key);
+    if (decimalsOff(value, scale)) issues.decimals(context, decimals, value, key);
   };
 };
 

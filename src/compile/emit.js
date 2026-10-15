@@ -120,7 +120,7 @@ const emitDecimals = (type, x, key, state) => {
   const { code } = state;
   const { decimals } = type;
   code.push(`if (${code.ref(decimalsOff)}(${x}, ${code.value(10 ** decimals)})) {`);
-  record(state, issue(state, 'decimals', `${code.value(decimals)}, ${keyOf(key)}`));
+  record(state, issue(state, 'decimals', `${code.value(decimals)}, ${x}, ${keyOf(key)}`));
   code.push('}');
 };
 

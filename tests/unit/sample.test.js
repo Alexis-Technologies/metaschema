@@ -114,6 +114,12 @@ test('Sample: a number of decimals is drawn with them, inside its bounds', () =>
     assert.strictEqual(value.tight, 1);
     assert.strictEqual(Number.isInteger(value.whole), true);
   }
+  // Past 2⁵³ units of the last decimal every double has the decimals, and
+  // the product with the scale may be no number: the value drawn is one.
+  const huge = Schema.from({ n: { type: 'number', decimals: 15, min: 1e300 } });
+  for (let seed = 1; seed <= 5; seed += 1) {
+    assert.strictEqual(huge.check(sample(huge, { seed })).valid, true);
+  }
 });
 
 test('Sample: bytes and flags', () => {
