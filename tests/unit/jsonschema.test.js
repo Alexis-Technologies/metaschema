@@ -873,6 +873,17 @@ test('JSON Schema: references by the kind of the target', () => {
   });
 });
 
+test('JSON Schema: an anonymous schema of a model is defined under its name there', () => {
+  const name = Schema.from({ first: 'string' });
+  const model = new Model({}, [
+    ['Person', { Struct: {}, owner: { type: 'Name', embed: true } }],
+    ['Name', name],
+  ]);
+  const json = model.entities.get('Person').toJSONSchema();
+  assert.deepStrictEqual(json.properties.owner, { $ref: '#/$defs/Name' });
+  assert.deepStrictEqual(Object.keys(json.$defs), ['Name']);
+});
+
 test('JSON Schema: the mongodb target inlines references and refuses a cycle', () => {
   const model = new Model({}, [
     ['Tag', { Struct: {}, label: 'string', 'parent?': 'Tag' }],

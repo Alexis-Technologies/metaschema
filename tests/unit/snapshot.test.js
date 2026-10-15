@@ -567,6 +567,90 @@ test('Snapshot: the root of a snapshot is read and checked, other keys are ignor
   assert.deepStrictEqual(diff(snapshot, extra), []);
 });
 
+test('Snapshot: a Schema reused as a field resolves its references through itself', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const restore = (schema) => {
+    const snapshot = json(schema.toSnapshot());
+    const restored = fromJSON(snapshot).entities.get(snapshot.root);
+    assert.strictEqual(JSON.stringify(restored.toSnapshot()), JSON.stringify(snapshot));
+    return { snapshot, restored };
+  };
+  // A schema that names itself, reused by another without a model: its
+  // fields resolve the name through it, and so does the snapshot.
+  const inner = new Schema('Inner', { x: 'string', 'parent?': 'Inner' });
+  const outer = new Schema('Outer', { inner });
+  assert.deepStrictEqual(outer.checkConsistency(), []);
+  const own = restore(outer);
+  assert.deepStrictEqual(Object.keys(own.snapshot.entities), ['Inner', 'Outer']);
+  const value = { inner: { x: 'a', parent: { x: 1 } } };
+  assert.deepStrictEqual(
+    own.restored.check(value, { references: 'embed' }).errors,
+    outer.check(value, { references: 'embed' }).errors,
+  );
+  // An entity of a model with a registry of its own, reused by a schema of
+  // none: its types and the entities it references come along.
+  const shop = new Model(
+    { money: { js: 'number' } },
+    [
+      ['Tag', { Struct: {}, label: 'string' }],
+      ['Item', { Struct: {}, price: 'money', tag: 'Tag' }],
+    ],
+    null,
+    { registry: 'isolated' },
+  );
+  const cart = new Schema('Cart', { item: shop.entities.get('Item') });
+  assert.deepStrictEqual(cart.checkConsistency(), []);
+  const borrowed = restore(cart);
+  assert.deepStrictEqual(Object.keys(borrowed.snapshot.entities), ['Tag', 'Cart']);
+  assert.deepStrictEqual(borrowed.snapshot.types, { money: { js: 'number', metadata: {} } });
+  const wrong = { item: { price: 'x', tag: { label: 1 } } };
+  assert.deepStrictEqual(borrowed.restored.check(wrong).errors, cart.check(wrong).errors);
+  // An anonymous schema a model names is the entity of that name.
+  const name = Schema.from({ first: 'string' });
+  const people = new Model({}, [
+    ['Person', { Struct: {}, owner: { type: 'Name', embed: true } }],
+    ['Name', name],
+  ]);
+  const named = restore(people.entities.get('Person'));
+  assert.deepStrictEqual(Object.keys(named.snapshot.entities), ['Name', 'Person']);
+  assert.deepStrictEqual(named.restored.check({ owner: { first: 1 } }).errors, [
+    'Field "Person.owner.first" not of expected type: string',
+  ]);
+  const anonymous = Schema.from({ x: { type: 'Name', embed: true } }, [people]);
+  assert.deepStrictEqual(Object.keys(json(anonymous.toSnapshot()).entities), ['Name', '']);
+});
+
+test('Snapshot: two types of one name from two registries cannot be one snapshot', () => {
+  const registry = { registry: 'isolated' };
+  const a = new Model(
+    { amount: { js: 'number' } },
+    [['A', { Struct: {}, m: 'amount' }]],
+    null,
+    registry,
+  );
+  const b = new Model(
+    { amount: { js: 'string' } },
+    [['B', { Struct: {}, m: 'amount' }]],
+    null,
+    registry,
+  );
+  const both = new Schema('R', { a: 'A', b: 'B' }, [a, b]);
+  assert.throws(() => both.toSnapshot(), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_UNREPRESENTABLE',
+    message: 'Two types named "amount" cannot be represented in one snapshot',
+  });
+  // The same definition in two registries is one type.
+  const c = new Model(
+    { amount: { js: 'number' } },
+    [['C', { Struct: {}, m: 'amount' }]],
+    null,
+    registry,
+  );
+  const same = new Schema('S', { a: 'A', c: 'C' }, [a, c]);
+  assert.deepStrictEqual(json(same.toSnapshot()).types, { amount: { js: 'number', metadata: {} } });
+});
+
 test('Snapshot: what a consumer reads back checks as the schema did, on both backends', () => {
   const { fromJSON } = require('../../src/model/index.js');
   const { compile, canEval } = require('../../src/compile/index.js');

@@ -328,16 +328,17 @@ const reference = (field, context) => {
   } else if (!embeds(target, field.embed, context.references)) {
     json = id;
   } else {
-    json = definition(target, context);
+    json = definition(target, name, context);
   }
   return field.many === undefined ? json : { [context.key]: 'array', items: json };
 };
 
-// A referenced entity: `#` for the root of the document, a `$ref` into the
-// definitions (rendered once) otherwise, and inline where the target has no
-// `$ref` (mongodb), where a cycle has no form.
-const definition = (schema, context) => {
-  const { name } = schema;
+// A referenced entity, under the name the reference reached it through (an
+// anonymous schema of a model is the entity of the name the model gives
+// it): `#` for the root of the document, a `$ref` into the definitions
+// (rendered once) otherwise, and inline where the target has no `$ref`
+// (mongodb), where a cycle has no form.
+const definition = (schema, name, context) => {
   if (context.prefix === null) {
     if (context.stack.has(name)) return unrepresentable(context, `Recursive reference "${name}"`);
     context.stack.add(name);

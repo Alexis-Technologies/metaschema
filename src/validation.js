@@ -8,6 +8,7 @@
 const { isFirstUpper } = require('./metautil.js');
 const { RUN, TRACKED, COERCES, CODEC, STANDARD, CYCLES, safeString } = require('./util.js');
 const { Schema } = require('./schema.js');
+const { usesOf } = require('./snapshot.js');
 const { Model } = require('./model.js');
 const { warning, lintSchema } = require('./lint.js');
 const { AbstractType, BUILD } = require('./prototypes/abstract.js');
@@ -132,19 +133,23 @@ const members = {
   },
 
   // The warnings that need the namespaces: references and types that do
-  // not resolve.
+  // not resolve, each through the schema whose fields use it (a schema
+  // reused as a field resolves its own), once per name.
   checkConsistency() {
     const warn = [];
-    const { name, references } = this;
-    for (const ref of references) {
-      if (isFirstUpper(ref)) {
-        const entity = this.findReference(ref);
-        if (!entity) {
-          warn.push(warning('missing-reference', `"${ref}" referenced by "${name}" is not found`));
-        }
-      } else if (!this.types[ref]) {
-        warn.push(warning('missing-type', `type "${ref}" is not found in "${name}"`));
-      }
+    const { name } = this;
+    const missing = new Set();
+    const uses = usesOf(this);
+    for (let index = 0; index < uses.length; index += 1) {
+      const ref = uses[index][0];
+      const root = uses[index][1];
+      if (missing.has(ref)) continue;
+      const upper = isFirstUpper(ref);
+      if (upper ? root.findReference(ref) !== null : root.types[ref] !== undefined) continue;
+      missing.add(ref);
+      if (upper) {
+        warn.push(warning('missing-reference', `"${ref}" referenced by "${name}" is not found`));
+      } else warn.push(warning('missing-type', `type "${ref}" is not found in "${name}"`));
     }
     return warn;
   },
