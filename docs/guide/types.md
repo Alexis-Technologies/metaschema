@@ -244,8 +244,8 @@ decimals, 8.8 at twelve, 0.0088 at fifteen), where a bound of 1e-9 of the value 
 `12345678.123` pass as two decimals. Past that every number passes, so a field whose bounds
 reach it (`max`, `min`, or 1 for a side without one) is an `unenforceable-decimals` warning in
 `schema.warnings`: thirteen decimals or more without bounds, two with `max: 1e12`. The JSON Schema
-export writes `multipleOf: 0.01` (a validator that divides may disagree with the last bit of a
-sum), and an `integer`, a `bigint` or a `string` with `decimals` is `ERR_INVALID_RULE`.
+export writes `multipleOf: 0.01` (a validator that divides disagrees with the last bit of a
+sum: ajv needs `multipleOfPrecision`, see [JSON Schema](/guide/json-schema#the-mapping)), and an `integer`, a `bigint` or a `string` with `decimals` is `ERR_INVALID_RULE`.
 
 ### `pattern`
 

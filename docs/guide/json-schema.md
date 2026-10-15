@@ -136,6 +136,18 @@ A struct is closed (`additionalProperties: false`) unless the schema at the root
 [`check`](/guide/validation#options). A calculated field (a function), an index definition,
 the kind key and the schema-level options are not properties.
 
+`decimals` is `multipleOf: 10⁻ⁿ`, and a validator tests `multipleOf` by dividing, which in
+binary floating point leaves a remainder: with its defaults ajv rejects `19.99`, `0.29` or `4.35`
+against `multipleOf: 0.01`, all of which `check` accepts. Where a validator reads the document
+(a client, a gateway that validates against the OpenAPI export), give it the precision it
+divides with (`new Ajv({ multipleOfPrecision: 9 })` accepts them and still rejects `0.123`), or
+leave the decimals to `check` on the server.
+
+```js
+const ajv = new Ajv({ multipleOfPrecision: 9 });
+ajv.validate(toJSONSchema(Schema.from({ price: { type: 'number', decimals: 2 } })), { price: 19.99 }); // true
+```
+
 ### Optional, nullable and null
 
 `check` accepts `null` and an absent key for an optional field, and `null` for a nullable one,
