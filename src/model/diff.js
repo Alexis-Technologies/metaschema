@@ -15,7 +15,7 @@ const {
   invalidSnapshot,
   atSchema,
   isObject,
-  snapshotOf,
+  readSnapshot,
   same,
   isFunctionMarker,
 } = require('./data.js');
@@ -188,8 +188,8 @@ const diffEntity = (name, old, current, changes) => {
 // entities of `next` in their order (added, or their changes), the entities
 // that are gone, then the types.
 const diff = (prev, next) => {
-  const old = snapshotOf(prev);
-  const current = snapshotOf(next);
+  const old = readSnapshot(prev);
+  const current = readSnapshot(next);
   const changes = [];
   for (const name of Object.keys(current.entities)) {
     const to = current.entities[name];

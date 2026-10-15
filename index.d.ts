@@ -452,9 +452,10 @@ export type RuntimeErrorCode =
 // beyond `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads
 // it back. Format 1 is a contract: the fields of a struct come in the order
 // of the definition (the id field a stored kind adds after them, unless the
-// definition has a field of that name), the entities in the order of the
-// model, and a key is only ever added to it; anything else is a major
-// release.
+// definition has a field of that name), the entities each after the ones
+// they reference (`model.order` for a model, the order a walk from the
+// schema meets them for one schema), and a key is only ever added to it;
+// anything else is a major release.
 // ---------------------------------------------------------------------------
 
 export interface FunctionSnapshot {

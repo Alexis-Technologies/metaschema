@@ -374,15 +374,18 @@ test('Snapshot: a schema writes itself and the entities it reaches, its name as 
     assert.strictEqual(snapshot.format, 1);
     assert.strictEqual(snapshot.root, name);
     assert.strictEqual(snapshot.database, null);
-    // Every entity as the model writes it, in the order of the model, the
-    // schema last of the ones it needs.
+    // Every entity as the model writes it, each after the ones it
+    // references (a cycle cut where it closes), the schema last.
     const names = Object.keys(snapshot.entities);
-    assert.strictEqual(names.includes(name), true);
+    assert.strictEqual(names.at(-1), name);
     for (const entity of names) {
       assert.deepStrictEqual(snapshot.entities[entity], full.entities[entity]);
+      for (const ref of model.entities.get(entity).references) {
+        const after = names.indexOf(ref) > names.indexOf(entity);
+        const cycle = model.entities.get(ref)?.references.has(entity);
+        if (after && ref !== 'Identifier') assert.strictEqual(cycle, true, `${entity} → ${ref}`);
+      }
     }
-    const order = [...model.order].filter((entity) => names.includes(entity));
-    if (!names.includes('Identifier')) assert.deepStrictEqual(names, order);
     for (const type of Object.keys(snapshot.types)) {
       assert.deepStrictEqual(snapshot.types[type], full.types[type]);
     }
@@ -393,7 +396,7 @@ test('Snapshot: a schema writes itself and the entities it reaches, its name as 
       JSON.stringify(snapshot),
     );
   }
-  // What each entity reaches, in the order of the model.
+  // What each entity reaches, in the order a walk from it meets them.
   const reached = (name) => Object.keys(model.entities.get(name).toSnapshot().entities);
   assert.deepStrictEqual(reached('Identifier'), ['Identifier']);
   assert.deepStrictEqual(reached('Account'), ['Company', 'Address', 'Account']);
@@ -637,6 +640,38 @@ test('Snapshot: a Schema reused as a field resolves its references through itsel
   ]);
   const anonymous = Schema.from({ x: { type: 'Name', embed: true } }, [people]);
   assert.deepStrictEqual(Object.keys(json(anonymous.toSnapshot()).entities), ['Name', '']);
+});
+
+test('Snapshot: one schema writes the entities in the order a walk from it meets them', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  // Not the order of the model: the text of a schema is the schema's.
+  const model = new Model({}, [
+    ['A', { Struct: {}, x: 'string' }],
+    ['B', { Struct: {}, y: 'string' }],
+    ['C', { Struct: {}, b: 'B', a: 'A' }],
+  ]);
+  assert.deepStrictEqual([...model.order], ['A', 'B', 'C']);
+  const snapshot = json(model.entities.get('C').toSnapshot());
+  assert.deepStrictEqual(Object.keys(snapshot.entities), ['B', 'A', 'C']);
+  const restored = fromJSON(snapshot).entities.get('C');
+  assert.strictEqual(JSON.stringify(restored.toSnapshot()), JSON.stringify(snapshot));
+});
+
+test('Snapshot: a chain of ten thousand entities orders, writes and restores', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const size = 10_000;
+  const entities = [];
+  for (let index = 0; index < size; index += 1) {
+    const next = index + 1 < size ? { 'next?': `E${index + 1}` } : {};
+    entities.push([`E${index}`, { Struct: {}, n: 'number', ...next }]);
+  }
+  const model = new Model({}, entities);
+  assert.strictEqual(model.order.size, size);
+  assert.strictEqual([...model.order][0], `E${size - 1}`);
+  const snapshot = json(model.entities.get('E0').toSnapshot());
+  assert.strictEqual(Object.keys(snapshot.entities).length, size);
+  const restored = fromJSON(json(model));
+  assert.deepStrictEqual([...restored.order], [...model.order]);
 });
 
 test('Snapshot: two types of one name from two registries cannot be one snapshot', () => {

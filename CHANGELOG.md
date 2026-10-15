@@ -24,17 +24,19 @@ drops that entry: see Changed.
 ### Added
 
 - **`schema.toSnapshot()`.** The snapshot of format 1 for one schema: the schema and every
-  entity it reaches through its references (the parent of a projection included), in the order
-  of a model, with the name of the schema as the new optional key `root` (`''` for an anonymous
-  schema) and no `database` metadata. `fromJSON` restores it (`model.entities.get(snapshot.root)`
+  entity it reaches through its references (the parent of a projection included), each after
+  the ones it references in the order a walk from the schema meets them, with the name of the
+  schema as the new optional key `root` (`''` for an anonymous schema) and no `database`
+  metadata. `fromJSON` restores it (`model.entities.get(snapshot.root)`
   is the schema again, and `toSnapshot()` of it writes the same text), and `fromJSON` and `diff`
   check that `root` names one of its entities (`ERR_INVALID_SNAPSHOT`). Two schemas of one name
   in what a schema reaches (one derived from an entity keeps its name) cannot be one snapshot:
   `ERR_UNREPRESENTABLE`. `snapshot.js` shares the walk between the two writers;
   `model.toJSON()` does not change.
 - **What format 1 guarantees**, written down in the model guide: the fields of a struct in the
-  order of the definition, the id field of a stored kind after them, the entities in the order
-  of the model, the tags as they are, and keys only ever added. A change of any of them is a
+  order of the definition, the id field of a stored kind after them, the entities each after the
+  ones they reference (`model.order` for a model), the tags as they are, and keys only ever
+  added. A change of any of them is a
   major release.
 - **A typed snapshot.** `FieldSnapshot` is a union that narrows on `type`: a string with its
   rules, a number with its bounds and `decimals`, the scalars, an enum with `enum`, `flags`

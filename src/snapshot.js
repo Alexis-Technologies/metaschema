@@ -202,37 +202,71 @@ const clash = (name) =>
     `Two schemas named "${name}" cannot be represented in one snapshot`,
   );
 
-// A schema and the entities it reaches, each after the ones it references
-// (the order of a model: a cycle is cut where it closes), by the name a
-// reference reached it through (an anonymous schema of a model is the
-// entity of the name the model gives it): its references resolved as its
-// fields resolve them (`usesOf`), and the parent of a projection, which
-// restoring it needs. One entity per name.
-const gather = (schema, name, found, order) => {
-  const known = found.get(name);
-  if (known !== undefined) {
-    if (known !== schema) throw clash(name);
-    return;
+// The order of the entities of a model and of a snapshot: depth first from
+// each start in turn, every entity after the ones its edges reach
+// (`edgesOf` gives `[name, schema]` pairs), a cycle cut where it closes and
+// told to `onCycle`. A loop rather than a recursion, so that a chain of
+// entities of any length orders. `nodes` holds the schema met under each
+// name: one name for two schemas is a clash. `order` may come with names
+// already in it (a model puts `Identifier` first).
+const orderOf = (starts, edgesOf, onCycle, order = new Set(), nodes = new Map()) => {
+  const path = new Set();
+  const stack = [];
+  const enter = (name, schema) => {
+    nodes.set(name, schema);
+    path.add(name);
+    stack.push({ name, edges: edgesOf(schema), index: 0 });
+  };
+  for (const start of starts) {
+    if (!nodes.has(start[0]) && !order.has(start[0])) enter(start[0], start[1]);
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      if (frame.index === frame.edges.length) {
+        stack.pop();
+        path.delete(frame.name);
+        order.add(frame.name);
+        continue;
+      }
+      const edge = frame.edges[frame.index];
+      frame.index += 1;
+      const name = edge[0];
+      const known = nodes.get(name);
+      if (known !== undefined && known !== edge[1]) throw clash(name);
+      if (name === frame.name || order.has(name)) continue;
+      if (path.has(name)) onCycle(frame.name, name);
+      else enter(name, edge[1]);
+    }
   }
-  found.set(name, schema);
+  return order;
+};
+
+// The entities a schema reaches, by the name a reference reached each
+// through (an anonymous schema of a model is the entity of the name the
+// model gives it): its references resolved as its fields resolve them
+// (`usesOf`), and the parent of a projection, which restoring it needs.
+const edgesOf = (schema) => {
   const uses = usesOf(schema);
   if (schema.parent !== '') uses.push([schema.parent, schema]);
+  const edges = [];
   for (let index = 0; index < uses.length; index += 1) {
     const ref = uses[index][0];
     if (!isFirstUpper(ref)) continue;
     const target = uses[index][1].findReference(ref);
-    if (target !== null) gather(target, ref, found, order);
+    if (target !== null) edges.push([ref, target]);
   }
-  order.push(name);
+  return edges;
 };
 
 // The snapshot of one schema: the format of a model's, with the schema's
 // name as `root` and no database metadata. An anonymous schema is the
-// entity ''.
+// entity ''. The entities are in the order a walk from the schema meets
+// them, each after the ones it references (a cycle cut where it closes),
+// `Identifier` first: not the order of a model, which depends on the order
+// its entities were given in, so that a schema restored from its snapshot
+// writes the same text again, a cycle included.
 const schemaSnapshotOf = (schema) => {
   const found = new Map();
-  const order = [];
-  gather(schema, schema.name, found, order);
+  const order = Array.from(orderOf([[schema.name, schema]], edgesOf, () => {}, new Set(), found));
   const at = order.indexOf('Identifier');
   if (at > 0) order.unshift(order.splice(at, 1)[0]);
   const schemas = [];
@@ -246,4 +280,4 @@ const schemaSnapshotOf = (schema) => {
   };
 };
 
-module.exports = { FORMAT, snapshotOf, schemaSnapshotOf, usesOf };
+module.exports = { FORMAT, snapshotOf, schemaSnapshotOf, usesOf, orderOf };

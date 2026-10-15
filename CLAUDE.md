@@ -245,7 +245,9 @@ src/
                     format named when it was built), checkBounds, notApplicable
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases, dead-coerce)
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true });
-                    schemaSnapshotOf: schema.toSnapshot() (the entities a schema reaches, `root`)
+                    schemaSnapshotOf: schema.toSnapshot() (the entities a schema reaches, `root`);
+                    orderOf (the iterative order of a model and of a snapshot), usesOf (every name
+                    the fields of a schema use, with the root that resolves it)
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
   types.js          TYPES registry, createType (static rules/options per type), typeFactory, baseTypeOf (the
@@ -269,7 +271,7 @@ src/
   compile/          the ./compile subpath: index.js (compile, register, canEval), index.d.ts,
                     code.js (the source builder: quote, prop, literal, the scope), emit.js (an emitter per prototype)
   model/            the ./model subpath: index.js (fromJSON, diff, compatibility, sample, merge, register),
-                    index.d.ts, data.js (snapshotOf, same, capitalize, definitionOf: what the subpath shares),
+                    index.d.ts, data.js (readSnapshot, same, capitalize, definitionOf: what the subpath shares),
                     restore.js (fromJSON: definitions from a snapshot, placeholders for functions),
                     diff.js (diff, compatibility: the Confluent rules as bits),
                     sample.js (the seeded witness: mulberry32, per-field verification), pattern.js (the regex

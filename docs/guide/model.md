@@ -187,8 +187,8 @@ model.
 ### The snapshot of one schema
 
 `schema.toSnapshot()` writes the same format for one schema: the schema and every entity it
-reaches through its references (and the parent of a projection, which restoring it needs), in
-the order of a model, with the name of the schema as `root` and no `database` metadata. It is
+reaches through its references (and the parent of a projection, which restoring it needs), each
+after the ones it references, with the name of the schema as `root` and no `database` metadata. It is
 what a program that reads one schema takes (a codec built from it, a form, a client that
 encodes positionally), and it needs no model: a schema that names itself (`parent:
 '?Category'`) reaches itself.
@@ -245,8 +245,11 @@ them is a major release, with a format of its own:
 - **The id field of a stored kind (`<entity>Id`, `'?string'`) comes after the fields of the
   definition**, the last of the validated fields, unless the definition has a field of that
   name, which the id field replaces in its place.
-- **The entities come in the order of the model** (`model.order`): `Identifier` first,
-  then every entity after the ones it references, a cycle cut where it closes.
+- **The entities come in dependency order**: `Identifier` first, then every entity after the
+  ones it references, a cycle cut where it closes. A model writes them in `model.order`; the
+  snapshot of one schema in the order a walk from the schema meets them, which depends on the
+  schema alone and not on the order the model was given its entities in, so a schema restored
+  from its snapshot writes the same text again, a cycle included.
 - **The keys of a field are its `type` and `required`, then the others sorted**, so the text
   does not depend on how the definition was written; a function is `{ $function: true }`, a
   bigint `{ $bigint }`, a `Date` `{ $date }`.

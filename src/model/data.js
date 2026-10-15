@@ -42,8 +42,9 @@ const checkRoot = (snapshot) => {
   }
 };
 
-// The snapshot of a model, or the snapshot given.
-const snapshotOf = (target) => {
+// The snapshot of a model, or the snapshot given, read as one (the writer of
+// the core is `snapshotOf` of snapshot.js).
+const readSnapshot = (target) => {
   if (hasBrand(target, 'Model')) return target.toJSON();
   if (!isSnapshot(target)) {
     throw invalidSnapshot(`A Model or a snapshot of format ${FORMAT} with entities is expected`);
@@ -140,7 +141,7 @@ module.exports = {
   isObject,
   isSnapshot,
   checkRoot,
-  snapshotOf,
+  readSnapshot,
   same,
   isFunctionMarker,
   capitalize,
