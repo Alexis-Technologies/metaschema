@@ -11,6 +11,7 @@
 // named like a field) is ERR_INVALID_SNAPSHOT located where the walk was,
 // and the kind metadata it declares is never loosened by its `custom` keys.
 const { define, shorten } = require('../util.js');
+const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
 const { SchemaDefinitionError } = require('../errors.js');
@@ -135,14 +136,20 @@ const structDef = (fields, at, depth, context) => {
   return out;
 };
 
-// An entity as a definition: its kind as the first key with the metadata,
-// then its fields and its indexes; a schema of one type is that type.
+// An entity as a definition: its kind as the first key with the metadata
+// (a lowercase name, which becomes the capitalized key), then its fields
+// and its indexes; a schema of one type is that type. A name that starts
+// with `.` is no entity a model writes (it skips them).
 const entityDef = (name, entity, context) => {
   context.at = name;
-  if (!isObject(entity) || typeof entity.kind !== 'string') {
+  if (name.startsWith('.')) throw invalidSnapshot('An entity of a snapshot needs a name');
+  if (!isObject(entity) || typeof entity.kind !== 'string' || !isFirstLower(entity.kind)) {
     throw invalidSnapshot('An entity of a snapshot needs a kind');
   }
-  const { scope, store, allow, unknown, custom, fields, indexes } = entity;
+  const { scope, store, allow, unknown, parent, custom, fields, indexes } = entity;
+  if (parent !== undefined && typeof parent !== 'string') {
+    throw invalidSnapshot('The parent of an entity must be a name');
+  }
   if (fields === undefined) return fieldDef(entity.type, name, 0, context);
   for (const key of ['fields', 'custom', 'indexes']) {
     if (entity[key] !== undefined && !isObject(entity[key])) {
@@ -152,7 +159,8 @@ const entityDef = (name, entity, context) => {
   // The keys of the kind win over `custom`: a snapshot does not loosen
   // `unknown` through its metadata.
   const revived = revive(custom, 'custom', `${name}.custom`, 0, context);
-  const def = { [capitalize(entity.kind)]: { ...revived, scope, store, allow, unknown } };
+  const meta = { ...revived, scope, store, allow, unknown, parent };
+  const def = { [capitalize(entity.kind)]: meta };
   const struct = structDef(fields, name, 0, context);
   for (const key of Object.keys(struct)) define(def, key, struct[key]);
   for (const key of Object.keys(indexes ?? {})) {
@@ -245,7 +253,17 @@ const fromJSON = (snapshot, options = {}) => {
     throw field ? located.locate(context.name, field) : atSchema(located, context.name);
   }
   Object.assign(types, given);
-  const model = new Model(types, entities, snapshot.database ?? null, { registry });
+  let model;
+  try {
+    model = new Model(types, entities, snapshot.database ?? null, { registry });
+  } catch (error) {
+    // What the core rejects is located already; anything else is the
+    // snapshot's too, never a bare TypeError.
+    if (error instanceof SchemaDefinitionError) throw error;
+    const wrapped = invalidSnapshot(`The model of the snapshot cannot be built: ${error.message}`);
+    wrapped.cause = error;
+    throw wrapped;
+  }
   Object.defineProperty(model, 'placeholders', { value: Array.from(context.placeholders) });
   return model;
 };

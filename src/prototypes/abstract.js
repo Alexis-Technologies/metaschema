@@ -4,8 +4,17 @@ const { SchemaDefinitionError, noValidation } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
 // names one of its methods (or the prototype itself) would replace it. The
-// methods of the type contract are reserved whether the type has them or not.
-const RESERVED = new Set(['__proto__', 'prototype', 'check', 'checkType', 'compile', 'construct']);
+// methods of the type contract are reserved whether the type has them or
+// not, and so is `root`, the schema the field belongs to.
+const RESERVED = new Set([
+  '__proto__',
+  'prototype',
+  'check',
+  'checkType',
+  'compile',
+  'construct',
+  'root',
+]);
 
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);

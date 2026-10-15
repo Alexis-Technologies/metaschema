@@ -347,6 +347,40 @@ test('Evolution: fromJSON locates what a snapshot cannot say', () => {
   assert.strictEqual(loose.entities.get('A').unknown, 'reject');
   assert.strictEqual(loose.entities.get('A').check({ a: 'x', b: 1 }).valid, false);
   assert.deepStrictEqual(loose.entities.get('A').custom, {});
+  // A kind that is no lowercase name, an entity a model would skip, a parent
+  // that is no name, a field key that names the schema of the field.
+  for (const kind of ['__proto__', '', 'Struct']) {
+    fails({ A: struct({}, { kind }) }, { message: 'An entity of a snapshot needs a kind in "A"' });
+  }
+  fails({ '.x': struct({}) }, { message: 'An entity of a snapshot needs a name in ".x"' });
+  fails(
+    { A: struct({}, { parent: {} }) },
+    { message: 'The parent of an entity must be a name in "A"' },
+  );
+  fails(
+    { A: struct({ a: field('string', { root: 'x' }) }) },
+    { code: 'ERR_RESERVED_KEY', message: 'Key "root" is reserved in a field definition in "A.a"' },
+  );
+  // What the model cannot build for another reason is the snapshot's too,
+  // with the cause (here a type the program gave throws in its construct).
+  const cause = new TypeError('no');
+  const thrower = {
+    construct: () => {
+      throw cause;
+    },
+    checkType: () => true,
+  };
+  assert.throws(
+    () => fromJSON(broken({ A: struct({ a: field('odd') }) }), { types: { odd: thrower } }),
+    { code, message: 'The model of the snapshot cannot be built: no', cause },
+  );
+  // The parent of a struct comes back with it.
+  const family = new Model({}, [
+    ['Base', { Struct: {}, a: 'string' }],
+    ['Child', { Struct: { parent: 'Base' }, b: 'string' }],
+  ]);
+  assert.strictEqual(JSON.stringify(fromJSON(json(family))), JSON.stringify(family));
+  assert.strictEqual(fromJSON(json(family)).entities.get('Child').parent, 'Base');
 });
 
 // S2: the walks over a snapshot stop at 128 levels.

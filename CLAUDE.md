@@ -1345,7 +1345,9 @@ change. **This file wins** if they ever disagree.
 - **`field.check` is a getter over a private field.** The compiled closure is set on the first
   read (`BUILD.field`); assigning it as an own property would show up in `toJSON` and
   `util.inspect`, and `Object.defineProperty` cost 100 ns per field at construction. `check`,
-  `checkType`, `compile` and `construct` are reserved definition keys whether the type has them.
+  `checkType`, `compile` and `construct` are reserved definition keys whether the type has them,
+  and so is `root` (the schema of the field; a definition, or a snapshot, that set it made every
+  later read of the field throw a bare TypeError until the review of 3.4).
 - **`{ x: 'number' }` as a tuple element is a named number, not a struct.** Upstream's named
   elements (`[{ x: 'number' }, { y: 'number' }]`) are kept: a one-key object holding a type name
   names the element. A one-field struct element is `{ schema: { x: 'number' } }`.
