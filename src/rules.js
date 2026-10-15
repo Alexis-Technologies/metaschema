@@ -69,12 +69,21 @@ const formatName = (value) => {
   return value;
 };
 
+// The decimals a number may have: what a double holds exactly in a fraction.
+const formatDecimals = (value) => {
+  if (!Number.isInteger(value) || value < 0 || value > 15) {
+    throw invalidRule('Rule "decimals" needs an integer from 0 to 15');
+  }
+  return value;
+};
+
 const FORMAT = Object.assign(Object.create(null), {
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
   format: formatName,
+  decimals: formatDecimals,
 });
 
 const notApplicable = (rule, type, rules) => {
@@ -192,6 +201,24 @@ const compileFormat = (type) => {
   };
 };
 
+// A number of `n` decimals is a whole number times 10ⁿ, to within the error
+// the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
+// 256 units in the last place of the scaled value. A bound of 1e-9 of it
+// would let 12345678.123 pass as two decimals; this one tells a decimal too
+// many apart below 10¹² units of the last decimal (ten billion at two).
+// NaN and the infinities have no decimals to count.
+const NEAR = 256 * Number.EPSILON;
+
+const compileDecimals = (type) => {
+  const { decimals } = type;
+  const scale = 10 ** decimals;
+  return (value, context, key) => {
+    const scaled = value * scale;
+    const off = Math.abs(Math.round(scaled) - scaled) > NEAR * Math.max(1, Math.abs(scaled));
+    if (off || !Number.isFinite(value)) issues.decimals(context, decimals, key);
+  };
+};
+
 // The rules a field carries, by name, in the order its type lists them, min
 // and max as the one `range`: the order the closures run them in and the JIT
 // emits them in.
@@ -211,6 +238,7 @@ const COMPILERS = Object.assign(Object.create(null), {
   length: compileLength,
   pattern: compilePattern,
   format: compileFormat,
+  decimals: compileDecimals,
   range: compileRange,
 });
 
@@ -229,6 +257,7 @@ module.exports = {
   ruleNames,
   compileRules,
   patternLimit,
+  NEAR,
   codePoints,
   lengthOf,
 };

@@ -34,6 +34,8 @@ const pattern = ({ pattern: source }) => `не відповідає шаблон
 
 const format = ({ format: name }) => `не є коректним ${name}`;
 
+const decimals = ({ decimals: count }) => `має більше знаків після коми, ніж ${count}`;
+
 const union = ({ expected, discriminator }) =>
   discriminator === undefined
     ? `не відповідає жодному з: ${expected.join(', ')}`
@@ -59,6 +61,7 @@ module.exports = {
   range,
   pattern,
   format,
+  decimals,
   union,
   reference,
   circular,

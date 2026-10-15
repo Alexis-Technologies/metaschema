@@ -9,7 +9,7 @@
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
-const { FORMATS, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
+const { FORMATS, NEAR, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
@@ -109,6 +109,18 @@ const emitFormat = (type, x, key, state) => {
   code.push('}');
 };
 
+// The decimals of a number, by the tolerance of rules.js.
+const emitDecimals = (type, x, key, state) => {
+  const { code } = state;
+  const { decimals } = type;
+  const scaled = code.name('d');
+  code.push(`const ${scaled} = ${x} * ${10 ** decimals};`);
+  const near = `${code.value(NEAR)} * Math.max(1, Math.abs(${scaled}))`;
+  code.push(`if (Math.abs(Math.round(${scaled}) - ${scaled}) > ${near} || !Number.isFinite(${x})) {`);
+  record(state, issue(state, 'decimals', `${decimals}, ${keyOf(key)}`));
+  code.push('}');
+};
+
 const emitRange = (type, x, key, state) => {
   const { code } = state;
   const { min, max } = type;
@@ -122,6 +134,7 @@ const RULES = Object.assign(Object.create(null), {
   length: emitLength,
   pattern: emitPattern,
   format: emitFormat,
+  decimals: emitDecimals,
   range: emitRange,
 });
 

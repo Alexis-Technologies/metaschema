@@ -358,7 +358,13 @@ const RENDER = Object.assign(Object.create(null), {
     }
     return json;
   },
-  number: (field, context) => ranged(typed('number', context), field, context),
+  // A number of `n` decimals is a multiple of 10⁻ⁿ (a validator that
+  // divides may disagree with `check` on the last bit of a sum).
+  number: (field, context) => {
+    const json = ranged(typed('number', context), field, context);
+    if (field.decimals !== undefined && !context.strict) json.multipleOf = 10 ** -field.decimals;
+    return json;
+  },
   integer: (field, context) => ranged(typed('integer', context), field, context),
   bigint: (field, context) =>
     context.mongo ? typed('bigint', context) : unrepresentable(context, 'Type "bigint"'),

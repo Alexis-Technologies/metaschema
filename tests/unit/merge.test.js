@@ -362,6 +362,16 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   });
 });
 
+test('Merge: the fewer decimals of the two', () => {
+  const merged = merge(
+    Schema.from({ a: { type: 'number', decimals: 3 }, b: { type: 'number', decimals: 1 } }),
+    Schema.from({ a: { type: 'number', decimals: 2 }, b: 'number' }),
+  );
+  assert.strictEqual(merged.fields.a.decimals, 2);
+  assert.strictEqual(merged.fields.b.decimals, 1);
+  assert.strictEqual(merged.check({ a: 0.125, b: 1 }).valid, false);
+});
+
 test('Merge: annotations come from the first schema, flags from either, aliases from both', () => {
   const a = Schema.from({ a: { type: 'string', title: 'A', unique: true, aliases: ['x'] } });
   const b = Schema.from({

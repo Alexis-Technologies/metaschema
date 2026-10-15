@@ -217,6 +217,26 @@ test('fromJSONSchema: every keyword of the subset has a definition', () => {
   assert.deepStrictEqual(fieldOf({}, false), '?any');
 });
 
+test('fromJSONSchema: a multiple of a power of ten is a number of decimals', () => {
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 0.01 }), {
+    type: 'number',
+    decimals: 2,
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 1, minimum: 0 }), {
+    type: 'number',
+    min: 0,
+    decimals: 0,
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 1e-15 }).decimals, 15);
+  assert.deepStrictEqual(fieldOf({ type: 'integer', multipleOf: 1 }), 'integer');
+  // The export and the import of a number of decimals.
+  const schema = Schema.from({ price: { type: 'number', decimals: 3, max: 10 } });
+  assert.deepStrictEqual(fromJSONSchema(toJSONSchema(schema)), {
+    Struct: {},
+    price: { type: 'number', max: 10, decimals: 3 },
+  });
+});
+
 test('fromJSONSchema: the root is a struct with its kind, or a definition of one type', () => {
   const open = { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] };
   assert.deepStrictEqual(fromJSONSchema(open), { Struct: { unknown: 'ignore' }, a: 'string' });
@@ -551,6 +571,8 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
   const cases = [
     [{ type: 'number', exclusiveMinimum: 0 }, 'The keyword "exclusiveMinimum"', '/properties/x'],
     [{ type: 'number', multipleOf: 2 }, 'The keyword "multipleOf"', '/properties/x'],
+    [{ type: 'number', multipleOf: 0.25 }, 'The keyword "multipleOf"', '/properties/x'],
+    [{ type: 'integer', multipleOf: 0.01 }, 'The keyword "multipleOf"', '/properties/x'],
     [{ type: 'object', patternProperties: {} }, 'The keyword "patternProperties"', '/properties/x'],
     [{ not: { type: 'string' } }, 'The keyword "not"', '/properties/x'],
     [{ if: {}, then: {} }, 'The keyword "if"', '/properties/x'],

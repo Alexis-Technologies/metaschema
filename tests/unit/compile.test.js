@@ -1308,6 +1308,23 @@ test('Compile: formats on both backends', () => {
   ]);
 });
 
+test('Compile: decimals on both backends', () => {
+  const schema = new Schema('Decimals', {
+    price: { type: 'number', decimals: 2, min: 0, max: 100 },
+    'whole?': { type: 'number', decimals: 0, nullable: true },
+    'fine?': { type: 'number', decimals: 15 },
+    checked: { type: 'number', decimals: 1, validate: (value) => value !== 0.5 || 'is half' },
+  });
+  equivalent(schema, [
+    { price: 19.99, whole: 3, fine: 0.123456789012345, checked: 1.5 },
+    { price: 0.1 + 0.2, whole: null, checked: 0.1 * 3 },
+    { price: 0.123, whole: 2.5, fine: 1e-16, checked: 0.5 },
+    { price: -0.123, whole: NaN, fine: Infinity, checked: 0.55 },
+    { price: 1e300, whole: '1', fine: null, checked: -Infinity },
+    { price: 100.001, checked: 2 },
+  ]);
+});
+
 test('Compile: compiled() says which backend a schema runs on', () => {
   const schema = Schema.from({ name: 'string' });
   assert.strictEqual(isCompiled(schema), false);

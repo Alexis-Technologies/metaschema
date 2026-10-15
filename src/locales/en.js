@@ -36,6 +36,8 @@ const pattern = ({ pattern: source }) => `does not match the pattern ${source}`;
 
 const format = ({ format: name }) => `is not a valid ${name}`;
 
+const decimals = ({ decimals: count }) => `has more than ${count} decimals`;
+
 const union = ({ expected, discriminator }) =>
   discriminator === undefined
     ? `does not match any of: ${expected.join(', ')}`
@@ -61,6 +63,7 @@ module.exports = {
   range,
   pattern,
   format,
+  decimals,
   union,
   reference,
   circular,

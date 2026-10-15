@@ -795,6 +795,20 @@ const RULES = [
   ['max lowered', { a: { type: 'number', max: 9 } }, { a: { type: 'number', max: 5 } }, 'forward'],
   ['max added', { a: 'number' }, { a: { type: 'number', max: 5 } }, 'forward'],
   [
+    'decimals raised',
+    { a: { type: 'number', decimals: 2 } },
+    { a: { type: 'number', decimals: 3 } },
+    'backward',
+  ],
+  [
+    'decimals lowered',
+    { a: { type: 'number', decimals: 2 } },
+    { a: { type: 'number', decimals: 0 } },
+    'forward',
+  ],
+  ['decimals added', { a: 'number' }, { a: { type: 'number', decimals: 2 } }, 'forward'],
+  ['decimals removed', { a: { type: 'number', decimals: 2 } }, { a: 'number' }, 'backward'],
+  [
     'a bigint bound raised',
     { a: { type: 'bigint', min: 0n } },
     { a: { type: 'bigint', min: 1n } },

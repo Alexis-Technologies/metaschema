@@ -325,6 +325,7 @@ const keyLevel = (key, from, to, field) => {
     case 'min':
       return boundLevel(from, to, true);
     case 'max':
+    case 'decimals':
       return boundLevel(from, to, false);
     case 'pattern':
     case 'format':

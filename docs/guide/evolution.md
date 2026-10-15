@@ -191,6 +191,8 @@ that adds one.
 | `length`, `min` or `max` tightened (a lower bound raised, an upper one lowered, a bound added) | `forward` | old data may lie outside |
 | loosened (a bound lowered, raised or removed) | `backward` | new data may lie outside |
 | tightened on one end and loosened on the other | `none` | |
+| `decimals` lowered or added | `forward` | old data may have more decimals |
+| `decimals` raised or removed | `backward` | new data may have more decimals |
 | a `pattern` added | `forward` | old data may not match |
 | a `pattern` removed | `backward` | |
 | a `pattern` changed | `none` | two patterns compare as nothing |

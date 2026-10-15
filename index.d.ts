@@ -38,6 +38,7 @@ export type IssueCode =
   | 'range'
   | 'pattern'
   | 'format'
+  | 'decimals'
   | 'union'
   | 'reference'
   | 'circular'
@@ -59,6 +60,8 @@ export interface IssueParams {
   pattern: { pattern: string };
   // The name of the format the string is not of.
   format: { format: string };
+  // The decimals the number may have (it has more, or it is not finite).
+  decimals: { decimals: number };
   // No branch of a union matched: the branch names, or the discriminator
   // values when the union has a discriminator (the path then ends with it).
   union: { expected: unknown[]; discriminator: string | undefined };

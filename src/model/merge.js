@@ -97,6 +97,7 @@ const mergeKey = (key, a, b, path) => {
     case 'min':
       return a > b ? a : b;
     case 'max':
+    case 'decimals':
       return a < b ? a : b;
     case 'enum':
       return mergeEnum(a, b, path);

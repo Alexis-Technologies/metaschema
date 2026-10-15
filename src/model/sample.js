@@ -89,13 +89,18 @@ const stringOf = (state, field, key) => {
 
 const asNumber = (value) => (typeof value === 'bigint' ? Number(value) : value);
 
+// A number within the bounds; a whole one, or one of `decimals` decimals,
+// rounded toward the inside of the bounds.
 const numberOf = (state, field, whole) => {
   const min = asNumber(field.min);
   const max = asNumber(field.max);
   const low = min ?? (max === undefined ? 0 : max - 100);
   const high = max ?? low + 100;
   const value = low + state.random() * (high - low);
-  return whole ? Math.min(Math.ceil(value), Math.floor(high)) : value;
+  const scale = whole ? 1 : field.decimals === undefined ? 0 : 10 ** field.decimals;
+  if (scale === 0) return value;
+  const up = Math.ceil(value * scale) / scale;
+  return up > high ? Math.floor(value * scale) / scale : up;
 };
 
 // The widest span a bigint is drawn from: what a number holds exactly.
