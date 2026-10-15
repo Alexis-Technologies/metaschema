@@ -54,7 +54,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10`
+`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -678,7 +678,7 @@ formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath o
 4 KB for the mongodb subpath on top of it and `./coerce`, and 10 KB for the definition subpath
 on its own** (`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5
 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5
---max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10` in CI). In 3.4
+--max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 11` in CI). In 3.4
 (2026-10-15) the entries measure 20833 / 20844 bytes (20.3 KB), the generators 7781 (7.6 KB),
 the compile subpath 4499, the model subpath 12656, the stream subpath 917, the formats subpath
 3973, the derive subpath 2099, the coerce subpath 1880, the mongodb subpath 3681 on top of the

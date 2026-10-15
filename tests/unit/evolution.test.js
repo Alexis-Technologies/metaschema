@@ -274,6 +274,26 @@ test('Evolution: fromJSON locates what a snapshot cannot say', () => {
     { A: struct({ d: field('date', { default: { $date: 'junk' } }) }) },
     { message: '"junk" is not a date in "A.d.default"' },
   );
+  fails(
+    { A: struct({ b: field('bytes', { default: { $bytes: 'QQ=' } }) }) },
+    { message: '"QQ=" is not base64 in "A.b.default"' },
+  );
+  fails(
+    {
+      A: struct({
+        m: field('map', { key: 'string', value: field('number'), default: { $map: [['x']] } }),
+      }),
+    },
+    { message: 'An entry of a map needs a key and a value in "A.m.default"' },
+  );
+  fails(
+    {
+      A: struct({
+        m: field('map', { key: 'string', value: field('string'), default: { $map: ['ab'] } }),
+      }),
+    },
+    { message: 'An entry of a map needs a key and a value in "A.m.default"' },
+  );
   // The engine's text: V8 names the flags of the pattern since Node 20
   // (`/(/u:`), Node 18 does not (`/(/:`).
   fails(

@@ -234,6 +234,9 @@ test('Snapshot: every tag of the format is written and read back', () => {
           c: { type: 'date', default: new Date(0) },
           d: { type: 'string', pattern: /x/i },
           e: { type: 'string', pattern: /x/u },
+          f: { type: 'bytes', default: new Uint8Array([1, 2, 255]), examples: [Buffer.from('A')] },
+          g: { set: 'string', default: new Set(['a', 'b']) },
+          h: { map: { string: 'date' }, default: new Map([['x', new Date(0)]]) },
         },
       ],
     ],
@@ -247,6 +250,12 @@ test('Snapshot: every tag of the format is written and read back', () => {
   assert.deepStrictEqual(fields.c.default, { $date: '1970-01-01T00:00:00.000Z' });
   assert.deepStrictEqual(fields.d.pattern, { source: 'x', flags: 'iu' });
   assert.strictEqual(fields.e.pattern, 'x');
+  assert.deepStrictEqual(fields.f.default, { $bytes: 'AQL/' });
+  assert.deepStrictEqual(fields.f.examples, [{ $bytes: 'QQ==' }]);
+  assert.deepStrictEqual(fields.g.default, { $set: ['a', 'b'] });
+  assert.deepStrictEqual(fields.h.default, {
+    $map: [['x', { $date: '1970-01-01T00:00:00.000Z' }]],
+  });
   // The values, as restore.js reads them back.
   const restored = fromJSON(json(model)).entities.get('Tags').fields;
   assert.strictEqual(typeof restored.a.default, 'function');
@@ -254,6 +263,16 @@ test('Snapshot: every tag of the format is written and read back', () => {
   assert.strictEqual(restored.c.default.getTime(), 0);
   assert.strictEqual(restored.d.pattern.flags, 'iu');
   assert.strictEqual(restored.e.pattern.flags, 'u');
+  assert.deepStrictEqual(restored.f.default, new Uint8Array([1, 2, 255]));
+  assert.deepStrictEqual(restored.f.examples, [new Uint8Array([65])]);
+  assert.deepStrictEqual(restored.g.default, new Set(['a', 'b']));
+  assert.deepStrictEqual(restored.h.default, new Map([['x', new Date(0)]]));
+  // The defaults restored are values of their fields again (the factory of
+  // `a` is a placeholder that gives nothing).
+  const restoredModel = fromJSON(json(model));
+  const parsed = restoredModel.entities.get('Tags').parse({ a: 'a', b: 10n, d: 'x', e: 'x' });
+  assert.deepStrictEqual(parsed.issues, []);
+  assert.strictEqual(JSON.stringify(restoredModel), JSON.stringify(model));
 });
 
 test('Snapshot: a schema of one type, custom types and metadata', () => {

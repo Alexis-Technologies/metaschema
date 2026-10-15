@@ -27,6 +27,17 @@ const {
 } = require('./data.js');
 
 const nothing = () => undefined;
+
+// The bytes of base64 text: any padded text of the alphabet, as written.
+const bytesOf = (text) => {
+  if (text.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) {
+    throw invalidSnapshot(`${JSON.stringify(shorten(text))} is not base64`);
+  }
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+};
 const identity = (value) => value;
 
 // What stands in for a function, by the key it is under; `at` is the path
@@ -58,6 +69,18 @@ const revive = (value, key, at, depth, context) => {
     if (Number.isNaN(+date)) throw invalidSnapshot(`${JSON.stringify(value.$date)} is not a date`);
     return date;
   }
+  if (typeof value.$bytes === 'string') return bytesOf(value.$bytes);
+  if (Array.isArray(value.$map)) {
+    const map = new Map();
+    for (const entry of revive(value.$map, key, at, depth, context)) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw invalidSnapshot('An entry of a map needs a key and a value');
+      }
+      map.set(entry[0], entry[1]);
+    }
+    return map;
+  }
+  if (Array.isArray(value.$set)) return new Set(revive(value.$set, key, at, depth, context));
   const out = {};
   for (const name of Object.keys(value)) {
     define(out, name, revive(value[name], name, `${at}.${name}`, depth + 1, context));

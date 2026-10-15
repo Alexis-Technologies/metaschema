@@ -473,7 +473,8 @@ export interface FieldSnapshotBase {
   required: boolean;
   nullable?: boolean;
   coerce?: boolean;
-  // A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`.
+  // A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`,
+  // `{ $bytes }`, `{ $map }`, `{ $set }` for the values that have no JSON form.
   default?: unknown;
   aliases?: string[];
   deprecated?: boolean | string;
@@ -492,6 +493,20 @@ export interface BigintSnapshot {
 
 export interface DateSnapshot {
   $date: string;
+}
+
+// Bytes as base64 text, a Map as its entries and a Set as its values, each
+// value of them written as any value of a snapshot is.
+export interface BytesSnapshot {
+  $bytes: string;
+}
+
+export interface MapSnapshot {
+  $map: [unknown, unknown][];
+}
+
+export interface SetSnapshot {
+  $set: unknown[];
 }
 
 // A `length` rule: the bounds it has.

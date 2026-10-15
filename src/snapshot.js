@@ -4,15 +4,16 @@
 // a committed snapshot is a baseline a later model can be compared with
 // (Drizzle's approach to migrations, without a database). A function has no
 // JSON form and is written as `{ $function: true }` wherever it stands (a
-// validate, a decoder, a default factory, a calculated field); a bigint and a
-// Date are tagged the same way, a RegExp is its source. The metadata of the
+// validate, a decoder, a default factory, a calculated field); a bigint, a
+// Date, bytes, a Map and a Set are tagged the same way, a RegExp is its
+// source. The metadata of the
 // program (`database`, the `custom` metadata of a kind, an index definition)
 // is written as given. `fromJSON` of the `./model` subpath reads it back.
 // `schema.toSnapshot()` is the same document for one schema and the
 // entities it reaches through its references, with the name of the schema
 // as `root`.
 const { isFirstUpper } = require('./metautil.js');
-const { hasBrand, define } = require('./util.js');
+const { hasBrand, define, isBytes, isMap, isSet } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 const FORMAT = 1;
@@ -27,20 +28,33 @@ const objectOf = (value) => {
   return out;
 };
 
+const listOf = (values) => {
+  const list = [];
+  for (const item of values) list.push(valueOf(item));
+  return list;
+};
+
+// The bytes of a view as base64 text: what a default of `bytes` is in JSON.
+const base64Of = (bytes) => {
+  let text = '';
+  for (let index = 0; index < bytes.length; index += 1) text += String.fromCharCode(bytes[index]);
+  return btoa(text);
+};
+
 // A value of a definition as JSON: a built field as its snapshot, a tag for
-// a function, a bigint or a Date; what has no JSON form at all (a symbol,
-// NaN) is left to JSON.stringify, which drops or nulls it.
+// a function, a bigint, a Date, bytes, a Map (its entries) and a Set (its
+// values); what has no JSON form at all (a symbol, NaN) is left to
+// JSON.stringify, which drops or nulls it.
 const valueOf = (value) => {
   const type = typeof value;
   if (type === 'function') return { $function: true };
   if (type === 'bigint') return { $bigint: String(value) };
   if (type !== 'object' || value === null) return value;
   if (hasBrand(value, 'Type')) return fieldOf(value);
-  if (Array.isArray(value)) {
-    const list = [];
-    for (let index = 0; index < value.length; index += 1) list.push(valueOf(value[index]));
-    return list;
-  }
+  if (Array.isArray(value)) return listOf(value);
+  if (isBytes(value)) return { $bytes: base64Of(value) };
+  if (isMap(value)) return { $map: listOf(value) };
+  if (isSet(value)) return { $set: listOf(value) };
   const name = value.constructor?.name;
   if (name === 'RegExp') {
     return value.flags === 'u' ? value.source : { source: value.source, flags: value.flags };

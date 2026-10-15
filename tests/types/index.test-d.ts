@@ -23,6 +23,9 @@ import type {
   FieldsSnapshot,
   FlatIssues,
   FunctionSnapshot,
+  BytesSnapshot,
+  MapSnapshot,
+  SetSnapshot,
   Infer,
   IssueCode,
   IssueOf,
@@ -212,6 +215,10 @@ expectType<Record<string, TypeSnapshot>>(snapshot.types);
 expectType<FieldsSnapshot | undefined>(snapshot.entities.Account.fields);
 expectType<FieldSnapshot | undefined>(snapshot.entities.Account.type);
 expectAssignable<FieldSnapshot | FunctionSnapshot>({ $function: true });
+expectAssignable<BytesSnapshot>({ $bytes: 'AQL/' });
+expectAssignable<MapSnapshot>({ $map: [['x', 1]] });
+expectAssignable<SetSnapshot>({ $set: ['a'] });
+expectNotAssignable<MapSnapshot>({ $map: [['x']] });
 expectAssignable<FieldSnapshot | FunctionSnapshot>({
   type: 'string',
   required: true,

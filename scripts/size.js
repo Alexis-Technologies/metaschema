@@ -16,7 +16,7 @@
  * generators, 5 KB for the compile subpath, 13 KB for the model subpath,
  * 1.5 KB for the stream subpath, 5 KB for the formats subpath, 2.5 KB for
  * the derive subpath, 2 KB for the coerce subpath, 4 KB for the mongodb
- * subpath and 10 KB for the definition subpath (CLAUDE.md "Budgets").
+ * subpath and 11 KB for the definition subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:

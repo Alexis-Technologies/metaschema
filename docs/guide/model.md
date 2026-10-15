@@ -174,9 +174,12 @@ The format, `format: 1`:
 A function has no JSON form and is written as `{ $function: true }` wherever it stands: a
 `validate`, a `parse`, a `serialize`, a `default` factory, a calculated field, and the functions
 of the schema itself, which are written among its fields as a nested struct's are. A bigint is
-`{ $bigint: '10' }`, a `Date` is `{ $date: '2026-10-11T00:00:00.000Z' }`. What has no JSON form
-at all (a symbol, `NaN`) is left to `JSON.stringify`, which drops or nulls it; a `Map` or a
-`Set` as a `default` is written as `{}`.
+`{ $bigint: '10' }`, a `Date` is `{ $date: '2026-10-11T00:00:00.000Z' }`, bytes (a
+`Uint8Array`, a `Buffer`) are `{ $bytes: 'AQL/' }` (base64), a `Map` is `{ $map: [['x', 1]] }`
+(its entries) and a `Set` is `{ $set: ['a'] }` (its values), each value inside written the same
+way; `fromJSON` reads every tag back into its value, so a restored `default` is a value of its
+field again. What has no JSON form at all (a symbol, `NaN`) is left to `JSON.stringify`, which
+drops or nulls it.
 
 The repository pins the format with `tests/fixtures/snapshot.json`, the snapshot of its fixture
 model.
