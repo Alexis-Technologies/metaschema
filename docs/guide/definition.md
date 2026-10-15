@@ -57,6 +57,23 @@ require('@alexify/metaschema');
 tag.check({ label: 'abcd' }).errors; // [ 'Field "Tag.label" exceeds the maximum length' ]
 ```
 
+A method taken from a schema before the core was loaded (`const { check } = tag`, a
+`check.bind(tag)` handed to a router) calls the core's once it is loaded. In an ES module
+program, `import '@alexify/metaschema'` for this alone is kept by a bundler: the package lists its
+entries as the modules with side effects.
+
+The halves meet within one copy of the package. A schema built by the definition entry of one copy
+(a library with a version of its own in `node_modules`) does not validate with the core of
+another, and says so:
+
+```js
+// TypeError: check needs the core entry @alexify/metaschema: the core entry loaded is another
+//   copy of the package than the one that built the schema (deduplicate @alexify/metaschema)
+```
+
+`npm ls @alexify/metaschema` shows the copies; one version for both (a `peerDependencies` range
+of the library, an `overrides` entry of the program) makes them one.
+
 The subpaths that only build or name things work beside the definition entry alone:
 [`./derive`](/guide/derive) (`pick`, `omit`, `partial`, …) and [`./formats`](/guide/formats)
 (whose names a `format` rule is read against when a field is built). The ones that validate,

@@ -18,7 +18,7 @@ const { isStruct } = require('./struct.js');
 const { createContext } = require('./context.js');
 const { ValidationResult } = require('./result.js');
 const { finalize, runValidate, settle, release, isThenable } = require('./issues.js');
-const { asyncReturn } = require('./errors.js');
+const { asyncReturn, VALIDATION } = require('./errors.js');
 const {
   PREPARE,
   FINISH,
@@ -307,5 +307,7 @@ install(Model.prototype, {
     return linted(this, lintModel);
   },
 });
+// A schema of another copy of the package says so (`noValidation`).
+globalThis[VALIDATION] = true;
 
 module.exports = { Schema, ValidationResult };

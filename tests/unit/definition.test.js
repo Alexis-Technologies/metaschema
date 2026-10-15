@@ -90,9 +90,10 @@ test('Definition: alone, a schema builds and reads, and nothing validates', () =
         try {
           doc.check({});
         } catch (error) {
-          return error.message;
+          return [error.message, error.method];
         }
       })(),
+      name: doc.check.name,
       rejected,
     }));
   `);
@@ -131,10 +132,51 @@ test('Definition: alone, a schema builds and reads, and nothing validates', () =
   assert.strictEqual(result.standard, false);
   assert.deepStrictEqual(result.codes, Array(9).fill('ERR_NOT_REGISTERED'));
   assert.deepStrictEqual(result.rejected, ['ERR_NOT_REGISTERED', 'ERR_NOT_REGISTERED']);
-  assert.strictEqual(
-    result.message,
+  assert.deepStrictEqual(result.message, [
     'check needs the core entry @alexify/metaschema: ./definition alone does not validate',
-  );
+    'check',
+  ]);
+  // The stub is named as the method, for the stack.
+  assert.strictEqual(result.name, 'check');
+});
+
+test('Definition: a method taken before the core was loaded calls the core once it is', () => {
+  const result = alone(`
+    const doc = new definition.Schema('Doc', { label: 'string' });
+    const { check } = doc;
+    const parseAsync = doc.parseAsync.bind(doc);
+    const before = codeOf(() => check.call(doc, {}));
+    require('./index.js');
+    parseAsync({ label: 'x' }).then((parsed) =>
+      out({ before, errors: check.call(doc, { label: 1 }).errors, parsed: parsed.valid }),
+    );
+  `);
+  assert.deepStrictEqual(result, {
+    before: 'ERR_NOT_REGISTERED',
+    errors: ['Field "Doc.label" not of expected type: string'],
+    parsed: true,
+  });
+});
+
+test('Definition: a schema of another copy of the package says so', () => {
+  // Two copies in one process: a library that builds with the definition
+  // entry of its own copy, and the program's core.
+  const result = alone(`
+    const doc = new definition.Schema('Doc', { label: 'string' });
+    for (const key of Object.keys(require.cache)) delete require.cache[key];
+    const core = require('./index.js');
+    try {
+      doc.check({});
+    } catch (error) {
+      out([core.Schema === definition.Schema, error.code, error.method, error.message]);
+    }
+  `);
+  assert.deepStrictEqual(result, [
+    false,
+    'ERR_NOT_REGISTERED',
+    'check',
+    'check needs the core entry @alexify/metaschema: the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)',
+  ]);
 });
 
 test('Definition: the core loaded later validates the schemas built before it', () => {

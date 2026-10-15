@@ -153,23 +153,38 @@ class Schema extends SchemaMetadata {
 }
 
 // Until the validation half is installed, a schema builds and reads, and a
-// call that validates says what is missing.
-const unavailable = (name) => () => {
-  throw noValidation(name);
-};
-
-const deferred = (name) => async () => {
-  throw noValidation(name);
-};
-
+// call that validates says what is missing. A stub looks the method up when
+// it is called, so one a program took before the core was loaded (`const {
+// check } = schema`, `check.bind(schema)`) calls the method installed since.
+// Named as the methods are, for the stack.
 const STUBS = {
-  checkConsistency: unavailable('checkConsistency'),
-  check: unavailable('check'),
-  checkAsync: deferred('checkAsync'),
-  parse: unavailable('parse'),
-  parseAsync: deferred('parseAsync'),
-  serialize: unavailable('serialize'),
-  validate: unavailable('validate'),
+  checkConsistency(...args) {
+    return late(this, 'checkConsistency', args);
+  },
+  check(...args) {
+    return late(this, 'check', args);
+  },
+  async checkAsync(...args) {
+    return late(this, 'checkAsync', args);
+  },
+  parse(...args) {
+    return late(this, 'parse', args);
+  },
+  async parseAsync(...args) {
+    return late(this, 'parseAsync', args);
+  },
+  serialize(...args) {
+    return late(this, 'serialize', args);
+  },
+  validate(...args) {
+    return late(this, 'validate', args);
+  },
+};
+
+const late = (schema, name, args) => {
+  const method = Schema.prototype[name];
+  if (method === STUBS[name]) throw noValidation(name);
+  return method.apply(schema, args);
 };
 
 for (const name of Object.keys(STUBS)) {
@@ -180,7 +195,9 @@ for (const name of Object.keys(STUBS)) {
   });
 }
 Object.defineProperty(Schema.prototype, 'warnings', {
-  get: unavailable('warnings'),
+  get() {
+    throw noValidation('warnings');
+  },
   configurable: true,
 });
 

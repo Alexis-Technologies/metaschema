@@ -52,13 +52,23 @@ const notRegistered = (what, where) => {
   return error;
 };
 
+// The mark the validation half leaves on the process when it is installed
+// (`validation.js`): a schema whose classes have no validation where the
+// mark is there is one of another copy of the package.
+const VALIDATION = Symbol.for('alexify.metaschema.validation');
+
 // A schema of `./definition` asked to validate before the core entry was
-// loaded: the half of the core that validates is not installed.
+// loaded: the half of the core that validates is not installed into its
+// classes, because the core is not loaded, or is loaded from another copy
+// of the package (two versions installed side by side, a bundle with two).
 const noValidation = (what) => {
-  const error = new TypeError(
-    `${what} needs the core entry @alexify/metaschema: ./definition alone does not validate`,
-  );
+  const elsewhere = globalThis[VALIDATION] === true;
+  const reason = elsewhere
+    ? 'the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)'
+    : './definition alone does not validate';
+  const error = new TypeError(`${what} needs the core entry @alexify/metaschema: ${reason}`);
   error.code = 'ERR_NOT_REGISTERED';
+  error.method = what;
   return error;
 };
 
@@ -80,5 +90,6 @@ module.exports = {
   invalidTarget,
   notRegistered,
   noValidation,
+  VALIDATION,
   invalidOption,
 };
