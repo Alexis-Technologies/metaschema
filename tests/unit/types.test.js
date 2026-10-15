@@ -169,6 +169,40 @@ test('Types: an isolated model keeps its types to itself', () => {
   });
 });
 
+test('Types: a custom compile that throws is the error of the type, with the cause', () => {
+  // A compile of the type's own runs when the check is first compiled: on
+  // the first check on the closures, when the schema is built under the JIT.
+  const cause = new TypeError('boom');
+  const table = {
+    brokenType: {
+      construct() {},
+      compile: () => {
+        throw cause;
+      },
+    },
+  };
+  const build = () => new Model(table, [['Broken', { Struct: {}, code: 'brokenType' }]]);
+  if (process.env.METASCHEMA_BACKEND === 'jit') {
+    assert.throws(build, (error) => {
+      assert.strictEqual(error.code, 'ERR_JIT_BUILD');
+      assert.strictEqual(error.cause.code, 'ERR_INVALID_CUSTOM_TYPE');
+      assert.strictEqual(error.cause.cause, cause);
+      return true;
+    });
+    return;
+  }
+  const broken = build().entities.get('Broken');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    assert.throws(() => broken.check({ code: 'x' }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_CUSTOM_TYPE',
+      message: 'Custom type "brokenType" could not compile its check: boom in "Broken"',
+      schema: 'Broken',
+      cause,
+    });
+  }
+});
+
 test('Types: a custom checkType that throws is an exception issue', () => {
   const boom = {
     kind: 'scalar',

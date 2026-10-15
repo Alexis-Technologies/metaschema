@@ -9,6 +9,7 @@ const { issues, release, runValidate, runCheckType } = require('./issues.js');
 const { formatOf } = require('./rules.js');
 const { STRUCT, isStruct } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
+const { SchemaDefinitionError } = require('./errors.js');
 
 // The rules of a field (`rules.js` reads and normalizes them when the field
 // is built): one closure per rule over the field's bounds, run after the type
@@ -219,9 +220,28 @@ const withRules = (type, inner, rules) => {
 // The check of a field: the type check, wrapped in the rules and the
 // validate function when it has any, and in the null test when nullable. A
 // field without rules is its type check alone, and check is the hot path.
+// The type check of a field. A custom type with a `compile` of its own runs
+// it here, on the first check, not when the schema is built: what it throws
+// is the type's (ERR_INVALID_CUSTOM_TYPE, located at the schema, with the
+// error as the cause), never a bare error out of a check.
+const compiledOf = (type) => {
+  try {
+    return type.compile();
+  } catch (error) {
+    if (error instanceof SchemaDefinitionError) throw error;
+    const { root } = type;
+    const reason = `Custom type "${type.type}" could not compile its check: ${error?.message}`;
+    const failed = new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', reason);
+    failed.schema = root.name;
+    failed.message = `${reason} in "${root.name}"`;
+    failed.cause = error;
+    throw failed;
+  }
+};
+
 const compileField = (type) => {
   const checks = compileRules(type);
-  const inner = type.compile();
+  const inner = compiledOf(type);
   const plain = checks.length === 0 && !type.validate;
   const check = plain ? inner : withRules(type, inner, checks);
   return type.nullable === true ? nullable(check) : check;

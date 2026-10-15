@@ -318,7 +318,12 @@ export interface TypeMetadata {
 }
 
 // An entry of the table passed to Model: metadata for a built-in, an alias
-// (`js`), or a prototype with its own `construct` and `checkType`.
+// (`js`), or a prototype with its own `construct` and `checkType`. A
+// prototype may bring a `compile` in place of `checkType` (it returns the
+// check, `(value, context, key) => void`): it runs on the first check of a
+// field, not when the schema is built, so it must not be where the
+// definition is checked (`construct` is); what it throws is
+// ERR_INVALID_CUSTOM_TYPE with the error as the cause.
 export interface TypeEntry {
   js?: string;
   metadata?: TypeMetadata;
