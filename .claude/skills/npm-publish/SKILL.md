@@ -39,7 +39,7 @@ These are the same gates `prepublishOnly` runs. CI adds four more; run them too:
 ```bash
 pnpm run test:jit                # the suite with every schema compiled by ./compile
 pnpm run test:nojit              # the same under --disallow-code-generation-from-strings
-pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4   # the bundle budgets (CLAUDE.md "Budgets")
+pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10   # the bundle budgets (CLAUDE.md "Budgets")
 pnpm run docs:build              # the docs site; a dead link fails it
 ```
 
@@ -126,11 +126,11 @@ Keep all existing links intact.
 
 ## Step 4: TypeScript Declarations
 
-The types are hand-written: `index.d.ts` for the core entry, `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts`, `src/stream/index.d.ts`, `src/formats/index.d.ts`, `src/derive/index.d.ts`, `src/coerce/index.d.ts` and `src/mongodb/index.d.ts` for the subpaths (they import the shared types from the root; the mongodb one augments `CustomTypes`), and the one-line `src/locales/*.d.ts`:
+The types are hand-written: `index.d.ts` for the core entry, `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts`, `src/stream/index.d.ts`, `src/formats/index.d.ts`, `src/derive/index.d.ts`, `src/coerce/index.d.ts`, `src/mongodb/index.d.ts` and `src/definition/index.d.ts` for the subpaths (they import the shared types from the root; the mongodb one augments `CustomTypes`; the definition one re-exports the root's classes), and the one-line `src/locales/*.d.ts`:
 
 1. `pnpm run check:dts` (tsc over all of them) and `pnpm run test:types` (tsd) must pass with no errors
 2. `tests/unit/export-parity.test.js` compares the runtime exports of `index.js`, `browser.js` and the subpaths with the declared value exports; it must pass
-3. Read `src/index.js`, the `index.js` of every subpath (`generators`, `compile`, `model`, `stream`, `formats`, `derive`, `coerce`, `mongodb`) and their `.d.ts` files and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations. The methods the `register()` of a subpath installs on `Schema` and `Model` are declared in the root `index.d.ts` on purpose (a type-level claim)
+3. Read `src/index.js`, the `index.js` of every subpath (`generators`, `compile`, `model`, `stream`, `formats`, `derive`, `coerce`, `mongodb`, `definition`) and their `.d.ts` files and confirm every exported class, function, type and method is declared, and no private/internal fields leak into the declarations. The methods the `register()` of a subpath installs on `Schema` and `Model` are declared in the root `index.d.ts` on purpose (a type-level claim)
 4. If the release includes API changes, update the typings and `tests/types/*.test-d.ts` accordingly
 
 ## Step 5: README, Docs & License Review
@@ -184,7 +184,7 @@ Report the file count and the bundle sizes from `pnpm run size` to the user.
 Run the gates one more time after all edits:
 
 ```bash
-pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 && pnpm run docs:build
+pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10 && pnpm run docs:build
 ```
 
 Must exit 0. If it fails, fix and re-run.

@@ -13,8 +13,11 @@ into generated code through the `@alexify/metaschema/compile` subpath (`compile`
 with a fallback to the closures where `new Function` is not allowed). Since 3.3 `parse`
 coerces the input when asked (the converters are the `./coerce` subpath's), schemas are
 derived from schemas through `./derive`, and `./mongodb` is the schema side of a MongoDB
-program without the driver. It has zero runtime dependencies and runs in Node.js ≥ 18 and
-browsers.
+program without the driver. Since 3.4 a schema writes its own snapshot (`schema.toSnapshot()`,
+the contract `@alexify/protoarray` builds its codecs from), `bytes`, `flags` and the `decimals`
+rule are built in, the checks are compiled on their first use, and the core is two halves over
+the same classes, the first of which is the `./definition` subpath (build and read, no
+validation). It has zero runtime dependencies and runs in Node.js ≥ 18 and browsers.
 
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
@@ -51,7 +54,7 @@ pnpm run docs:dev                  # VitePress dev server for docs/ (docs:build,
 
 `prepublishOnly` runs lint + format:check + test:coverage + test:types + check:dts. The full gate
 before a merge adds what CI also runs: `pnpm run test:jit`, `pnpm run test:nojit`,
-`pnpm size --max-gzip 19 --max-gzip-generators 7.5 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4`
+`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10`
 and `pnpm docs:build`.
 There is no build step.
 
@@ -68,8 +71,10 @@ There is no build step.
   `src/locales/*.d.ts` that type the locale subpath exports through it and the subpath
   typings `src/generators/index.d.ts`, `src/compile/index.d.ts`, `src/model/index.d.ts`,
   `src/stream/index.d.ts`, `src/formats/index.d.ts`, `src/derive/index.d.ts`,
-  `src/coerce/index.d.ts` and `src/mongodb/index.d.ts`, which import the shared types from it
-  (the mongodb one also augments `CustomTypes` with the BSON types). A public API change touches
+  `src/coerce/index.d.ts`, `src/mongodb/index.d.ts` and `src/definition/index.d.ts`, which
+  import the shared types from it (the mongodb one also augments `CustomTypes` with the BSON
+  types; the definition one re-exports the root's classes, which export-parity reads as
+  `export { … } from`). A public API change touches
   `src/index.js`, `index.d.ts` and a test together. The static inference (`Infer<D, E>`,
   `InferSchema<S>`, `InferEntity<E, Name>`, `CustomTypes`, and `Schema<D>` with its phantom
   `'~definition'` member) lives in `index.d.ts` only, has no runtime counterpart, and is pinned
@@ -80,8 +85,8 @@ There is no build step.
   needs `--target es2022` because there is no tsconfig.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
   `default`; `./locales/en`, `./locales/uk`, `./generators`, `./compile`, `./model`,
-  `./stream`, `./formats`, `./derive`, `./coerce` and `./mongodb`, each with its own
-  `types`), `sideEffects: false` (nothing
+  `./stream`, `./formats`, `./derive`, `./coerce`, `./mongodb` and `./definition`, each with
+  its own `types`), `sideEffects: false` (nothing
   registers on import, so a bundler may drop a subpath a program imports and never calls; the
   size script exports what it bundles for that reason) and a
   `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
@@ -159,7 +164,7 @@ program's own format under the name of a built-in takes its place (Alex's decisi
 
 **Coercion is a policy of parse with a slot in the core and converters in `./coerce` (3.3).**
 `parse(value, { coerce: true })`, the kind metadata `{ Form: { coerce: true } }` (in `custom`,
-read once into `#coerce` of the schema: an own property would shadow the `coerce` method) and
+read once into `schema[COERCES]`: an own property would shadow the `coerce` method) and
 a field's `coerce: true|false` (its subtree) decide; `check` never converts. The core has the
 `COERCE` bit of the pass before the check and the `COERCION` slot in `codec.js` (its `convert`
 throws `ERR_NOT_REGISTERED` until `register()` of `@alexify/metaschema/coerce` installs the
@@ -187,36 +192,73 @@ ObjectIds, `fromDocument` reads them back and parses with coercion, `indexesOf` 
 separate package, planned (Alex's decision, 2026-10-13); Mongoose stays the recommendation for
 an ODM (populate, middleware, change tracking).
 
+**The core is two halves over the same classes, and `./definition` is the first alone (3.4).**
+The definition half (`schema.js`, `model.js`, `types.js`, `preprocessor.js`, `kinds.js`,
+`metadata.js`, `struct.js`, `rules.js`, `snapshot.js`, the prototypes) builds a schema and
+reads it; the validation half (`validation.js`, `checks.js`, `codec.js`, `context.js`,
+`issues.js`, `result.js`, `lint.js`, `locales/en.js`) installs into those classes, once, when
+the core entry requires `validation.js`: `check`, `checkAsync`, `parse`, `parseAsync`,
+`serialize`, `validate`, `~standard`, `warnings` and `checkConsistency` on `Schema.prototype`,
+`warnings` on `Model.prototype`, the `compile` of every built-in on its prototype object (from
+`COMPILE` of `checks.js`), the generic `compile` of a custom type on `AbstractType.prototype`,
+and the builders the lazy checks call (`BUILD.field`, `BUILD.schema` of
+`prototypes/abstract.js`). Until then the definition half's stubs throw `ERR_NOT_REGISTERED`
+(`noValidation` of `errors.js`) and a schema has no `~standard`. The lint is the validation
+half's (Alex's decision, 2026-10-15: it is about 700 bytes the definition entry does without).
+The plan asked for 8 KB for `./definition` and at most 100 bytes of growth of the core; the
+definition half alone is 9.7 KB and the split costs the core about 610 bytes (the installation,
+the stubs, the state under symbols, the chain of the prototypes), which Alex accepted with the
+gates at the next whole KB (10 KB, 21 KB). A subpath that validates, renders or converts
+(`./generators`, `./compile`, `./model`, `./stream`, `./coerce`, `./mongodb`) requires
+`validation.js` for its Schema, so it brings the validation half along; `./derive` and
+`./formats` work beside the definition entry alone. `graph.test.js` pins that the definition
+half reaches no module of the other.
+
 ## Repository layout
 
 ```
 index.js  browser.js  index.d.ts   root entry shims + hand-written types
 src/
-  index.js          public barrel (explicit named exports)
+  index.js          public barrel (explicit named exports): the classes with validation.js installed
+  validation.js     the validation half: installs check, checkAsync, parse, parseAsync, serialize, validate,
+                    ~standard, warnings and checkConsistency on Schema, warnings on Model, the compile of every
+                    prototype and the builders of the lazy checks (BUILD); exports Schema, ValidationResult
+  checks.js         the checks of the types: COMPILE (the type check of each built-in by name, the identity
+                    codec.js and emit.js dispatch on), custom (a checkType through the validator contract),
+                    compileField (rules, validate, nullable around it), checkOf/aliasOf (the struct loop),
+                    compileRules/ruleNames/patternLimit/NEAR/codePoints/lengthOf, nameOf/tableOf (unions)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata, idFieldOf (the one rule
                     of the id field a stored kind adds, read by derive, mongodb and the generators)
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
-  schema.js         Schema (extends SchemaMetadata): check, Schema[RUN], ~standard
-  struct.js         createStruct: null-prototype field dictionary with its plan, known keys and compiled check
+  schema.js         Schema (extends SchemaMetadata), the definition half: construction, the lazy stub of
+                    Schema[RUN], types, findReference, attach/detach, toJSON, toSnapshot; the stubs of the
+                    validation methods (ERR_NOT_REGISTERED until validation.js installs them)
+  struct.js         createStruct: null-prototype field dictionary with its plan and known keys
   context.js        createContext: the state of one check ({ issues, count, limit, depth, maxDepth, path, seen, source, unknown, references, root, messages, async, scratch })
   issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType, settle (the async drain)
   codec.js          the passes of parse and serialize over the built types: defaults, strip, decoders, serializers, hasAsync
   result.js         ValidationResult: valid, issues, lazy errors, summary, flatten, tree, add, issuesOf
-  rules.js          rules per type: FORMAT (length, min, max, pattern, format), FORMATS (the table the
-                    formats subpath fills), compileRules, patternLimit (no pattern or format past length.max),
-                    code points
+  rules.js          the rules as a definition reads them: FORMAT (length, min, max, pattern, format,
+                    decimals), FORMATS (the table the formats subpath fills), formatOf (the entry a field's
+                    format named when it was built), checkBounds, notApplicable
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases, dead-coerce)
-  snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true })
+  snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true });
+                    schemaSnapshotOf: schema.toSnapshot() (the entities a schema reaches, `root`)
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
   preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
   types.js          TYPES registry, createType (static rules/options per type), typeFactory, baseTypeOf (the
                     type at the end of the alias chain of a field, read by the generators, sample and mongodb)
-  model.js          Model: entities, ordering, warnings (lazy); branded 'Model'
-  util.js           BRAND/hasBrand identity brand, RUN, shorten, formatters (type '?x', key 'x?', length)
-  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR)
+  model.js          Model: entities, ordering (the cycles as data under CYCLES); branded 'Model'
+  util.js           BRAND/hasBrand identity brand, RUN, HOOK, the state symbols of a schema (TRACKED,
+                    COERCES, CODEC, STANDARD) and of a model (CYCLES), isMap/isSet/isDate/isBytes, typeOf,
+                    shorten, formatters (type '?x', key 'x?', length)
+  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR),
+                    invalidTarget, notRegistered, noValidation (the definition half without the other), invalidOption
   metautil.js       helpers copied from metautil v5.5.2
-  prototypes/       type prototypes: abstract, scalars (string, number, integer, bigint, boolean, date,
-                    null, any/unknown, enum), collections, reference, schema, tuple, union, json
+  prototypes/       the definition half of the types (what a definition gives a field; their checks are in
+                    checks.js): abstract (AbstractType, the lazy check getter, BUILD), scalars (string,
+                    number, integer, bigint, boolean, date, bytes, null, any/unknown, enum), collections,
+                    reference (embeds), schema, tuple, union, json, flags
   runtime/          node.js (writeFile via node:fs) and browser.js (same interface, rejects)
   generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, fromJSONSchema,
                     register), index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard
@@ -241,15 +283,18 @@ src/
                     index.d.ts
   coerce/           the ./coerce subpath: index.js (the strict converters, COERCIONS, coerce, register:
                     the dispatcher into COERCION of codec.js), index.d.ts
-  mongodb/          the ./mongodb subpath: bson.js (types, register, the driver, idOf), document.js
+  mongodb/          the ./mongodb subpath: bson.js (types, register, the driver, idOf, binaryBytes), document.js
                     (toDocument, fromDocument, the walk), update.js (checkUpdate, toUpdate, the dotted
                     paths), indexes.js (indexesOf), index.js, index.d.ts
+  definition/       the ./definition subpath: index.js (the core's Schema, Model, getKindMetadata,
+                    SchemaDefinitionError and constants, the definition half alone), index.d.ts
 tests/
   unit/*.test.js    node:test suites, one per area
   types/*.test-d.ts tsd assertions
   helpers/jit.js    --require'd by test:jit and test:nojit: register({ jit }) of ./compile before the suites
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
   fixtures/snapshot.json  the committed snapshot of the fixture model (the format 1 contract, pinned by snapshot.test.js)
+  fixtures/forms.js a definition of every form of the language as a function (definition.test.js, in two processes)
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 scripts/size-compare.js  the comparison's schema per library, bundled for the browser and verified
 scripts/comparison.js    renders docs/comparison.json (the feature matrix) into README and the docs
@@ -267,40 +312,46 @@ docs/               VitePress site (metaschema.vercel.app), not published
 Module graph (no cycles; nothing checks this automatically, so look at the `require`s when adding
 an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 
-- `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util`,
-  `errors` and `locales/en`; `rules.js` (+ `errors`, `util` for `isMap`/`isSet`), `result.js`
-  (+ `util`, `locales/en`) and `context.js` (+ `locales/en`, `errors` for `invalidOption`)
-  require `issues`. `util.js` must not require `issues.js`. `tests/unit/graph.test.js` walks
+- `locales/en.js` and `uk.js` require only `util.js` (`shorten`); `issues.js` requires `util`
+  (`typeOf` among them), `errors` and `locales/en`; `result.js` (+ `util`, `locales/en`) and
+  `context.js` (+ `locales/en`, `errors` for `invalidOption`) require `issues`; `rules.js`
+  requires `errors` only. `util.js` must not require `issues.js`. `tests/unit/graph.test.js` walks
   the relative requires of `src/` and fails on a cycle (oxlint's `import/no-cycle` does not
   see a CommonJS require).
-- `kinds → metadata` (+ `result`, `errors`, `issues`); `struct` (`util`, `issues`, `errors`) →
-  `prototypes/schema`; `prototypes/abstract` (`rules`, `issues`) and the other prototypes
-  (`issues`, `errors`, `util`, `metautil`) → `types`; `preprocessor` (`metautil`, `util`, `errors`,
-  `issues` for `typeOf`) stands alone, and `lint` requires `util` and `prototypes/reference`
-  (`embeds`, to tell a reference checked as an id for `dead-coerce`). `util.js` also holds `define`,
+- The definition half: `kinds → metadata` (+ `errors`); `struct` (`util`, `errors`) →
+  `prototypes/schema`; `prototypes/abstract` (`util`, `rules`, `errors`) and the other
+  prototypes (`errors`, `util`, `metautil`; `json` nothing) → `types`; `preprocessor`
+  (`metautil`, `util`, `errors`) stands alone; `snapshot` requires `metautil`, `util`,
+  `errors`; `schema.js` requires `types`, `preprocessor`, `metadata`, `errors`, `struct`,
+  `prototypes/abstract` (`BUILD`), `snapshot` and `util`; `model.js` requires `schema`,
+  `types`, `util`, `errors`, `snapshot`. None of them requires a module of the validation half
+  (`graph.test.js`).
+- The validation half: `checks.js` requires `util`, `issues`, `rules` (`formatOf`), `struct`
+  and `prototypes/reference` (`embeds`); `lint` requires `util` and `prototypes/reference`
+  (`embeds`, to tell a reference checked as an id for `dead-coerce`); `validation.js` requires
+  `metautil`, `util`, `schema`, `model`, `lint`, `prototypes/abstract`, `types` (`PROTOTYPES`),
+  `checks`, `struct`, `context`, `result`, `issues`, `errors` and `codec`; `src/index.js`
+  requires `validation.js`, `model.js`, `kinds`, `errors` (no runtime). `util.js` also holds `define`,
   `IDENTIFIER`, `ENUM_SET_SIZE` and `safeString`, shared by the core, the generators and the JIT.
-- `codec.js` requires `util`, `issues`, `context`, `struct`, `errors` and the prototypes
-  (`collections`, `schema`, `tuple`, `union`, `reference`: it tells a node's shape by the
-  identity of its `compile`, as `compile/emit.js` does) and never `schema.js`: a reference is
-  followed through `root.findReference` at parse time.
-- `schema.js` requires all of `context`, `types`, `preprocessor`, `metadata`, `result`, `issues`,
-  `struct`, `lint` and `codec`, plus `metautil`, `util` and `errors`; `snapshot.js` requires
-  only `util`; `model.js` requires `schema`, `types`, `lint`, `util`, `snapshot`;
-  `src/index.js` requires nothing else (no runtime).
+- `codec.js` requires `util`, `issues`, `context`, `struct`, `errors`, `prototypes/reference`
+  (`embeds`) and `checks` (`COMPILE`: it tells a node's shape by the identity of its
+  `compile`, as `compile/emit.js` does; `aliasOf`, `tableOf`) and never `schema.js`: a
+  reference is followed through `root.findReference` at parse time.
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`
   and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
   generators), `typescript.js` also `metautil`, `jsonschema.js` also `rules` (`FORMATS`, the
   pattern of a format), `kinds` (`idFieldOf`, for `ids: 'objectId'`) and `types`
   (`baseTypeOf`), never `schema.js` or `model.js`: they take the instances and read `fields`,
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
-  `schema.js` and `model.js` (for `register()`), `runtime/node.js` (for `saveTypes`) and the two
-  generators; nothing in the core requires `generators/`.
+  `validation.js` and `model.js` (for `register()`, which wraps the `~standard` accessor the
+  validation half installs), `runtime/node.js` (for `saveTypes`) and the two generators;
+  nothing in the core requires `generators/`.
 - `compile/code.js` requires `util` (`IDENTIFIER`); `compile/emit.js` requires `util`
-  (`ENUM_SET_SIZE`), `issues`, `rules` (`FORMATS`, `codePoints`, `lengthOf`, `ruleNames`,
-  `patternLimit`), `struct`
-  (`STRUCT`, `isStruct`), the prototypes (for the identity of their `compile` methods; `union`
-  also for `nameOf` and `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
-  `schema.js`, `errors` and the two. Nothing in the core requires `compile/`.
+  (`ENUM_SET_SIZE`, `isBytes`), `issues`, `rules` (`formatOf`), `struct` (`STRUCT`,
+  `isStruct`), `prototypes/collections` (`set.isInstance`), `checks` (`COMPILE` for the
+  identity of the type checks, `NEAR`, `codePoints`, `lengthOf`, `ruleNames`, `patternLimit`,
+  `nameOf`, `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
+  `validation.js`, `errors` and the two. Nothing in the core requires `compile/`.
 - `generators/fromjsonschema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
   (for `as: 'schema'`), `types` (`readsAsStruct`, to tell a struct key that reads as a type),
   `rules` (`FORMATS`, to read a registered `format` back) and `errors`.
@@ -315,9 +366,10 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   and `data`; `model/infer.js` requires `util` (`define`, `IDENTIFIER`, `shorten`),
   `schema.js`, `errors`, `types` (`readsAsStruct`), `rules` (`FORMATS`), `issues`
   (`toDotPath`, `finalize`), `locales/en` and `data` (`DEPTH`, `capitalize`); `model/index.js`
-  requires `schema.js`, `model.js` and the six. Nothing in the core requires `model/`.
+  requires `validation.js`, `model.js` and the six (`infer.js` the same `validation.js`, for
+  its self-check). Nothing in the core requires `model/`.
 - `stream/index.js` requires `util` (`hasBrand`), `issues` (`abandon`), `errors`
-  (`invalidTarget`, `invalidOption`) and `schema.js` (for `register()`); it calls the public
+  (`invalidTarget`, `invalidOption`) and `validation.js` (for `register()`); it calls the public
   methods of a schema and never `codec` or the prototypes. Nothing in the core requires
   `stream/`.
 - `formats/index.js` requires `rules` (`FORMATS`) and `errors` only. Nothing in the core
@@ -325,7 +377,7 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   model, stream, derive, coerce) rather than a helper of the core, which is measured on its own.
 - `codec.js` holds the `COERCION` slot (`installed`, `convert`), the `COERCE` bit of a pass
   and the `POLICY` bit of a subtree with a field's own `coerce: true`; `coerce/index.js`
-  requires `util`, `metautil`, `schema.js`, `context`, `codec` (`COERCE`, `COERCION`,
+  requires `util`, `metautil`, `validation.js`, `context`, `codec` (`COERCE`, `COERCION`,
   `PREPARE`, `infoOf`, `apply`, `wantOf`, `looped`) and `errors`.
 - `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`KIND_STORED`),
   `errors` and `model/data.js` (`structDefinitionOf`, `metadataOf`, `structDefinition`,
@@ -386,7 +438,8 @@ metadata and the `metadata` of `merge` and `derive` are definitions, so a wrong 
 installs before it ran: a
 parse that coerces without `./coerce` (thrown as the pass enters the schema, whatever the
 value holds: an empty body in a test must not hide it), a document written with ObjectIds
-without `register({ bson })` of `./mongodb`. A
+without `register({ bson })` of `./mongodb`, and a schema of `./definition` asked to validate
+before the core entry was loaded (`noValidation` in `errors.js`). A
 definition
 that can never validate correctly (an `enum` without values, a `length` that is not numeric or
 whose min is above its max, a `max` below `min`, a rule on a type that does not accept it, a
@@ -402,33 +455,46 @@ prepends nested keys, so the message ends with `in "Order.address.city"`. Never 
 
 **Types.** `types.js` creates one class per prototype (`createType`): `class Type extends
 AbstractType` with static `type`, `kind`, `metadata`, `rules` (the rules the type accepts, from
-`prototype.rules`) and `options` (the definition keys it reads, for the lint). A field's `check`
-is **compiled when the field is built**: the `AbstractType` constructor copies the definition
-keys (a rule key goes through its `FORMAT` in `rules.js`, and a rule the type does not accept
-throws `ERR_INVALID_RULE`), calls `construct`, then `compile()` returns the type check as a closure
+`prototype.rules`) and `options` (the definition keys it reads, for the lint). The class's
+prototype **inherits from the prototype object** of its kind (`scalars.string`, made to inherit
+from `AbstractType.prototype` once, in `types.js`; an alias from its base's class; a custom type
+from a copy of its entry, `parentOf`), so the `compile` the validation half installs on the
+prototype object later reaches every class made from it, in every registry. The `AbstractType`
+constructor copies the definition keys (a rule key goes through its `FORMAT` in `rules.js`,
+given the field: the `format` formatter records the entry the name had, `formatOf`; a rule the
+type does not accept throws `ERR_INVALID_RULE`), checks the bounds (`checkBounds`), calls
+`construct`, and compiles nothing: a field's `check` is **compiled on its first read**
+(`BUILD.field`, `compileField` of `checks.js`): `compile()` returns the type check as a closure
 over the field (`(value, context, key) => void`), `withRules` wraps it only when the field has
-rules (`length`, `pattern`, `min`/`max` compiled into one closure) or a `validate`, and
-`nullable: true` wraps the result once more so `null` returns before anything else. Each
-built-in prototype has its own `compile` (one `typeof` for a scalar, a `Set` for an enum with more
-than 8 values, `Map`/`Set` iterated directly, `object` through `for...in` + `Object.hasOwn`,
-tuple by index, the struct's compiled check for `schema`, a lookup plus cycle tracking for a
-reference); a custom type has `checkType(value, path)` instead, which the generic `compile`
-runs through the validator contract (`runCheckType`). The compiled closure is a private field
-behind the `check` getter, so it stays out of `toJSON`/`util.inspect`. `TYPES` is a
+rules (`length`, `pattern`, `format`, `decimals`, `min`/`max` compiled into one closure each) or
+a `validate`, and `nullable: true` wraps the result once more so `null` returns before anything
+else. Each built-in prototype has its own `compile` (`COMPILE` of `checks.js`: one `typeof` for
+a scalar, a `Set` for an enum with more than 8 values, `Map`/`Set` iterated directly, `object`
+through `for...in` + `Object.hasOwn`, tuple by index, the struct's compiled check for `schema`,
+a lookup plus cycle tracking for a reference, the own keys of `flags`); a custom type has
+`checkType(value, path)` instead, which the generic `compile` (`custom` of `checks.js`, on
+`AbstractType.prototype`) runs through the validator contract (`runCheckType`). The compiled
+closure is a private field behind the `check` getter, so it stays out of
+`toJSON`/`util.inspect`. Nothing a definition must reject may be thrown from a `compile`: it
+runs on the first check, not when the schema is built. `TYPES` is a
 **module-global registry**: `typeFactory(customTypes)` (called by `Model`) mutates it. It adds
 metadata to built-ins, aliases (`{ js: 'string' }`) or new prototypes with
 `construct`/`checkType`. Registration is process-wide, by design (see below).
 
 **Structs.** `createStruct` settles `required` from the key (`'tags?'`) and the definition
 (`'?string'`, `required: false`) *before* building the field (the closure captures it), then
-records a frozen **plan** entry `{ key, type, required, own, aliases, check }` per validated
+records a frozen **plan** entry `{ key, type, required, own, aliases }` per validated
 field (`aliases` the list of the field's `aliases`, `[]` without; an alias is a known key, and
 one that is a field, a calculated field or another alias is `ERR_INVALID_DEFINITION`) and the
-key in a null-prototype `known` dictionary; `fields[STRUCT]` (a global symbol) holds
-`{ plan, known, calculated, check }` (`calculated`: the keys of the calculated fields, read by the
+key in a null-prototype `known` dictionary; `fields[STRUCT]` (a global symbol) holds the frozen
+`{ plan, known, calculated }` (`calculated`: the keys of the calculated fields, read by the
 strip pass; a nested struct's `validate`, `parse` and `serialize` functions stay in `fields` but
-are neither known keys nor calculated). The struct check is an index loop over the plan: a keyed
-load per field,
+are neither known keys nor calculated). The struct check (`checkOf(fields)` of `checks.js`,
+compiled on its first use and kept in a WeakMap beside the plan: an object literal with a
+getter under `Object.freeze` per struct cost `Schema.from` 16%) is an index loop over entries
+of the same shape as the plan's plus the field's `check` (`{ key, type, required, own,
+aliases, check }`, built then: a load of `entry.check` is what the loop did before 3.4, and
+`checks[index]` from an array of its own cost the closures 3 to 5%): a keyed load per field,
 `Object.hasOwn` only when the value is `undefined` and the field is required, or when the field
 name is a member of `Object.prototype` (`own`); a field with nothing under its own key is read
 from the first alias the value carries (`aliasOf`), and its check gets that key; then `for...in`
@@ -470,8 +536,10 @@ Codes: `required`, `type` (`{ expected, received, key? }`), `unexpected` (`{ key
 struct), `enum`, `length`, `range` (`{ min, max, actual }`), `pattern` (`{ pattern }`), `union`
 (`{ expected, discriminator }`), `reference`, `circular`, `exception` (`{ error }`), `custom`.
 
-**References.** `prototypes/reference.js` resolves the target at check time
-(`root.findReference`) and `embeds(target, field.embed, context.references)` decides between the
+**References.** The check of a reference (`COMPILE.reference` of `checks.js`) resolves the
+target at check time (`root.findReference`: an entity of the attached models first, else the
+schema itself when the name is its own, so `parent: '?Category'` needs no model and a schema
+derived from an entity, which keeps its name, still reaches the entity) and `embeds(target, field.embed, context.references)` decides between the
 graph view (the record, run through the target's `Schema[RUN]` with cycle tracking) and the
 storage view (an id: `typeof value === 'string'`, no recursion): the call's `references` when it
 is not `'kind'`, else the field's `embed`, else `target.store !== 'persistent'`. `schema.js` uses
@@ -498,7 +566,7 @@ called). The passes are one `walk` over the built types, dispatched on the shape
 (Schema, struct dictionary, nested struct, list, keyed, tuple, union, reference, leaf) with a
 memoized info per node (`infoOf`, a WeakMap: the bits of what a subtree carries, so a schema
 without defaults, decoders or serializers is returned as it is after one bit test, and the root
-info is cached on the schema in `#codec`), copy-on-write output (a container is copied at the
+info is cached on the schema under `CODEC`), copy-on-write output (a container is copied at the
 first part that changed; the value given is never written to), a cycle guard in the passes that
 run before the check (`context.seen` as the stack, cleared before the check; a looped value is
 checked as given), and a scratch context to pick the branch of a plain union as the check
@@ -565,9 +633,10 @@ check it could not generate as `error`, `register({ onFallback })` is told of ev
 nothing),
 `false` never generates code.
 
-**Standard Schema.** `Schema.prototype['~standard']` is a class accessor in `schema.js` (so
-non-enumerable: `toJSON`, `inspect` and `Object.keys` never see it) that builds
-`{ version: 1, vendor: 'alexify.metaschema', validate }` once per instance (`#standard`).
+**Standard Schema.** `Schema.prototype['~standard']` is an accessor `validation.js` installs (so
+non-enumerable: `toJSON`, `inspect` and `Object.keys` never see it; absent from a schema of
+`./definition` alone) that builds `{ version: 1, vendor: 'alexify.metaschema', validate }` once
+per instance (`schema[STANDARD]`, reset by `attach`/`detach`).
 `validate(value, options)` is `parse(value, options?.libraryOptions)` read as the specification
 does: `{ value }` (the output of `parse`: the same reference when nothing applied) when valid,
 else `{ issues }`, the issue objects themselves (each has `message` and `path: PropertyKey[]`,
@@ -585,16 +654,46 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 2. builds every entity as a `Schema` with the model as its namespace (projections are deferred to
    a second pass);
 3. orders entities with `Identifier` first, dependencies before dependents, and records recursive
-   dependencies;
-4. `model.warnings` (a getter, computed on first use) is every entity's `warnings`, its
-   `checkConsistency()` (missing references and types) and the recursive dependencies.
+   dependencies (as `[entity, reference]` pairs under `model[CYCLES]`);
+4. `model.warnings` (a getter of the validation half, computed on first use and kept in a
+   WeakMap) is every entity's `warnings`, its `checkConsistency()` (missing references and
+   types) and the recursive dependencies.
+
+`model.toJSON()` and `schema.toSnapshot()` share the walk of `snapshot.js`: `entitiesOf` writes
+the entities by name, `typesOf(entities, tableOf)` the types they use (and the custom types an
+alias names down the chain), and `gather` collects what a schema reaches through `references`
+and `parent`, after its references, one entity per name (`ERR_UNREPRESENTABLE` otherwise), with
+`Identifier` moved first, as a model orders them.
 
 `toTypeScript(model)` of the generators subpath (`model.dts` once its `register()` ran) joins the
 interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
 
-**The 3.3 bundle budgets are 19 KB min+gzip per core entry, 7.5 KB for the generators,
+**The 3.4 bundle budgets are 21 KB min+gzip per core entry, 8 KB for the generators, 5 KB for
+the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB for the
+formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on top of it,
+4 KB for the mongodb subpath on top of it and `./coerce`, and 10 KB for the definition subpath
+on its own** (`pnpm size --max-gzip 21 --max-gzip-generators 8 --max-gzip-compile 5
+--max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5
+--max-gzip-coerce 2 --max-gzip-mongodb 4 --max-gzip-definition 10` in CI). In 3.4
+(2026-10-15) the entries measure 20833 / 20844 bytes (20.3 KB), the generators 7781 (7.6 KB),
+the compile subpath 4499, the model subpath 12656, the stream subpath 917, the formats subpath
+3973, the derive subpath 2099, the coerce subpath 1880, the mongodb subpath 3681 on top of the
+core and `./coerce`, and `./definition` 9957 bytes (9.7 KB) on its own, a bundle for the browser
+(`ALONE` in `scripts/size.js`: measured by itself, not as a difference). 3.4 cost the core about
+1760 bytes: `decimals`, `bytes`, `flags` and the self-reference about 680 (19073 → 19752),
+`toSnapshot` with the shared walk about 300, the lazy checks about 170 and the split about 610
+(the installation of `validation.js`, the stubs, the state under symbols, the prototype chain of
+`types.js`; ten modules of `checks/` merged into `checks.js` saved 577 of the 1124 a module per
+prototype cost, and moving the lint out of the definition half took `./definition` from 10850
+to 9955 bytes). The generators gate moved to 8 KB for the two types and the rule (+270), and the
+core gate to 21 KB (Alex's decision, 2026-10-15, with the measured gates of the split). The
+plan of 3.4 had asked for 8 KB for `./definition` and at most 100 bytes of growth of the core
+for the split; neither is reachable with the definition half as it is (see "Out of scope by
+design"). The numbers that follow are those of 3.3.
+
+**The 3.3 bundle budgets were 19 KB min+gzip per core entry, 7.5 KB for the generators,
 5 KB for the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath,
 5 KB for the formats subpath, 2.5 KB for the derive subpath and 2 KB for the coerce subpath on
 top of it, and 4 KB for the mongodb subpath on top of it and `./coerce`** (`pnpm size
@@ -645,7 +744,7 @@ what it was but for the dispatch (`info.walk`, the walker of the shape or `walkP
 field with a `coerce` of its own, in place of `WALKERS[info.shape]`; the conversion is in the
 walkers of a leaf, a list and a dictionary), and an A/B of 11 `parse`/`check` rows against
 the commit before coercion is at parity (−0.2% to +2.6%, `Schema.from` −3.2%). Check the
-inlining of `parse` (`#pass`, `apply` and `wantOf` twice each) after touching its path. The
+inlining of `parse` (`pass` of `validation.js`, `apply` and `wantOf` twice each) after touching its path. The
 check for a missing `register()` of `./coerce` sits at the entry of `walkSchema` (one bit test
 per schema node of a pass), not in `parse`, for the same budget. **The converter of a node is
 resolved once and kept on its info** (`info.convert`, under `info.version` against
@@ -746,6 +845,16 @@ every call (`schema.options.validate` was one for a day) is in dictionary mode a
 harness change with
 `node --trace-turbo-inlining bench/bench.js moltar | grep "Inlining .*check.* into"`: nothing
 from `src/` may be inlined into `bench` or into a scenario closure.
+
+`bench/baseline.json` was re-saved on the 3.4 branch (2026-10-15, 74 rows): `Schema.from`
+296 K / 95 K (+16% / +13% on 3.3, the lazy checks), `new Model` 16.6 K (+4%), every other row
+within ±4% of 3.3. The two steps of the release were each an A/B of three alternating runs in
+separate processes against the commit before (a worktree in the scratchpad): the lazy checks
+at parity once the struct entries held the checks again (an array of checks cost the closures
+3 to 5%, a getter on the frozen plan cost construction 16%), the split within ±2.7% with mixed
+signs. `--trace-turbo-inlining` shows `parse` inlining `pass` (the module function that took
+the place of `#pass`), `apply` and `wantOf` twice each, `createContext`, `looped` and
+`parsed`, as before. The paragraph that follows is the re-save of 3.3.
 
 `bench/baseline.json` was re-saved after the review of 3.3 (2026-10-13, 74 rows): the rows of
 3.2 and the coercion rows of 3.3 moved within the band of the machine (a whole run sits a few
@@ -975,6 +1084,27 @@ change. **This file wins** if they ever disagree.
   fields; `bundle.test.js` bundles the model subpath with the core; `export-parity.test.js`
   and `scripts.test.js` cover the new subpath and the size row. A test of a rule of the
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
+- 3.4 suites: `definition.test.js` (the definition entry in a child process that requires
+  nothing else, since every suite and the JIT helper load the core: building, reading,
+  snapshots, the `ERR_NOT_REGISTERED` of every way to validate, the core loaded later
+  validating the schemas built before it, the same snapshot and field tree in both processes
+  over `tests/fixtures/forms.js` and the fixture model), `flags.test.js`, bytes in
+  `values.test.js`, `decimals` in `numbers.test.js` (and the tolerance), the snapshot of one
+  schema in `snapshot.test.js` (every entity of the fixture model, references of its own name,
+  mutual, through a namespace and a projection, the clash, `Identifier` first, every form, the
+  alias chain, anonymous schemas, `root` read and checked, unknown keys ignored, and the
+  scenario of a consumer on both backends), the self-reference in `references.test.js`, the
+  lazy checks in `structs.test.js` (a custom prototype counting its compiles; JIT-aware, since
+  the JIT compiles at construction), the definition half's closure in `graph.test.js`, the
+  definition bundles in `bundle.test.js` (alone in a bare context, and with the core, one copy
+  of each module), the subpath in `export-parity.test.js` (which reads a re-export of the
+  root), `scripts.test.js` (the `ALONE` row) and `tests/types/definition.test-d.ts`; the
+  narrowing of `FieldSnapshot` and `SchemaSnapshot` in `index.test-d.ts`, `bytes`/`flags` in
+  `infer.test-d.ts`; parity of both backends for `decimals`, `bytes` and `flags` in
+  `compile.test.js`; `flags` in the ajv differential (`bytes` and `decimals` left out of it, as
+  its header says); the base64 converter in `coerce.test.js`; a Binary of the real bson read
+  back as bytes in `mongodb-bson.test.js`; `decimals` and `flags` rows of `RULES` in
+  `evolution.test.js`.
 - Review of 3.3 suites: `mongodb-bson.test.js` (the subpath against the real `bson`, a
   devDependency: the tag and the methods of its values, the strict converters of
   `decimal128`/`binary`/`objectId`, a document round-tripped through `bson.serialize`; a file
@@ -1067,6 +1197,45 @@ change. **This file wins** if they ever disagree.
 
 ## Things that look like bugs but aren't
 
+- **A schema of `./definition` throws `ERR_NOT_REGISTERED` from `check`, and validates once
+  the core is loaded anywhere in the process.** The halves share the classes: `validation.js`
+  installs the methods on `Schema.prototype` and the `compile` of the types on the prototype
+  objects the classes inherit from, so a schema (and an isolated registry) built before the
+  core loaded validates after it. Until then `'~standard' in schema` is false on purpose: a
+  consumer of Standard Schema must not take it for a validator.
+- **The checks are compiled on their first use, and a schema is not one closure until then.**
+  `schema[RUN]` is a stub (`lazyRun` of `schema.js`) until the first check replaces it with
+  the closures (or `register()` of `./compile` with generated code first); `field.check`
+  compiles on its first read; the compiled struct check lives in a WeakMap of `checks.js`, not
+  in `fields[STRUCT]`. A definition error is never thrown from a `compile` (the bounds are
+  checked in the constructor, `checkBounds`), and the test of a format is the one the name
+  had when the field was built (`formatOf`), so a format registered later does not reach it.
+  `compiled()` of `./compile` tells generated code by a WeakSet of what it built.
+- **`findReference` falls back to the schema itself after the models.** A name that no
+  attached model resolves is the schema's own when it is its name, so a standalone
+  self-reference works and a derived schema (which keeps the name of its entity) still reaches
+  the entity of the model. A projection of its own name has no parent (`ERR_PROJECTION`).
+- **`schema.toSnapshot()` of a schema that shares the name of an entity it references is
+  `ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
+  reference reaches the original entity is such a case.
+- **`decimals` accepts the error of a sum and rejects a decimal too many below 10¹² units.**
+  The tolerance is 256 ulps of the scaled value (`NEAR` of `checks.js`); the plan's 1e-9 of
+  the value would accept `12345678.123` as two decimals. A value large enough that every double
+  is a whole number at that scale passes; NaN and the infinities are `decimals` issues. ajv
+  divides by `multipleOf`, so the differential test leaves `decimals` out.
+- **`flags` follows the unknown-keys policy** (Alex's decision, 2026-10-15): a name the list
+  does not have is `unexpected` under `reject`, ignored under `ignore`, dropped by `parse`
+  under `strip` (the `FLAGS` shape of `codec.js`, `walkFlags`); its JSON Schema is closed with
+  the document. `{}` is a valid value of a required `flags` field (every flag off), unlike an
+  empty required `object`.
+- **The JSON Schema of `bytes` is base64 text on the input side and unrepresentable on the
+  output side** (Alex's decision, 2026-10-15), as a `date` is: parse gives a `Uint8Array`, which
+  is no JSON. `fromJSONSchema` reads `contentEncoding: 'base64'` back as a string (of the
+  `base64` format when the formats are registered), never as `bytes`.
+- **`bytes` and `flags` as the first key of a struct read as those types**, and a custom type
+  of the program under either name is `ERR_TYPE_REGISTERED` (protoarray 1.2 gave a model both);
+  the CHANGELOG says so.
+
 - **`default` is applied by `parse` only.** `check` reports a missing required key as `required`
   whatever its `default`; `parse` fills it (and an `undefined` one) before the check, at any
   depth, calling a function default on every parse. `Infer` therefore makes a defaulted key
@@ -1128,11 +1297,10 @@ change. **This file wins** if they ever disagree.
   leaves such a record as it is for the check to report. A valid graph deeper than that needs
   `maxDepth` on the call. The JIT calls the reference's closure, so both backends agree.
 - **`schema.relations` is a `Set` of fresh `{ to, type }` objects**, so it behaves as a list
-  (no deduplication by content); it is read by `#tracked` and the docs only.
+  (no deduplication by content); it is read for `schema[TRACKED]` and by the docs only.
 - **A compiled schema's `check` is a function named `jit`, installed as `schema[RUN]`.**
   `compile()` of the `./compile` subpath replaces the own `[RUN]` property and returns
-  `{ accelerated }`, not the schema; the plan entries, `field.check` and `fields[STRUCT].check`
-  stay the closures, and a schema that references this one reaches the generated code through
+  `{ accelerated }`, not the schema; `field.check` and `checkOf(fields)` stay the closures, and a schema that references this one reaches the generated code through
   `schema[RUN]` at check time. `register()` compiles every schema built *after* it through the
   `Schema[HOOK]` slot, not the ones built before, and `Schema.from` in a hot path pays the code
   generation per construction once it is registered. Without eval, `'auto'` keeps the closures
@@ -1158,7 +1326,7 @@ change. **This file wins** if they ever disagree.
 - **`schema['~standard']` is not an own property.** It is an accessor on `Schema.prototype`, so
   `Object.keys`, `JSON.stringify`, `toJSON` and `util.inspect` never show it, while
   `'~standard' in schema` is `true`, which is how Standard Schema consumers detect it. The props
-  object is cached per instance (`#standard`) and `validate` is an arrow closure over the schema
+  object is cached per instance (`schema[STANDARD]`) and `validate` is an arrow closure over the schema
   because consumers call it unbound. Since 3.0 `validate` is `parse` (defaults and decoders
   applied, the schema's `unknown` policy), not `check`, and its typings say
   `StandardResult | Promise<StandardResult>`.
@@ -1170,8 +1338,8 @@ change. **This file wins** if they ever disagree.
 - **A string as the second argument of `check` throws.** `check(value, 'body')` was the 1.x
   signature; `context.js` turns it into a `TypeError` naming `options.root` on purpose, so a
   caller that was not migrated fails loudly instead of validating with the wrong options.
-- **`field.check` is a getter over a private field.** The compiled closure is set once in the
-  `AbstractType` constructor; assigning it as an own property would show up in `toJSON` and
+- **`field.check` is a getter over a private field.** The compiled closure is set on the first
+  read (`BUILD.field`); assigning it as an own property would show up in `toJSON` and
   `util.inspect`, and `Object.defineProperty` cost 100 ns per field at construction. `check`,
   `checkType`, `compile` and `construct` are reserved definition keys whether the type has them.
 - **`{ x: 'number' }` as a tuple element is a named number, not a struct.** Upstream's named
@@ -1231,7 +1399,7 @@ change. **This file wins** if they ever disagree.
 - **Cycle detection lives at references only.** A schema without references is a finite tree, so
   a cyclic value cannot make the walk recurse: it is reported for what it is (unexpected keys,
   wrong types). The `seen` set is created on the first reference met, and `Schema#check` adds the
-  root value only for a struct with relations (`#tracked`). Do not "fix" the nested-struct case
+  root value only for a struct with relations (`schema[TRACKED]`). Do not "fix" the nested-struct case
   by tracking every object: it costs a `Set` per check.
 - **The schema-level `validate` runs after the fields and only when they all passed**, and a
   field's `validate` only after its type and rules passed. That is the 2.0 semantics (A5), not an
@@ -1283,9 +1451,9 @@ change. **This file wins** if they ever disagree.
 - **`schema.fields` is a null-prototype object, not a class instance.** `createStruct` builds it
   that way on purpose: a field may be called `check`, `name` or `constructor`, and input keys
   such as `__proto__` must come back as unexpected instead of resolving to `Object.prototype`.
-  `fields[STRUCT].check` is the compiled check (`checkOf(fields)` in `struct.js`); `Schema`
-  compiles `this[RUN]` from it, or from `fields.check` when `fields` is a `Type` for a non-struct
-  schema (`Schema.from('string')`).
+  `checkOf(fields)` of `checks.js` is the compiled check; the check of a schema
+  (`compileSchema` of `validation.js`, on its first use) is built from it, or from
+  `fields.check` when `fields` is a `Type` for a non-struct schema (`Schema.from('string')`).
 - **`Infer` reads keys, not key order.** TypeScript has no key order, so `Infer` reads a kind
   key as a struct, else a `type` string as the long form, else a collection key (`array`, `set`,
   `object`, `map`, `enum`, `tuple`, `union`, `schema`, `one`, `many`) as that shorthand, else a
@@ -1533,7 +1701,10 @@ type, the pattern subset, the unsatisfiable cases); `guide/model.md` has the sna
 six functions, the kind and the id, the schema's functions, indexes, names and models) and
 `guide/mongodb.md` (the comparison with Mongoose, setup, collections, writing, reading,
 updates, the BSON types, when Mongoose still fits); `guide/formats.md` has the five tables of
-the 35 formats. The 3.2 pages are `guide/streaming.md`
+the 35 formats. The 3.4 page is `guide/definition.md` (the definition entry: what works, what is
+`ERR_NOT_REGISTERED`, with the core, the boundaries); `guide/model.md` has the snapshot of one
+schema and what format 1 guarantees, `guide/types.md` `bytes`, `flags` and `decimals`, and
+`guide/architecture.md` the two halves of the core. The 3.2 pages are `guide/streaming.md`
 (the stream subpath: the entries, `parseEach`, `maxInvalid`, the async pair and `concurrency`,
 `transform`, the boundaries), `guide/infer.md` (`infer`, the options, what is inferred per
 value, optional/nullable/null, the enum, format and dictionary rules, the keys, the root, the

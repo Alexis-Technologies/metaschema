@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-15
+
+3.4 makes the snapshot a contract a program can build on and the language complete for the
+programs that encode from it. A schema writes its own snapshot (`schema.toSnapshot()`, with the
+entities it reaches and its name as `root`), the guarantees of format 1 are written down, and
+the typings narrow a field of a snapshot on its type; a schema names itself without a model;
+binary data (`bytes`), named switches (`flags`) and a number of decimals (`decimals`) are built
+in. The checks are compiled on their first use, which makes building a schema 13 to 15% faster,
+and the core is split into two halves over the same classes, so that a client that reads
+schemas without validating them imports `@alexify/metaschema/definition`, 9.7 KB, half of the
+core. The two new type names change what a struct whose first key is `bytes` or `flags` reads
+as, and a program that registered either as a custom type of its own (protoarray 1.2's `types`)
+drops that entry: see Changed.
+
+### Added
+
+- **`schema.toSnapshot()`.** The snapshot of format 1 for one schema: the schema and every
+  entity it reaches through its references (the parent of a projection included), in the order
+  of a model, with the name of the schema as the new optional key `root` (`''` for an anonymous
+  schema) and no `database` metadata. `fromJSON` restores it (`model.entities.get(snapshot.root)`
+  is the schema again, and `toSnapshot()` of it writes the same text), and `fromJSON` and `diff`
+  check that `root` names one of its entities (`ERR_INVALID_SNAPSHOT`). Two schemas of one name
+  in what a schema reaches (one derived from an entity keeps its name) cannot be one snapshot:
+  `ERR_UNREPRESENTABLE`. `snapshot.js` shares the walk between the two writers;
+  `model.toJSON()` does not change.
+- **What format 1 guarantees**, written down in the model guide: the fields of a struct in the
+  order of the definition, the id field of a stored kind after them, the entities in the order
+  of the model, the tags as they are, and keys only ever added. A change of any of them is a
+  major release.
+- **A typed snapshot.** `FieldSnapshot` is a union that narrows on `type`: a string with its
+  rules, a number with its bounds and `decimals`, the scalars, an enum with `enum`, `flags`
+  with `flags`, a list or a dictionary with `value` (and `key`), a tuple with its elements, a
+  nested struct with `schema`, a union with `union` and `discriminator`, a reference by the
+  capitalized name of its entity with `one`/`many` and `embed`, a custom type by the names of
+  `CustomTypes`. `SchemaSnapshot` is what `toSnapshot()` returns.
+- **`bytes`**, a built-in type: a `Uint8Array` of any realm, a `Buffer` included, told by the
+  name the engine keeps in the view (`isBytes` of `util.js`), never by `instanceof` or a key of
+  the value. `Uint8Array` in TypeScript and `Infer`; base64 text on the input side of a JSON
+  Schema (`format: 'byte'` for OpenAPI 3.0), unrepresentable on its output side (as a `date`),
+  `binData` for mongodb; random bytes in `sample`; `bytes` in `infer` for the views of the
+  samples; canonical base64 read into bytes by `./coerce` (padded, the unused bits at zero,
+  never `''`); a Binary of the driver read back into bytes by `fromDocument` of `./mongodb`.
+- **`flags`**, a built-in type: `{ flags: ['read', 'write'] }` is an object of those names,
+  each a boolean, any left out. A name the list does not have is `unexpected` under the
+  unknown-keys policy of the check, ignored under `unknown: 'ignore'`, left out by `parse`
+  under `strip`; a list that is not one of distinct names is `ERR_INVALID_DEFINITION`. An
+  object of optional booleans in TypeScript and `Infer`, an object of boolean properties in
+  JSON Schema (closed with the document; every name required under the strict profile), a
+  random set of switches in `sample`; `merge` keeps the names both have, and `compatibility`
+  reads them as the values of an enum.
+- **`decimals`**, a rule of `number` (0 to 15): the value times 10ⁿ is a whole number to
+  within 256 units in the last place, so `0.1 + 0.2` has two decimals and `12345678.123` does
+  not; NaN and the infinities have none to count. A new issue code, `decimals` (`{ decimals }`),
+  with a renderer in both locales; `multipleOf` in JSON Schema (read back by `fromJSONSchema`);
+  drawn with its decimals by `sample`; the fewer of the two in `merge`; an upper bound in
+  `compatibility`.
+- **`@alexify/metaschema/definition`**, the half of the core that builds schemas and models and
+  reads them (fields, metadata, `toJSON`, `toSnapshot`), on its own: 9.7 KB min+gzip, gated at
+  10 KB. Its `Schema` and `Model` are the core's; a schema it builds says `ERR_NOT_REGISTERED`
+  when it is asked to validate (`check`, `parse`, `serialize`, `validate`, the async pair, the
+  `check` of a field, the warnings) until the program loads the core entry, and validates from
+  then on, the schemas built before included; it has no `~standard` until then. `./derive` and
+  `./formats` work beside it alone; a bundle of it and the core carries each module once.
+- `pnpm size` measures `./definition` on its own (`--max-gzip-definition`); `graph.test.js`
+  pins that the definition half reaches no module of the validation half.
+
+### Changed
+
+- **The checks are compiled on their first use**: a field on the first read of its `check`, a
+  struct on its first check (`checkOf`, kept beside its frozen plan, whose entries no longer
+  hold the checks), a schema through a stub of `Schema[RUN]` that takes the closures' place. A
+  schema that is only read never compiles them: `Schema.from` is 13 to 15% faster, `new Model`
+  5%, and `check` and `parse` are at parity on both backends. What a definition must reject is
+  still found when it is built (a `max` below `min`, a format not registered), and the test of
+  a format is the one named when the field was built.
+- **The core is two halves.** The definition half (`schema.js`, `model.js`, `types.js`, the
+  prototypes, `struct.js`, `rules.js`, `snapshot.js`) builds; the validation half
+  (`validation.js`, `checks.js`, `codec.js`, `context.js`, `issues.js`, `result.js`,
+  `lint.js`, the locale) installs `check`, `parse` and their kin, `~standard`, the warnings and
+  `checkConsistency` on the classes, and the type check of every built-in on the prototype
+  object the classes of the type inherit from. The core entry loads both; nothing changes for a
+  program that imports it. The state the validation half keeps on a schema is held under
+  symbols, and `fields[STRUCT]` is `{ plan, known, calculated }` (the check is `checkOf`).
+- **`bytes` and `flags` are type names**, so a struct whose first key is one of them
+  (`{ flags: ['a'], name: 'string' }`) reads as that type now, as `{ date, place }` reads as a
+  date: give it a kind (`{ Struct: {}, flags: … }`). A table of custom types of the program
+  under either name (`bytes` and `flags` of protoarray 1.2's `types`, for one) is
+  `ERR_TYPE_REGISTERED`: leave those entries out, the built-ins check the same values (only
+  `{ metadata }` may still be added). `infer` writes `bytes` for a `Uint8Array` among the
+  samples (it wrote a dictionary of its indices).
+- **The core gate is 21 KB** (was 19): `toSnapshot`, the two types and the rule cost the core
+  about 1.0 KB, the lazy checks and the split about 0.8 KB; the core measures 20.3 KB. The generators gate is 8 KB
+  (was 7.5; the two types and the rule took the subpath to 7.6 KB); a new gate of 10 KB for
+  `./definition`.
+- The warnings of a schema and of a model (`schema.warnings`, `schema.checkConsistency()`,
+  `model.warnings`) are computed by the validation half, kept in a WeakMap, and the cycles a
+  model meets while ordering its entities are recorded as data; their text is the same.
+- `compiled()` of `./compile` tells a generated check by a set of the functions it built, since
+  the closures of a schema may now be compiled after the JIT was turned off.
+
+### Fixed
+
+- **A schema resolves its own name without a model.** `new Schema('Category', { name:
+  'string', parent: '?Category' })` checked `parent` as `Entity "Category" is not found`; the
+  schema is now the fallback of `findReference` after the attached models (which come first,
+  so a schema that shares the name of their entity still reaches the entity). A projection of
+  its own name is `ERR_PROJECTION`, not a crash.
+- **A snapshot of a model whose alias type names another alias** (`cents: { js: 'money' }`)
+  left out the type it names, so `fromJSON` could not restore it (`ERR_UNKNOWN_JS_TYPE`); the
+  custom types down the chain of an alias are written now.
+- `types.md` said the formats subpath registers nine formats; it registers 35.
+
 ## [3.3.0] - 2026-10-14
 
 3.3 closes the gaps the comparison with the alternatives showed. `parse` converts the text of a
@@ -1394,7 +1506,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.0...HEAD
+[3.4.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.0.0...v3.1.0
