@@ -11,7 +11,13 @@ const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { idFieldOf } = require('../kinds.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
-const { structDefinitionOf, metadataOf, structDefinition, atSchema } = require('../model/data.js');
+const {
+  structDefinitionOf,
+  metadataOf,
+  structDefinition,
+  atSchema,
+  namespacesOf,
+} = require('../model/data.js');
 
 // The functions of a nested struct that are its own: written for the whole
 // struct, they do not hold for a part of it.
@@ -101,10 +107,11 @@ const bodyOf = (schema, fields, functions) => {
   return fields;
 };
 
-const build = (schema, options, body, namespaces) => {
+// The schema derived, with the namespaces of the schemas it is derived from.
+const build = (schema, options, body, sources) => {
   const { name = schema.name, metadata } = options;
   const definition = structDefinition(kindOf(schema), metadata, body);
-  return new Schema(name, definition, Array.from(namespaces));
+  return new Schema(name, definition, namespacesOf(sources));
 };
 
 const select = (schema, keys, options, keep) => {
@@ -116,7 +123,7 @@ const select = (schema, keys, options, keep) => {
   for (const key of Object.keys(all)) {
     if (names.has(key) === keep) define(fields, key, all[key]);
   }
-  return build(schema, settings, bodyOf(schema, fields, false), schema.namespaces);
+  return build(schema, settings, bodyOf(schema, fields, false), [schema]);
 };
 
 // The fields named, in the order of the schema.
@@ -157,7 +164,7 @@ const toggle = (schema, options, required) => {
     if (typeof def === 'function') continue;
     if (names === null || names.has(key)) settle(def, required, deep, defaults);
   }
-  return build(schema, settings, bodyOf(schema, fields, required), schema.namespaces);
+  return build(schema, settings, bodyOf(schema, fields, required), [schema]);
 };
 
 // Every field (or the ones in `options.keys`) optional. The schema's own
@@ -174,11 +181,11 @@ const extend = (schema, extension, options) => {
   sourceOf(schema);
   const settings = optionsOf(options);
   let additions = extension;
-  let namespaces = schema.namespaces;
+  const sources = [schema];
   if (hasBrand(extension, 'Schema')) {
     sourceOf(extension);
     additions = bodyOf(extension, fieldsOf(extension, null), true);
-    namespaces = new Set([...schema.namespaces, ...extension.namespaces]);
+    sources.push(extension);
   } else if (extension === null || typeof extension !== 'object' || Array.isArray(extension)) {
     throw invalidTarget('An extension is a Schema of a struct or an object of fields');
   } else if (isFirstUpper(firstKey(extension))) {
@@ -201,7 +208,7 @@ const extend = (schema, extension, options) => {
   for (const key of Object.keys(additions)) {
     if (!placed.has(key)) define(body, key, additions[key]);
   }
-  return build(schema, settings, body, namespaces);
+  return build(schema, settings, body, sources);
 };
 
 // The names of the fields a value carries, as a schema of an enum: the

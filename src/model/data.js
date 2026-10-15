@@ -133,6 +133,32 @@ const structDefinition = (base, metadata, fields) => {
   return definition;
 };
 
+// The namespaces of a schema built from schemas: theirs, and for a schema
+// that names itself without a model holding it (`parent: '?Category'`
+// resolves to the schema itself), one that holds it, so that what is built
+// from it, under its name or another, reaches the schema it was built from
+// as it did.
+const namespacesOf = (schemas) => {
+  const namespaces = new Set();
+  for (const schema of schemas) {
+    const { name } = schema;
+    let held = false;
+    for (const ns of schema.namespaces) {
+      namespaces.add(ns);
+      if (ns.entities.get(name) !== undefined) held = true;
+    }
+    if (name !== '' && !held && schema.references.has(name)) {
+      namespaces.add({
+        entities: new Map([[name, schema]]),
+        get types() {
+          return schema.types;
+        },
+      });
+    }
+  }
+  return Array.from(namespaces);
+};
+
 module.exports = {
   DEPTH,
   invalidSnapshot,
@@ -149,4 +175,5 @@ module.exports = {
   structDefinitionOf,
   metadataOf,
   structDefinition,
+  namespacesOf,
 };

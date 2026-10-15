@@ -436,6 +436,43 @@ test('Derive: a derived schema has the name of its source, the namespaces too', 
   assert.strictEqual(price.check({ amount: 'x' }).valid, false);
 });
 
+test('Derive: a schema that names itself without a model is reached from what is derived', () => {
+  const category = new Schema('Category', {
+    name: 'string',
+    'note?': 'string',
+    'parent?': 'Category',
+  });
+  const embed = { references: 'embed' };
+  // The parent is the source, under its name or another: a patch of a
+  // category still names a whole category as its parent.
+  for (const schema of both(() => partial(category))) {
+    assert.deepStrictEqual(schema.check({ parent: {} }, embed).errors, [
+      'Field "Category.parent.name" is required',
+    ]);
+  }
+  for (const schema of both(() => omit(category, ['note']))) {
+    assert.deepStrictEqual(schema.check({ name: 'a', parent: { note: 'x' } }).errors, [
+      'Field "Category.parent.name" is required',
+    ]);
+  }
+  for (const schema of both(() => pick(category, ['name', 'parent'], { name: 'CategoryRef' }))) {
+    assert.deepStrictEqual(schema.check({ name: 'a', parent: { name: 1 } }).errors, [
+      'Field "CategoryRef.parent.name" not of expected type: string',
+    ]);
+    assert.deepStrictEqual(schema.checkConsistency(), []);
+  }
+  const node = new Schema('Node', { 'next?': 'Node' });
+  const base = new Schema('Base', { a: 'string' });
+  for (const schema of both(() => extend(base, node))) {
+    assert.deepStrictEqual(schema.check({ a: 'x', next: { next: { next: 1 } } }).errors, [
+      'Field "Base.next.next.next" not of expected type: object',
+    ]);
+  }
+  // A model that holds the source is its namespace already.
+  const trees = new Model({}, [['Tree', { Struct: {}, 'up?': 'Tree' }]]);
+  assert.deepStrictEqual([...partial(trees.entities.get('Tree')).namespaces], [trees]);
+});
+
 test('Derive: the source is never changed', () => {
   const before = JSON.stringify(model.toJSON());
   const enums = Account.fields.role.enum;

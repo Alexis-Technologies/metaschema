@@ -16,6 +16,7 @@ const {
   metadataOf,
   structDefinition,
   atSchema,
+  namespacesOf,
 } = require('./data.js');
 
 // The keys a field definition settles by a rule of its own; every other key
@@ -214,7 +215,7 @@ const merge = (a, b, options = {}) => {
     throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Merge options must be an object');
   }
   const { name = a.name, metadata = {} } = options;
-  const namespaces = Array.from(new Set([...a.namespaces, ...b.namespaces]));
+  const namespaces = namespacesOf([a, b]);
   const structA = isStruct(a.fields);
   const structB = isStruct(b.fields);
   try {

@@ -1220,7 +1220,10 @@ change. **This file wins** if they ever disagree.
 - **`findReference` falls back to the schema itself after the models.** A name that no
   attached model resolves is the schema's own when it is its name, so a standalone
   self-reference works and a derived schema (which keeps the name of its entity) still reaches
-  the entity of the model. A projection of its own name has no parent (`ERR_PROJECTION`).
+  the entity of the model. A projection of its own name has no parent (`ERR_PROJECTION`). A
+  schema derived or merged from one that names itself without a model gets a namespace holding
+  the source (`namespacesOf` of `model/data.js`, an object with `entities` and `types`), so its
+  reference reaches the source as the source's did, under any name.
 - **`schema.toSnapshot()` of a schema that shares the name of an entity it references is
   `ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
   reference reaches the original entity is such a case.

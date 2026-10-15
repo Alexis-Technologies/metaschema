@@ -481,6 +481,17 @@ test('Merge: a conflict is located at its field, aliases and bounds included', (
 });
 
 // S4: the keys of the merged definition are defined, not assigned.
+test('Merge: a schema that names itself without a model is reached from the merge', () => {
+  const node = new Schema('Node', { 'next?': 'Node' });
+  const base = new Schema('Base', { a: 'string' });
+  for (const schema of both(base, node)) {
+    assert.deepStrictEqual(schema.check({ a: 'x', next: { next: 5 } }).errors, [
+      'Field "Base.next.next" not of expected type: object',
+    ]);
+    assert.deepStrictEqual(schema.checkConsistency(), []);
+  }
+});
+
 test('Merge: a field named __proto__ merges like any other', () => {
   const proto = (type) => Schema.from(JSON.parse(`{"a":"string","__proto__":"${type}"}`));
   const merged = merge(proto('string'), proto('string'));
