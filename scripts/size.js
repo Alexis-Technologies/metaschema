@@ -119,8 +119,8 @@ const ALONE = [
 ];
 
 // `entry` alone, or `entry` plus subpaths in one bundle, exported so that
-// the bundle keeps them: the package says `sideEffects: false`, and esbuild
-// drops a require whose result nothing uses.
+// the bundle keeps them: the package says that only its entries have side
+// effects, and a bundler may drop an import of a subpath nothing uses.
 const bundle = async (entry, platform, minify, subpaths = []) => {
   let extra = '';
   for (const subpath of subpaths) extra += `, require('${subpath}')`;

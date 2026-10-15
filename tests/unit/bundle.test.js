@@ -481,3 +481,35 @@ for (const minify of [false, true]) {
     assert.ok(size - coreAlone.outputFiles[0].text.length < 1024);
   });
 }
+
+// The core entry imported for what it installs, the way the definition guide
+// says to turn validation on (`import '@alexify/metaschema'`), in an ES
+// module bundle: a bundler reads `sideEffects` of the package and drops an
+// import of a module it believes free of them, so the entries and the
+// validation half are listed there.
+for (const platform of ['node', 'browser']) {
+  test(`Bundle: the core imported for its side effects, ${platform}`, async () => {
+    const entry = platform === 'node' ? 'index.js' : 'browser.js';
+    const contents = [
+      "import { Schema } from './src/definition/index.js';",
+      `import './${entry}';`,
+      "const tag = new Schema('Tag', { label: 'string' });",
+      'export const errors = Array.from(tag.check({ label: 1 }).errors);',
+    ].join('\n');
+    const result = await esbuild.build({
+      stdin: { contents, resolveDir: ROOT, loader: 'js' },
+      bundle: true,
+      write: false,
+      logLevel: 'silent',
+      platform,
+      format: 'cjs',
+    });
+    assert.deepStrictEqual(result.warnings, []);
+    const module = { exports: {} };
+    const load = vm.compileFunction(result.outputFiles[0].text, ['module', 'exports', 'require']);
+    load(module, module.exports, require);
+    assert.deepStrictEqual(Array.from(module.exports.errors), [
+      'Field "Tag.label" not of expected type: string',
+    ]);
+  });
+}

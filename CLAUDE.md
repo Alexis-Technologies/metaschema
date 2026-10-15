@@ -86,9 +86,11 @@ There is no build step.
 - `package.json` has a closed `exports` map (`.` with `types` first, then `browser`, then
   `default`; `./locales/en`, `./locales/uk`, `./generators`, `./compile`, `./model`,
   `./stream`, `./formats`, `./derive`, `./coerce`, `./mongodb` and `./definition`, each with
-  its own `types`), `sideEffects: false` (nothing
-  registers on import, so a bundler may drop a subpath a program imports and never calls; the
-  size script exports what it bundles for that reason) and a
+  its own `types`), `sideEffects` listing the entries and `src/validation.js` only (loading the
+  core installs the validation half into the classes, so `import '@alexify/metaschema'` for that
+  alone must survive a bundler; nothing else registers on import, so a bundler may drop a subpath
+  a program imports and never calls; the size script exports what it bundles for that reason;
+  `bundle.test.js` bundles the bare import as ES modules) and a
   `files` allowlist: `index.js`, `index.d.ts`, `browser.js`, `src`, README, CHANGELOG, LICENSE
   and SECURITY. `src/generators/index.d.ts` types the subpath and imports the option types from
   the root `index.d.ts`, which also declares the methods `register()` installs on `Schema` and

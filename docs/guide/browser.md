@@ -34,8 +34,9 @@ under 2.5 KB, the `@alexify/metaschema/coerce` subpath (the converters of coerci
 under 2 KB, and the `@alexify/metaschema/mongodb` subpath 3.6 KB on top of `./coerce`, under
 4 KB. A client that only reads schemas imports [`@alexify/metaschema/definition`](/guide/definition)
 instead of the core: 9.7 KB, under 10 KB. `pnpm size` in the repository prints the exact numbers. The package says
-`sideEffects: false`: nothing registers on import, so a bundler may drop a subpath an ESM
-program imports and never calls (a CommonJS `require` of a subpath keeps it whole: there is no
+in `sideEffects` that only its entries have side effects (loading the core installs validation
+into the classes, so `import '@alexify/metaschema'` for that alone is kept): no subpath
+registers on import, so a bundler may drop a subpath an ESM program imports and never calls (a CommonJS `require` of a subpath keeps it whole: there is no
 tree shaking of one format or one converter out of its table).
 
 ## Content Security Policy

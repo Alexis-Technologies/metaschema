@@ -86,7 +86,12 @@
     "LICENSE",
     "SECURITY.md"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "./index.js",
+    "./browser.js",
+    "./src/index.js",
+    "./src/validation.js"
+  ],
   "publishConfig": {
     "access": "public"
   },
