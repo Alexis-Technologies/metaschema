@@ -61,6 +61,10 @@ Schema.from({ Struct: {}, type: { enum: ['cpu', 'ram'] }, name: 'string' });
 Schema.from({ part: { schema: { type: { enum: ['cpu', 'ram'] }, name: 'string' } } });
 ```
 
+The type names include `bytes` and `flags` since 3.4, so a struct whose first field is called
+`bytes` or `flags` (`{ flags: ['a'], name: 'string' }`) is read as that type now and needs a
+kind; `schema.warnings` names the options such a misread leaves unknown.
+
 An object that cannot be what its first key says is a `SchemaDefinitionError`
 (`ERR_INVALID_DEFINITION`): `{ required: false, type: 'string' }` is read as a struct, and `false`
 is not a field definition.

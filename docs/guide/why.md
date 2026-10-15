@@ -53,10 +53,11 @@ description of its data:
   [`./formats`](/guide/formats) checks 35 formats and your own, and
   [`./mongodb`](/guide/mongodb) writes and reads the documents of MongoDB.
 - **Zero dependencies, any runtime.** Nothing is installed besides the package; the core entry
-  is 18.6 KB min+gzip, and the generators (7.3 KB), the JIT backend (4.2 KB), the model tools
-  (12.0 KB), the record tools (1.0 KB), the string formats (4.0 KB), the derive tools (1.9 KB),
-  the converters of coercion (1.7 KB) and the MongoDB tools (3.5 KB on top of the converters)
-  are subpaths a program pays for only when it imports them. CommonJS with ESM named imports, no build step,
+  is 20.3 KB min+gzip, and the generators (7.6 KB), the JIT backend (4.4 KB), the model tools
+  (12.4 KB), the record tools (0.9 KB), the string formats (3.9 KB), the derive tools (2.0 KB),
+  the converters of coercion (1.8 KB) and the MongoDB tools (3.6 KB on top of the converters)
+  are subpaths a program pays for only when it imports them; a program that only reads
+  schemas imports the definition half alone (9.7 KB). CommonJS with ESM named imports, no build step,
   hand-written typings, Node.js 18+ and browsers, and nothing that needs `eval` unless you ask
   for the JIT.
 
@@ -64,7 +65,7 @@ description of its data:
 
 - **The smallest possible bundle for a few form fields.** Valibot builds the comparison's
   schema in about 1.2 KB min+gzip and zod/mini in about 5 KB; metaschema's core carries its
-  whole language (unions, references, formats, parse) in 18 KB.
+  whole language (unions, references, formats, parse) in 20 KB.
 - **A JSON Schema document is the contract.** Ajv implements every draft and keyword;
   `fromJSONSchema` reads a subset of JSON Schema into a metaschema definition.
 - **TypeScript types are the source of truth.** typia compiles validators from the types

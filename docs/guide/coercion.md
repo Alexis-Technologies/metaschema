@@ -72,6 +72,7 @@ the type, and anything else comes back as it was, for the check to report.
 | `bigint` | an integer string; a safe integer | `'1.0'`, `1.5` |
 | `boolean` | `'true'`, `'false'`, `'1'`, `'0'` (exactly) and the numbers `1` and `0` | `'yes'`, `'on'`, `'TRUE'`, `''` |
 | `date` | `YYYY-MM-DD` (midnight UTC); a date-time with `Z` or an offset (`T` or a space between); a number of milliseconds | a date-time without a zone, `'2026-02-31'` |
+| `bytes` | canonical base64 (RFC 4648: padded, the bits the padding leaves unused at zero), into a `Uint8Array` | `''`, whitespace, a missing `=`, the URL alphabet (`-`, `_`), `'QR=='` |
 | `string` | a finite number, a bigint, a boolean | `NaN`, objects |
 | `enum` | a string written as a member that is not a string (`'2'` for `2`), a number, boolean or bigint written as a string member | anything else |
 | `array` | a single value (`?tag=a`), a Set | an object, `''` |
@@ -79,7 +80,7 @@ the type, and anything else comes back as it was, for the check to report.
 | `map` | a plain object, a list of pairs; a key written as a number in a map of numbers | |
 
 A tuple, a nested struct, a union, a dictionary (`object`) and a reference have nothing to
-convert of their own: their parts are converted.
+convert of their own: their parts are converted. `flags` has no converter.
 
 **The empty string is never converted.** An empty field of a form is `''`, and what it should
 become (nothing, `null`, a default, `0`) is the program's to say: give the field a decoder, or

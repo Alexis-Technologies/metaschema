@@ -23,16 +23,17 @@ global symbol brand (`Symbol.for`), not by class names, so a bundler that rename
 minifier that mangles it cannot switch validation off. The repository's `tests/unit/bundle.test.js`
 builds both entry points with esbuild, minified and not, and validates through the result.
 
-The core entry is 18.6 KB min+gzip in either environment, and CI keeps it under 19 KB; the
-`@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 7.3 KB where it is
-imported, under a budget of 7.5 KB, the `@alexify/metaschema/compile` subpath (the JIT backend)
-4.2 KB, under 5 KB, the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
-merge, inference) 12.0 KB, under 13 KB, the `@alexify/metaschema/stream` subpath (records and
-streams) 1.0 KB, under 1.5 KB, the `@alexify/metaschema/formats` subpath (string formats)
-4.0 KB, under 5 KB, the `@alexify/metaschema/derive` subpath (pick, omit, partial) 1.9 KB,
-under 2.5 KB, the `@alexify/metaschema/coerce` subpath (the converters of coercion) 1.7 KB,
-under 2 KB, and the `@alexify/metaschema/mongodb` subpath 3.5 KB on top of `./coerce`, under
-4 KB. `pnpm size` in the repository prints the exact numbers. The package says
+The core entry is 20.3 KB min+gzip in either environment, and CI keeps it under 21 KB; the
+`@alexify/metaschema/generators` subpath (JSON Schema, TypeScript) adds 7.6 KB where it is
+imported, under a budget of 8 KB, the `@alexify/metaschema/compile` subpath (the JIT backend)
+4.4 KB, under 5 KB, the `@alexify/metaschema/model` subpath (snapshots, diff, samples,
+merge, inference) 12.4 KB, under 13 KB, the `@alexify/metaschema/stream` subpath (records and
+streams) 0.9 KB, under 1.5 KB, the `@alexify/metaschema/formats` subpath (string formats)
+3.9 KB, under 5 KB, the `@alexify/metaschema/derive` subpath (pick, omit, partial) 2.0 KB,
+under 2.5 KB, the `@alexify/metaschema/coerce` subpath (the converters of coercion) 1.8 KB,
+under 2 KB, and the `@alexify/metaschema/mongodb` subpath 3.6 KB on top of `./coerce`, under
+4 KB. A client that only reads schemas imports [`@alexify/metaschema/definition`](/guide/definition)
+instead of the core: 9.7 KB, under 10 KB. `pnpm size` in the repository prints the exact numbers. The package says
 `sideEffects: false`: nothing registers on import, so a bundler may drop a subpath an ESM
 program imports and never calls (a CommonJS `require` of a subpath keeps it whole: there is no
 tree shaking of one format or one converter out of its table).

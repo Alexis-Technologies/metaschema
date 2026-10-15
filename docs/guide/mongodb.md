@@ -197,7 +197,11 @@ if (bson.checkUpdate(Account, update).valid) {
 
 A value of bson is recognized by its `_bsontype` and a method JSON cannot give a value, never by
 `instanceof`: a value of another realm or of another copy of bson is one, and a body of a
-request that claims to be an ObjectId (`{ "_bsontype": "ObjectId" }`) is data. A `Long` is a
+request that claims to be an ObjectId (`{ "_bsontype": "ObjectId" }`) is data. A field of the
+built-in [`bytes`](/guide/types#scalars) type needs none of the three: `toDocument` leaves its
+`Uint8Array` as it is (the driver writes it as `binData`), and `fromDocument` reads the Binary the
+driver gives back into its bytes, so the program holds a `Uint8Array` both ways; the mongodb
+target writes `bsonType: 'binData'` for it. A `Long` is a
 `bigint` field (with the driver's `useBigInt64`), a UUID a string with
 [`format: 'uuid'`](/guide/formats). In TypeScript the subpath's typings teach `Infer` the three
 types.

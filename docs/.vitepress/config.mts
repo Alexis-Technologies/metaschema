@@ -156,6 +156,7 @@ export default withMermaid(
               { text: 'MongoDB', link: '/guide/mongodb' },
               { text: 'The JIT backend', link: '/guide/compile' },
               { text: 'Browser', link: '/guide/browser' },
+              { text: 'The definition entry', link: '/guide/definition' },
             ],
           },
           {

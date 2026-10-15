@@ -1,7 +1,18 @@
 # References
 
-A capitalized type name refers to another schema. References only resolve inside a
-[`Model`](/guide/model), which holds every entity and acts as the namespace for lookups.
+A capitalized type name refers to another schema. References resolve through a
+[`Model`](/guide/model), which holds every entity and acts as the namespace for lookups, and a
+schema resolves its own name without one:
+
+```js
+const category = new Schema('Category', { name: 'string', 'parent?': 'Category' });
+category.check({ name: 'Books', parent: { name: 1 } }).errors;
+// [ 'Field "Category.parent.name" not of expected type: string' ]
+```
+
+The models a schema is attached to come first: a schema that has the name of one of their
+entities (one [derived](/guide/derive) from it keeps the name) reaches that entity, not
+itself.
 
 ```js
 const { Model } = require('@alexify/metaschema');

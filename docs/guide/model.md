@@ -166,7 +166,8 @@ The format, `format: 1`:
 | Key | Contents |
 | --- | --- |
 | `database` | the `database` argument, as given |
-| `types` | the types the entities use, by name, sorted: an alias of a built-in as `{ js, metadata }`, a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
+| `root` | only in the snapshot of one schema (below): the name of the schema it is about |
+| `types` | the types the entities use, by name, sorted: an alias as `{ js, metadata }` (and the custom type it names, down the chain, which restoring it needs), a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
 | `entities` | every entity in `model.order`: `kind`, `scope`, `store`, `allow`, `parent` (`''` unless a projection), `unknown`, `custom` (the other keys of the kind metadata, as given), then `fields` for a struct or `type` for a schema of one type, `indexes` (the `index`, `primary` and `unique` definitions, as given; a `many` field is a field) and `relations` (`{ to, type }`) |
 | a field | its `type` and `required` first, then the other keys of its definition sorted: a nested struct under `schema`, the element of a collection under `value`, the elements of a tuple as a list under `value`, the branches under `union`, the rules as the definition normalised them (`length` as `{ min, max }`, `pattern` as its source, or `{ source, flags }` with flags beyond `u`, `format` by its name), `aliases`, `deprecated` and every annotation |
 
@@ -179,6 +180,81 @@ at all (a symbol, `NaN`) is left to `JSON.stringify`, which drops or nulls it; a
 
 The repository pins the format with `tests/fixtures/snapshot.json`, the snapshot of its fixture
 model.
+
+### The snapshot of one schema
+
+`schema.toSnapshot()` writes the same format for one schema: the schema and every entity it
+reaches through its references (and the parent of a projection, which restoring it needs), in
+the order of a model, with the name of the schema as `root` and no `database` metadata. It is
+what a program that reads one schema takes (a codec built from it, a form, a client that
+encodes positionally), and it needs no model: a schema that names itself (`parent:
+'?Category'`) reaches itself.
+
+```js
+const model = new Model({}, [
+  ['Company', { Dictionary: {}, name: 'string' }],
+  ['Category', { Struct: {}, title: 'string', 'parent?': 'Category' }],
+  ['Product', { Entity: {}, name: 'string', price: { type: 'number', decimals: 2 }, maker: 'Company', category: 'Category', photo: '?bytes', flags: { flags: ['featured', 'sold'] } }],
+]);
+
+model.entities.get('Product').toSnapshot();
+// {
+//   format: 1,
+//   root: 'Product',
+//   database: null,
+//   types: {},
+//   entities: {
+//     Company: { kind: 'dictionary', …, fields: { name: …, companyId: … }, … },
+//     Category: { kind: 'struct', …, fields: { title: …, parent: { type: 'Category', required: false, one: 'Category' } }, … },
+//     Product: {
+//       kind: 'entity', …,
+//       fields: {
+//         name: { type: 'string', required: true },
+//         price: { type: 'number', required: true, decimals: 2 },
+//         maker: { type: 'Company', required: true, one: 'Company' },
+//         category: { type: 'Category', required: true, one: 'Category' },
+//         photo: { type: 'bytes', required: false },
+//         flags: { type: 'flags', required: true, flags: ['featured', 'sold'] },
+//         productId: { type: 'string', required: false },
+//       },
+//       …
+//     },
+//   },
+// }
+```
+
+An anonymous schema is the entity `''` (`root: ''`). A reference no model resolves is left out,
+as the snapshot of a model leaves it; two schemas of one name in what a schema reaches (one
+derived from an entity keeps its name, and references the entity) cannot be one snapshot, and
+are `ERR_UNREPRESENTABLE`. [`fromJSON`](#restoring-a-model) reads it back as a model, whose
+entity `snapshot.root` is the schema again (`toSnapshot()` of it writes the same text), and
+checks that `root` names one of the entities (`ERR_INVALID_SNAPSHOT` otherwise); `diff` reads it
+as any snapshot.
+
+### What format 1 guarantees
+
+The snapshot is a contract, and these hold for every snapshot of format 1; a change of any of
+them is a major release, with a format of its own:
+
+- **The fields of a struct come in the order of the definition**, the order `check` visits them
+  in: a calculated field in its place, the functions of the schema itself (its `validate`,
+  `parse`, `serialize` and `format`) after the fields.
+- **The id field of a stored kind (`<entity>Id`, `'?string'`) comes after the fields of the
+  definition**, the last of the validated fields, unless the definition has a field of that
+  name, which the id field replaces in its place.
+- **The entities come in the order of the model** (`model.order`): `Identifier` first,
+  then every entity after the ones it references, a cycle cut where it closes.
+- **The keys of a field are its `type` and `required`, then the others sorted**, so the text
+  does not depend on how the definition was written; a function is `{ $function: true }`, a
+  bigint `{ $bigint }`, a `Date` `{ $date }`.
+- **Keys are only added.** A program that reads format 1 ignores a key it does not know: `root`
+  is one that 3.4 added, and the rules and types a later release adds (`decimals`, `bytes`,
+  `flags` in 3.4) come as new keys of a field and new values of `type`.
+
+In TypeScript a field of a snapshot (`FieldSnapshot`) narrows on its `type`: `{ type: 'enum' }`
+has `enum`, `{ type: 'flags' }` has `flags`, a collection its `value`, a reference (whose type is
+the capitalized name of its entity) `one` or `many`, a custom type the names `CustomTypes`
+declares; `schema.toSnapshot()` is a `SchemaSnapshot`.
 
 ### Restoring a model
 

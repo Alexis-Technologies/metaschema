@@ -255,7 +255,7 @@ and throws `ERR_MERGE_CONFLICT` for two.
   [`fromJSON`](/guide/model#restoring-a-model) needs the formats registered first, or its
   `format` is `ERR_INVALID_RULE` at the field; a format registered after a schema was built
   does not reach that schema.
-- **The subpath is 4.0 KB min+gzip on top of the core**, gated at 5 KB; the rule itself is in
+- **The subpath is 3.9 KB min+gzip on top of the core**, gated at 5 KB; the rule itself is in
   the core. The expressions are written out in one file, so a program that registers the
   formats carries all 35.
 - **`emoji` follows the engine.** Its classes are the Unicode properties of the JavaScript

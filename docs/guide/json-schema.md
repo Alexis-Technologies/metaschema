@@ -51,8 +51,8 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 18.6 KB min+gzip, `@alexify/metaschema/generators` adds
-7.3 KB on top. The subpath exports five functions:
+carry them: `@alexify/metaschema` is 20.3 KB min+gzip, `@alexify/metaschema/generators` adds
+7.6 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
 | --- | --- |
@@ -109,11 +109,14 @@ The `openapi-3.0` document is a schema object, not an OpenAPI document: put it u
 | `'string'`, `{ type: 'string', length: { min, max }, pattern }` | `{ type: 'string', minLength, maxLength, pattern }` (the pattern's source, without flags) |
 | `{ type: 'string', format: 'email' }` | `{ type: 'string', format: 'email' }`, the name as given (the built-in names are JSON Schema's); dropped by the strict profile and for mongodb; see [String formats](/guide/formats) |
 | `'number'`, `'integer'`, with `min`/`max` | `{ type: 'number' }`, `{ type: 'integer' }`, with `minimum`/`maximum` |
+| `{ type: 'number', decimals: 2 }` | `multipleOf: 0.01` (10⁻ⁿ); dropped by the strict profile |
 | `'boolean'`, `'null'` | `{ type: 'boolean' }`, `{ type: 'null' }` |
 | `'any'`, `'unknown'` | `{}` |
 | `'json'` | `{ type: ['object', 'array'] }` |
 | `'date'` | `{ type: 'string', format: 'date-time' }` on the input side; unrepresentable on the output side; `bsonType: 'date'` for mongodb |
 | `'bigint'` | unrepresentable; `bsonType: 'long'` for mongodb |
+| `'bytes'` | `{ type: 'string', contentEncoding: 'base64' }` on the input side (`format: 'byte'` for openapi-3.0); unrepresentable on the output side; `bsonType: 'binData'` for mongodb |
+| `{ flags: ['read', 'write'] }` | `{ type: 'object', properties: { read: { type: 'boolean' }, ... } }`, `additionalProperties: false` when the document is closed, every name `required` under the strict profile |
 | `{ enum: [...] }` | `{ enum: [...] }`; one value is `{ const: value }` where the dialect has it |
 | `{ array: T, length }` | `{ type: 'array', items: T, minItems, maxItems }` |
 | `{ set: T }` | the same with `uniqueItems: true` on the input side; unrepresentable on the output side and for mongodb |
@@ -144,8 +147,8 @@ listed in `required`; a nullable field is the same type and is listed. An option
 ## Input and output
 
 `io: 'input'`, the default, describes the JSON a value is parsed from: a `date` is a
-`date-time` string, a `set` an array of unique items, a `map` an object. `io: 'output'`
-describes the value `check` accepts, so those three have no JSON form there and throw (or
+`date-time` string, `bytes` base64 text, a `set` an array of unique items, a `map` an object.
+`io: 'output'` describes the value `check` accepts, so those four have no JSON form there and throw (or
 render as `{}` with `unrepresentable: 'any'`). The `mongodb` target describes the stored
 document and has one side only: a `date` is a BSON date, a `map` a document, a `set` has no
 form.
@@ -394,7 +397,8 @@ The subset, the reverse of [the mapping](#the-mapping):
 | --- | --- |
 | `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }`; a pattern the `u` flag rejects is outside the subset (see below) |
 | `type: 'string'` with `format` | `{ type: 'string', format }` when the [formats subpath](/guide/formats) registered that name; any other `format` is dropped |
-| `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }` |
+| `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }`; `multipleOf` of 10⁻ⁿ on a number is `decimals: n` (0 to 15), `multipleOf: 1` on an integer says nothing more, any other step is outside the subset |
+| `type: 'string'` with `contentEncoding: 'base64'` (what `bytes` exports as) | a string of the `base64` format when the formats subpath is registered, else a string |
 | `type: 'boolean'`, `'null'` | `'boolean'`, `'null'` |
 | `type: 'object'` with `properties` and `required` | a nested struct, a property outside `required` optional (`'?string'`, `required: false`); `{ schema }` when its first key would read as a type or a kind |
 | `type: 'object'` with `additionalProperties: T`, `minProperties`, `maxProperties` | `{ object: { string: T }, length }`; a `propertyNames` with the number-key pattern gives a `number` key |

@@ -10,10 +10,11 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 18.6 KB min+gzip for the core entry (the generators subpath adds
-  7.3 KB, the compile subpath 4.2 KB, the model subpath 12.0 KB, the stream subpath 1.0 KB, the
-  formats subpath 4.0 KB, the derive subpath 1.9 KB, the coerce subpath 1.7 KB, the mongodb
-  subpath 3.5 KB on top of coerce); `sideEffects: false`; about 10 million checks a second of a flat
+- Zero runtime dependencies, 20.3 KB min+gzip for the core entry (the generators subpath adds
+  7.6 KB, the compile subpath 4.4 KB, the model subpath 12.4 KB, the stream subpath 0.9 KB, the
+  formats subpath 3.9 KB, the derive subpath 2.0 KB, the coerce subpath 1.8 KB, the mongodb
+  subpath 3.6 KB on top of coerce; the definition subpath, the half of the core that builds and
+  reads schemas without validating, is 9.7 KB on its own); `sideEffects: false`; about 10 million checks a second of a flat
   struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
@@ -45,7 +46,11 @@ Key facts:
   `COERCIONS`, and the MongoDB tools `@alexify/metaschema/mongodb`: `types` (objectId,
   decimal128, binary), `register({ bson })`, `toDocument`, `fromDocument`,
   `fromDocumentAsync`, `indexesOf`, `checkUpdate`, `toUpdate`; the compile subpath also has
-  `compiled(target)` (whether a schema runs generated code now)
+  `compiled(target)` (whether a schema runs generated code now); and the definition entry
+  `@alexify/metaschema/definition`: the core's own `Schema`, `Model`, `getKindMetadata`,
+  `SchemaDefinitionError` and constants without the validation half (checks, parse, the lint:
+  `ERR_NOT_REGISTERED` until the core entry is loaded, which installs them into the same
+  classes)
 - `{ type: 'string', format: 'email' }` is a rule of strings beside `length` and `pattern`: a
   failed test is a `format` issue (`params.format`), a name the table lacks is
   `ERR_INVALID_RULE` when the schema is built (nothing is registered until `register()` of the
@@ -84,7 +89,11 @@ Key facts:
   entities in dependency order with kind, scope, store, allow, parent, unknown, custom, fields
   (each `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities
   use; a function is `{ $function: true }`, a bigint `{ $bigint }`, a Date `{ $date }`, a
-  RegExp its source; `fromJSON(snapshot)` restores a model with placeholders for the functions
+  RegExp its source; `fromJSON(snapshot)` restores a model with placeholders for the functions;
+  `schema.toSnapshot()` writes the same format for one schema and the entities it reaches,
+  with its name as `root`; format 1 guarantees the fields in the order of the definition (the
+  id field of a stored kind after them), the entities in `model.order`, and that keys are only
+  added
 - `diff(prev, next)` (models or snapshots) lists changes `{ kind: entity | field | index |
   relation | type, op: added | removed | changed | renamed, entity, name, from, to, detail }`,
   a field renamed through `aliases` is `renamed`; `compatibility(changes)` is `full`,
@@ -156,9 +165,12 @@ Key facts:
   `{ map: { string: T } }`, `{ enum: [...] }`, `{ union: [...], discriminator? }`, tuples
   `['number', 'number']`, `'json'`, references by capitalized name (`'Company'`,
   `{ many: 'Address' }`: the id of a stored kind, the record of a memory kind)
-- Types: `string`, `number`, `integer`, `bigint`, `boolean`, `date`, `null`, `any`/`unknown`,
-  `enum`, `array`, `set`, `object`, `map`, `tuple`, `union`, `json`; rules `length`/`pattern`
-  for strings, `length` for collections, `min`/`max` for numbers
+- Types: `string`, `number`, `integer`, `bigint`, `boolean`, `date`, `bytes` (a Uint8Array of
+  any realm), `null`, `any`/`unknown`, `enum`, `flags` (`{ flags: ['read', 'write'] }`: an
+  object of those names, each a boolean), `array`, `set`, `object`, `map`, `tuple`, `union`,
+  `json`; rules `length`/`pattern`/`format` for strings, `length` for collections, `min`/`max`
+  for numbers, `decimals` (0 to 15) for a number; a schema references itself by its name
+  without a model
 - Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
   kind
@@ -180,6 +192,7 @@ Docs:
 - Coercion: https://metaschema.vercel.app/guide/coercion
 - Deriving schemas: https://metaschema.vercel.app/guide/derive
 - MongoDB: https://metaschema.vercel.app/guide/mongodb
+- The definition entry: https://metaschema.vercel.app/guide/definition
 - Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model

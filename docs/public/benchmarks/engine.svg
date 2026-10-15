@@ -50,158 +50,158 @@
 <text class="tick" x="676" y="669" text-anchor="middle">100M</text>
 <line class="axis" x1="330" y1="93" x2="330" y2="653"/>
 <g><title>check · flat struct, valid
-closures 10,332,683 ops/s · 96.8 ns per call
-JIT 29,038,110 ops/s · 34.4 ns per call
+closures 10,592,391 ops/s · 94.4 ns per call
+JIT 29,742,318 ops/s · 33.6 ns per call
 ×2.8 on the JIT</title>
 <text class="label" x="20" y="110">check</text>
 <text class="sublabel" x="20" y="125">flat struct, valid</text>
-<path class="bar secondary" d="M330,103H603.7835469159015A4,4 0 0 1 607.7835469159015,107V108A4,4 0 0 1 603.7835469159015,112H330Z"/>
-<text class="value small" x="613.7835469159015" y="111">10.3M</text>
-<path class="bar primary" d="M330,114H634.8374095483765A4,4 0 0 1 638.8374095483765,118V119A4,4 0 0 1 634.8374095483765,123H330Z"/>
-<text class="value small" x="644.8374095483765" y="122">29M</text>
+<path class="bar secondary" d="M330,103H604.5295850511711A4,4 0 0 1 608.5295850511711,107V108A4,4 0 0 1 604.5295850511711,112H330Z"/>
+<text class="value small" x="614.5295850511711" y="111">10.6M</text>
+<path class="bar primary" d="M330,114H635.5575370401682A4,4 0 0 1 639.5575370401682,118V119A4,4 0 0 1 635.5575370401682,123H330Z"/>
+<text class="value small" x="645.5575370401682" y="122">29.7M</text>
 </g>
 <g><title>check · flat struct, invalid
-closures 3,241,819 ops/s · 308 ns per call
-JIT 5,536,050 ops/s · 181 ns per call
+closures 3,297,174 ops/s · 303 ns per call
+JIT 5,641,645 ops/s · 177 ns per call
 ×1.7 on the JIT</title>
 <text class="label" x="20" y="150">check</text>
 <text class="sublabel" x="20" y="165">flat struct, invalid</text>
-<path class="bar secondary" d="M330,143H568.9465824196619A4,4 0 0 1 572.9465824196619,147V148A4,4 0 0 1 568.9465824196619,152H330Z"/>
-<text class="value small" x="578.9465824196619" y="151">3.24M</text>
-<path class="bar primary" d="M330,154H585.0294402690756A4,4 0 0 1 589.0294402690756,158V159A4,4 0 0 1 585.0294402690756,163H330Z"/>
-<text class="value small" x="595.0294402690756" y="162">5.54M</text>
+<path class="bar secondary" d="M330,143H569.455417164452A4,4 0 0 1 573.455417164452,147V148A4,4 0 0 1 569.455417164452,152H330Z"/>
+<text class="value small" x="579.455417164452" y="151">3.3M</text>
+<path class="bar primary" d="M330,154H585.5972782278852A4,4 0 0 1 589.5972782278852,158V159A4,4 0 0 1 585.5972782278852,163H330Z"/>
+<text class="value small" x="595.5972782278852" y="162">5.64M</text>
 </g>
 <g><title>check · nested struct, valid
-closures 2,673,373 ops/s · 374 ns per call
-JIT 16,922,665 ops/s · 59.1 ns per call
-×6.3 on the JIT</title>
+closures 2,668,392 ops/s · 375 ns per call
+JIT 17,197,728 ops/s · 58.1 ns per call
+×6.4 on the JIT</title>
 <text class="label" x="20" y="190">check</text>
 <text class="sublabel" x="20" y="205">nested struct, valid</text>
-<path class="bar secondary" d="M330,183H563.1525213815646A4,4 0 0 1 567.1525213815646,187V188A4,4 0 0 1 563.1525213815646,192H330Z"/>
-<text class="value small" x="573.1525213815646" y="191">2.67M</text>
-<path class="bar primary" d="M330,194H618.6100380026833A4,4 0 0 1 622.6100380026833,198V199A4,4 0 0 1 618.6100380026833,203H330Z"/>
-<text class="value small" x="628.6100380026833" y="202">16.9M</text>
+<path class="bar secondary" d="M330,183H563.0964743919499A4,4 0 0 1 567.0964743919499,187V188A4,4 0 0 1 563.0964743919499,192H330Z"/>
+<text class="value small" x="573.0964743919499" y="191">2.67M</text>
+<path class="bar primary" d="M330,194H619.0945984486268A4,4 0 0 1 623.0945984486268,198V199A4,4 0 0 1 619.0945984486268,203H330Z"/>
+<text class="value small" x="629.0945984486268" y="202">17.2M</text>
 </g>
 <g><title>check · nested struct, invalid
-closures 1,457,278 ops/s · 686 ns per call
-JIT 1,974,713 ops/s · 506 ns per call
-×1.4 on the JIT</title>
+closures 1,496,043 ops/s · 668 ns per call
+JIT 2,008,067 ops/s · 498 ns per call
+×1.3 on the JIT</title>
 <text class="label" x="20" y="230">check</text>
 <text class="sublabel" x="20" y="245">nested struct, invalid</text>
-<path class="bar secondary" d="M330,223H544.9171346726464A4,4 0 0 1 548.9171346726464,227V228A4,4 0 0 1 544.9171346726464,232H330Z"/>
-<text class="value small" x="554.9171346726464" y="231">1.46M</text>
-<path class="bar primary" d="M330,234H554.0488757787274A4,4 0 0 1 558.0488757787274,238V239A4,4 0 0 1 554.0488757787274,243H330Z"/>
-<text class="value small" x="564.0488757787274" y="242">1.97M</text>
+<path class="bar secondary" d="M330,223H545.7061300877353A4,4 0 0 1 549.7061300877353,227V228A4,4 0 0 1 545.7061300877353,232H330Z"/>
+<text class="value small" x="555.7061300877353" y="231">1.5M</text>
+<path class="bar primary" d="M330,234H554.5522513799876A4,4 0 0 1 558.5522513799876,238V239A4,4 0 0 1 554.5522513799876,243H330Z"/>
+<text class="value small" x="564.5522513799876" y="242">2.01M</text>
 </g>
 <g><title>check · sparse struct, two optional fields absent
-closures 7,367,355 ops/s · 136 ns per call
-JIT 30,993,817 ops/s · 32.3 ns per call
-×4.2 on the JIT</title>
+closures 7,461,013 ops/s · 134 ns per call
+JIT 30,897,930 ops/s · 32.4 ns per call
+×4.1 on the JIT</title>
 <text class="label" x="20" y="270">check</text>
 <text class="sublabel" x="20" y="285">sparse struct, two optional fields absent</text>
-<path class="bar secondary" d="M330,263H593.6179625175517A4,4 0 0 1 597.6179625175517,267V268A4,4 0 0 1 593.6179625175517,272H330Z"/>
-<text class="value small" x="603.6179625175517" y="271">7.37M</text>
-<path class="bar primary" d="M330,274H636.7962344606258A4,4 0 0 1 640.7962344606258,278V279A4,4 0 0 1 636.7962344606258,283H330Z"/>
-<text class="value small" x="646.7962344606258" y="282">31M</text>
+<path class="bar secondary" d="M330,263H593.9976075317053A4,4 0 0 1 597.9976075317053,267V268A4,4 0 0 1 593.9976075317053,272H330Z"/>
+<text class="value small" x="603.9976075317053" y="271">7.46M</text>
+<path class="bar primary" d="M330,274H636.7031134376032A4,4 0 0 1 640.7031134376032,278V279A4,4 0 0 1 636.7031134376032,283H330Z"/>
+<text class="value small" x="646.7031134376032" y="282">30.9M</text>
 </g>
 <g><title>parse · flat struct, valid
-closures 9,208,234 ops/s · 109 ns per call
-JIT 25,990,100 ops/s · 38.5 ns per call
+closures 9,218,888 ops/s · 108 ns per call
+JIT 25,838,028 ops/s · 38.7 ns per call
 ×2.8 on the JIT</title>
 <text class="label" x="20" y="310">parse</text>
 <text class="sublabel" x="20" y="325">flat struct, valid</text>
-<path class="bar secondary" d="M330,303H600.3210032172582A4,4 0 0 1 604.3210032172582,307V308A4,4 0 0 1 600.3210032172582,312H330Z"/>
-<text class="value small" x="610.3210032172582" y="311">9.21M</text>
-<path class="bar primary" d="M330,314H631.5047101748687A4,4 0 0 1 635.5047101748687,318V319A4,4 0 0 1 631.5047101748687,323H330Z"/>
-<text class="value small" x="641.5047101748687" y="322">26M</text>
+<path class="bar secondary" d="M330,303H600.3557548833797A4,4 0 0 1 604.3557548833797,307V308A4,4 0 0 1 600.3557548833797,312H330Z"/>
+<text class="value small" x="610.3557548833797" y="311">9.22M</text>
+<path class="bar primary" d="M330,314H631.3283480256175A4,4 0 0 1 635.3283480256175,318V319A4,4 0 0 1 631.3283480256175,323H330Z"/>
+<text class="value small" x="641.3283480256175" y="322">25.8M</text>
 </g>
 <g><title>parse · flat struct, defaults and a decoder
-closures 2,139,308 ops/s · 467 ns per call
-JIT 2,947,344 ops/s · 339 ns per call
-×1.4 on the JIT</title>
+closures 2,211,825 ops/s · 452 ns per call
+JIT 2,912,192 ops/s · 343 ns per call
+×1.3 on the JIT</title>
 <text class="label" x="20" y="350">parse</text>
 <text class="sublabel" x="20" y="365">flat struct, defaults and a decoder</text>
-<path class="bar secondary" d="M330,343H556.4549134136722A4,4 0 0 1 560.4549134136722,347V348A4,4 0 0 1 556.4549134136722,352H330Z"/>
-<text class="value small" x="566.4549134136722" y="351">2.14M</text>
-<path class="bar primary" d="M330,354H566.0846132698142A4,4 0 0 1 570.0846132698142,358V359A4,4 0 0 1 566.0846132698142,363H330Z"/>
-<text class="value small" x="576.0846132698142" y="362">2.95M</text>
+<path class="bar secondary" d="M330,343H557.45675276727A4,4 0 0 1 561.45675276727,347V348A4,4 0 0 1 557.45675276727,352H330Z"/>
+<text class="value small" x="567.45675276727" y="351">2.21M</text>
+<path class="bar primary" d="M330,354H565.7240243112644A4,4 0 0 1 569.7240243112644,358V359A4,4 0 0 1 565.7240243112644,363H330Z"/>
+<text class="value small" x="575.7240243112644" y="362">2.91M</text>
 </g>
 <g><title>parse · flat struct with an alias, the alias in the input
-closures 3,166,284 ops/s · 316 ns per call
-JIT 4,523,345 ops/s · 221 ns per call
+closures 3,364,320 ops/s · 297 ns per call
+JIT 4,561,943 ops/s · 219 ns per call
 ×1.4 on the JIT</title>
 <text class="label" x="20" y="390">parse</text>
 <text class="sublabel" x="20" y="405">flat struct with an alias, the alias in the input</text>
-<path class="bar secondary" d="M330,383H568.2380507506223A4,4 0 0 1 572.2380507506223,387V388A4,4 0 0 1 568.2380507506223,392H330Z"/>
-<text class="value small" x="578.2380507506223" y="391">3.17M</text>
-<path class="bar primary" d="M330,394H578.9578121450772A4,4 0 0 1 582.9578121450772,398V399A4,4 0 0 1 578.9578121450772,403H330Z"/>
-<text class="value small" x="588.9578121450772" y="402">4.52M</text>
+<path class="bar secondary" d="M330,383H570.0612929772519A4,4 0 0 1 574.0612929772519,387V388A4,4 0 0 1 570.0612929772519,392H330Z"/>
+<text class="value small" x="580.0612929772519" y="391">3.36M</text>
+<path class="bar primary" d="M330,394H579.2131699387119A4,4 0 0 1 583.2131699387119,398V399A4,4 0 0 1 579.2131699387119,403H330Z"/>
+<text class="value small" x="589.2131699387119" y="402">4.56M</text>
 </g>
 <g><title>parse · nested struct, strip (extra keys at every level)
-closures 1,238,710 ops/s · 807 ns per call
-JIT 1,997,933 ops/s · 501 ns per call
+closures 1,263,626 ops/s · 791 ns per call
+JIT 2,032,703 ops/s · 492 ns per call
 ×1.6 on the JIT</title>
 <text class="label" x="20" y="430">parse</text>
 <text class="sublabel" x="20" y="445">nested struct, strip (extra keys at every level)</text>
-<path class="bar secondary" d="M330,423H540.0334993392489A4,4 0 0 1 544.0334993392489,427V428A4,4 0 0 1 540.0334993392489,432H330Z"/>
-<text class="value small" x="550.0334993392489" y="431">1.24M</text>
-<path class="bar primary" d="M330,434H554.4001996790305A4,4 0 0 1 558.4001996790305,438V439A4,4 0 0 1 554.4001996790305,443H330Z"/>
-<text class="value small" x="564.4001996790305" y="442">2M</text>
+<path class="bar secondary" d="M330,423H540.6320038843206A4,4 0 0 1 544.6320038843206,427V428A4,4 0 0 1 540.6320038843206,432H330Z"/>
+<text class="value small" x="550.6320038843206" y="431">1.26M</text>
+<path class="bar primary" d="M330,434H554.918715826565A4,4 0 0 1 558.918715826565,438V439A4,4 0 0 1 554.918715826565,443H330Z"/>
+<text class="value small" x="564.918715826565" y="442">2.03M</text>
 </g>
 <g><title>parse · array of 100 records, strip
-closures 64,216 ops/s · 15.6 µs per call
-JIT 94,557 ops/s · 10.6 µs per call
-×1.5 on the JIT</title>
+closures 65,924 ops/s · 15.2 µs per call
+JIT 95,001 ops/s · 10.5 µs per call
+×1.4 on the JIT</title>
 <text class="label" x="20" y="470">parse</text>
 <text class="sublabel" x="20" y="485">array of 100 records, strip</text>
-<path class="bar secondary" d="M330,463H451.08891289783514A4,4 0 0 1 455.08891289783514,467V468A4,4 0 0 1 451.08891289783514,472H330Z"/>
-<text class="value small" x="461.08891289783514" y="471">64.2k</text>
-<path class="bar primary" d="M330,474H462.7180029978741A4,4 0 0 1 466.7180029978741,478V479A4,4 0 0 1 462.7180029978741,483H330Z"/>
-<text class="value small" x="472.7180029978741" y="482">94.6k</text>
+<path class="bar secondary" d="M330,463H451.87781370913586A4,4 0 0 1 455.87781370913586,467V468A4,4 0 0 1 451.87781370913586,472H330Z"/>
+<text class="value small" x="461.87781370913586" y="471">65.9k</text>
+<path class="bar primary" d="M330,474H462.8587898335669A4,4 0 0 1 466.8587898335669,478V479A4,4 0 0 1 462.8587898335669,483H330Z"/>
+<text class="value small" x="472.8587898335669" y="482">95k</text>
 </g>
 <g><title>check · 4 sync validators
-closures 3,688,691 ops/s · 271 ns per call
-JIT 5,687,632 ops/s · 176 ns per call
+closures 3,733,018 ops/s · 268 ns per call
+JIT 5,749,775 ops/s · 174 ns per call
 ×1.5 on the JIT</title>
 <text class="label" x="20" y="510">check</text>
 <text class="sublabel" x="20" y="525">4 sync validators</text>
-<path class="bar secondary" d="M330,503H572.8275615058052A4,4 0 0 1 576.8275615058052,507V508A4,4 0 0 1 572.8275615058052,512H330Z"/>
-<text class="value small" x="582.8275615058052" y="511">3.69M</text>
-<path class="bar primary" d="M330,514H585.8412590386725A4,4 0 0 1 589.8412590386725,518V519A4,4 0 0 1 585.8412590386725,523H330Z"/>
-<text class="value small" x="595.8412590386725" y="522">5.69M</text>
+<path class="bar secondary" d="M330,503H573.1865578147413A4,4 0 0 1 577.1865578147413,507V508A4,4 0 0 1 573.1865578147413,512H330Z"/>
+<text class="value small" x="583.1865578147413" y="511">3.73M</text>
+<path class="bar primary" d="M330,514H586.1678388355858A4,4 0 0 1 590.1678388355858,518V519A4,4 0 0 1 586.1678388355858,523H330Z"/>
+<text class="value small" x="596.1678388355858" y="522">5.75M</text>
 </g>
 <g><title>checkAsync · 4 async validators, resolved promises
-closures 1,452,238 ops/s · 689 ns per call
-JIT 1,681,003 ops/s · 595 ns per call
+closures 1,468,634 ops/s · 681 ns per call
+JIT 1,694,505 ops/s · 590 ns per call
 ×1.2 on the JIT</title>
 <text class="label" x="20" y="550">checkAsync</text>
 <text class="sublabel" x="20" y="565">4 async validators, resolved promises</text>
-<path class="bar secondary" d="M330,543H544.8130155206176A4,4 0 0 1 548.8130155206176,547V548A4,4 0 0 1 544.8130155206176,552H330Z"/>
-<text class="value small" x="554.8130155206176" y="551">1.45M</text>
-<path class="bar primary" d="M330,554H549.2093394044277A4,4 0 0 1 553.2093394044277,558V559A4,4 0 0 1 549.2093394044277,563H330Z"/>
-<text class="value small" x="559.2093394044277" y="562">1.68M</text>
+<path class="bar secondary" d="M330,543H545.1504196140345A4,4 0 0 1 549.1504196140345,547V548A4,4 0 0 1 545.1504196140345,552H330Z"/>
+<text class="value small" x="555.1504196140345" y="551">1.47M</text>
+<path class="bar primary" d="M330,554H549.44976554207A4,4 0 0 1 553.44976554207,558V559A4,4 0 0 1 549.44976554207,563H330Z"/>
+<text class="value small" x="559.44976554207" y="562">1.69M</text>
 </g>
 <g><title>check · 1 000 flat records in a loop
-closures 9,004 ops/s · 111 µs per call
-JIT 31,076 ops/s · 32.2 µs per call
-×3.5 on the JIT</title>
+closures 9,212 ops/s · 109 µs per call
+JIT 31,032 ops/s · 32.2 µs per call
+×3.4 on the JIT</title>
 <text class="label" x="20" y="590">check</text>
 <text class="sublabel" x="20" y="605">1 000 flat records in a loop</text>
-<path class="bar secondary" d="M330,583H392.046935653931A4,4 0 0 1 396.046935653931,587V588A4,4 0 0 1 392.046935653931,592H330Z"/>
-<text class="value small" x="402.046935653931" y="591">9,004</text>
-<path class="bar primary" d="M330,594H429.27581780410515A4,4 0 0 1 433.27581780410515,598V599A4,4 0 0 1 429.27581780410515,603H330Z"/>
-<text class="value small" x="439.27581780410515" y="602">31.1k</text>
+<path class="bar secondary" d="M330,583H392.7332919070198A4,4 0 0 1 396.7332919070198,587V588A4,4 0 0 1 392.7332919070198,592H330Z"/>
+<text class="value small" x="402.7332919070198" y="591">9,212</text>
+<path class="bar primary" d="M330,594H429.23323584816643A4,4 0 0 1 433.23323584816643,598V599A4,4 0 0 1 429.23323584816643,603H330Z"/>
+<text class="value small" x="439.23323584816643" y="602">31k</text>
 </g>
 <g><title>checkEach · 1 000 flat records
-closures 7,561 ops/s · 132 µs per call
-JIT 18,929 ops/s · 52.8 µs per call
+closures 7,495 ops/s · 133 µs per call
+JIT 18,917 ops/s · 52.9 µs per call
 ×2.5 on the JIT</title>
 <text class="label" x="20" y="630">checkEach</text>
 <text class="sublabel" x="20" y="645">1 000 flat records</text>
-<path class="bar secondary" d="M330,623H386.79768327390553A4,4 0 0 1 390.79768327390553,627V628A4,4 0 0 1 386.79768327390553,632H330Z"/>
-<text class="value small" x="396.79768327390553" y="631">7,561</text>
-<path class="bar primary" d="M330,634H414.3772348491065A4,4 0 0 1 418.3772348491065,638V639A4,4 0 0 1 414.3772348491065,643H330Z"/>
-<text class="value small" x="424.3772348491065" y="642">18.9k</text>
+<path class="bar secondary" d="M330,623H386.53419729315345A4,4 0 0 1 390.53419729315345,627V628A4,4 0 0 1 386.53419729315345,632H330Z"/>
+<text class="value small" x="396.53419729315345" y="631">7,495</text>
+<path class="bar primary" d="M330,634H414.3581766580238A4,4 0 0 1 418.3581766580238,638V639A4,4 0 0 1 414.3581766580238,643H330Z"/>
+<text class="value small" x="424.3581766580238" y="642">18.9k</text>
 </g>
-<text class="caption" x="20" y="694">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-13</text>
+<text class="caption" x="20" y="694">pnpm bench, bench/baseline.json · Node v24.14.1 · 2026-10-15</text>
 </svg>

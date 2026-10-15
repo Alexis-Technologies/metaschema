@@ -283,11 +283,11 @@
       "url": "https://github.com/Alexis-Technologies/metaschema",
       "direction": "schemas + IDL",
       "package": "@alexify/metaschema",
-      "version": "3.2.0",
+      "version": "3.4.0",
       "cells": {
         "version": {
           "mark": "",
-          "text": "3.2.0"
+          "text": "3.4.0"
         },
         "released": {
           "mark": "",
@@ -339,7 +339,7 @@
         },
         "recursive": {
           "mark": "✅",
-          "text": "by name, cycles tracked"
+          "text": "by name, a schema its own without a model; cycles tracked"
         },
         "namedRefs": {
           "mark": "✅",
@@ -355,7 +355,7 @@
         },
         "jsTypes": {
           "mark": "✅",
-          "text": "Date, BigInt, Map, Set; BSON (`./mongodb`)"
+          "text": "Date, BigInt, Map, Set, Uint8Array; BSON (`./mongodb`)"
         },
         "refinements": {
           "mark": "✅",
@@ -464,7 +464,7 @@
         },
         "snapshot": {
           "mark": "✅",
-          "text": "`model.toJSON()`, `fromJSON`"
+          "text": "`model.toJSON()`, `schema.toSnapshot()`, `fromJSON`"
         },
         "diff": {
           "mark": "✅",

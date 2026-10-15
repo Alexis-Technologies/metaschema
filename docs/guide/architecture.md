@@ -13,8 +13,8 @@ flowchart TB
     DEF["Definition: plain objects"] -->|"new Schema · Schema.from"| PRE["Preprocessor<br/>the first key decides"]
     DEF -->|"new Model"| MODEL["Model<br/>entities by dependency"]
     MODEL --> PRE
-    MODEL -.-> SNAP(["model.toJSON(): the snapshot"])
-    PRE --> TYPES["Built types: one class per prototype<br/>struct plan + compiled closures"]
+    MODEL -.-> SNAP(["model.toJSON() · schema.toSnapshot()<br/>the snapshot"])
+    PRE --> TYPES["Built types: one class per prototype<br/>struct plan, checks compiled on first use"]
     TYPES --> RUN{{"schema[RUN]"}}
     JIT["./compile: generated code"] -.->|"replaces"| RUN
     RUN --> CHECK(["check · checkAsync<br/>→ ValidationResult"])
@@ -23,8 +23,9 @@ flowchart TB
 ```
 
 A definition is parsed once, when the schema is built: every field becomes an instance of a
-type, a struct becomes a frozen plan of its fields, and every field compiles its check into a
-closure. `schema[RUN]` is the compiled check of the whole schema. `check` and `parse` call it
+type and a struct becomes a frozen plan of its fields. The checks are compiled into closures on
+their first use, so a schema that is only read (rendered, written as a snapshot) never compiles
+one. `schema[RUN]` is the check of the whole schema. `check` and `parse` call it
 with a context of their own and turn what it recorded into a result; the [JIT
 backend](/guide/compile) replaces it with one generated function and changes nothing else.
 Nothing is read from the definition after construction, and nothing global is touched by a
@@ -33,36 +34,41 @@ check.
 ## The packages
 
 The core entry validates; everything that is rendered from a schema, or built on top of it, is
-a subpath that imports the core and registers nothing until it is asked to.
+a subpath that imports the core and registers nothing until it is asked to. The core itself is
+two halves over the same classes: the [definition half](/guide/definition), which builds a
+schema and reads it, and the validation half, which installs `check`, `parse` and the rest into
+it. `@alexify/metaschema/definition` is the first half alone.
 
 ```mermaid
 flowchart LR
-    GEN["./generators · 7.3 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
-    COMP["./compile · 4.2 KB<br/>compile · register · canEval"] --> CORE
-    MOD["./model · 12.0 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
-    STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
-    FMT["./formats · 4.0 KB<br/>35 formats · your own"] --> CORE
-    DER["./derive · 1.9 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
-    COE["./coerce · 1.7 KB<br/>converters · coerce()"] --> CORE
-    MDB["./mongodb · 3.5 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
+    GEN["./generators · 7.6 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
+    COMP["./compile · 4.4 KB<br/>compile · register · canEval"] --> CORE
+    MOD["./model · 12.4 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
+    STR["./stream · 0.9 KB<br/>checkEach · parseEach · transform"] --> CORE
+    FMT["./formats · 3.9 KB<br/>35 formats · your own"] --> CORE
+    DER["./derive · 2.0 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
+    COE["./coerce · 1.8 KB<br/>converters · coerce()"] --> CORE
+    MDB["./mongodb · 3.6 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
-    CORE["@alexify/metaschema · 18.6 KB<br/>Schema · Model<br/>check · parse · serialize · async<br/>~standard · model.toJSON()"]
+    CORE["@alexify/metaschema · 20.3 KB<br/>check · parse · serialize · async<br/>~standard · warnings"] --> DEFN
+    DEFN["./definition · 9.7 KB<br/>Schema · Model<br/>toJSON · toSnapshot"]
 ```
 
 The sizes are min+gzip, a subpath measured as what it adds to the core (`./mongodb` to the core
-and `./coerce`, which it requires). Each subpath exports functions and an explicit `register()`
+and `./coerce`, which it requires), `./definition` on its own. Each subpath exports functions and an explicit `register()`
 that installs them as methods or fills a table of the core; nothing in the core requires a
 subpath, so a bundler drops the ones a program does not import.
 
 | Layer | Modules (under `src/`) | Responsibility |
 | --- | --- | --- |
-| [Definitions](/guide/schema-syntax) | `preprocessor.js`, `types.js`, `kinds.js`, `metadata.js` | read a definition (the first key decides), the type registry, kinds and their metadata |
-| [Types](/guide/types) | `prototypes/*.js`, `rules.js` | one prototype per type with its `compile`; the rules (`length`, `min`/`max`, `pattern`, `format`) |
-| Structs | `struct.js` | the null-prototype field dictionary, its plan and its compiled check |
-| [Validation](/guide/validation) | `schema.js`, `context.js`, `issues.js`, `result.js`, `locales/` | the context of one call, issues as data, the async drain, messages rendered once |
+| [Definitions](/guide/schema-syntax) | `schema.js`, `preprocessor.js`, `types.js`, `kinds.js`, `metadata.js` | read a definition (the first key decides), the type registry, kinds and their metadata |
+| [Types](/guide/types) | `prototypes/*.js`, `rules.js` | one prototype per type: what it reads from a definition; the rules (`length`, `min`/`max`, `decimals`, `pattern`, `format`) |
+| Structs | `struct.js` | the null-prototype field dictionary and its plan |
+| [Models](/guide/model) | `model.js`, `snapshot.js` | entities ordered by dependency, the snapshot of a model and of a schema |
+| [Checks](/guide/validation) | `validation.js`, `checks.js` | the validation half: the check of every type, field and struct, compiled on first use, and what `validation.js` installs into the classes above |
+| [Validation](/guide/validation) | `context.js`, `issues.js`, `result.js`, `locales/`, `lint.js` | the context of one call, issues as data, the async drain, messages rendered once, the warnings |
 | [Parse](/guide/parse) | `codec.js` | coercion, defaults, strip, decoders and serializers as passes over the built types |
-| [Models](/guide/model) | `model.js`, `snapshot.js`, `lint.js` | entities ordered by dependency, the snapshot, the warnings |
-| Subpaths | `generators/`, `compile/`, `model/`, `stream/`, `formats/`, `derive/`, `coerce/`, `mongodb/` | each bundled only where it is imported |
+| Subpaths | `definition/`, `generators/`, `compile/`, `model/`, `stream/`, `formats/`, `derive/`, `coerce/`, `mongodb/` | each bundled only where it is imported |
 | [Platform](/guide/browser) | `runtime/node.js`, `runtime/browser.js` | `writeFile` behind `saveTypes`, the only file that touches a Node builtin |
 
 ## From a definition to a check
@@ -87,11 +93,35 @@ flowchart TB
 
 A broken definition throws a `SchemaDefinitionError` with a code here, at construction, never
 inside `check`. Every field is then built: the type's class copies the rules (a rule the type
-does not accept throws `ERR_INVALID_RULE`), and `compile()` returns the field's check as a
+does not accept throws `ERR_INVALID_RULE`, bounds that leave nothing between them
+`ERR_INVALID_RULE` too), and a struct records a frozen **plan** entry per field (`{ key, type,
+required, own, aliases }`). On the first use of a field's `check`, the `compile()` of its type
+(`checks.js`, installed on the prototype by `validation.js`) returns the type check as a
 closure, wrapped in the rules and the `validate` only when the field has them and in the
-`nullable` test last. A struct records a frozen **plan** entry per field (`{ key, type,
-required, own, aliases, check }`) and compiles one loop over the plan. See
+`nullable` test last; a struct compiles one loop over its plan the same way, and a schema its
+own check through a stub of `schema[RUN]` that takes the closures' place. See
 [Performance](/guide/performance#the-core) for what the loop does and does not do.
+
+## The two halves of the core
+
+The classes (`Schema`, `Model`, the class of every type) are built by the definition half and
+validated by the other. `validation.js` installs, once, when the core entry loads it:
+`check`, `checkAsync`, `parse`, `parseAsync`, `serialize`, `validate`, `~standard`, `warnings`
+and `checkConsistency` on `Schema`, `warnings` on `Model`, the `compile` of every built-in type
+on the prototype object the classes of that type inherit from (so a registry built before has
+it too), and the builders the lazy checks call. Until then, a schema of
+`@alexify/metaschema/definition` builds, renders and writes its snapshot, and a call that
+validates is `ERR_NOT_REGISTERED`. The state the validation half keeps on a schema (whether its
+root joins the cycle detection, its default coercion, the caches of parse and `~standard`) is
+held under symbols the definition half sets; a test of the module graph pins that the
+definition half reaches no module of the validation half.
+
+```mermaid
+flowchart LR
+    APP["a program"] -->|"require('@alexify/metaschema')"| VAL["validation.js<br/>checks.js · codec.js · issues.js"]
+    VAL -->|"installs into"| CLS["Schema · Model<br/>the prototypes of the types"]
+    BROWSER["a client that reads schemas"] -->|"require('…/definition')"| CLS
+```
 
 ## A check
 
@@ -167,8 +197,9 @@ The rule that a validator runs only when nothing under it failed holds across pr
 ## References
 
 A field named with a capitalized name (`'Company'`) is resolved when it is checked, through the
-model (`root.findReference`). Whether the value is the target's id or the target's record is
-decided per call:
+model (`root.findReference`), and a name that no model resolves is the schema's own when it is
+its name (`parent: '?Category'` needs no model). Whether the value is the target's id or the
+target's record is decided per call:
 
 ```mermaid
 flowchart TD
@@ -194,13 +225,14 @@ flowchart TB
     SCH -->|"3 · projections"| SCH
     SCH -->|"4 · order"| ORD["Identifier first,<br/>dependencies before dependents"]
     ORD --> W["model.warnings<br/>(on first read)"]
-    ORD --> J(["toJSON(): the snapshot"])
+    ORD --> J(["toJSON(): the snapshot<br/>schema.toSnapshot(): one schema's"])
     J -->|"./model fromJSON"| BACK["a Model again"]
     J -->|"./model diff"| D["changes"] -->|"compatibility"| CL["backward · forward · full"]
 ```
 
-The snapshot is the contract other programs read a model through; `@alexify/metaschema/model`
-restores it, compares two of them and classifies the change. See [Domain models](/guide/model)
+The snapshot is the contract other programs read a model through (a schema writes the same
+document for itself and the entities it reaches, with its name as `root`);
+`@alexify/metaschema/model` restores it, compares two of them and classifies the change. See [Domain models](/guide/model)
 and [Model evolution](/guide/evolution).
 
 ## The JIT backend
