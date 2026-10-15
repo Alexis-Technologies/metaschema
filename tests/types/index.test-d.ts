@@ -36,6 +36,8 @@ import type {
   ModelSnapshot,
   ReferenceFieldSnapshot,
   ScalarFieldSnapshot,
+  BytesFieldSnapshot,
+  LengthSnapshot,
   SchemaSnapshot,
   TupleElementSnapshot,
   Relation,
@@ -242,6 +244,9 @@ if (part.type === 'union') expectType<FieldSnapshot[]>(part.union);
 if (part.type === 'schema') expectType<FieldsSnapshot | FieldSnapshot>(part.schema);
 switch (part.type) {
   case 'bytes':
+    expectType<BytesFieldSnapshot>(part);
+    expectType<LengthSnapshot | undefined>(part.length);
+    break;
   case 'date':
     expectType<ScalarFieldSnapshot>(part);
     break;

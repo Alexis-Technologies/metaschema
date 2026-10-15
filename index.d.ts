@@ -539,7 +539,13 @@ export interface IntegerFieldSnapshot extends FieldSnapshotBase {
 }
 
 export interface ScalarFieldSnapshot extends FieldSnapshotBase {
-  type: 'boolean' | 'date' | 'bytes' | 'null' | 'any' | 'unknown' | 'json';
+  type: 'boolean' | 'date' | 'null' | 'any' | 'unknown' | 'json';
+}
+
+// Binary data, its `length` the number of bytes.
+export interface BytesFieldSnapshot extends FieldSnapshotBase {
+  type: 'bytes';
+  length?: LengthSnapshot;
 }
 
 export interface EnumFieldSnapshot extends FieldSnapshotBase {
@@ -606,6 +612,7 @@ export type FieldSnapshot =
   | NumberFieldSnapshot
   | IntegerFieldSnapshot
   | ScalarFieldSnapshot
+  | BytesFieldSnapshot
   | EnumFieldSnapshot
   | FlagsFieldSnapshot
   | ListFieldSnapshot
