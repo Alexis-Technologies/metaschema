@@ -200,12 +200,16 @@ class Schema extends SchemaMetadata {
     return warn;
   }
 
+  // An entity of the attached models, else the schema itself: a schema that
+  // names itself (`parent: '?Category'`) needs no model. The models come
+  // first, so a schema with the name of one of their entities (a schema
+  // derived from it keeps the name) still reaches that entity.
   findReference(name) {
     for (const ns of this.namespaces) {
       const entity = ns.entities.get(name);
       if (entity) return entity;
     }
-    return null;
+    return name === this.name && name !== '' ? this : null;
   }
 
   // Validates a value: every problem is collected as an issue, and the result

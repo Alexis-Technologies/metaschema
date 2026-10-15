@@ -22,8 +22,11 @@ const projection = (kind, meta, root) => {
   }
   const parent = schema;
   const metadata = { ...meta, kind, scope, store, allow, parent };
+  // The projection itself is not built yet, so its own name is no parent.
   const entity = root.findReference(schema);
-  if (!entity) throw projectionError(root.name, `parent "${schema}" is not found`);
+  if (!entity || entity === root) {
+    throw projectionError(root.name, `parent "${schema}" is not found`);
+  }
   const defs = Object.create(null);
   for (const key of fields) {
     const field = entity.fields[key];

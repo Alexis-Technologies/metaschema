@@ -283,3 +283,72 @@ test('References: a graph nested deeper than maxDepth is an issue, not a stack o
     });
   }
 });
+
+test('References: a schema names itself without a model', () => {
+  const category = new Schema('Category', {
+    name: 'string',
+    parent: '?Category',
+    children: { many: 'Category', required: false },
+  });
+  assert.strictEqual(category.findReference('Category'), category);
+  assert.strictEqual(category.findReference('Other'), null);
+  assert.strictEqual(Schema.from({ name: 'string' }).findReference(''), null);
+  const tree = { name: 'a', parent: { name: 'b' }, children: [{ name: 'c' }] };
+  assert.strictEqual(category.check(tree).valid, true);
+  assert.deepStrictEqual(category.check({ name: 'a', parent: { name: 1 } }).errors, [
+    'Field "Category.parent.name" not of expected type: string',
+  ]);
+  assert.deepStrictEqual(category.parse(tree).value, tree);
+  assert.deepStrictEqual(category.checkConsistency(), []);
+  assert.deepStrictEqual(category.warnings, []);
+  // A record of itself is tracked for cycles and counted for the depth.
+  const loop = { name: 'x' };
+  loop.parent = loop;
+  assert.deepStrictEqual(category.check(loop).errors, [
+    'Field "Category.parent" is a circular reference',
+  ]);
+  let deep = { name: 'leaf' };
+  for (let index = 0; index < 200; index += 1) deep = { name: String(index), parent: deep };
+  assert.deepStrictEqual(
+    category.check(deep).issues.map((issue) => issue.code),
+    ['depth'],
+  );
+  // A stored kind holds its own id, as through a model.
+  const stored = new Schema('Tag', { Entity: {}, name: 'string', parent: '?Tag' });
+  assert.strictEqual(stored.check({ name: 'a', parent: 'tag-1' }).valid, true);
+  assert.deepStrictEqual(stored.check({ name: 'a', parent: { name: 'b' } }).errors, [
+    'Field "Tag.parent" not of expected type: string',
+  ]);
+  assert.strictEqual(
+    stored.check({ name: 'a', parent: { name: 'b' } }, { references: 'embed' }).valid,
+    true,
+  );
+  assert.strictEqual(
+    stored.toInterface(),
+    'interface Tag {\n  name: string;\n  parentId?: string;\n  tagId?: string;\n}',
+  );
+  assert.strictEqual(
+    category.toInterface(),
+    'interface Category {\n  name: string;\n  parent?: Category;\n  children?: Category[];\n}',
+  );
+  assert.deepStrictEqual(category.toJSONSchema().properties.parent, {
+    anyOf: [{ $ref: '#' }, { type: 'null' }],
+  });
+});
+
+test('References: an entity of a model wins over a schema of the same name', () => {
+  const model = new Model({}, [['Category', { Entity: {}, name: 'string', parent: '?Category' }]]);
+  // A schema derived from an entity keeps its name: its reference is still
+  // the entity's, held as an id.
+  const copy = new Schema('Category', { Struct: {}, name: 'string', parent: '?Category' }, [model]);
+  assert.strictEqual(copy.findReference('Category'), model.entities.get('Category'));
+  assert.strictEqual(copy.check({ name: 'a', parent: 'category-1' }).valid, true);
+  assert.deepStrictEqual(copy.check({ name: 'a', parent: { name: 'b' } }).errors, [
+    'Field "Category.parent" not of expected type: string',
+  ]);
+  // A projection of its own name has no parent.
+  assert.throws(() => new Schema('P', { Projection: { schema: 'P', fields: ['a'] } }), {
+    code: 'ERR_PROJECTION',
+    message: 'Projection "P" parent "P" is not found',
+  });
+});
