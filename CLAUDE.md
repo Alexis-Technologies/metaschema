@@ -333,10 +333,11 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `prototypes/abstract` (`BUILD`), `snapshot` and `util`; `model.js` requires `schema`,
   `types`, `util`, `errors`, `snapshot`. None of them requires a module of the validation half
   (`graph.test.js`).
-- The validation half: `checks.js` requires `util`, `issues`, `rules` (`formatOf`), `struct`
-  and `prototypes/reference` (`embeds`); `lint` requires `util` and `prototypes/reference`
-  (`embeds`, to tell a reference checked as an id for `dead-coerce`); `validation.js` requires
-  `metautil`, `util`, `schema`, `model`, `lint`, `prototypes/abstract`, `types` (`PROTOTYPES`),
+- The validation half: `checks.js` requires `util`, `issues`, `rules` (`formatOf`), `struct`,
+  `errors` (the error of a custom `compile`) and `prototypes/reference` (`embeds`); `lint`
+  requires `util` and `prototypes/reference` (`embeds`, to tell a reference checked as an id for
+  `dead-coerce`); `validation.js` requires `metautil`, `util`, `schema`, `snapshot` (`usesOf`,
+  for `checkConsistency`), `model`, `lint`, `prototypes/abstract`, `types` (`PROTOTYPES`),
   `checks`, `struct`, `context`, `result`, `issues`, `errors` and `codec`; `src/index.js`
   requires `validation.js`, `model.js`, `kinds`, `errors` (no runtime). `util.js` also holds `define`,
   `IDENTIFIER`, `ENUM_SET_SIZE` and `safeString`, shared by the core, the generators and the JIT.

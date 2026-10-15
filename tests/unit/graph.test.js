@@ -145,7 +145,10 @@ const VALIDATION = [
 ];
 
 test('Graph: the definition half reaches no module of the validation half', () => {
-  for (const entry of ['definition/index.js', 'schema.js', 'model.js', 'types.js']) {
+  // The subpaths that only build or name things work beside the definition
+  // entry alone, as the definition guide says.
+  const entries = ['definition/index.js', 'schema.js', 'model.js', 'types.js'];
+  for (const entry of [...entries, 'derive/index.js', 'formats/index.js']) {
     const reached = [...closureOf(path.join(SRC, entry))].map(relative);
     const validating = reached.filter((name) => VALIDATION.includes(name));
     assert.deepStrictEqual(validating, [], `${entry} reaches the validation half`);
