@@ -143,7 +143,10 @@ const infoOf = (node) => {
   } else if (shape === REFERENCE) {
     bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
-  } else if (shape === FLAGS) bits |= STRUCTS;
+  } else if (shape === FLAGS) {
+    bits |= STRUCTS;
+    table = new Set(node.flags);
+  }
   if (plan === null) {
     for (let index = 0; index < children.length; index += 1) {
       const sub = infoOf(children[index]);
@@ -645,16 +648,23 @@ const walkReference = (info, node, value, context, key, phase, want) => {
 };
 
 // The names of a flags value: under strip the ones the field does not have
-// are left out, the value copied only when it has one.
+// are left out, the value copied only when it has one (a value of names of
+// the list comes back as it is). The names are in a Set on the info; no
+// name is `__proto__` (the type refuses it), so a plain object holds them.
 const walkFlags = (info, node, given, context, key, phase, want) => {
   const value = convert(want, given, node, info);
   if ((want & STRUCTS) === 0 || value === null || typeof value !== 'object') return value;
-  const names = node.flags;
+  const known = info.table;
   let foreign = false;
-  for (const name in value) if (Object.hasOwn(value, name) && !names.includes(name)) foreign = true;
+  for (const name in value) {
+    if (Object.hasOwn(value, name) && !known.has(name)) {
+      foreign = true;
+      break;
+    }
+  }
   if (!foreign) return value;
   const out = {};
-  for (const name of names) if (Object.hasOwn(value, name)) out[name] = value[name];
+  for (const name of node.flags) if (Object.hasOwn(value, name)) out[name] = value[name];
   return out;
 };
 

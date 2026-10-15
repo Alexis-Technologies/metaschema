@@ -16,6 +16,8 @@ const flags = {
   construct(def) {
     const names = def.flags;
     if (!Array.isArray(names) || names.length === 0) throw invalidFlags(this.type);
+    // `__proto__` is no name: a value of names is copied into a plain object
+    // under strip, where the key would set its prototype.
     const seen = new Set();
     for (const name of names) {
       if (typeof name !== 'string' || name === '' || name === '__proto__' || seen.has(name)) {
@@ -23,7 +25,9 @@ const flags = {
       }
       seen.add(name);
     }
-    this.flags = names;
+    // A copy: the checks are compiled on first use and read the list then,
+    // so the program's array changed later must not reach them.
+    this.flags = Object.freeze([...names]);
   },
 };
 

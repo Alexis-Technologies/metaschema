@@ -1235,9 +1235,14 @@ change. **This file wins** if they ever disagree.
   divides by `multipleOf`, so the differential test leaves `decimals` out.
 - **`flags` follows the unknown-keys policy** (Alex's decision, 2026-10-15): a name the list
   does not have is `unexpected` under `reject`, ignored under `ignore`, dropped by `parse`
-  under `strip` (the `FLAGS` shape of `codec.js`, `walkFlags`); its JSON Schema is closed with
-  the document. `{}` is a valid value of a required `flags` field (every flag off), unlike an
-  empty required `object`.
+  under `strip` (the `FLAGS` shape of `codec.js`, `walkFlags`, the names in a Set on the info),
+  which copies the value only when it has a foreign name: a value of names of the list comes
+  back as it is, the same reference, where every struct of a stripped output is new. Its JSON
+  Schema is closed with the document. `{}` is a valid value of a required `flags` field (every
+  flag off), unlike an empty required `object`. The list is a frozen copy: the checks are
+  compiled on first use, and the program's array changed later must not reach them. A `Date`
+  or a `Map` is an object without own names and passes as every flag off, as it passes a
+  struct of optional fields.
 - **The JSON Schema of `bytes` is base64 text on the input side and unrepresentable on the
   output side** (Alex's decision, 2026-10-15), as a `date` is: parse gives a `Uint8Array`, which
   is no JSON. `fromJSONSchema` reads `contentEncoding: 'base64'` back as a string (of the

@@ -110,6 +110,19 @@ test('Flags: a list that is not one of distinct names is a definition error', ()
   ]);
 });
 
+test('Flags: the list is the one given when the field was built', () => {
+  // The checks are compiled on first use; the program's array changed after
+  // the schema was built reaches neither them nor parse.
+  const names = ['read'];
+  const schema = Schema.from({ perms: { flags: names } });
+  names.push('admin', '__proto__');
+  assert.deepStrictEqual(schema.fields.perms.flags, ['read']);
+  assert.strictEqual(Object.isFrozen(schema.fields.perms.flags), true);
+  assert.strictEqual(schema.check({ perms: { admin: true } }).valid, false);
+  const parsed = schema.parse({ perms: { read: true, admin: true } }, { unknown: 'strip' });
+  assert.deepStrictEqual(parsed.value, { perms: { read: true } });
+});
+
 test('Flags: TypeScript and the JSON Schema targets', () => {
   const schema = new Schema('Access', {
     perms: { flags: ['read', 'write', 'x-admin'] },
