@@ -1527,7 +1527,9 @@ change. **This file wins** if they ever disagree.
   nested struct's are), so two snapshots with different validators compare equal in `diff`; a
   field's keys after `type` and `required` are sorted so that the order of a definition does
   not show, while the fields of a struct keep their order (it is the order of the check).
-  `database`, `custom` and an index definition are written as given. `types` lists the types
+  `database`, `custom` and an index definition are written as copies, their values tagged as
+  any value is (since the review of 3.4: protoarray reads the snapshot object, which shared
+  them with the model). `types` lists the types
   the entities use, not the table the model was given: an unused custom type is not in it.
 - **A model restored with `fromJSON` validates the structure only.** The placeholders (a
   validate that passes, codecs that return the value, a default factory that gives

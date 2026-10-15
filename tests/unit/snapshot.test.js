@@ -674,6 +674,34 @@ test('Snapshot: a chain of ten thousand entities orders, writes and restores', (
   assert.deepStrictEqual([...restored.order], [...model.order]);
 });
 
+test('Snapshot: the metadata of the program is copied, its values tagged', () => {
+  const hook = () => {};
+  const schema = new Schema('X', {
+    Struct: { hook, size: 10n, since: new Date(0), tags: ['a'] },
+    a: 'string',
+    byA: { index: ['a'] },
+  });
+  const model = new Model({}, [['X', schema]], { pool: { max: 4 } });
+  for (const snapshot of [schema.toSnapshot(), model.toJSON()]) {
+    const entity = snapshot.entities.X;
+    assert.deepStrictEqual(entity.custom, {
+      hook: { $function: true },
+      size: { $bigint: '10' },
+      since: { $date: '1970-01-01T00:00:00.000Z' },
+      tags: ['a'],
+    });
+    // What the snapshot holds is a copy: a consumer may change it.
+    entity.custom.tags.push('b');
+    entity.indexes.byA.index.push('ghost');
+    assert.deepStrictEqual(schema.custom.tags, ['a']);
+    assert.deepStrictEqual(schema.indexes.byA.index, ['a']);
+    assert.doesNotThrow(() => JSON.stringify(snapshot));
+  }
+  const written = model.toJSON().database;
+  written.pool.max = 1;
+  assert.strictEqual(model.database.pool.max, 4);
+});
+
 test('Snapshot: two types of one name from two registries cannot be one snapshot', () => {
   const registry = { registry: 'isolated' };
   const a = new Model(

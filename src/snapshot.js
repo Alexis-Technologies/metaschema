@@ -6,9 +6,10 @@
 // JSON form and is written as `{ $function: true }` wherever it stands (a
 // validate, a decoder, a default factory, a calculated field); a bigint, a
 // Date, bytes, a Map and a Set are tagged the same way, a RegExp is its
-// source. The metadata of the
-// program (`database`, the `custom` metadata of a kind, an index definition)
-// is written as given. `fromJSON` of the `./model` subpath reads it back.
+// source. The metadata of the program (`database`, the `custom` metadata of a
+// kind, an index definition) is written as its values are, a copy: what a
+// snapshot holds is never an object of the model. `fromJSON` of the
+// `./model` subpath reads it back.
 // `schema.toSnapshot()` is the same document for one schema and the
 // entities it reaches through its references, with the name of the schema
 // as `root`.
@@ -79,14 +80,16 @@ const fieldOf = (field) => {
 // the ones of a nested struct are.
 const entityOf = (schema) => {
   const { kind, scope, store, allow, parent, unknown, custom, options, fields, indexes } = schema;
-  const out = { kind, scope, store, allow, parent, unknown, custom };
+  const out = { kind, scope, store, allow, parent, unknown, custom: objectOf(custom) };
   if (hasBrand(fields, 'Struct')) {
     out.fields = objectOf(fields);
     for (const key in options) if (options[key] !== null) out.fields[key] = valueOf(options[key]);
   } else out.type = fieldOf(fields);
   const own = {};
   // A `many` field is recorded with the indexes and is not one.
-  for (const key in indexes) if (indexes[key].many === undefined) define(own, key, indexes[key]);
+  for (const key in indexes) {
+    if (indexes[key].many === undefined) define(own, key, valueOf(indexes[key]));
+  }
   out.indexes = own;
   out.relations = valueOf(Array.from(schema.relations));
   return out;
@@ -190,7 +193,7 @@ const snapshotOf = (model) => {
   for (const name of order) schemas.push(model.entities.get(name));
   return {
     format: FORMAT,
-    database: model.database,
+    database: valueOf(model.database),
     types: typesOf(schemas, () => model.types),
     entities: entitiesOf(order, (name) => model.entities.get(name)),
   };
