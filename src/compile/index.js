@@ -71,12 +71,18 @@ const failure = (target, error) => {
   return wrapped;
 };
 
+// The checks the subpath generated: the closures a schema runs instead may
+// be the ones it was built with or ones compiled later, on first use.
+const GENERATED = new WeakSet();
+
 const build = (target) => {
   const code = new Code();
   emitRoot(target, code);
   // oxlint-disable-next-line no-new-func
   const factory = new Function('scope', code.source(target.name));
-  return factory(code.values);
+  const run = factory(code.values);
+  GENERATED.add(run);
+  return run;
 };
 
 // The generated check, or ERR_JIT_BUILD: the JIT was demanded.
@@ -158,8 +164,7 @@ const compile = (target, options = {}) => {
 const compiled = (target) => {
   const schemas = schemasOf(target);
   for (let index = 0; index < schemas.length; index += 1) {
-    const schema = schemas[index];
-    if (!ORIGINAL.has(schema) || schema[RUN] === ORIGINAL.get(schema)) return false;
+    if (!GENERATED.has(schemas[index][RUN])) return false;
   }
   return true;
 };

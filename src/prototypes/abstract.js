@@ -1,5 +1,5 @@
 const { BRAND, INSPECT } = require('../util.js');
-const { FORMAT, notApplicable, compileRules } = require('../rules.js');
+const { FORMAT, checkBounds, notApplicable, compileRules } = require('../rules.js');
 const { runValidate, runCheckType } = require('../issues.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
@@ -63,15 +63,28 @@ const withRules = (type, inner, rules) => {
   };
 };
 
+// The check of a field: the type check, wrapped in the rules and the
+// validate function when it has any, and in the null test when nullable. A
+// field without rules is its type check alone, and check is the hot path.
+const compileField = (type) => {
+  const checks = compileRules(type);
+  const inner = type.compile();
+  const plain = checks.length === 0 && !type.validate;
+  const check = plain ? inner : withRules(type, inner, checks);
+  return type.nullable === true ? nullable(check) : check;
+};
+
 class AbstractType {
   // The rules the type accepts and the definition keys it reads, by name; a
   // type class sets its own.
   static rules = new Set();
   static options = new Set();
 
-  // The compiled check of the field: a closure built once from the field,
-  // kept out of its definition (toJSON, util.inspect) as a private field.
-  #check;
+  // The compiled check of the field: a closure built from the field on the
+  // first use of `check`, kept out of its definition (toJSON, util.inspect)
+  // as a private field. A schema that is only read (rendered, written as a
+  // snapshot) never compiles one.
+  #check = undefined;
 
   constructor(def, preprocessor) {
     this.root = preprocessor.root;
@@ -86,26 +99,21 @@ class AbstractType {
         continue;
       }
       if (!rules.has(key)) throw notApplicable(key, this.type, rules);
-      this[key] = format(value);
+      this[key] = format(value, this);
     }
+    checkBounds(this);
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
     for (const key of FLAGS) {
       if (this[key] !== undefined && typeof this[key] !== 'boolean') throw invalidFlag(key);
     }
     checkCodecs(this);
-    // The rule checks that apply to this field, compiled once: a field
-    // without rules is its type check alone, and check is the hot path.
-    const checks = compileRules(this);
-    const inner = this.compile();
-    const plain = checks.length === 0 && !this.validate;
-    const check = plain ? inner : withRules(this, inner, checks);
-    this.#check = this.nullable === true ? nullable(check) : check;
   }
 
   // Records the problems of a value into the context of the current check,
   // under `key` when the field is reached through one.
   get check() {
+    if (this.#check === undefined) this.#check = compileField(this);
     return this.#check;
   }
 

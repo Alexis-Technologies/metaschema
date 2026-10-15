@@ -892,7 +892,7 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
   assert.strictEqual(schema[RUN], run);
   assert.deepStrictEqual(compile(schema), { accelerated: canEval() });
   assert.strictEqual(schema[RUN] !== run, canEval());
-  assert.strictEqual(schema[RUN].name, canEval() ? 'jit' : '');
+  assert.strictEqual(schema[RUN].name === 'jit', canEval());
   assert.deepStrictEqual(compile(schema, {}), { accelerated: canEval() });
   for (const jit of ['always', 1, null, 'true']) {
     assert.throws(() => compile(schema, { jit }), {
@@ -926,9 +926,9 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
     assert.strictEqual(entity[RUN].name === 'jit', canEval());
   }
   // `jit: false` puts the closures back, the very functions the schemas were
-  // built with.
+  // built with (compiled on their first use).
   assert.deepStrictEqual(compile(model, { jit: false }), { accelerated: false });
-  for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
+  for (const entity of model.entities.values()) assert.notStrictEqual(entity[RUN].name, 'jit');
   const single = Schema.from({ a: 'string' });
   const closure = single[RUN];
   compile(single);
@@ -970,7 +970,7 @@ test(
       const later = new Schema('Later', { a: 'string' });
       register({ jit: false });
       assert.deepStrictEqual(calls, [['Later', 'ERR_JIT_BUILD']]);
-      assert.strictEqual(later[RUN].name, '');
+      assert.notStrictEqual(later[RUN].name, 'jit');
     } finally {
       globalThis.Function = Original;
     }
@@ -1000,7 +1000,7 @@ test(
     } finally {
       globalThis.Function = Original;
     }
-    for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
+    for (const entity of model.entities.values()) assert.notStrictEqual(entity[RUN].name, 'jit');
   },
 );
 
@@ -1009,7 +1009,7 @@ test('Compile: register() compiles every schema built after it', () => {
   register();
   const after = Schema.from({ a: 'string' });
   const model = new Model({}, [['A', { Struct: {}, a: 'string' }]]);
-  assert.strictEqual(before[RUN].name, '');
+  assert.notStrictEqual(before[RUN].name, 'jit');
   assert.strictEqual(after[RUN].name === 'jit', canEval());
   assert.strictEqual(model.entities.get('A')[RUN].name === 'jit', canEval());
   assert.deepStrictEqual(after.check({ a: 1 }).errors, ['Field "a" not of expected type: string']);
@@ -1017,13 +1017,13 @@ test('Compile: register() compiles every schema built after it', () => {
   register({ jit: 'auto' });
   assert.strictEqual(Schema.from({ a: 'string' })[RUN].name === 'jit', canEval());
   register({ jit: false });
-  assert.strictEqual(Schema.from({ a: 'string' })[RUN].name, '');
+  assert.notStrictEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
   assert.throws(() => register({ jit: 'x' }), {
     name: 'SchemaDefinitionError',
     code: 'ERR_INVALID_OPTIONS',
   });
   assert.throws(() => register(null), { code: 'ERR_INVALID_OPTIONS' });
-  assert.strictEqual(Schema.from({ a: 'string' })[RUN].name, '');
+  assert.notStrictEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
 });
 
 test('Compile: without code generation from strings, auto falls back and true throws', () => {

@@ -45,6 +45,19 @@ const compileSchema = (schema) => {
   };
 };
 
+// The check of a schema until it is first used: it compiles the closures,
+// takes their place and runs them. A schema built to be read (rendered,
+// written as a snapshot) never compiles them; one the JIT replaced before
+// its first use (`register()` of `./compile`) is not touched.
+const lazyRun = (schema) => {
+  const run = (value, context, key) => {
+    const check = compileSchema(schema);
+    if (schema[RUN] === run) schema[RUN] = check;
+    return check(value, context, key);
+  };
+  return run;
+};
+
 const resultOf = (context) => {
   finalize(context.issues, context.messages);
   return new ValidationResult(context);
@@ -137,7 +150,7 @@ class Schema extends SchemaMetadata {
     }
     this.#tracked = isSchemaType && this.relations.size > 0;
     this.#coerce = Object.hasOwn(this.custom, 'coerce') && this.custom.coerce === true;
-    this[RUN] = compileSchema(this);
+    this[RUN] = lazyRun(this);
     const hook = Schema[HOOK];
     if (hook !== undefined) hook(this);
   }

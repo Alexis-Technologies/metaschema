@@ -9,7 +9,7 @@
 // the key the root was called with. Every other identifier is fresh.
 const { ENUM_SET_SIZE, isBytes } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
-const { FORMATS, NEAR, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
+const { formatOf, NEAR, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
 const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
@@ -104,7 +104,7 @@ const emitPattern = (type, x, key, state) => {
 const emitFormat = (type, x, key, state) => {
   const { code } = state;
   const { format } = type;
-  const { test } = FORMATS[format];
+  const { test } = formatOf(type);
   code.push(`if (${withinLength(type, x, code)}!${code.ref(test)}(${x})) {`);
   record(state, issue(state, 'format', `${quote(format)}, ${keyOf(key)}`));
   code.push('}');

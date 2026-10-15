@@ -4,10 +4,10 @@ const { SchemaDefinitionError } = require('./errors.js');
 
 // What a struct computes once at construction, kept on the dictionary under a
 // global symbol like BRAND, so a struct built by another copy of the package
-// exposes it too: { plan, known, calculated, check }, the plan being one
-// frozen entry per validated field, `known` the dictionary of the keys a
-// value may carry, `calculated` the keys of the calculated fields among them,
-// and `check` the compiled check over the plan.
+// exposes it too: { plan, known, calculated }, the plan being one frozen
+// entry per validated field ({ key, type, required, own, aliases }), `known`
+// the dictionary of the keys a value may carry and `calculated` the keys of
+// the calculated fields among them. The check over the plan is `checkOf`.
 const STRUCT = Symbol.for('alexify.metaschema.struct');
 
 // The functions of a nested definition that are the struct's own validate,
@@ -73,31 +73,43 @@ const checkAbsent = (entry, value, context, name) => {
   return 1;
 };
 
-const compileStruct = (plan, known) => (value, context, key) => {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    issues.type(context, 'object', value, key);
-    return;
+// The checks of the fields are taken from them when the struct's check is
+// compiled, on its first use, into entries of the shape the loop reads (the
+// entry of the plan and the check of its field in one object: a load from
+// it is what the loop did when the plan held the checks).
+const compileStruct = (entries, known) => {
+  const plan = [];
+  for (const entry of entries) {
+    const { key, type, required, own, aliases } = entry;
+    plan.push({ key, type, required, own, aliases, check: type.check });
   }
-  const nested = key !== undefined;
-  if (nested) context.path.push(key);
-  let found = 0;
-  for (let index = 0; index < plan.length; index += 1) {
-    if (context.count >= context.limit) break;
-    const entry = plan[index];
-    const name = entry.key;
-    const item = value[name];
-    if (item !== undefined && (!entry.own || Object.hasOwn(value, name))) {
-      found += 1;
-      entry.check(item, context, name);
-    } else found += checkAbsent(entry, value, context, name);
-  }
-  if (context.unknown === 'reject' && context.count < context.limit) {
-    let total = 0;
-    // oxlint-disable-next-line no-unused-vars
-    for (const name in value) total += 1;
-    if (total !== found) scanUnknown(value, known, context);
-  }
-  if (nested) context.path.pop();
+  Object.freeze(plan);
+  return (value, context, key) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      issues.type(context, 'object', value, key);
+      return;
+    }
+    const nested = key !== undefined;
+    if (nested) context.path.push(key);
+    let found = 0;
+    for (let index = 0; index < plan.length; index += 1) {
+      if (context.count >= context.limit) break;
+      const entry = plan[index];
+      const name = entry.key;
+      const item = value[name];
+      if (item !== undefined && (!entry.own || Object.hasOwn(value, name))) {
+        found += 1;
+        entry.check(item, context, name);
+      } else found += checkAbsent(entry, value, context, name);
+    }
+    if (context.unknown === 'reject' && context.count < context.limit) {
+      let total = 0;
+      // oxlint-disable-next-line no-unused-vars
+      for (const name in value) total += 1;
+      if (total !== found) scanUnknown(value, known, context);
+    }
+    if (nested) context.path.pop();
+  };
 };
 
 // A key a value may carry: a field, a calculated field or an alias, each
@@ -155,7 +167,6 @@ const createStruct = (defs, prep) => {
         required: child.required,
         own: field in Object.prototype,
         aliases: aliasesOf(child, known),
-        check: child.check,
       });
     } catch (error) {
       if (error instanceof SchemaDefinitionError) error.locate(prep.root.name, field);
@@ -164,7 +175,7 @@ const createStruct = (defs, prep) => {
   }
   Object.freeze(plan);
   Object.freeze(calculated);
-  const compiled = Object.freeze({ plan, known, calculated, check: compileStruct(plan, known) });
+  const compiled = Object.freeze({ plan, known, calculated });
   Object.defineProperty(fields, BRAND, { value: 'Struct' });
   Object.defineProperty(fields, STRUCT, { value: compiled });
   return fields;
@@ -172,6 +183,18 @@ const createStruct = (defs, prep) => {
 
 const isStruct = (fields) => hasBrand(fields, 'Struct');
 
-const checkOf = (fields) => fields[STRUCT].check;
+// The check of a struct, compiled on its first use: kept apart from the
+// frozen plan, whose creation is the cost of building a struct.
+const CHECKS = new WeakMap();
+
+const checkOf = (fields) => {
+  let check = CHECKS.get(fields);
+  if (check === undefined) {
+    const { plan, known } = fields[STRUCT];
+    check = compileStruct(plan, known);
+    CHECKS.set(fields, check);
+  }
+  return check;
+};
 
 module.exports = { STRUCT, createStruct, isStruct, checkOf, aliasOf };

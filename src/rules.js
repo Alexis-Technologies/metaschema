@@ -60,14 +60,22 @@ const formatPattern = (value) => {
 // the hint, never a check that passes everything.
 const FORMATS = Object.create(null);
 
-const formatName = (value) => {
+// The entry a field's format named when the field was built: a format the
+// program registers later under that name does not change the field, whose
+// check is compiled on its first use.
+const NAMED = new WeakMap();
+
+const formatName = (value, type) => {
   if (typeof value !== 'string') throw invalidRule('Rule "format" needs the name of a format');
   if (FORMATS[value] === undefined) {
     const hint = 'register() of @alexify/metaschema/formats';
     throw invalidRule(`Rule "format" names a format that is not registered: "${value}" (${hint})`);
   }
+  NAMED.set(type, FORMATS[value]);
   return value;
 };
+
+const formatOf = (type) => NAMED.get(type);
 
 // The decimals a number may have: what a double holds exactly in a fraction.
 const formatDecimals = (value) => {
@@ -85,6 +93,15 @@ const FORMAT = Object.assign(Object.create(null), {
   format: formatName,
   decimals: formatDecimals,
 });
+
+// The bounds of a field leave room for a value: the definition is checked
+// when the field is built, its check compiled later.
+const checkBounds = (type) => {
+  const { min, max } = type;
+  if (min !== undefined && max !== undefined && min > max) {
+    throw invalidRule('Rule "max" is below "min"');
+  }
+};
 
 const notApplicable = (rule, type, rules) => {
   const hint = rule === 'length' && rules.has('min') ? '; use min and max' : '';
@@ -165,7 +182,6 @@ const compileRange = (type) => {
       if (value < min) issues.range(context, min, max, value, key);
     };
   }
-  if (min > max) throw invalidRule('Rule "max" is below "min"');
   return (value, context, key) => {
     if (value < min || value > max) issues.range(context, min, max, value, key);
   };
@@ -194,7 +210,7 @@ const compilePattern = (type) => {
 // pattern and under the same bound.
 const compileFormat = (type) => {
   const { format } = type;
-  const { test } = FORMATS[format];
+  const { test } = formatOf(type);
   const limit = patternLimit(type);
   return (value, context, key) => {
     if (value.length <= limit && !test(value)) issues.format(context, format, key);
@@ -253,6 +269,8 @@ const compileRules = (type) => {
 module.exports = {
   FORMAT,
   FORMATS,
+  formatOf,
+  checkBounds,
   notApplicable,
   ruleNames,
   compileRules,
