@@ -3,7 +3,7 @@
 // snapshot is input (a file, a registry, another program), so what it says
 // is checked before it is read, and every error is ERR_INVALID_SNAPSHOT
 // located in the entity, never a bare SyntaxError or TypeError.
-const { hasBrand, define } = require('../util.js');
+const { hasBrand, define, isDate, isRegExp } = require('../util.js');
 const { FORMAT } = require('../snapshot.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { isStruct } = require('../struct.js');
@@ -60,12 +60,12 @@ const same = (a, b, depth = 0) => {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
   if (depth > DEPTH) throw tooDeep();
-  const name = a.constructor?.name;
-  if (name === 'RegExp' || name === 'Date') {
-    if (name !== b.constructor?.name) return false;
-    return name === 'Date'
-      ? a.getTime() === b.getTime()
-      : a.source === b.source && a.flags === b.flags;
+  // By their shape, which a value of JSON cannot fake: `{ constructor: {
+  // name: 'Date' } }` of a snapshot is data.
+  const regExp = isRegExp(a);
+  if (regExp || isRegExp(b) || isDate(a) || isDate(b)) {
+    if (regExp) return isRegExp(b) && a.source === b.source && a.flags === b.flags;
+    return isDate(a) && isDate(b) && a.getTime() === b.getTime();
   }
   if (Array.isArray(a)) {
     if (!Array.isArray(b) || a.length !== b.length) return false;

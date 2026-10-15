@@ -24,6 +24,9 @@ const isSet = iterableNamed('Set');
 const isDate = (value) =>
   value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
 
+const isRegExp = (value) =>
+  value?.constructor?.name === 'RegExp' && typeof value.exec === 'function';
+
 // The bytes of a Uint8Array of any realm, a Buffer included, by the name the
 // engine keeps in the view itself: the tag getter of the typed arrays reads
 // that slot and gives undefined for anything else, which a key or a symbol
@@ -127,6 +130,7 @@ module.exports = {
   isMap,
   isSet,
   isDate,
+  isRegExp,
   isBytes,
   typeOf,
   IDENTIFIER,

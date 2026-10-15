@@ -442,6 +442,36 @@ test('Evolution: a field named __proto__ or constructor is a field', () => {
   );
 });
 
+// A value of a snapshot shaped like a Date or a RegExp (`constructor.name`)
+// is data: written, compared and read back as an object, never called.
+test('Evolution: a value that names a Date or a RegExp is data', () => {
+  const date = JSON.parse('{"constructor":{"name":"Date"}}');
+  const regExp = JSON.parse('{"constructor":{"name":"RegExp"},"source":"x"}');
+  const of = (value) => broken({ A: struct({ t: field('json', { default: value }) }) });
+  const restored = fromJSON(of(date));
+  assert.deepStrictEqual(json(restored).entities.A.fields.t.default, date);
+  assert.deepStrictEqual(
+    json(restored.entities.get('A').toSnapshot()).entities.A.fields.t.default,
+    date,
+  );
+  assert.deepStrictEqual(json(fromJSON(of(regExp))).entities.A.fields.t.default, regExp);
+  assert.deepStrictEqual(diff(of(date), of(date)), []);
+  assert.deepStrictEqual(
+    diff(of(date), of(regExp)).map((c) => [c.op, c.name]),
+    [['changed', 't']],
+  );
+  assert.deepStrictEqual(diff(restored, json(restored)), []);
+  // A nested struct whose fields are called `constructor` (with a `name`)
+  // and `getTime` is a struct.
+  const schema = new Schema('T', {
+    schema: { constructor: { type: 'string', name: 'Date' }, getTime: 'string' },
+  });
+  assert.deepStrictEqual(Object.keys(json(schema.toSnapshot()).entities.T.fields), [
+    'constructor',
+    'getTime',
+  ]);
+});
+
 // S6: a shared registry takes no placeholder type.
 test('Evolution: a shared registry refuses a placeholder type', () => {
   const snapshot = broken(

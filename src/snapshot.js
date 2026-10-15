@@ -13,7 +13,7 @@
 // entities it reaches through its references, with the name of the schema
 // as `root`.
 const { isFirstUpper } = require('./metautil.js');
-const { hasBrand, define, isBytes, isMap, isSet } = require('./util.js');
+const { hasBrand, define, isBytes, isMap, isSet, isDate, isRegExp } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 const FORMAT = 1;
@@ -55,11 +55,10 @@ const valueOf = (value) => {
   if (isBytes(value)) return { $bytes: base64Of(value) };
   if (isMap(value)) return { $map: listOf(value) };
   if (isSet(value)) return { $set: listOf(value) };
-  const name = value.constructor?.name;
-  if (name === 'RegExp') {
+  if (isRegExp(value)) {
     return value.flags === 'u' ? value.source : { source: value.source, flags: value.flags };
   }
-  if (name === 'Date') return { $date: value.toISOString() };
+  if (isDate(value)) return { $date: value.toISOString() };
   return objectOf(value);
 };
 
