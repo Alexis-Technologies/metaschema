@@ -27,7 +27,9 @@ expectType<Date>(infer('date'));
 expectType<Uint8Array>(infer('bytes'));
 expectType<Uint8Array | null | undefined>(infer('?bytes'));
 expectType<{ read?: boolean; write?: boolean }>(infer({ flags: ['read', 'write'] }));
-expectType<{ read?: boolean } | null | undefined>(infer({ type: 'flags', flags: ['read'], required: false }));
+expectType<{ read?: boolean } | null | undefined>(
+  infer({ type: 'flags', flags: ['read'], required: false }),
+);
 expectType<{ file: Uint8Array; perms: { read?: boolean; write?: boolean }; price: number }>(
   infer({
     file: 'bytes',
