@@ -53,7 +53,9 @@ Some things work as intended and are not vulnerabilities:
   `canEval()` runs `new Function('')` once; under a CSP with a `report-uri` that one violation
   is reported, and under a report-only policy the probe succeeds and every build is reported. A
   check the generator cannot build is reported (`compile().error`, `register({ onFallback })`),
-  never installed. The core entry never calls `new Function`.
+  never installed. The core entry never calls `new Function`. The checks are compiled on their
+  first use (3.4), so a rule changed on a built field after construction reaches the generator
+  too; it reaches the source as a literal or a name of the scope all the same.
 - **Input shape is checked strictly.** Every key that is not in the schema is reported as
   unexpected (`has unexpected keys: ...`, the first ten of them), including `constructor`,
   `__proto__` and `toString`, unless the schema or the call says `unknown: 'ignore'`. Fields
@@ -73,6 +75,27 @@ Some things work as intended and are not vulnerabilities:
   all the same: those documents are untrusted input for their structure (a keyword outside the
   subset, a key named `__proto__`, a depth past the limit are errors, never a looser schema),
   but a pattern in them is the importer's to review or to bound.
+- **A snapshot is data, both ways.** What `schema.toSnapshot()` and `model.toJSON()` return is
+  a copy (the `custom` metadata of a kind, the indexes and the `database` metadata included):
+  no function, no object of the model, a function as `{ $function: true }`. Read back by
+  `fromJSON`, a snapshot is untrusted input: its tags (`$date`, `$bigint`, `$bytes`, `$map`,
+  `$set`) are read into values and a tag that does not read is `ERR_INVALID_SNAPSHOT`; a value
+  shaped like a `Date` or a `RegExp` (`{ "constructor": { "name": "Date" } }`) is data; its
+  `root` names one of its entities; a field key `root` is refused like the methods of a field;
+  the walks are bounded (128 levels, and a chain of entities of any length orders without
+  recursion). A model restored from a snapshot validates its structure with placeholders for the
+  functions, which `model.placeholders` lists.
+- **Binary data is bounded by its `length`.** The `bytes` converter of `./coerce` decodes
+  canonical base64 only, in linear time, and leaves a text whose bytes would be over
+  `length.max` undecoded, so a field with a `length` caps what a request can make it allocate;
+  a `bytes` field without one decodes a text of any size, like a string field without
+  `length.max` holds one. `fromDocument` of `./mongodb` reads a generic Binary (subtype 0 or
+  2) into a copy of its bytes and leaves any other subtype to the check.
+- **The definition entry does not validate.** A schema built through
+  `@alexify/metaschema/definition` throws `ERR_NOT_REGISTERED` from every way to validate until
+  the core entry of the same copy of the package is loaded, and has no `~standard`, so a
+  consumer of Standard Schema never takes it for a validator. A schema of another copy (two
+  versions of the package installed) does not validate with this copy's core and says so.
 - **Samples are input.** `infer` of the model subpath walks the values it is given with a depth
   limit, trusts no key (`__proto__`, `constructor` and the names of the methods of a field are
   keys of the definition, written as own properties), and checks the definition it built
