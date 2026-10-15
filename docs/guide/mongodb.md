@@ -200,8 +200,11 @@ A value of bson is recognized by its `_bsontype` and a method JSON cannot give a
 request that claims to be an ObjectId (`{ "_bsontype": "ObjectId" }`) is data. A field of the
 built-in [`bytes`](/guide/types#scalars) type needs none of the three: `toDocument` leaves its
 `Uint8Array` as it is (the driver writes it as `binData`), and `fromDocument` reads the Binary the
-driver gives back into its bytes, so the program holds a `Uint8Array` both ways; the mongodb
-target writes `bsonType: 'binData'` for it. A `Long` is a
+driver gives back into its bytes (a copy, not a view of the memory the driver read the document
+into), so the program holds a `Uint8Array` both ways; the mongodb target writes
+`bsonType: 'binData'` for it. Only a generic Binary (subtype 0, or 2, its old form) is read as
+bytes: a UUID, an encrypted value or a vector written back as bytes would lose its subtype, so
+such a Binary in a `bytes` field is a `type` issue, and the field that holds one is `binary`. A `Long` is a
 `bigint` field (with the driver's `useBigInt64`), a UUID a string with
 [`format: 'uuid'`](/guide/formats). In TypeScript the subpath's typings teach `Infer` the three
 types.

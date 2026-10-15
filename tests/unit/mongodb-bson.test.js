@@ -129,6 +129,20 @@ test('Mongodb: bytes go out as a Uint8Array and come back from a Binary', () => 
   assert.deepStrictEqual(toJSONSchema(File, { target: 'mongodb' }).properties.data, {
     bsonType: 'binData',
   });
+  // The bytes are a copy, not a view of the memory the driver read into.
+  assert.notStrictEqual(result.value.data.buffer, stored.data.buffer.buffer);
+  assert.strictEqual(result.value.data.buffer.byteLength, 3);
+  // The old generic subtype is bytes too; a UUID (subtype 4) is not, so that
+  // it is never written back as generic binary data.
+  const old = new bson.Binary(new Uint8Array([7, 8]), 2);
+  const read = (data) =>
+    fromDocument(File, bson.deserialize(bson.serialize({ ...document, data })));
+  assert.deepStrictEqual(Array.from(read(old).value.data), [7, 8]);
+  const uuid = new bson.UUID();
+  assert.deepStrictEqual(
+    read(uuid).issues.map((issue) => [issue.code, issue.path]),
+    [['type', ['data']]],
+  );
 });
 
 test('Mongodb: a document with real ObjectIds round-trips', () => {

@@ -23,11 +23,17 @@ const isObjectId = (value) => {
 
 const isDecimal128 = (value) => tagOf(value) === 'Decimal128' && typeof value.toJSON === 'function';
 
-// The bytes of a Binary of the driver, the view `bytes` holds, or null.
-const binaryBytes = (value) =>
-  tagOf(value) === 'Binary' && typeof value.toJSON === 'function' && isBytes(value.buffer)
-    ? value.buffer.subarray(0, value.position)
-    : null;
+// The bytes of a generic Binary of the driver (subtype 0, or 2, its old
+// form), copied off the memory the driver read it into; null for anything
+// else. A Binary of another subtype (a UUID, an encrypted value, a vector)
+// written back as bytes would lose its subtype, so it is left for the check.
+const binaryBytes = (value) => {
+  const binary = tagOf(value) === 'Binary' && typeof value.toJSON === 'function';
+  if (!binary || !isBytes(value.buffer)) return null;
+  const subtype = value.sub_type;
+  if (subtype !== 0 && subtype !== 2) return null;
+  return new Uint8Array(value.buffer.subarray(0, value.position));
+};
 
 const isBinary = (value) =>
   (tagOf(value) === 'Binary' && typeof value.toJSON === 'function') || isBytes(value);
