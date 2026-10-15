@@ -182,7 +182,8 @@ field again. What has no JSON form at all (a symbol, `NaN`) is left to `JSON.str
 drops or nulls it.
 
 The repository pins the format with `tests/fixtures/snapshot.json`, the snapshot of its fixture
-model.
+model, and `tests/fixtures/schema-snapshot.json`, the text of `toSnapshot()` for a schema of
+every form 3.4 added and for a schema that names itself, both compared as text.
 
 ### The snapshot of one schema
 

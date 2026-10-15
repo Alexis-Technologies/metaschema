@@ -299,6 +299,8 @@ tests/
   fixtures/schemas/ a domain model as CJS modules; index.js assembles { database, types, ...entities }
   fixtures/snapshot.json  the committed snapshot of the fixture model (the format 1 contract, pinned by snapshot.test.js)
   fixtures/forms.js a definition of every form of the language as a function (definition.test.js, in two processes)
+  fixtures/schema-snapshot.json  the committed text of toSnapshot() of the schemas of fixtures/forms-snapshot.js
+                    (the 3.4 forms, the tags, a schema that names itself; compared as text by snapshot.test.js)
 scripts/size.js     bundle-size report and budget gate (CI smoke)
 scripts/size-compare.js  the comparison's schema per library, bundled for the browser and verified
 scripts/comparison.js    renders docs/comparison.json (the feature matrix) into README and the docs

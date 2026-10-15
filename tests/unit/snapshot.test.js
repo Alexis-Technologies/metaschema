@@ -81,6 +81,20 @@ test('Snapshot: an entity carries its metadata, fields, indexes and relations', 
   assert.deepStrictEqual(Object.keys(Signin.fields), ['login', 'password']);
 });
 
+test('Snapshot: the snapshots of one schema write the committed text', () => {
+  const { fromJSON } = require('../../src/model/index.js');
+  const { snapshots } = require('../fixtures/forms-snapshot.js');
+  const forms = require('../fixtures/schema-snapshot.json');
+  // The text, not only the values: the key order at every depth is the
+  // contract a program that reads one schema builds on.
+  assert.strictEqual(JSON.stringify(snapshots()), JSON.stringify(forms));
+  for (const key of Object.keys(forms)) {
+    const snapshot = forms[key];
+    const restored = fromJSON(snapshot).entities.get(snapshot.root);
+    assert.strictEqual(JSON.stringify(restored.toSnapshot()), JSON.stringify(snapshot), key);
+  }
+});
+
 test('Snapshot: a field is written with a fixed key order, whatever the definition order', () => {
   const a = new Model({}, [['A', { Struct: {}, x: { type: 'string', unique: true, length: 8 } }]]);
   const b = new Model({}, [['A', { Struct: {}, x: { type: 'string', length: 8, unique: true } }]]);
