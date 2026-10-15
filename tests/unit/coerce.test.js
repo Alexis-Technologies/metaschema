@@ -225,11 +225,19 @@ test('Coerce: bytes from canonical base64 only', () => {
   assert.deepStrictEqual(read('QUJD'), [65, 66, 67]);
   assert.deepStrictEqual(read('AAAAAAAA'), [0, 0, 0, 0, 0, 0]);
   assert.deepStrictEqual(read('/+8='), [255, 239]);
+  assert.deepStrictEqual(read('AA=='), [0]);
+  // The text of no bytes is the empty string: an exception to the rule that
+  // '' is never converted, since it is what an encoder writes for them.
+  assert.deepStrictEqual(read(''), []);
   // What a decoder would forgive is left to the check: the bits the padding
-  // leaves unused, the padding itself, whitespace, the URL alphabet, ''.
+  // leaves unused, the padding itself, whitespace, the URL alphabet.
   for (const text of [
-    '',
     'QR==',
+    'QUI',
+    '====',
+    'A===',
+    '=QUJ',
+    'QU=J',
     'QUJ=',
     'QQ',
     'QQ=',
@@ -250,6 +258,12 @@ test('Coerce: bytes from canonical base64 only', () => {
   assert.strictEqual(read(`${'A'.repeat(1_000_000)}!`), 'type');
   assert.strictEqual(read(`${'AAAA'.repeat(250_000)}A===`), 'type');
   assert.ok(Date.now() - started < 1000);
+  // A valid text of megabytes: one expression of quanta overflowed the stack
+  // of the engine on it, and the converter left the text to the check.
+  const large = schema.parse({ data: `${'AAAA'.repeat(4_000_000)}/w==` }, { coerce: true });
+  assert.strictEqual(large.valid, true);
+  assert.strictEqual(large.value.data.length, 12_000_001);
+  assert.strictEqual(large.value.data[12_000_000], 255);
 });
 
 test('Coerce: enums, collections and maps', () => {

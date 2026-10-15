@@ -47,8 +47,10 @@ drops that entry: see Changed.
   the value. `Uint8Array` in TypeScript and `Infer`; base64 text on the input side of a JSON
   Schema (`format: 'byte'` for OpenAPI 3.0), unrepresentable on its output side (as a `date`),
   `binData` for mongodb; random bytes in `sample`; `bytes` in `infer` for the views of the
-  samples; canonical base64 read into bytes by `./coerce` (padded, the unused bits at zero,
-  never `''`); a Binary of the driver read back into bytes by `fromDocument` of `./mongodb`.
+  samples; canonical base64 read into bytes by `./coerce` (padded, the unused bits at zero;
+  `''`, the text of no bytes, as an empty `Uint8Array`, the one exception to the rule that `''`
+  is never converted; a scan of the text, linear and without the stack of a repeated group, so
+  a valid text of megabytes converts); a Binary of the driver read back into bytes by `fromDocument` of `./mongodb`.
 - **`flags`**, a built-in type: `{ flags: ['read', 'write'] }` is an object of those names,
   each a boolean, any left out. A name the list does not have is `unexpected` under the
   unknown-keys policy of the check, ignored under `unknown: 'ignore'`, left out by `parse`

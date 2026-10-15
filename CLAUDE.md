@@ -1597,7 +1597,8 @@ change. **This file wins** if they ever disagree.
   keeps `'3'`. A converter that throws leaves the value for the check.
 - **The empty string is never converted**, not even to `null` for a nullable field or to the
   default of an optional one (Alex's decision: strict converters); a decoder or the program
-  does that. A date-time without a zone is not converted either (it would depend on the zone of
+  does that. `bytes` is the exception (Alex's decision at the review of 3.4): `''` is the
+  base64 of no bytes, the text an encoder writes for them, and becomes an empty `Uint8Array`. A date-time without a zone is not converted either (it would depend on the zone of
   the server).
 - **`coerce()` fills the defaults too**: it is the pass before the check of a coercing parse,
   so `check(coerce(s, v)).valid` is the verdict of `parse(v, { coerce: true })`.

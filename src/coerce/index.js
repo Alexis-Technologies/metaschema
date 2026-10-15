@@ -83,12 +83,23 @@ const toText = (value) => {
 // Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
 // leaves unused at zero, so that one text is one value; what a decoder
 // would forgive (whitespace, a missing `=`, the URL alphabet) is left to
-// the check. One quantum after another: linear.
-const BASE64 =
-  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?$/;
+// the check. A charset, a length and the last quantum rather than one
+// expression of quanta, whose repetition grows the stack of the engine by a
+// frame each and overflowed it on a valid text of a few megabytes (the
+// formats subpath reads base64 the same way). `''` is the text of no bytes.
+const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
+
+const isBase64 = (text) => {
+  const { length } = text;
+  if (length % 4 !== 0 || !ALPHABET.test(text)) return false;
+  if (text[length - 1] !== '=') return true;
+  if (text[length - 2] === '=') return 'AQgw'.includes(text[length - 3]);
+  return 'AEIMQUYcgkosw048'.includes(text[length - 2]);
+};
 
 const toBytes = (value) => {
-  if (typeof value !== 'string' || value === '' || !BASE64.test(value)) return value;
+  if (typeof value !== 'string' || !isBase64(value)) return value;
+  if (Uint8Array.fromBase64 !== undefined) return Uint8Array.fromBase64(value);
   const text = atob(value);
   const bytes = new Uint8Array(text.length);
   for (let index = 0; index < text.length; index += 1) bytes[index] = text.charCodeAt(index);
