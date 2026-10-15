@@ -345,9 +345,9 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   reference is followed through `root.findReference` at parse time.
 - `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`
   and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
-  generators), `typescript.js` also `metautil`, `jsonschema.js` also `rules` (`FORMATS`, the
-  pattern of a format), `kinds` (`idFieldOf`, for `ids: 'objectId'`) and `types`
-  (`baseTypeOf`), never `schema.js` or `model.js`: they take the instances and read `fields`,
+  generators), `typescript.js` also `metautil` and `types` (`baseTypeOf`, to tell `flags` by
+  its type), `jsonschema.js` also `rules` (`FORMATS`, the pattern of a format), `kinds`
+  (`idFieldOf`, for `ids: 'objectId'`) and `types` (`baseTypeOf`), never `schema.js` or `model.js`: they take the instances and read `fields`,
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
   `validation.js` and `model.js` (for `register()`, which wraps the `~standard` accessor the
   validation half installs), `runtime/node.js` (for `saveTypes`) and the two generators;

@@ -6,6 +6,7 @@ const { isFirstUpper } = require('../metautil.js');
 const { hasBrand, IDENTIFIER } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
+const { baseTypeOf } = require('../types.js');
 
 const TS_SCALARS = Object.assign(Object.create(null), {
   string: 'string',
@@ -119,7 +120,9 @@ const tsBase = (def, ts, name, target, top) => {
     ts.blocks.push(`type ${named} = ${text};`);
     return named;
   }
-  if (def.flags) {
+  // By the type, as JSON Schema tells it: `flags` is an option name any type
+  // may carry (a pattern's, a custom type's).
+  if (baseTypeOf(def).type === 'flags') {
     const names = [];
     for (let index = 0; index < def.flags.length; index += 1) {
       names.push(`${tsKey(def.flags[index])}?: boolean`);

@@ -120,6 +120,18 @@ test('Flags: TypeScript and the JSON Schema targets', () => {
     'interface Access {\n  perms: { read?: boolean; write?: boolean; "x-admin"?: boolean };\n' +
       '  more?: { beta?: boolean } | null;\n}',
   );
+  // A field of another type with an option called `flags` is that type, an
+  // alias of flags is flags.
+  const other = new Model({ permits: { js: 'flags' } }, [
+    [
+      'Other',
+      { Struct: {}, re: { type: 'string', flags: 'gi' }, ok: { type: 'permits', flags: ['a'] } },
+    ],
+  ]);
+  assert.strictEqual(
+    other.entities.get('Other').toInterface(),
+    'interface Other {\n  re: string;\n  ok: { a?: boolean };\n}',
+  );
   const properties = {
     read: { type: 'boolean' },
     write: { type: 'boolean' },
