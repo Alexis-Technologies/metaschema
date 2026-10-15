@@ -243,7 +243,8 @@ const includes = (list, value) => {
   return false;
 };
 
-// Values added accept more (backward), values removed accept less (forward).
+// Values added accept more (backward), values removed accept less (forward);
+// the names of flags the same way.
 const enumLevel = (from, to) => {
   let level = FULL;
   for (const value of to) if (!includes(from, value)) level &= BACKWARD;
@@ -331,6 +332,7 @@ const keyLevel = (key, from, to, field) => {
     case 'format':
       return from === undefined ? FORWARD : to === undefined ? BACKWARD : NONE;
     case 'enum':
+    case 'flags':
       return Array.isArray(from) && Array.isArray(to) ? enumLevel(from, to) : NONE;
     case 'validate':
     case 'parse':

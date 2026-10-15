@@ -7,7 +7,7 @@
 //
 // Generated code names three things: `v` the value, `c` the context and `k`
 // the key the root was called with. Every other identifier is fresh.
-const { ENUM_SET_SIZE } = require('../util.js');
+const { ENUM_SET_SIZE, isBytes } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
 const { FORMATS, NEAR, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
@@ -17,6 +17,7 @@ const { schema } = require('../prototypes/schema.js');
 const { tuple } = require('../prototypes/tuple.js');
 const { union, nameOf, tableOf } = require('../prototypes/union.js');
 const { json } = require('../prototypes/json.js');
+const { flags } = require('../prototypes/flags.js');
 const { prop, quote, literal } = require('./code.js');
 
 // The key of the field under check, as source: a quoted name, an index, a
@@ -116,7 +117,9 @@ const emitDecimals = (type, x, key, state) => {
   const scaled = code.name('d');
   code.push(`const ${scaled} = ${x} * ${10 ** decimals};`);
   const near = `${code.value(NEAR)} * Math.max(1, Math.abs(${scaled}))`;
-  code.push(`if (Math.abs(Math.round(${scaled}) - ${scaled}) > ${near} || !Number.isFinite(${x})) {`);
+  code.push(
+    `if (Math.abs(Math.round(${scaled}) - ${scaled}) > ${near} || !Number.isFinite(${x})) {`,
+  );
   record(state, issue(state, 'decimals', `${decimals}, ${keyOf(key)}`));
   code.push('}');
 };
@@ -197,6 +200,16 @@ const emitDate = (type, x, key, state) => {
   typed(type, x, key, state, fails, typeIssue(state, 'date', x, key));
 };
 
+const emitBytes = (type, x, key, state) =>
+  typed(
+    type,
+    x,
+    key,
+    state,
+    `!${state.code.ref(isBytes)}(${x})`,
+    typeIssue(state, 'bytes', x, key),
+  );
+
 const emitNull = (type, x, key, state) =>
   typed(type, x, key, state, `${x} !== null`, typeIssue(state, 'null', x, key));
 
@@ -259,6 +272,37 @@ const emitObject = (type, x, key, state) => {
     if (!type.required) return;
     code.push(`if (${count} === 0) {`);
     record(state, issue(state, 'required', keyOf(key)));
+    code.push('}');
+  });
+};
+
+// The own keys of a flags value: a name of the list holds a boolean, any
+// other key is unexpected under the reject policy, as in the closure.
+const emitFlags = (type, x, key, state) => {
+  const { code } = state;
+  const failure = typeIssue(state, type.type, x, key);
+  typed(type, x, key, state, notObject(x), failure, () => {
+    const children = inside(state, key);
+    const name = code.name('n');
+    const item = code.name('x');
+    const unexpected = code.name('u');
+    let cases = '';
+    for (const flag of type.flags) cases += `case ${quote(flag)}: `;
+    code.push(`let ${unexpected} = null;`);
+    code.push(`for (const ${name} in ${x}) {`);
+    code.push(`if (!Object.hasOwn(${x}, ${name})) continue;`);
+    code.push(`switch (${name}) { ${cases}{`);
+    code.push(`const ${item} = ${x}[${name}];`);
+    code.push(`if (typeof ${item} !== "boolean") {`);
+    record(children, typeIssue(state, 'boolean', item, name));
+    code.push('}');
+    code.push('continue; } }');
+    code.push(
+      `if (c.unknown === "reject") (${unexpected} === null ? (${unexpected} = []) : ${unexpected}).push(${name});`,
+    );
+    code.push('}');
+    code.push(`if (${unexpected} !== null) {`);
+    record(children, issue(state, 'unexpected', unexpected));
     code.push('}');
   });
 };
@@ -508,6 +552,8 @@ const EMITTERS = new Map([
   [scalars.string.compile, emitScalar],
   [scalars.integer.compile, emitInteger],
   [scalars.date.compile, emitDate],
+  [scalars.bytes.compile, emitBytes],
+  [flags.compile, emitFlags],
   [scalars.null.compile, emitNull],
   [scalars.any.compile, emitAny],
   [scalars.enum.compile, emitEnum],

@@ -269,6 +269,11 @@ const typed = (context, node, type, used) => {
       def.format = name;
       if (def.pattern === FORMATS[name].pattern) delete def.pattern;
     }
+    // Base64 text (what `bytes` exports as) is the base64 format when the
+    // formats are registered, as OpenAPI's `byte` is.
+    if (def.format === undefined && node.contentEncoding === 'base64' && FORMATS.base64) {
+      def.format = 'base64';
+    }
     return def;
   }
   if (type === 'number' || type === 'integer') {

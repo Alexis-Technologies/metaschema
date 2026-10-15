@@ -27,6 +27,7 @@ const { schema: struct } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
 const { union, tableOf } = require('./prototypes/union.js');
 const { reference, embeds } = require('./prototypes/reference.js');
+const { flags } = require('./prototypes/flags.js');
 
 // What a subtree carries, as bits; a phase is the bit it applies.
 const DEFAULTS = 1;
@@ -71,6 +72,7 @@ const KEYED = 5;
 const TUPLE = 6;
 const UNION = 7;
 const REFERENCE = 8;
+const FLAGS = 9;
 
 const SHAPES = new Map([
   [struct.compile, NESTED],
@@ -80,6 +82,7 @@ const SHAPES = new Map([
   [tuple.compile, TUPLE],
   [union.compile, UNION],
   [reference.compile, REFERENCE],
+  [flags.compile, FLAGS],
 ]);
 
 const shapeOf = (node) => {
@@ -144,7 +147,7 @@ const infoOf = (node) => {
   } else if (shape === REFERENCE) {
     bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
-  }
+  } else if (shape === FLAGS) bits |= STRUCTS;
   if (plan === null) {
     for (let index = 0; index < children.length; index += 1) {
       const sub = infoOf(children[index]);
@@ -645,6 +648,20 @@ const walkReference = (info, node, value, context, key, phase, want) => {
   return out;
 };
 
+// The names of a flags value: under strip the ones the field does not have
+// are left out, the value copied only when it has one.
+const walkFlags = (info, node, given, context, key, phase, want) => {
+  const value = convert(want, given, node, info);
+  if ((want & STRUCTS) === 0 || value === null || typeof value !== 'object') return value;
+  const names = node.flags;
+  let foreign = false;
+  for (const name in value) if (Object.hasOwn(value, name) && !names.includes(name)) foreign = true;
+  if (!foreign) return value;
+  const out = {};
+  for (const name of names) if (Object.hasOwn(value, name)) out[name] = value[name];
+  return out;
+};
+
 // A field's own `coerce` turns coercion on or off for its subtree, in the
 // pass before the check.
 const walkPolicy = (info, node, value, context, key, phase, want) => {
@@ -663,6 +680,7 @@ const WALKERS = [
   walkList,
   walkUnion,
   walkReference,
+  walkFlags,
 ];
 
 // The bits a pass wants of a subtree, decided once per pass: its own, and

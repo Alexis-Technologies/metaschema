@@ -13,6 +13,7 @@ const TS_SCALARS = Object.assign(Object.create(null), {
   boolean: 'boolean',
   bigint: 'bigint',
   date: 'Date',
+  bytes: 'Uint8Array',
   null: 'null',
   any: 'any',
   unknown: 'unknown',
@@ -117,6 +118,13 @@ const tsBase = (def, ts, name, target, top) => {
     const named = uniqueName(ts, name);
     ts.blocks.push(`type ${named} = ${text};`);
     return named;
+  }
+  if (def.flags) {
+    const names = [];
+    for (let index = 0; index < def.flags.length; index += 1) {
+      names.push(`${tsKey(def.flags[index])}?: boolean`);
+    }
+    return `{ ${names.join('; ')} }`;
   }
   if (def.union) {
     const branches = [];

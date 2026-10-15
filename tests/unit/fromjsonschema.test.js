@@ -237,6 +237,26 @@ test('fromJSONSchema: a multiple of a power of ten is a number of decimals', () 
   });
 });
 
+test('fromJSONSchema: base64 text is a string, of the base64 format once registered', () => {
+  assert.deepStrictEqual(fieldOf({ type: 'string', contentEncoding: 'base64' }), 'string');
+  const schema = new Schema('File', { data: 'bytes', perms: { flags: ['read'] } });
+  // What bytes and flags export as reads back as the JSON on the wire.
+  assert.deepStrictEqual(fromJSONSchema(toJSONSchema(schema)), {
+    Struct: {},
+    data: 'string',
+    perms: { read: '?boolean' },
+  });
+  require('../../src/formats/index.js').register();
+  assert.deepStrictEqual(fieldOf({ type: 'string', contentEncoding: 'base64' }), {
+    type: 'string',
+    format: 'base64',
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'string', format: 'byte' }), {
+    type: 'string',
+    format: 'base64',
+  });
+});
+
 test('fromJSONSchema: the root is a struct with its kind, or a definition of one type', () => {
   const open = { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] };
   assert.deepStrictEqual(fromJSONSchema(open), { Struct: { unknown: 'ignore' }, a: 'string' });

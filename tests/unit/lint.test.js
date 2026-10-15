@@ -140,6 +140,7 @@ test('Lint: coerce where no conversion can happen is dead', () => {
         tag: { type: 'Tag', coerce: false },
         meta: { type: 'json', coerce: true },
         raw: { type: 'any', coerce: true },
+        perms: { flags: ['read'], coerce: true },
         qty: { type: 'integer', coerce: true },
         items: { array: { type: 'integer', coerce: true } },
       },
@@ -151,6 +152,7 @@ test('Lint: coerce where no conversion can happen is dead', () => {
     dead('Order.company', 'a reference checked as an id'),
     dead('Order.meta', 'a value of type "json"'),
     dead('Order.raw', 'a value of type "any"'),
+    dead('Order.perms', 'a value of type "flags"'),
   ]);
   // A reference that cannot be resolved is checked as an id too.
   assert.deepStrictEqual(Schema.from({ owner: { type: 'Owner', coerce: true } }).warnings, [

@@ -372,6 +372,18 @@ test('Merge: the fewer decimals of the two', () => {
   assert.strictEqual(merged.check({ a: 0.125, b: 1 }).valid, false);
 });
 
+test('Merge: the names of flags both have', () => {
+  const merged = merge(
+    Schema.from({ perms: { flags: ['read', 'write', 'admin'] } }),
+    Schema.from({ perms: { flags: ['admin', 'read'] } }),
+  );
+  assert.deepStrictEqual(merged.fields.perms.flags, ['read', 'admin']);
+  assert.throws(
+    () => merge(Schema.from({ perms: { flags: ['a'] } }), Schema.from({ perms: { flags: ['b'] } })),
+    { code: 'ERR_MERGE_CONFLICT', message: 'The flags have no value in common in "perms"' },
+  );
+});
+
 test('Merge: annotations come from the first schema, flags from either, aliases from both', () => {
   const a = Schema.from({ a: { type: 'string', title: 'A', unique: true, aliases: ['x'] } });
   const b = Schema.from({

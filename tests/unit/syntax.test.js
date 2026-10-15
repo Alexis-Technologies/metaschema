@@ -36,6 +36,23 @@ test('Syntax: a type name as the first key is that type, whatever follows', () =
   assert.strictEqual(map.fields.type, 'map');
 });
 
+test('Syntax: bytes and flags as a first key are those types', () => {
+  // Built in since 3.4: a struct that starts with such a field needs a kind.
+  const shorthand = Schema.from({ flags: ['read', 'write'], name: 'string' });
+  assert.strictEqual(shorthand.fields.type, 'flags');
+  assert.deepStrictEqual(shorthand.fields.flags, ['read', 'write']);
+  assert.deepStrictEqual(shorthand.warnings, [
+    'Warning [unknown-option]: option "name" of "" is not known to type "flags"',
+  ]);
+  assert.strictEqual(Schema.from({ bytes: 'string', name: 'string' }).fields.type, 'bytes');
+  const struct = Schema.from({ Struct: {}, bytes: 'bytes', flags: { flags: ['a'] } });
+  assert.strictEqual(struct.kind, 'struct');
+  assert.strictEqual(struct.check({ bytes: new Uint8Array(1), flags: { a: true } }).valid, true);
+  const { readsAsStruct } = require('../../src/types.js');
+  assert.strictEqual(readsAsStruct({ bytes: 'bytes' }), false);
+  assert.strictEqual(readsAsStruct({ flags: 'string' }), false);
+});
+
 test('Syntax: a definition that cannot be the long form is an error, not a guess', () => {
   assert.throws(() => Schema.from({ a: { required: false, type: 'string' } }), {
     name: 'SchemaDefinitionError',

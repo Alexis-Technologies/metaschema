@@ -69,8 +69,14 @@ test('Infer: every form of a value has a definition', () => {
   both([new Point()]);
   assert.deepStrictEqual(infer([/a/u]), { Struct: {} });
   both([/a/u, /b/u]);
-  assert.deepStrictEqual(infer([Buffer.from([1, 2])]), { object: { string: 'integer' } });
+  // Bytes by the view's own name, of any realm: a Buffer is a Uint8Array.
+  assert.deepStrictEqual(infer([Buffer.from([1, 2]), new Uint8Array(0)]), 'bytes');
   both([Buffer.from([1, 2])]);
+  assert.deepStrictEqual(infer([new Int8Array([1, 2])]), { object: { string: 'integer' } });
+  assert.deepStrictEqual(infer([{ a: new Uint8Array(1) }, { a: 'x' }]), {
+    Struct: {},
+    a: { union: ['string', 'bytes'] },
+  });
   // A fake Date, Set or Map is a record.
   assert.deepStrictEqual(infer([{ constructor: { name: 'Date' } }]), {
     Struct: {},

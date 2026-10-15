@@ -9,7 +9,7 @@ const warning = (code, text) => `Warning [${code}]: ${text}`;
 
 // The types no converter of coercion exists for: a value of them is taken
 // as it is.
-const NEVER_CONVERTED = new Set(['any', 'unknown', 'json', 'null']);
+const NEVER_CONVERTED = new Set(['any', 'unknown', 'json', 'null', 'flags']);
 
 // A `coerce` key where no conversion can happen: a reference checked as an
 // id (the record it names is never entered), a type that takes any value.

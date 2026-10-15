@@ -116,6 +116,25 @@ test('Sample: a number of decimals is drawn with them, inside its bounds', () =>
   }
 });
 
+test('Sample: bytes and flags', () => {
+  const schema = Schema.from({ data: 'bytes', perms: { flags: ['read', 'write'] } });
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const value = sample(schema, { seed });
+    assert.strictEqual(schema.check(value).valid, true, `seed ${seed}`);
+    assert.strictEqual(value.data instanceof Uint8Array, true);
+    assert.strictEqual(value.data.length <= 16, true);
+    for (const name of Object.keys(value.perms)) seen.add(`${name}:${value.perms[name]}`);
+  }
+  assert.deepStrictEqual(Array.from(seen).sort(), [
+    'read:false',
+    'read:true',
+    'write:false',
+    'write:true',
+  ]);
+  assert.deepStrictEqual(sample(schema, { seed: 7 }), sample(schema, { seed: 7 }));
+});
+
 test('Sample: the same seed gives the same value, another seed another one', () => {
   const schema = Schema.from({ name: 'string', n: 'number', tags: { array: 'string' } });
   assert.deepStrictEqual(sample(schema, { seed: 5 }), sample(schema, { seed: 5 }));

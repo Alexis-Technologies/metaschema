@@ -77,6 +77,24 @@ test('Types: the same table registers twice, a different definition does not', (
   assert.strictEqual(updated.types.money.metadata.pg, 'numeric');
 });
 
+test('Types: bytes and flags are built in, so a table of its own for them is refused', () => {
+  // What protoarray 1.2 gave a model for the two before they were built in.
+  const table = {
+    bytes: { kind: 'scalar', construct() {}, checkType: (value) => value instanceof Uint8Array },
+    flags: { kind: 'scalar', construct() {}, checkType: () => null },
+  };
+  for (const name of ['bytes', 'flags']) {
+    assert.throws(() => new Model({ [name]: table[name] }, []), {
+      code: 'ERR_TYPE_REGISTERED',
+      message: `Type "${name}" is already registered; only { metadata } may be added`,
+    });
+  }
+  const model = new Model({ bytes: { metadata: { pg: 'bytea' } } }, [], null, {
+    registry: 'isolated',
+  });
+  assert.strictEqual(model.types.bytes.metadata.pg, 'bytea');
+});
+
 test('Types: js must name a registered type, built-in or custom', () => {
   assert.throws(() => new Model({ bad: { js: 'strng' } }, []), {
     name: 'SchemaDefinitionError',

@@ -843,6 +843,10 @@ const RULES = [
   ['enum values added', { a: { enum: ['x'] } }, { a: { enum: ['x', 'y'] } }, 'backward'],
   ['enum values removed', { a: { enum: ['x', 'y'] } }, { a: { enum: ['x'] } }, 'forward'],
   ['enum values replaced', { a: { enum: ['x'] } }, { a: { enum: ['y'] } }, 'none'],
+  ['flags added', { a: { flags: ['x'] } }, { a: { flags: ['x', 'y'] } }, 'backward'],
+  ['flags removed', { a: { flags: ['x', 'y'] } }, { a: { flags: ['x'] } }, 'forward'],
+  ['flags replaced', { a: { flags: ['x'] } }, { a: { flags: ['y'] } }, 'none'],
+  ['bytes for a string', { a: 'string' }, { a: 'bytes' }, 'none'],
   ['a validate added', { a: 'string' }, { a: { type: 'string', validate: () => true } }, 'forward'],
   [
     'a validate removed',

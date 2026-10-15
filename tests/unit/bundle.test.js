@@ -244,6 +244,22 @@ const checkBundle = async (
     'Field "tags[1]" not of expected type: string',
   ]);
   assert.strictEqual(fast.check({ name: 'x', tags: [] }).valid, true);
+  // Bytes of this realm in the bundle's, flags and decimals, compiled or not.
+  const binary = Schema.from({
+    data: 'bytes',
+    perms: { flags: ['read'] },
+    price: { type: 'number', decimals: 2 },
+  });
+  compile.compile(binary);
+  assert.strictEqual(
+    binary.check({ data: new Uint8Array(1), perms: { read: true }, price: 0.1 + 0.2 }).valid,
+    true,
+  );
+  assert.deepStrictEqual(errorsOf(binary.check({ data: [1], perms: { x: true }, price: 0.123 })), [
+    'Field "data" not of expected type: bytes',
+    'Field "perms" has unexpected keys: x',
+    'Field "price" has more than 2 decimals',
+  ]);
   const flat = Schema.from({ name: 'string', age: 'number' });
   assert.deepStrictEqual(errorsOf(flat.check({ name: 1, age: 'x' })), [
     'Field "name" not of expected type: string',

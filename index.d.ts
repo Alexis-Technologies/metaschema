@@ -824,6 +824,7 @@ type ScalarName =
   | 'bigint'
   | 'boolean'
   | 'date'
+  | 'bytes'
   | 'null'
   | 'any'
   | 'unknown'
@@ -839,6 +840,7 @@ type CompoundName =
   | 'tuple'
   | 'union'
   | 'schema'
+  | 'flags'
   | 'one'
   | 'many';
 
@@ -854,15 +856,17 @@ type ScalarOf<N extends string> = N extends 'string'
         ? boolean
         : N extends 'date'
           ? Date
-          : N extends 'null'
-            ? null
-            : N extends 'any'
-              ? any
-              : N extends 'unknown' | 'json'
-                ? unknown
-                : N extends keyof CustomTypes
-                  ? CustomTypes[N]
-                  : unknown;
+          : N extends 'bytes'
+            ? Uint8Array
+            : N extends 'null'
+              ? null
+              : N extends 'any'
+                ? any
+                : N extends 'unknown' | 'json'
+                  ? unknown
+                  : N extends keyof CustomTypes
+                    ? CustomTypes[N]
+                    : unknown;
 
 // Whether the first character is an uppercase letter: a reference when it is
 // the first character of a type name, a kind when it is the first of a key.
@@ -1036,13 +1040,17 @@ type TypeOf<N extends string, D, E, M extends Mode> =
                         ? D extends { many: infer T extends string }
                           ? Referenced<T, EmbedOf<D>, E, M>[]
                           : unknown
-                        : N extends keyof CustomTypes
-                          ? CustomTypes[N]
-                          : N extends ScalarName
-                            ? ScalarOf<N>
-                            : D extends { schema: infer S extends object }
-                              ? Value<S, E, M>
-                              : unknown;
+                        : N extends 'flags'
+                          ? D extends { flags: readonly (infer F extends string)[] }
+                            ? { [K in F]?: boolean }
+                            : Record<string, boolean>
+                          : N extends keyof CustomTypes
+                            ? CustomTypes[N]
+                            : N extends ScalarName
+                              ? ScalarOf<N>
+                              : D extends { schema: infer S extends object }
+                                ? Value<S, E, M>
+                                : unknown;
 
 // On the output side a decoder (`parse`) gives the value of its field; a
 // promise of one is awaited.
@@ -1082,7 +1090,9 @@ type Shorthand<D, E, M extends Mode> = D extends { array: unknown }
                   ? LongForm<'one', D, E, M>
                   : D extends { many: string }
                     ? LongForm<'many', D, E, M>
-                    : Decoded<Struct<D, E, M>, D, M>;
+                    : D extends { flags: readonly string[] }
+                      ? LongForm<'flags', D, E, M>
+                      : Decoded<Struct<D, E, M>, D, M>;
 
 // What is not a field of a struct: a function (a calculated field, or the
 // schema-level validate/parse/serialize/format) and an index definition.
@@ -1255,6 +1265,7 @@ type IsShorthand<D> = D extends { array: unknown }
         | { schema: object }
         | { one: string }
         | { many: string }
+        | { flags: readonly string[] }
     ? true
     : false;
 

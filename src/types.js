@@ -6,6 +6,7 @@ const { schema } = require('./prototypes/schema.js');
 const { tuple } = require('./prototypes/tuple.js');
 const { union } = require('./prototypes/union.js');
 const { json } = require('./prototypes/json.js');
+const { flags } = require('./prototypes/flags.js');
 const { SchemaDefinitionError } = require('./errors.js');
 const { firstKey, isFirstUpper } = require('./metautil.js');
 
@@ -19,6 +20,7 @@ const PROTOTYPES = {
   tuple,
   union,
   json,
+  flags,
 };
 
 const customTypeError = (name, reason) =>

@@ -80,6 +80,21 @@ const toText = (value) => {
   return type === 'bigint' || type === 'boolean' ? String(value) : value;
 };
 
+// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
+// leaves unused at zero, so that one text is one value; what a decoder
+// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
+// the check. One quantum after another: linear.
+const BASE64 =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?$/;
+
+const toBytes = (value) => {
+  if (typeof value !== 'string' || value === '' || !BASE64.test(value)) return value;
+  const text = atob(value);
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index += 1) bytes[index] = text.charCodeAt(index);
+  return bytes;
+};
+
 const isPrimitive = (value) => {
   const type = typeof value;
   return type === 'number' || type === 'boolean' || type === 'bigint';
@@ -168,6 +183,7 @@ const BUILT_IN = {
   bigint: toBigint,
   boolean: toBoolean,
   date: toDate,
+  bytes: toBytes,
   enum: toEnum,
   array: toArray,
   set: toSet,

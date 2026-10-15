@@ -24,6 +24,17 @@ const isSet = iterableNamed('Set');
 const isDate = (value) =>
   value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
 
+// The bytes of a Uint8Array of any realm, a Buffer included, by the name the
+// engine keeps in the view itself: the tag getter of the typed arrays reads
+// that slot and gives undefined for anything else, which a key or a symbol
+// of the value cannot change.
+const TYPED_TAG = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  Symbol.toStringTag,
+).get;
+
+const isBytes = (value) => TYPED_TAG.call(value) === 'Uint8Array';
+
 // A JavaScript identifier: what generated code may write as `object.key` and
 // a TypeScript declaration as a bare name.
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -95,6 +106,7 @@ module.exports = {
   isMap,
   isSet,
   isDate,
+  isBytes,
   IDENTIFIER,
   define,
   RUN,

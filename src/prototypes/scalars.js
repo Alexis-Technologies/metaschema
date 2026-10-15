@@ -1,6 +1,6 @@
 const { SchemaDefinitionError } = require('../errors.js');
 const { issues } = require('../issues.js');
-const { ENUM_SET_SIZE, isDate } = require('../util.js');
+const { ENUM_SET_SIZE, isDate, isBytes } = require('../util.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
@@ -93,6 +93,25 @@ const date = {
   },
 };
 
+// A Uint8Array of any realm, a Buffer included: the value of binary data,
+// base64 text on a JSON wire.
+const bytes = {
+  kind: 'scalar',
+  scalar: 'bytes',
+  options: [],
+
+  construct() {},
+
+  compile() {
+    const { required } = this;
+    return (value, context, key) => {
+      if (isBytes(value)) return;
+      if (!required && value == null) return;
+      issues.type(context, 'bytes', value, key);
+    };
+  },
+};
+
 const nothing = {
   kind: 'scalar',
   scalar: 'null',
@@ -150,6 +169,7 @@ module.exports = {
   bigint,
   boolean,
   date,
+  bytes,
   null: nothing,
   any,
   unknown,

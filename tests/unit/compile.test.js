@@ -1325,6 +1325,29 @@ test('Compile: decimals on both backends', () => {
   ]);
 });
 
+test('Compile: bytes and flags on both backends', () => {
+  const vm = require('node:vm');
+  const schema = new Schema('Binary', {
+    data: 'bytes',
+    'thumb?': { type: 'bytes', nullable: true },
+    perms: { flags: ['read', 'write', 'constructor'] },
+    'beta?': {
+      type: 'flags',
+      flags: ['on'],
+      validate: (value) => value.on !== false || 'is off',
+    },
+  });
+  equivalent(schema, [
+    { data: new Uint8Array(2), perms: { read: true } },
+    { data: Buffer.from('a'), thumb: null, perms: {}, beta: { on: true } },
+    { data: vm.runInNewContext('new Uint8Array(1)'), perms: { constructor: true }, beta: {} },
+    { data: [1], thumb: 'x', perms: { read: 1, admin: true, write: 'y', x: 0 }, beta: [] },
+    { data: new Int8Array(1), perms: { toString: true }, beta: { on: false } },
+    { data: null, perms: null, beta: { on: 1, off: true } },
+    { data: 'AQI=', perms: Object.assign(Object.create({ read: 1 }), { write: true }) },
+  ]);
+});
+
 test('Compile: compiled() says which backend a schema runs on', () => {
   const schema = Schema.from({ name: 'string' });
   assert.strictEqual(isCompiled(schema), false);

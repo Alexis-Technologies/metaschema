@@ -118,6 +118,20 @@ const bigintOf = (state, field) => {
   return low + BigInt(int(state, Number(span)));
 };
 
+// Up to sixteen random bytes.
+const bytesOf = (state) => {
+  const bytes = new Uint8Array(int(state, 16));
+  for (let index = 0; index < bytes.length; index += 1) bytes[index] = int(state, 255);
+  return bytes;
+};
+
+// Every name of a flags field present half the time, each true or false.
+const flagsOf = (state, field) => {
+  const out = {};
+  for (const name of field.flags) if (state.random() < 0.5) out[name] = state.random() < 0.5;
+  return out;
+};
+
 const idOf = (state, name) => `${name.toLowerCase()}-${int(state, 0xffff).toString(16)}`;
 
 const keyOf = (state, index, numeric) =>
@@ -268,6 +282,10 @@ const draw = (state, field, key) => {
       return state.random() < 0.5;
     case 'date':
       return new Date(1_600_000_000_000 + Math.floor(state.random() * 100_000_000_000));
+    case 'bytes':
+      return bytesOf(state);
+    case 'flags':
+      return flagsOf(state, field);
     case 'null':
       return null;
     case 'any':

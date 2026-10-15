@@ -200,6 +200,7 @@ that adds one.
 | `enum` values added | `backward` | new data may hold them |
 | `enum` values removed | `forward` | old data may hold them |
 | values added and removed | `none` | |
+| names of `flags` added, removed, or both | `backward`, `forward`, `none` | as the values of an enum |
 | a `validate` added (a field's, a struct's, the schema's) | `forward` | it may reject old data |
 | a `validate` removed | `backward` | |
 | a `parse` or `serialize` added, removed or changed | `full` | the wire format is the same |

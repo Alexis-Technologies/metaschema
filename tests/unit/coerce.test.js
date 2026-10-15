@@ -84,6 +84,7 @@ test('Coerce: register() fills the table once, and only with converters of types
     'bigint',
     'boolean',
     'date',
+    'bytes',
     'enum',
     'array',
     'set',
@@ -210,6 +211,45 @@ test('Coerce: what each built-in converter reads, and what it leaves to the chec
       }
     }
   }
+});
+
+test('Coerce: bytes from canonical base64 only', () => {
+  register();
+  const schema = Schema.from({ data: 'bytes' });
+  const read = (data) => {
+    const result = schema.parse({ data }, { coerce: true });
+    return result.valid ? Array.from(result.value.data) : result.issues[0].code;
+  };
+  assert.deepStrictEqual(read('QQ=='), [65]);
+  assert.deepStrictEqual(read('QUI='), [65, 66]);
+  assert.deepStrictEqual(read('QUJD'), [65, 66, 67]);
+  assert.deepStrictEqual(read('AAAAAAAA'), [0, 0, 0, 0, 0, 0]);
+  assert.deepStrictEqual(read('/+8='), [255, 239]);
+  // What a decoder would forgive is left to the check: the bits the padding
+  // leaves unused, the padding itself, whitespace, the URL alphabet, ''.
+  for (const text of [
+    '',
+    'QR==',
+    'QUJ=',
+    'QQ',
+    'QQ=',
+    'Q===',
+    'QUJD\n',
+    ' QUJD',
+    '_-8=',
+    'QU JD',
+  ]) {
+    assert.strictEqual(read(text), 'type', JSON.stringify(text));
+  }
+  // A view already is bytes; another value is the check's.
+  const bytes = new Uint8Array([1]);
+  assert.strictEqual(schema.parse({ data: bytes }, { coerce: true }).value.data, bytes);
+  assert.strictEqual(read(7), 'type');
+  // Linear on hostile text.
+  const started = Date.now();
+  assert.strictEqual(read(`${'A'.repeat(1_000_000)}!`), 'type');
+  assert.strictEqual(read(`${'AAAA'.repeat(250_000)}A===`), 'type');
+  assert.ok(Date.now() - started < 1000);
 });
 
 test('Coerce: enums, collections and maps', () => {

@@ -58,7 +58,7 @@ const mergeLength = (a, b, path) => {
   return length;
 };
 
-const mergeEnum = (a, b, path) => {
+const mergeEnum = (a, b, path, what = 'enums') => {
   const values = [];
   for (const value of a) {
     for (const other of b) {
@@ -68,7 +68,7 @@ const mergeEnum = (a, b, path) => {
       }
     }
   }
-  if (values.length === 0) throw conflict('The enums have no value in common', path);
+  if (values.length === 0) throw conflict(`The ${what} have no value in common`, path);
   return values;
 };
 
@@ -101,6 +101,8 @@ const mergeKey = (key, a, b, path) => {
       return a < b ? a : b;
     case 'enum':
       return mergeEnum(a, b, path);
+    case 'flags':
+      return mergeEnum(a, b, path, 'flags');
     case 'validate':
       return compose(a, b);
     case 'aliases':

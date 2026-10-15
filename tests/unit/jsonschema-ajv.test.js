@@ -3,7 +3,7 @@
 // `toJSONSchema` must agree on validity, for draft 2020-12 and draft-07.
 //
 // What the generator leaves out on purpose, because the two cannot agree:
-// - `date`, `set`, `map` and `bigint`: a JSON value has no instance of them,
+// - `date`, `set`, `map`, `bigint` and `bytes`: a JSON value has no instance of them,
 //   so `check` rejects what the input document describes (a date-time string,
 //   an array of unique items, an object);
 // - astral characters: `length` counts UTF-16 units unless the field says
@@ -11,6 +11,8 @@
 // - an `object` or `map` with number keys: the keys of a JSON object are
 //   strings, so `check` rejects every key where the pattern accepts a number;
 // - `validate` functions and custom `checkType`s, which are not exported;
+// - `decimals`: ajv divides by `multipleOf`, so a sum such as 0.1 + 0.2 is
+//   not a multiple of 0.01 to it, while `check` allows the error of the sum;
 // - `format`: the formats subpath and ajv-formats draw the line between a
 //   valid and an invalid email or uri at different places (the subpath has
 //   its own table of values, cross-checked with ajv-formats);
@@ -100,6 +102,7 @@ class Generator {
     const { type } = field;
     if (isFirstUpper(type)) return this.reference(field, depth);
     if (field.enum) return this.chance(0.9) ? this.pick(field.enum) : 'nope';
+    if (field.flags) return this.flags(field);
     if (field.union) return this.value(this.pick(field.union), depth);
     if (field.schema) return this.struct(field.schema, depth);
     if (Array.isArray(field.value)) return this.tuple(field, depth);
@@ -119,6 +122,16 @@ class Generator {
       default:
         return this.pick([null, 'any', 7, { x: 1 }, [true]]);
     }
+  }
+
+  // Some of the names, mostly booleans, now and then a name of no list.
+  flags(field) {
+    const value = {};
+    for (const name of field.flags) {
+      if (this.chance(0.5)) value[name] = this.chance(0.95) ? this.chance(0.5) : 1;
+    }
+    if (this.chance(0.05)) value.other = true;
+    return value;
   }
 
   // A number within the bounds of the field most of the time.
@@ -246,6 +259,19 @@ const differential = (name, schema, options = {}) => {
     });
   }
 };
+
+differential(
+  'flags, closed and open',
+  new Schema('Access', {
+    perms: { flags: ['read', 'write', 'admin'] },
+    'beta?': { type: 'flags', flags: ['on'], nullable: true },
+  }),
+);
+
+differential(
+  'flags of a schema that ignores unknown keys',
+  new Schema('Lenient', { Struct: { unknown: 'ignore' }, perms: { flags: ['read', 'write'] } }),
+);
 
 differential(
   'scalars and rules',

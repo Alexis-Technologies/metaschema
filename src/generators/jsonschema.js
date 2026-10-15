@@ -248,6 +248,18 @@ const dictionary = (field, context) => {
   return json;
 };
 
+// A flags value: a boolean per name, every one optional (all of them
+// under the strict profile, which lists every property as required), no
+// other key when the document is closed.
+const flags = (field, context) => {
+  const properties = {};
+  for (const name of field.flags) define(properties, name, typed('boolean', context));
+  const json = { [context.key]: 'object', properties };
+  if (context.strict) json.required = field.flags.slice();
+  if (context.closed) json.additionalProperties = false;
+  return json;
+};
+
 const isJSON = (value) =>
   value === null || (typeof value !== 'object' && typeof value !== 'bigint');
 
@@ -374,6 +386,15 @@ const RENDER = Object.assign(Object.create(null), {
     if (context.input) return { type: 'string', format: 'date-time' };
     return unrepresentable(context, 'Type "date" (output)');
   },
+  // Binary data is base64 text on a JSON wire (the input `./coerce` reads
+  // back) and binData in MongoDB; the Uint8Array parse gives is no JSON.
+  bytes: (field, context) => {
+    if (context.mongo) return typed('binData', context);
+    if (!context.input) return unrepresentable(context, 'Type "bytes" (output)');
+    if (context.target.byte === true) return { type: 'string', format: 'byte' };
+    return { type: 'string', contentEncoding: 'base64' };
+  },
+  flags,
   null: (field, context) => typed('null', context),
   any: (field, context) => unconstrained(context, 'any') || {},
   unknown: (field, context) => unconstrained(context, 'unknown') || {},
