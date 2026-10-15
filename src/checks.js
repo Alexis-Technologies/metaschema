@@ -125,19 +125,28 @@ const compileFormat = (type) => {
 
 // A number of `n` decimals is a whole number times 10ⁿ, to within the error
 // the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
-// 256 units in the last place of the scaled value. A bound of 1e-9 of it
-// would let 12345678.123 pass as two decimals; this one tells a decimal too
-// many apart below 10¹² units of the last decimal (ten billion at two).
-// NaN and the infinities have no decimals to count.
-const NEAR = 256 * Number.EPSILON;
+// ULPS units in the last place of the scaled value. A few units is what a
+// sum or a product of decimals leaves; 256 is room for a chain of them, and
+// still tells a decimal too many apart below 2⁴³ units of the last decimal
+// (ten billion at two), where a bound of 1e-9 of the value would let
+// 12345678.123 pass as two decimals. Above it every double passes. NaN and
+// the infinities have no decimals to count.
+const ULPS = 256;
+const NEAR = ULPS * Number.EPSILON;
+
+// Whether a number has more decimals than `scale` (10ⁿ) allows: the one test
+// of both backends (the JIT calls it through the scope).
+const decimalsOff = (value, scale) => {
+  const scaled = value * scale;
+  const off = Math.abs(Math.round(scaled) - scaled) > NEAR * Math.max(1, Math.abs(scaled));
+  return off || !Number.isFinite(value);
+};
 
 const compileDecimals = (type) => {
   const { decimals } = type;
   const scale = 10 ** decimals;
   return (value, context, key) => {
-    const scaled = value * scale;
-    const off = Math.abs(Math.round(scaled) - scaled) > NEAR * Math.max(1, Math.abs(scaled));
-    if (off || !Number.isFinite(value)) issues.decimals(context, decimals, key);
+    if (decimalsOff(value, scale)) issues.decimals(context, decimals, key);
   };
 };
 
@@ -750,7 +759,7 @@ module.exports = {
   ruleNames,
   compileRules,
   patternLimit,
-  NEAR,
+  decimalsOff,
   codePoints,
   lengthOf,
   nameOf,

@@ -1325,6 +1325,20 @@ test('Compile: decimals on both backends', () => {
   ]);
 });
 
+test('Compile: the numbers of a rule reach the source as data', () => {
+  // A field is not frozen and its check is compiled on first use, so a rule
+  // changed after the schema was built reaches the emitter: it must be a
+  // literal or a name of the scope there, never text of the source.
+  const schema = new Schema('Rule', { n: { type: 'number', decimals: 2 } });
+  const payload = '2, void 0); globalThis.INJECTED = 1; (0';
+  schema.fields.n.decimals = payload;
+  delete globalThis.INJECTED;
+  compile(schema, JIT);
+  if (canEval()) assert.strictEqual(schema[RUN].toString().includes(quote(payload)), true);
+  assert.strictEqual(schema.check({ n: NaN }).valid, false);
+  assert.strictEqual(globalThis.INJECTED, undefined);
+});
+
 test('Compile: bytes and flags on both backends', () => {
   const vm = require('node:vm');
   const schema = new Schema('Binary', {

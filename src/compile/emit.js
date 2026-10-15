@@ -14,7 +14,7 @@ const { STRUCT, isStruct } = require('../struct.js');
 const collections = require('../prototypes/collections.js');
 const {
   COMPILE,
-  NEAR,
+  decimalsOff,
   codePoints,
   lengthOf,
   ruleNames,
@@ -114,17 +114,14 @@ const emitFormat = (type, x, key, state) => {
   code.push('}');
 };
 
-// The decimals of a number, by the tolerance of rules.js.
+// The decimals of a number, by the test of checks.js (`decimalsOff`); the
+// numbers of the rule reach the source as literals of `code.value`, never as
+// the text of the field.
 const emitDecimals = (type, x, key, state) => {
   const { code } = state;
   const { decimals } = type;
-  const scaled = code.name('d');
-  code.push(`const ${scaled} = ${x} * ${10 ** decimals};`);
-  const near = `${code.value(NEAR)} * Math.max(1, Math.abs(${scaled}))`;
-  code.push(
-    `if (Math.abs(Math.round(${scaled}) - ${scaled}) > ${near} || !Number.isFinite(${x})) {`,
-  );
-  record(state, issue(state, 'decimals', `${decimals}, ${keyOf(key)}`));
+  code.push(`if (${code.ref(decimalsOff)}(${x}, ${code.value(10 ** decimals)})) {`);
+  record(state, issue(state, 'decimals', `${code.value(decimals)}, ${keyOf(key)}`));
   code.push('}');
 };
 

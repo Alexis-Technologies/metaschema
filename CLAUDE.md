@@ -228,7 +228,7 @@ src/
   checks.js         the checks of the types: COMPILE (the type check of each built-in by name, the identity
                     codec.js and emit.js dispatch on), custom (a checkType through the validator contract),
                     compileField (rules, validate, nullable around it), checkOf/aliasOf (the struct loop),
-                    compileRules/ruleNames/patternLimit/NEAR/codePoints/lengthOf, nameOf/tableOf (unions)
+                    compileRules/ruleNames/patternLimit/decimalsOff/codePoints/lengthOf, nameOf/tableOf (unions)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata, idFieldOf (the one rule
                     of the id field a stored kind adds, read by derive, mongodb and the generators)
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
@@ -355,7 +355,7 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 - `compile/code.js` requires `util` (`IDENTIFIER`); `compile/emit.js` requires `util`
   (`ENUM_SET_SIZE`, `isBytes`), `issues`, `rules` (`formatOf`), `struct` (`STRUCT`,
   `isStruct`), `prototypes/collections` (`set.isInstance`), `checks` (`COMPILE` for the
-  identity of the type checks, `NEAR`, `codePoints`, `lengthOf`, `ruleNames`, `patternLimit`,
+  identity of the type checks, `decimalsOff`, `codePoints`, `lengthOf`, `ruleNames`, `patternLimit`,
   `nameOf`, `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
   `validation.js`, `errors` and the two. Nothing in the core requires `compile/`.
 - `generators/fromjsonschema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
@@ -1228,7 +1228,8 @@ change. **This file wins** if they ever disagree.
   `ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
   reference reaches the original entity is such a case.
 - **`decimals` accepts the error of a sum and rejects a decimal too many below 10¹² units.**
-  The tolerance is 256 ulps of the scaled value (`NEAR` of `checks.js`); the plan's 1e-9 of
+  The tolerance is 256 ulps of the scaled value (`ULPS` and `decimalsOff` of `checks.js`, the
+  one test of both backends); the plan's 1e-9 of
   the value would accept `12345678.123` as two decimals. A value large enough that every double
   is a whole number at that scale passes; NaN and the infinities are `decimals` issues. ajv
   divides by `multipleOf`, so the differential test leaves `decimals` out.
