@@ -1,0 +1,285 @@
+{
+  "listing": {
+    "format": 1,
+    "root": "Listing",
+    "database": null,
+    "types": {
+      "cents": {
+        "js": "number",
+        "metadata": {
+          "pg": "bigint"
+        }
+      }
+    },
+    "entities": {
+      "Owner": {
+        "kind": "entity",
+        "scope": "application",
+        "store": "persistent",
+        "allow": "write",
+        "parent": "",
+        "unknown": "reject",
+        "custom": {},
+        "fields": {
+          "name": {
+            "type": "string",
+            "required": true
+          },
+          "best": {
+            "type": "Pet",
+            "required": false,
+            "one": "Pet"
+          },
+          "ownerId": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "indexes": {},
+        "relations": [
+          {
+            "to": "Pet",
+            "type": "many-to-one"
+          }
+        ]
+      },
+      "Pet": {
+        "kind": "struct",
+        "scope": "local",
+        "store": "memory",
+        "allow": "write",
+        "parent": "",
+        "unknown": "reject",
+        "custom": {},
+        "fields": {
+          "name": {
+            "type": "string",
+            "required": true
+          },
+          "owner": {
+            "type": "Owner",
+            "required": false,
+            "embed": true,
+            "one": "Owner"
+          },
+          "mate": {
+            "type": "Pet",
+            "required": false,
+            "one": "Pet"
+          }
+        },
+        "indexes": {},
+        "relations": [
+          {
+            "to": "Owner",
+            "type": "many-to-one"
+          },
+          {
+            "to": "Pet",
+            "type": "many-to-one"
+          }
+        ]
+      },
+      "Listing": {
+        "kind": "entity",
+        "scope": "application",
+        "store": "persistent",
+        "allow": "write",
+        "parent": "",
+        "unknown": "reject",
+        "custom": {
+          "audit": true
+        },
+        "fields": {
+          "title": {
+            "type": "string",
+            "required": true,
+            "length": {
+              "max": 40
+            },
+            "pattern": "^\\S"
+          },
+          "price": {
+            "type": "number",
+            "required": true,
+            "decimals": 2,
+            "min": 0
+          },
+          "cents": {
+            "type": "cents",
+            "required": false
+          },
+          "photo": {
+            "type": "bytes",
+            "required": false,
+            "default": {
+              "$bytes": "AP8="
+            }
+          },
+          "flags": {
+            "type": "flags",
+            "required": true,
+            "default": {
+              "featured": false
+            },
+            "flags": ["featured", "sold"]
+          },
+          "tags": {
+            "type": "set",
+            "required": true,
+            "default": {
+              "$set": ["new"]
+            },
+            "value": {
+              "type": "string",
+              "required": true
+            }
+          },
+          "prices": {
+            "type": "map",
+            "required": true,
+            "default": {
+              "$map": [["eur", 1]]
+            },
+            "key": "string",
+            "value": {
+              "type": "number",
+              "required": true
+            }
+          },
+          "listed": {
+            "type": "date",
+            "required": true,
+            "default": {
+              "$date": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "point": {
+            "type": "tuple",
+            "required": true,
+            "value": [
+              {
+                "type": "number",
+                "required": true
+              },
+              {
+                "type": "number",
+                "required": true
+              }
+            ]
+          },
+          "pet": {
+            "type": "Pet",
+            "required": true,
+            "one": "Pet"
+          },
+          "seller": {
+            "type": "Owner",
+            "required": true,
+            "one": "Owner"
+          },
+          "offer": {
+            "type": "union",
+            "required": true,
+            "discriminator": "kind",
+            "union": [
+              {
+                "type": "schema",
+                "required": true,
+                "schema": {
+                  "kind": {
+                    "type": "enum",
+                    "required": true,
+                    "enum": ["fixed"]
+                  },
+                  "amount": {
+                    "type": "number",
+                    "required": true
+                  }
+                }
+              },
+              {
+                "type": "schema",
+                "required": true,
+                "schema": {
+                  "kind": {
+                    "type": "enum",
+                    "required": true,
+                    "enum": ["auction"]
+                  },
+                  "ends": {
+                    "type": "date",
+                    "required": true
+                  }
+                }
+              }
+            ]
+          },
+          "related": {
+            "type": "Listing",
+            "required": false,
+            "many": "Listing"
+          },
+          "listingId": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "indexes": {
+          "byTitle": {
+            "index": ["title"]
+          }
+        },
+        "relations": [
+          {
+            "to": "Pet",
+            "type": "many-to-one"
+          },
+          {
+            "to": "Owner",
+            "type": "many-to-one"
+          },
+          {
+            "to": "Listing",
+            "type": "one-to-many"
+          }
+        ]
+      }
+    }
+  },
+  "category": {
+    "format": 1,
+    "root": "Category",
+    "database": null,
+    "types": {},
+    "entities": {
+      "Category": {
+        "kind": "struct",
+        "scope": "local",
+        "store": "memory",
+        "allow": "write",
+        "parent": "",
+        "unknown": "reject",
+        "custom": {},
+        "fields": {
+          "name": {
+            "type": "string",
+            "required": true
+          },
+          "parent": {
+            "type": "Category",
+            "required": false,
+            "one": "Category"
+          }
+        },
+        "indexes": {},
+        "relations": [
+          {
+            "to": "Category",
+            "type": "many-to-one"
+          }
+        ]
+      }
+    }
+  }
+}

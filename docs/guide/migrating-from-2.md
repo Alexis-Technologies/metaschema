@@ -73,8 +73,8 @@ require('@alexify/metaschema/generators').register();
 model.dts === toTypeScript(model); // true
 ```
 
-Nothing happens on import, and `register()` is idempotent. The subpath is 7.3 KB min+gzip on top
-of the core entry, which is 18.6 KB in 3.3 (17.7 KB in 3.2, 4.5 KB and 16.1 KB in 3.0) and carries no Node.js
+Nothing happens on import, and `register()` is idempotent. The subpath is 7.7 KB min+gzip on top
+of the core entry, which is 21.3 KB in 3.4 (18.6 KB in 3.3, 17.7 KB in 3.2, 4.5 KB and 16.1 KB in 3.0) and carries no Node.js
 runtime any more; the browser entry is the same. `toJSONSchema` is new (2.0 had no JSON Schema export), and so are the JSDoc and the
 `named` option of the rendering. See
 [The generators subpath](/guide/json-schema#the-generators-subpath) and

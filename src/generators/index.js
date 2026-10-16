@@ -6,7 +6,7 @@
 // programs that want the methods.
 const { hasBrand } = require('../util.js');
 const { invalidTarget } = require('../errors.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { Model } = require('../model.js');
 const { writeFile } = require('../runtime/node.js');
 const generators = require('./jsonschema.js');

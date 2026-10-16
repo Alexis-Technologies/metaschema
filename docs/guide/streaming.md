@@ -132,7 +132,7 @@ middle.
 `register()` installs the five functions as methods of `Schema`, non-enumerable, once per
 process: `schema.checkEach(rows, options)`, `schema.parseEach(rows, options)`,
 `schema.checkEachAsync(source, options)`, `schema.parseEachAsync(source, options)` and
-`schema.transform(options)`. The functions do the same without it. The subpath is 1.0 KB
+`schema.transform(options)`. The functions do the same without it. The subpath is 0.9 KB
 min+gzip on top of the core; the core entry does not carry it.
 
 ## Boundaries

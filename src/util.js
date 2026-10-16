@@ -24,6 +24,27 @@ const isSet = iterableNamed('Set');
 const isDate = (value) =>
   value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
 
+const isRegExp = (value) =>
+  value?.constructor?.name === 'RegExp' && typeof value.exec === 'function';
+
+// The bytes of a Uint8Array of any realm, a Buffer included, by the name the
+// engine keeps in the view itself: the tag getter of the typed arrays reads
+// that slot and gives undefined for anything else, which a key or a symbol
+// of the value cannot change.
+const TYPED_TAG = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype),
+  Symbol.toStringTag,
+).get;
+
+const isBytes = (value) => TYPED_TAG.call(value) === 'Uint8Array';
+
+// The type of a value as a message names it: an array and null by name.
+const typeOf = (value) => {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+};
+
 // A JavaScript identifier: what generated code may write as `object.key` and
 // a TypeScript declaration as a bare name.
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -50,6 +71,20 @@ const RUN = Symbol.for('alexify.metaschema.run');
 // program that registered it gets every later schema compiled. Nothing in the
 // core sets it, and it is read once per construction, never per check.
 const HOOK = Symbol.for('alexify.metaschema.hook');
+
+// What the validation half of the core keeps on a schema (`validation.js`),
+// set when the schema is built: whether the root value joins the cycle
+// detection (a struct with references), whether parse coerces unless the
+// call says otherwise (the `coerce` of the kind metadata), and the caches
+// of the passes of parse and of the Standard Schema props, rebuilt when the
+// namespaces change. Own symbols: none of it is part of the definition.
+const TRACKED = Symbol('tracked');
+const COERCES = Symbol('coerces');
+const CODEC = Symbol('codec');
+const STANDARD = Symbol('standard');
+// The recursive dependencies a model met while ordering its entities, as
+// [entity, reference] pairs: the validation half writes the warnings.
+const CYCLES = Symbol('cycles');
 
 // Past this many values an enum is checked through a Set instead of a chain
 // of comparisons, on both backends.
@@ -95,10 +130,18 @@ module.exports = {
   isMap,
   isSet,
   isDate,
+  isRegExp,
+  isBytes,
+  typeOf,
   IDENTIFIER,
   define,
   RUN,
   HOOK,
+  TRACKED,
+  COERCES,
+  CODEC,
+  STANDARD,
+  CYCLES,
   ENUM_SET_SIZE,
   shorten,
   safeString,

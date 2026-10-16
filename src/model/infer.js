@@ -8,8 +8,8 @@
 // against every sample, so that what comes back is a schema the samples
 // pass. The samples are input: the walk is bounded, no key is trusted, and
 // what no type describes is `any` rather than an error.
-const { define, IDENTIFIER, shorten } = require('../util.js');
-const { Schema } = require('../schema.js');
+const { define, IDENTIFIER, shorten, isBytes } = require('../util.js');
+const { Schema } = require('../validation.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
@@ -39,6 +39,7 @@ const RECORD = 2048;
 const BLANK = 4096;
 // A value no type describes but `any`: a function, a symbol, an invalid Date.
 const ANY = 8192;
+const BYTES = 16384;
 
 const PRESENCE = NULL | UNDEF;
 
@@ -136,7 +137,8 @@ const addItems = (target, items, state, depth) => {
 // One value into the summary of its place. The tests are the ones the
 // check makes (a Date by its constructor name and a valid time, a Set and a
 // Map by name, an integer by Number.isInteger, the keys of a record by
-// Object.keys), so what infer calls a date the check accepts as one.
+// Object.keys, bytes by the view's own name), so what infer calls a date
+// the check accepts as one.
 const add = (target, value, state, depth) => {
   target.count += 1;
   if (value === null) {
@@ -178,6 +180,10 @@ const add = (target, value, state, depth) => {
   if (Array.isArray(value)) {
     target.bits |= LIST;
     addItems(target, value, state, depth);
+    return;
+  }
+  if (isBytes(value)) {
+    target.bits |= BYTES;
     return;
   }
   const iterable = typeof value[Symbol.iterator] === 'function';
@@ -369,6 +375,7 @@ const formOf = (target, state) => {
   if (bits & BIGINT) forms.push({ def: 'bigint' });
   if (bits & STRING) forms.push(stringOf(target, state));
   if (bits & DATE) forms.push({ def: 'date' });
+  if (bits & BYTES) forms.push({ def: 'bytes' });
   if (bits & LIST) forms.push({ def: { array: itemOf(target.item, state) } });
   if (bits & SET) forms.push({ def: { set: itemOf(target.item, state) } });
   if (bits & MAP) forms.push(mapOf(target, state));

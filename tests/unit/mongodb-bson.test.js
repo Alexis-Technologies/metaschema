@@ -93,6 +93,58 @@ test('Mongodb: the converters of the BSON types are strict with the real driver'
   assert.strictEqual(schema.parse({ o: A }, { coerce: true }).value.o.toHexString(), A);
 });
 
+test('Mongodb: bytes go out as a Uint8Array and come back from a Binary', () => {
+  register({ bson });
+  const files = new Model({}, [
+    [
+      'File',
+      { Entity: {}, data: 'bytes', 'thumb?': 'bytes', parts: { array: 'bytes' }, tag: 'string' },
+    ],
+  ]);
+  const File = files.entities.get('File');
+  const value = {
+    fileId: A,
+    data: new Uint8Array([1, 2, 3]),
+    parts: [Buffer.from('ab'), new Uint8Array(0)],
+    tag: 'x',
+  };
+  const document = toDocument(File, value);
+  assert.strictEqual(document.data, value.data);
+  // The driver writes a Uint8Array as binData and reads it back as a Binary.
+  const stored = bson.deserialize(bson.serialize(document));
+  assert.strictEqual(stored.data instanceof bson.Binary, true);
+  const result = fromDocument(File, stored);
+  assert.strictEqual(result.valid, true);
+  assert.deepStrictEqual(Array.from(result.value.data), [1, 2, 3]);
+  assert.deepStrictEqual(Array.from(result.value.parts[0]), [97, 98]);
+  assert.strictEqual(result.value.parts[1].length, 0);
+  assert.strictEqual(result.value.fileId, A);
+  // A Binary where the field is no bytes is left for the check.
+  const wrong = fromDocument(File, { ...stored, tag: stored.data });
+  assert.deepStrictEqual(
+    wrong.issues.map((issue) => issue.path),
+    [['tag']],
+  );
+  const { toJSONSchema } = require('../../src/generators/index.js');
+  assert.deepStrictEqual(toJSONSchema(File, { target: 'mongodb' }).properties.data, {
+    bsonType: 'binData',
+  });
+  // The bytes are a copy, not a view of the memory the driver read into.
+  assert.notStrictEqual(result.value.data.buffer, stored.data.buffer.buffer);
+  assert.strictEqual(result.value.data.buffer.byteLength, 3);
+  // The old generic subtype is bytes too; a UUID (subtype 4) is not, so that
+  // it is never written back as generic binary data.
+  const old = new bson.Binary(new Uint8Array([7, 8]), 2);
+  const read = (data) =>
+    fromDocument(File, bson.deserialize(bson.serialize({ ...document, data })));
+  assert.deepStrictEqual(Array.from(read(old).value.data), [7, 8]);
+  const uuid = new bson.UUID();
+  assert.deepStrictEqual(
+    read(uuid).issues.map((issue) => [issue.code, issue.path]),
+    [['type', ['data']]],
+  );
+});
+
 test('Mongodb: a document with real ObjectIds round-trips', () => {
   register({ bson });
   const value = { accountId: A, login: 'ann', company: B };

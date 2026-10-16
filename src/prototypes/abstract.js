@@ -1,12 +1,20 @@
 const { BRAND, INSPECT } = require('../util.js');
-const { FORMAT, notApplicable, compileRules } = require('../rules.js');
-const { runValidate, runCheckType } = require('../issues.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { FORMAT, checkBounds, notApplicable } = require('../rules.js');
+const { SchemaDefinitionError, noValidation } = require('../errors.js');
 
 // Keys of a field definition become properties of the field, so a key that
 // names one of its methods (or the prototype itself) would replace it. The
-// methods of the type contract are reserved whether the type has them or not.
-const RESERVED = new Set(['__proto__', 'prototype', 'check', 'checkType', 'compile', 'construct']);
+// methods of the type contract are reserved whether the type has them or
+// not, and so is `root`, the schema the field belongs to.
+const RESERVED = new Set([
+  '__proto__',
+  'prototype',
+  'check',
+  'checkType',
+  'compile',
+  'construct',
+  'root',
+]);
 
 const reservedKey = (key) =>
   new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
@@ -30,37 +38,16 @@ const checkCodecs = (type) => {
   }
 };
 
-// A nullable field accepts null in place of a value of its type, whatever
-// its rules; `required` still says whether the key must be there.
-const nullable = (inner) => (value, context, key) => {
-  if (value === null) return;
-  inner(value, context, key);
-};
-
-// The check of a field with rules or a validate function: the type check,
-// then the rules, then the validate function. A type failure cancels the
-// rest (a length or a validator makes no sense for a value of another type),
-// and validate runs only on a value that passed everything before it, so it
-// can rely on the type and the rules. A field with neither is its type check
-// alone.
-const withRules = (type, inner, rules) => {
-  const { required, validate } = type;
-  return (value, context, key) => {
-    if (value == null && !required) return;
-    const before = context.count;
-    inner(value, context, key);
-    if (context.count !== before) return;
-    for (let index = 0; index < rules.length; index += 1) {
-      if (context.count >= context.limit) break;
-      rules[index](value, context, key);
-    }
-    if (validate && context.count === before) {
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      runValidate(type, validate, value, context);
-      if (nested) context.path.pop();
-    }
-  };
+// What builds the checks of a schema and of its fields on their first use:
+// the validation half of the core installs them (`validation.js`), and a
+// schema built through `./definition` alone says that it cannot validate.
+const BUILD = {
+  field() {
+    throw noValidation('check');
+  },
+  schema() {
+    throw noValidation('check');
+  },
 };
 
 class AbstractType {
@@ -69,9 +56,11 @@ class AbstractType {
   static rules = new Set();
   static options = new Set();
 
-  // The compiled check of the field: a closure built once from the field,
-  // kept out of its definition (toJSON, util.inspect) as a private field.
-  #check;
+  // The compiled check of the field: a closure built from the field on the
+  // first use of `check`, kept out of its definition (toJSON, util.inspect)
+  // as a private field. A schema that is only read (rendered, written as a
+  // snapshot) never compiles one.
+  #check = undefined;
 
   constructor(def, preprocessor) {
     this.root = preprocessor.root;
@@ -86,43 +75,22 @@ class AbstractType {
         continue;
       }
       if (!rules.has(key)) throw notApplicable(key, this.type, rules);
-      this[key] = format(value);
+      this[key] = format(value, this);
     }
+    checkBounds(this);
     this.construct(def, preprocessor);
     if (this.type) this.root.references.add(this.type);
     for (const key of FLAGS) {
       if (this[key] !== undefined && typeof this[key] !== 'boolean') throw invalidFlag(key);
     }
     checkCodecs(this);
-    // The rule checks that apply to this field, compiled once: a field
-    // without rules is its type check alone, and check is the hot path.
-    const checks = compileRules(this);
-    const inner = this.compile();
-    const plain = checks.length === 0 && !this.validate;
-    const check = plain ? inner : withRules(this, inner, checks);
-    this.#check = this.nullable === true ? nullable(check) : check;
   }
 
   // Records the problems of a value into the context of the current check,
   // under `key` when the field is reached through one.
   get check() {
+    if (this.#check === undefined) this.#check = BUILD.field(this);
     return this.#check;
-  }
-
-  // The type check of a field, as a closure built once from the field. A
-  // built-in prototype compiles its own; a custom type has a
-  // `checkType(value, path)` that returns messages, run through the
-  // validator contract.
-  compile() {
-    const type = this;
-    const { required } = this;
-    return (value, context, key) => {
-      if (value == null && !required) return;
-      const nested = key !== undefined;
-      if (nested) context.path.push(key);
-      runCheckType(type, value, context);
-      if (nested) context.path.pop();
-    };
   }
 
   toJSON() {
@@ -137,4 +105,4 @@ class AbstractType {
 
 AbstractType.prototype[BRAND] = 'Type';
 
-module.exports = { AbstractType };
+module.exports = { AbstractType, BUILD };

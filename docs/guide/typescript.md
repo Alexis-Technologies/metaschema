@@ -45,7 +45,9 @@ type User = Infer<typeof definition>; // { name: string; role: 'admin' | 'user' 
 | `'string'`, `'number'`, `'boolean'`, `'bigint'` | the scalar |
 | `'integer'` | `number` |
 | `'date'`, `'null'`, `'any'`, `'unknown'` | `Date`, `null`, `any`, `unknown` |
+| `'bytes'` | `Uint8Array` |
 | `'json'` | `unknown` |
+| `{ flags: ['read', 'write'] }` | `{ read?: boolean; write?: boolean }` |
 | `'?T'`, `{ type: 'T', required: false }` | `T \| null \| undefined`; in a struct, an optional property |
 | `'key?': 'T'` | an optional property: `key?: T \| null \| undefined` |
 | `{ type: 'T', nullable: true }` | `T \| null` |
@@ -223,6 +225,8 @@ Rules of the conversion:
 | `'string'`, `'number'`, `'boolean'`, `'bigint'`, and aliases of them (`{ js: 'string' }`) | the same scalar |
 | `'integer'` | `number` |
 | `'date'`, `'null'`, `'any'`, `'unknown'` | `Date`, `null`, `any`, `unknown` |
+| `'bytes'` | `Uint8Array` |
+| `{ flags: ['read', 'write'] }` | `{ read?: boolean; write?: boolean }` |
 | `{ union: [A, B] }` | `A \| B` |
 | `{ enum: ['open', 'done'] }` | `"open" \| "done"` |
 | `{ array: T }` | `T[]` |

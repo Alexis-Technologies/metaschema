@@ -274,6 +274,26 @@ test('Evolution: fromJSON locates what a snapshot cannot say', () => {
     { A: struct({ d: field('date', { default: { $date: 'junk' } }) }) },
     { message: '"junk" is not a date in "A.d.default"' },
   );
+  fails(
+    { A: struct({ b: field('bytes', { default: { $bytes: 'QQ=' } }) }) },
+    { message: '"QQ=" is not base64 in "A.b.default"' },
+  );
+  fails(
+    {
+      A: struct({
+        m: field('map', { key: 'string', value: field('number'), default: { $map: [['x']] } }),
+      }),
+    },
+    { message: 'An entry of a map needs a key and a value in "A.m.default"' },
+  );
+  fails(
+    {
+      A: struct({
+        m: field('map', { key: 'string', value: field('string'), default: { $map: ['ab'] } }),
+      }),
+    },
+    { message: 'An entry of a map needs a key and a value in "A.m.default"' },
+  );
   // The engine's text: V8 names the flags of the pattern since Node 20
   // (`/(/u:`), Node 18 does not (`/(/:`).
   fails(
@@ -327,6 +347,40 @@ test('Evolution: fromJSON locates what a snapshot cannot say', () => {
   assert.strictEqual(loose.entities.get('A').unknown, 'reject');
   assert.strictEqual(loose.entities.get('A').check({ a: 'x', b: 1 }).valid, false);
   assert.deepStrictEqual(loose.entities.get('A').custom, {});
+  // A kind that is no lowercase name, an entity a model would skip, a parent
+  // that is no name, a field key that names the schema of the field.
+  for (const kind of ['__proto__', '', 'Struct']) {
+    fails({ A: struct({}, { kind }) }, { message: 'An entity of a snapshot needs a kind in "A"' });
+  }
+  fails({ '.x': struct({}) }, { message: 'An entity of a snapshot needs a name in ".x"' });
+  fails(
+    { A: struct({}, { parent: {} }) },
+    { message: 'The parent of an entity must be a name in "A"' },
+  );
+  fails(
+    { A: struct({ a: field('string', { root: 'x' }) }) },
+    { code: 'ERR_RESERVED_KEY', message: 'Key "root" is reserved in a field definition in "A.a"' },
+  );
+  // What the model cannot build for another reason is the snapshot's too,
+  // with the cause (here a type the program gave throws in its construct).
+  const cause = new TypeError('no');
+  const thrower = {
+    construct: () => {
+      throw cause;
+    },
+    checkType: () => true,
+  };
+  assert.throws(
+    () => fromJSON(broken({ A: struct({ a: field('odd') }) }), { types: { odd: thrower } }),
+    { code, message: 'The model of the snapshot cannot be built: no', cause },
+  );
+  // The parent of a struct comes back with it.
+  const family = new Model({}, [
+    ['Base', { Struct: {}, a: 'string' }],
+    ['Child', { Struct: { parent: 'Base' }, b: 'string' }],
+  ]);
+  assert.strictEqual(JSON.stringify(fromJSON(json(family))), JSON.stringify(family));
+  assert.strictEqual(fromJSON(json(family)).entities.get('Child').parent, 'Base');
 });
 
 // S2: the walks over a snapshot stop at 128 levels.
@@ -420,6 +474,36 @@ test('Evolution: a field named __proto__ or constructor is a field', () => {
     added.map((c) => [c.op, c.detail, compatibilityOf(c)]),
     [['changed', { keys: ['schema'] }, 'full']],
   );
+});
+
+// A value of a snapshot shaped like a Date or a RegExp (`constructor.name`)
+// is data: written, compared and read back as an object, never called.
+test('Evolution: a value that names a Date or a RegExp is data', () => {
+  const date = JSON.parse('{"constructor":{"name":"Date"}}');
+  const regExp = JSON.parse('{"constructor":{"name":"RegExp"},"source":"x"}');
+  const of = (value) => broken({ A: struct({ t: field('json', { default: value }) }) });
+  const restored = fromJSON(of(date));
+  assert.deepStrictEqual(json(restored).entities.A.fields.t.default, date);
+  assert.deepStrictEqual(
+    json(restored.entities.get('A').toSnapshot()).entities.A.fields.t.default,
+    date,
+  );
+  assert.deepStrictEqual(json(fromJSON(of(regExp))).entities.A.fields.t.default, regExp);
+  assert.deepStrictEqual(diff(of(date), of(date)), []);
+  assert.deepStrictEqual(
+    diff(of(date), of(regExp)).map((c) => [c.op, c.name]),
+    [['changed', 't']],
+  );
+  assert.deepStrictEqual(diff(restored, json(restored)), []);
+  // A nested struct whose fields are called `constructor` (with a `name`)
+  // and `getTime` is a struct.
+  const schema = new Schema('T', {
+    schema: { constructor: { type: 'string', name: 'Date' }, getTime: 'string' },
+  });
+  assert.deepStrictEqual(Object.keys(json(schema.toSnapshot()).entities.T.fields), [
+    'constructor',
+    'getTime',
+  ]);
 });
 
 // S6: a shared registry takes no placeholder type.
@@ -795,6 +879,20 @@ const RULES = [
   ['max lowered', { a: { type: 'number', max: 9 } }, { a: { type: 'number', max: 5 } }, 'forward'],
   ['max added', { a: 'number' }, { a: { type: 'number', max: 5 } }, 'forward'],
   [
+    'decimals raised',
+    { a: { type: 'number', decimals: 2 } },
+    { a: { type: 'number', decimals: 3 } },
+    'backward',
+  ],
+  [
+    'decimals lowered',
+    { a: { type: 'number', decimals: 2 } },
+    { a: { type: 'number', decimals: 0 } },
+    'forward',
+  ],
+  ['decimals added', { a: 'number' }, { a: { type: 'number', decimals: 2 } }, 'forward'],
+  ['decimals removed', { a: { type: 'number', decimals: 2 } }, { a: 'number' }, 'backward'],
+  [
     'a bigint bound raised',
     { a: { type: 'bigint', min: 0n } },
     { a: { type: 'bigint', min: 1n } },
@@ -829,6 +927,16 @@ const RULES = [
   ['enum values added', { a: { enum: ['x'] } }, { a: { enum: ['x', 'y'] } }, 'backward'],
   ['enum values removed', { a: { enum: ['x', 'y'] } }, { a: { enum: ['x'] } }, 'forward'],
   ['enum values replaced', { a: { enum: ['x'] } }, { a: { enum: ['y'] } }, 'none'],
+  ['flags added', { a: { flags: ['x'] } }, { a: { flags: ['x', 'y'] } }, 'backward'],
+  ['flags removed', { a: { flags: ['x', 'y'] } }, { a: { flags: ['x'] } }, 'forward'],
+  ['flags replaced', { a: { flags: ['x'] } }, { a: { flags: ['y'] } }, 'none'],
+  ['bytes for a string', { a: 'string' }, { a: 'bytes' }, 'none'],
+  [
+    'a length of bytes tightened',
+    { a: { type: 'bytes', length: { max: 8 } } },
+    { a: { type: 'bytes', length: { max: 4 } } },
+    'forward',
+  ],
   ['a validate added', { a: 'string' }, { a: { type: 'string', validate: () => true } }, 'forward'],
   [
     'a validate removed',

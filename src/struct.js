@@ -1,13 +1,12 @@
 const { BRAND, hasBrand, formatters } = require('./util.js');
-const { issues } = require('./issues.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 // What a struct computes once at construction, kept on the dictionary under a
 // global symbol like BRAND, so a struct built by another copy of the package
-// exposes it too: { plan, known, calculated, check }, the plan being one
-// frozen entry per validated field, `known` the dictionary of the keys a
-// value may carry, `calculated` the keys of the calculated fields among them,
-// and `check` the compiled check over the plan.
+// exposes it too: { plan, known, calculated }, the plan being one frozen
+// entry per validated field ({ key, type, required, own, aliases }), `known`
+// the dictionary of the keys a value may carry and `calculated` the keys of
+// the calculated fields among them. The check over the plan is `checkOf`.
 const STRUCT = Symbol.for('alexify.metaschema.struct');
 
 // The functions of a nested definition that are the struct's own validate,
@@ -18,87 +17,6 @@ const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 const invalidAliases = (reason) => new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
 
 const ALIASES = 'Option "aliases" needs a list of key names';
-
-// The key a value carries for a field that has nothing under its own key: a
-// field renamed with `aliases: ['old']` is still read from its old key, and
-// the field's own key when the value has none of them.
-const aliasOf = (value, aliases, name) => {
-  for (const alias of aliases) if (Object.hasOwn(value, alias)) return alias;
-  return name;
-};
-
-// A field is read with a keyed load, and `Object.hasOwn` is consulted only
-// when the value is undefined, to tell a missing key from one set to
-// undefined. A field named after a member of Object.prototype (`toString`,
-// `constructor`, ...) would read the inherited function from a plain object,
-// so such a field (`own`) always asks `Object.hasOwn` first.
-const scanUnknown = (value, known, context) => {
-  let unexpected = null;
-  for (const name in value) {
-    if (name in known || !Object.hasOwn(value, name)) continue;
-    if (unexpected === null) unexpected = [];
-    unexpected.push(name);
-  }
-  if (unexpected !== null) issues.unexpected(context, unexpected);
-};
-
-// The check of a struct, as a closure over its plan: an index loop with no
-// lookups in the raw definition, no brand checks and no path strings. Every
-// plan entry has the same shape and every field check is a function chosen
-// when the field was built, called with the key of the field so that a leaf
-// never touches the path. Unknown keys are looked for only when the value has
-// more keys than the plan found, so a value with exactly the expected keys is
-// never scanned twice.
-// A field with nothing under its own key (absent, inherited, or own and set
-// to undefined): an alias may hold the value, and the check reports it under
-// the key it found it under. Then the same for an optional field, a required
-// one asks which (own and undefined is a type error). Kept out of the loop
-// of the struct check, whose body is the fast path of a present field; the
-// return is what the field adds to the keys found.
-const checkAbsent = (entry, value, context, name) => {
-  const under = aliasOf(value, entry.aliases, name);
-  let item;
-  if (under !== name) {
-    item = value[under];
-    context.renamed = true;
-  }
-  if (item === undefined) {
-    if (!entry.required) return 0;
-    if (!Object.hasOwn(value, under)) {
-      issues.required(context, name);
-      return 0;
-    }
-  }
-  entry.check(item, context, under);
-  return 1;
-};
-
-const compileStruct = (plan, known) => (value, context, key) => {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    issues.type(context, 'object', value, key);
-    return;
-  }
-  const nested = key !== undefined;
-  if (nested) context.path.push(key);
-  let found = 0;
-  for (let index = 0; index < plan.length; index += 1) {
-    if (context.count >= context.limit) break;
-    const entry = plan[index];
-    const name = entry.key;
-    const item = value[name];
-    if (item !== undefined && (!entry.own || Object.hasOwn(value, name))) {
-      found += 1;
-      entry.check(item, context, name);
-    } else found += checkAbsent(entry, value, context, name);
-  }
-  if (context.unknown === 'reject' && context.count < context.limit) {
-    let total = 0;
-    // oxlint-disable-next-line no-unused-vars
-    for (const name in value) total += 1;
-    if (total !== found) scanUnknown(value, known, context);
-  }
-  if (nested) context.path.pop();
-};
 
 // A key a value may carry: a field, a calculated field or an alias, each
 // once.
@@ -155,7 +73,6 @@ const createStruct = (defs, prep) => {
         required: child.required,
         own: field in Object.prototype,
         aliases: aliasesOf(child, known),
-        check: child.check,
       });
     } catch (error) {
       if (error instanceof SchemaDefinitionError) error.locate(prep.root.name, field);
@@ -164,7 +81,7 @@ const createStruct = (defs, prep) => {
   }
   Object.freeze(plan);
   Object.freeze(calculated);
-  const compiled = Object.freeze({ plan, known, calculated, check: compileStruct(plan, known) });
+  const compiled = Object.freeze({ plan, known, calculated });
   Object.defineProperty(fields, BRAND, { value: 'Struct' });
   Object.defineProperty(fields, STRUCT, { value: compiled });
   return fields;
@@ -172,6 +89,4 @@ const createStruct = (defs, prep) => {
 
 const isStruct = (fields) => hasBrand(fields, 'Struct');
 
-const checkOf = (fields) => fields[STRUCT].check;
-
-module.exports = { STRUCT, createStruct, isStruct, checkOf, aliasOf };
+module.exports = { STRUCT, createStruct, isStruct };

@@ -1,4 +1,4 @@
-import { expectAssignable, expectError, expectType } from 'tsd';
+import { expectAssignable, expectError, expectNotAssignable, expectType } from 'tsd';
 import {
   ALLOW,
   getKindMetadata,
@@ -23,6 +23,9 @@ import type {
   FieldsSnapshot,
   FlatIssues,
   FunctionSnapshot,
+  BytesSnapshot,
+  MapSnapshot,
+  SetSnapshot,
   Infer,
   IssueCode,
   IssueOf,
@@ -31,6 +34,12 @@ import type {
   KindMetadata,
   Locale,
   ModelSnapshot,
+  ReferenceFieldSnapshot,
+  ScalarFieldSnapshot,
+  BytesFieldSnapshot,
+  LengthSnapshot,
+  SchemaSnapshot,
+  TupleElementSnapshot,
   Relation,
   Scope,
   TypeEntry,
@@ -102,6 +111,8 @@ expectType<PropertyKey | undefined>(typed.params.key);
 expectType<number>((issue as IssueOf<'length'>).params.actual);
 expectType<number | bigint>((issue as IssueOf<'range'>).params.actual);
 expectType<string>((issue as IssueOf<'pattern'>).params.pattern);
+expectAssignable<IssueCode>('decimals');
+expectType<number>((issue as IssueOf<'decimals'>).params.decimals);
 expectType<unknown[]>((issue as IssueOf<'union'>).params.expected);
 expectType<number | bigint | undefined>((issue as IssueOf<'range'>).params.min);
 expectType<string[]>((issue as IssueOf<'unexpected'>).params.keys);
@@ -206,7 +217,58 @@ expectType<Record<string, TypeSnapshot>>(snapshot.types);
 expectType<FieldsSnapshot | undefined>(snapshot.entities.Account.fields);
 expectType<FieldSnapshot | undefined>(snapshot.entities.Account.type);
 expectAssignable<FieldSnapshot | FunctionSnapshot>({ $function: true });
-expectAssignable<FieldSnapshot | FunctionSnapshot>({ type: 'string', required: true, length: 8 });
+expectAssignable<BytesSnapshot>({ $bytes: 'AQL/' });
+expectAssignable<MapSnapshot>({ $map: [['x', 1]] });
+expectAssignable<SetSnapshot>({ $set: ['a'] });
+expectNotAssignable<MapSnapshot>({ $map: [['x']] });
+expectAssignable<FieldSnapshot | FunctionSnapshot>({
+  type: 'string',
+  required: true,
+  length: { max: 8 },
+});
+// The length of a snapshot is normalized: a bare number is a definition's.
+expectNotAssignable<FieldSnapshot>({ type: 'string', required: true, length: 8 });
+expectNotAssignable<FieldSnapshot>({ type: 'strin', required: true });
+expectType<string | undefined>(snapshot.root);
+
+// A field of a snapshot narrows on its type.
+declare const part: FieldSnapshot;
+if (part.type === 'enum') expectType<unknown[]>(part.enum);
+if (part.type === 'flags') expectType<string[]>(part.flags);
+if (part.type === 'number') expectType<number | undefined>(part.decimals);
+if (part.type === 'string') expectType<string | undefined>(part.format);
+if (part.type === 'array' || part.type === 'set') expectType<FieldSnapshot>(part.value);
+if (part.type === 'map') expectType<'string' | 'number'>(part.key);
+if (part.type === 'tuple') expectType<TupleElementSnapshot[]>(part.value);
+if (part.type === 'union') expectType<FieldSnapshot[]>(part.union);
+if (part.type === 'schema') expectType<FieldsSnapshot | FieldSnapshot>(part.schema);
+switch (part.type) {
+  case 'bytes':
+    expectType<BytesFieldSnapshot>(part);
+    expectType<LengthSnapshot | undefined>(part.length);
+    break;
+  case 'date':
+    expectType<ScalarFieldSnapshot>(part);
+    break;
+  case 'Company':
+    expectType<ReferenceFieldSnapshot>(part);
+    expectType<string | undefined>(part.one);
+    break;
+}
+expectAssignable<FieldSnapshot>({ type: 'Company', required: true, one: 'Company', embed: true });
+expectAssignable<FieldSnapshot>({
+  type: 'tuple',
+  required: true,
+  value: [{ type: 'number', required: true, name: 'x' }],
+});
+expectAssignable<FieldSnapshot>({ type: 'flags', required: false, flags: ['read'] });
+expectAssignable<FieldSnapshot>({ type: 'bigint', required: true, min: { $bigint: '1' } });
+// A schema's snapshot names its root and has no database metadata.
+const own = Schema.from({ name: 'string' }).toSnapshot();
+expectType<SchemaSnapshot>(own);
+expectType<string>(own.root);
+expectType<null>(own.database);
+expectAssignable<ModelSnapshot>(own);
 expectAssignable<string[] | undefined>(
   (Schema.from({ a: 'string' }).fields.a as FieldType).aliases,
 );

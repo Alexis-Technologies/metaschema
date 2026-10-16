@@ -38,6 +38,7 @@ export type IssueCode =
   | 'range'
   | 'pattern'
   | 'format'
+  | 'decimals'
   | 'union'
   | 'reference'
   | 'circular'
@@ -59,6 +60,9 @@ export interface IssueParams {
   pattern: { pattern: string };
   // The name of the format the string is not of.
   format: { format: string };
+  // The decimals the number may have: it has more, or it is not finite
+  // (`received` names NaN or the infinity then).
+  decimals: { decimals: number; received?: string };
   // No branch of a union matched: the branch names, or the discriminator
   // values when the union has a discriminator (the path then ends with it).
   union: { expected: unknown[]; discriminator: string | undefined };
@@ -314,7 +318,12 @@ export interface TypeMetadata {
 }
 
 // An entry of the table passed to Model: metadata for a built-in, an alias
-// (`js`), or a prototype with its own `construct` and `checkType`.
+// (`js`), or a prototype with its own `construct` and `checkType`. A
+// prototype may bring a `compile` in place of `checkType` (it returns the
+// check, `(value, context, key) => void`): it runs on the first check of a
+// field, not when the schema is built, so it must not be where the
+// definition is checked (`construct` is); what it throws is
+// ERR_INVALID_CUSTOM_TYPE with the error as the cause.
 export interface TypeEntry {
   js?: string;
   metadata?: TypeMetadata;
@@ -440,12 +449,20 @@ export type RuntimeErrorCode =
   | 'ERR_NOT_REGISTERED';
 
 // ---------------------------------------------------------------------------
-// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes. The
-// entities in dependency order with a fixed key order, the types the
-// entities use, and the `database` metadata as given. A function is
-// `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a Date
-// `{ $date }`, a RegExp its source (or `{ source, flags }` with flags beyond
-// `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads it back.
+// The snapshot: `model.toJSON()`, what JSON.stringify(model) writes, and
+// `schema.toSnapshot()`, the same for one schema and the entities it
+// reaches. The entities in dependency order with a fixed key order, the
+// types the entities use, and a copy of the `database` metadata. A function
+// is `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a
+// Date `{ $date }`, bytes `{ $bytes }` (base64), a Map `{ $map }` (its
+// entries), a Set `{ $set }` (its values), a RegExp its source (or
+// `{ source, flags }` with flags beyond `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads
+// it back. Format 1 is a contract: the fields of a struct come in the order
+// of the definition (the id field a stored kind adds after them, unless the
+// definition has a field of that name), the entities each after the ones
+// they reference (`model.order` for a model, the order a walk from the
+// schema meets them for one schema), and a key is only ever added to it;
+// anything else is a major release.
 // ---------------------------------------------------------------------------
 
 export interface FunctionSnapshot {
@@ -453,13 +470,169 @@ export interface FunctionSnapshot {
 }
 
 // A field of a snapshot: its type and whether it is required first, then
-// the other keys of its definition, sorted (a nested struct under `schema`,
-// an element under `value`, branches under `union`).
-export interface FieldSnapshot {
-  type: string;
+// the other keys of its definition, sorted. The type decides what else it
+// holds (narrow on `type`): the rules of its type, the element of a
+// collection, the elements of a tuple, the nested struct, the branches of a
+// union, the entity of a reference (its name is the type, capitalized), or
+// the options of a custom type, whose names are those `CustomTypes` declares
+// (as `Infer` reads them). Any field may carry the keys of
+// `FieldSnapshotBase`; a key the definition gave beyond them is kept too.
+export interface FieldSnapshotBase {
   required: boolean;
+  nullable?: boolean;
+  coerce?: boolean;
+  // A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`,
+  // `{ $bytes }`, `{ $map }`, `{ $set }` for the values that have no JSON form.
+  default?: unknown;
+  aliases?: string[];
+  deprecated?: boolean | string;
+  description?: string;
+  examples?: unknown[];
+  title?: string;
+  validate?: FunctionSnapshot;
+  parse?: FunctionSnapshot;
+  serialize?: FunctionSnapshot;
   [key: string]: unknown;
 }
+
+export interface BigintSnapshot {
+  $bigint: string;
+}
+
+export interface DateSnapshot {
+  $date: string;
+}
+
+// Bytes as base64 text, a Map as its entries and a Set as its values, each
+// value of them written as any value of a snapshot is.
+export interface BytesSnapshot {
+  $bytes: string;
+}
+
+export interface MapSnapshot {
+  $map: [unknown, unknown][];
+}
+
+export interface SetSnapshot {
+  $set: unknown[];
+}
+
+// A `length` rule: the bounds it has.
+export interface LengthSnapshot {
+  min?: number;
+  max?: number;
+}
+
+export interface StringFieldSnapshot extends FieldSnapshotBase {
+  type: 'string';
+  length?: LengthSnapshot;
+  unicode?: boolean;
+  // The source of a pattern of the `u` flag alone, else its source and flags.
+  pattern?: string | { source: string; flags: string };
+  format?: string;
+}
+
+export interface NumberFieldSnapshot extends FieldSnapshotBase {
+  type: 'number';
+  min?: number | BigintSnapshot;
+  max?: number | BigintSnapshot;
+  decimals?: number;
+}
+
+export interface IntegerFieldSnapshot extends FieldSnapshotBase {
+  type: 'integer' | 'bigint';
+  min?: number | BigintSnapshot;
+  max?: number | BigintSnapshot;
+}
+
+export interface ScalarFieldSnapshot extends FieldSnapshotBase {
+  type: 'boolean' | 'date' | 'null' | 'any' | 'unknown' | 'json';
+}
+
+// Binary data, its `length` the number of bytes.
+export interface BytesFieldSnapshot extends FieldSnapshotBase {
+  type: 'bytes';
+  length?: LengthSnapshot;
+}
+
+export interface EnumFieldSnapshot extends FieldSnapshotBase {
+  type: 'enum';
+  enum: unknown[];
+}
+
+export interface FlagsFieldSnapshot extends FieldSnapshotBase {
+  type: 'flags';
+  flags: string[];
+}
+
+export interface ListFieldSnapshot extends FieldSnapshotBase {
+  type: 'array' | 'set';
+  value: FieldSnapshot;
+  length?: LengthSnapshot;
+}
+
+export interface KeyedFieldSnapshot extends FieldSnapshotBase {
+  type: 'object' | 'map';
+  key: 'string' | 'number';
+  value: FieldSnapshot;
+  length?: LengthSnapshot;
+}
+
+// An element of a tuple, `name` the one a named element was given.
+export type TupleElementSnapshot = FieldSnapshot & { name?: string };
+
+export interface TupleFieldSnapshot extends FieldSnapshotBase {
+  type: 'tuple';
+  value: TupleElementSnapshot[];
+}
+
+// A nested struct, or a Schema of one type held as a field.
+export interface StructFieldSnapshot extends FieldSnapshotBase {
+  type: 'schema';
+  schema: FieldsSnapshot | FieldSnapshot;
+}
+
+export interface UnionFieldSnapshot extends FieldSnapshotBase {
+  type: 'union';
+  union: FieldSnapshot[];
+  discriminator?: string;
+}
+
+type UpperLetter =
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
+
+// A reference: the type is the name of the entity, under `one` or `many`.
+export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
+  type: `${UpperLetter}${string}`;
+  one?: string;
+  many?: string;
+  embed?: boolean;
+}
+
+// A field of a custom type, by the names `CustomTypes` declares: a snapshot
+// of a model whose custom types are not declared there holds fields of type
+// names no member of `FieldSnapshot` has, which an exhaustive `switch` over
+// `type` does not see; give it a `default`.
+export interface CustomFieldSnapshot extends FieldSnapshotBase {
+  type: keyof CustomTypes & string;
+}
+
+export type FieldSnapshot =
+  | StringFieldSnapshot
+  | NumberFieldSnapshot
+  | IntegerFieldSnapshot
+  | ScalarFieldSnapshot
+  | BytesFieldSnapshot
+  | EnumFieldSnapshot
+  | FlagsFieldSnapshot
+  | ListFieldSnapshot
+  | KeyedFieldSnapshot
+  | TupleFieldSnapshot
+  | StructFieldSnapshot
+  | UnionFieldSnapshot
+  | ReferenceFieldSnapshot
+  | CustomFieldSnapshot;
 
 // The fields of a struct in their order: a calculated field, the validate,
 // parse or serialize of the struct are `{ $function: true }`.
@@ -495,9 +668,19 @@ export interface TypeSnapshot {
 
 export interface ModelSnapshot {
   format: 1;
+  // The entity a snapshot of one schema is about (`schema.toSnapshot()`);
+  // a model's snapshot has none.
+  root?: string;
   database: Record<string, unknown> | null;
   types: Record<string, TypeSnapshot>;
   entities: Record<string, EntitySnapshot>;
+}
+
+// `schema.toSnapshot()`: the schema (under its name, '' when anonymous)
+// and every entity it reaches through its references, in dependency order.
+export interface SchemaSnapshot extends ModelSnapshot {
+  root: string;
+  database: null;
 }
 
 // The options of `fromJSON` of the `@alexify/metaschema/model` subpath.
@@ -821,6 +1004,7 @@ type ScalarName =
   | 'bigint'
   | 'boolean'
   | 'date'
+  | 'bytes'
   | 'null'
   | 'any'
   | 'unknown'
@@ -836,6 +1020,7 @@ type CompoundName =
   | 'tuple'
   | 'union'
   | 'schema'
+  | 'flags'
   | 'one'
   | 'many';
 
@@ -851,15 +1036,17 @@ type ScalarOf<N extends string> = N extends 'string'
         ? boolean
         : N extends 'date'
           ? Date
-          : N extends 'null'
-            ? null
-            : N extends 'any'
-              ? any
-              : N extends 'unknown' | 'json'
-                ? unknown
-                : N extends keyof CustomTypes
-                  ? CustomTypes[N]
-                  : unknown;
+          : N extends 'bytes'
+            ? Uint8Array
+            : N extends 'null'
+              ? null
+              : N extends 'any'
+                ? any
+                : N extends 'unknown' | 'json'
+                  ? unknown
+                  : N extends keyof CustomTypes
+                    ? CustomTypes[N]
+                    : unknown;
 
 // Whether the first character is an uppercase letter: a reference when it is
 // the first character of a type name, a kind when it is the first of a key.
@@ -1033,13 +1220,17 @@ type TypeOf<N extends string, D, E, M extends Mode> =
                         ? D extends { many: infer T extends string }
                           ? Referenced<T, EmbedOf<D>, E, M>[]
                           : unknown
-                        : N extends keyof CustomTypes
-                          ? CustomTypes[N]
-                          : N extends ScalarName
-                            ? ScalarOf<N>
-                            : D extends { schema: infer S extends object }
-                              ? Value<S, E, M>
-                              : unknown;
+                        : N extends 'flags'
+                          ? D extends { flags: readonly (infer F extends string)[] }
+                            ? { [K in F]?: boolean }
+                            : Record<string, boolean>
+                          : N extends keyof CustomTypes
+                            ? CustomTypes[N]
+                            : N extends ScalarName
+                              ? ScalarOf<N>
+                              : D extends { schema: infer S extends object }
+                                ? Value<S, E, M>
+                                : unknown;
 
 // On the output side a decoder (`parse`) gives the value of its field; a
 // promise of one is awaited.
@@ -1079,7 +1270,9 @@ type Shorthand<D, E, M extends Mode> = D extends { array: unknown }
                   ? LongForm<'one', D, E, M>
                   : D extends { many: string }
                     ? LongForm<'many', D, E, M>
-                    : Decoded<Struct<D, E, M>, D, M>;
+                    : D extends { flags: readonly string[] }
+                      ? LongForm<'flags', D, E, M>
+                      : Decoded<Struct<D, E, M>, D, M>;
 
 // What is not a field of a struct: a function (a calculated field, or the
 // schema-level validate/parse/serialize/format) and an index definition.
@@ -1252,6 +1445,7 @@ type IsShorthand<D> = D extends { array: unknown }
         | { schema: object }
         | { one: string }
         | { many: string }
+        | { flags: readonly string[] }
     ? true
     : false;
 
@@ -1667,6 +1861,8 @@ export class Schema<const D extends string | object = string | object> {
   detach(...namespaces: Array<Model>): void;
   toString(): string;
   toJSON(): object;
+  // The schema as plain JSON: see `SchemaSnapshot`.
+  toSnapshot(): SchemaSnapshot;
   validate(value: unknown, path?: string): ValidationResult | null;
 }
 

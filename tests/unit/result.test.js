@@ -129,6 +129,7 @@ test('Locales: every code has a renderer in every locale', () => {
     'range',
     'pattern',
     'format',
+    'decimals',
     'union',
     'reference',
     'circular',

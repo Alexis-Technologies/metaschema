@@ -362,6 +362,28 @@ test('Merge: what no value can satisfy is a conflict with the field', () => {
   });
 });
 
+test('Merge: the fewer decimals of the two', () => {
+  const merged = merge(
+    Schema.from({ a: { type: 'number', decimals: 3 }, b: { type: 'number', decimals: 1 } }),
+    Schema.from({ a: { type: 'number', decimals: 2 }, b: 'number' }),
+  );
+  assert.strictEqual(merged.fields.a.decimals, 2);
+  assert.strictEqual(merged.fields.b.decimals, 1);
+  assert.strictEqual(merged.check({ a: 0.125, b: 1 }).valid, false);
+});
+
+test('Merge: the names of flags both have', () => {
+  const merged = merge(
+    Schema.from({ perms: { flags: ['read', 'write', 'admin'] } }),
+    Schema.from({ perms: { flags: ['admin', 'read'] } }),
+  );
+  assert.deepStrictEqual(merged.fields.perms.flags, ['read', 'admin']);
+  assert.throws(
+    () => merge(Schema.from({ perms: { flags: ['a'] } }), Schema.from({ perms: { flags: ['b'] } })),
+    { code: 'ERR_MERGE_CONFLICT', message: 'The flags have no value in common in "perms"' },
+  );
+});
+
 test('Merge: annotations come from the first schema, flags from either, aliases from both', () => {
   const a = Schema.from({ a: { type: 'string', title: 'A', unique: true, aliases: ['x'] } });
   const b = Schema.from({
@@ -459,6 +481,17 @@ test('Merge: a conflict is located at its field, aliases and bounds included', (
 });
 
 // S4: the keys of the merged definition are defined, not assigned.
+test('Merge: a schema that names itself without a model is reached from the merge', () => {
+  const node = new Schema('Node', { 'next?': 'Node' });
+  const base = new Schema('Base', { a: 'string' });
+  for (const schema of both(base, node)) {
+    assert.deepStrictEqual(schema.check({ a: 'x', next: { next: 5 } }).errors, [
+      'Field "Base.next.next" not of expected type: object',
+    ]);
+    assert.deepStrictEqual(schema.checkConsistency(), []);
+  }
+});
+
 test('Merge: a field named __proto__ merges like any other', () => {
   const proto = (type) => Schema.from(JSON.parse(`{"a":"string","__proto__":"${type}"}`));
   const merged = merge(proto('string'), proto('string'));

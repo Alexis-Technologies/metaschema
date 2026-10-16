@@ -89,13 +89,20 @@ const stringOf = (state, field, key) => {
 
 const asNumber = (value) => (typeof value === 'bigint' ? Number(value) : value);
 
+// A number within the bounds; a whole one, or one of `decimals` decimals,
+// rounded toward the inside of the bounds.
 const numberOf = (state, field, whole) => {
   const min = asNumber(field.min);
   const max = asNumber(field.max);
   const low = min ?? (max === undefined ? 0 : max - 100);
   const high = max ?? low + 100;
   const value = low + state.random() * (high - low);
-  return whole ? Math.min(Math.ceil(value), Math.floor(high)) : value;
+  const scale = whole ? 1 : field.decimals === undefined ? 0 : 10 ** field.decimals;
+  // Past 2⁵³ units of the last decimal every double is a whole number of
+  // them (and the product may be no number at all): the value is one.
+  if (scale === 0 || !(Math.abs(value * scale) < 2 ** 53)) return value;
+  const up = Math.ceil(value * scale) / scale;
+  return up > high ? Math.floor(value * scale) / scale : up;
 };
 
 // The widest span a bigint is drawn from: what a number holds exactly.
@@ -111,6 +118,20 @@ const bigintOf = (state, field) => {
   const high = field.max === undefined ? low + 100n : BigInt(field.max);
   const span = high - low > SPAN ? SPAN : high - low;
   return low + BigInt(int(state, Number(span)));
+};
+
+// Random bytes within the length rule, up to sixteen without one.
+const bytesOf = (state, field) => {
+  const bytes = new Uint8Array(countOf(state, field.length, 0, 16));
+  for (let index = 0; index < bytes.length; index += 1) bytes[index] = int(state, 255);
+  return bytes;
+};
+
+// Every name of a flags field present half the time, each true or false.
+const flagsOf = (state, field) => {
+  const out = {};
+  for (const name of field.flags) if (state.random() < 0.5) out[name] = state.random() < 0.5;
+  return out;
 };
 
 const idOf = (state, name) => `${name.toLowerCase()}-${int(state, 0xffff).toString(16)}`;
@@ -263,6 +284,10 @@ const draw = (state, field, key) => {
       return state.random() < 0.5;
     case 'date':
       return new Date(1_600_000_000_000 + Math.floor(state.random() * 100_000_000_000));
+    case 'bytes':
+      return bytesOf(state, field);
+    case 'flags':
+      return flagsOf(state, field);
     case 'null':
       return null;
     case 'any':

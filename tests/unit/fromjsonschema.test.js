@@ -217,6 +217,46 @@ test('fromJSONSchema: every keyword of the subset has a definition', () => {
   assert.deepStrictEqual(fieldOf({}, false), '?any');
 });
 
+test('fromJSONSchema: a multiple of a power of ten is a number of decimals', () => {
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 0.01 }), {
+    type: 'number',
+    decimals: 2,
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 1, minimum: 0 }), {
+    type: 'number',
+    min: 0,
+    decimals: 0,
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'number', multipleOf: 1e-15 }).decimals, 15);
+  assert.deepStrictEqual(fieldOf({ type: 'integer', multipleOf: 1 }), 'integer');
+  // The export and the import of a number of decimals.
+  const schema = Schema.from({ price: { type: 'number', decimals: 3, max: 10 } });
+  assert.deepStrictEqual(fromJSONSchema(toJSONSchema(schema)), {
+    Struct: {},
+    price: { type: 'number', max: 10, decimals: 3 },
+  });
+});
+
+test('fromJSONSchema: base64 text is a string, of the base64 format once registered', () => {
+  assert.deepStrictEqual(fieldOf({ type: 'string', contentEncoding: 'base64' }), 'string');
+  const schema = new Schema('File', { data: 'bytes', perms: { flags: ['read'] } });
+  // What bytes and flags export as reads back as the JSON on the wire.
+  assert.deepStrictEqual(fromJSONSchema(toJSONSchema(schema)), {
+    Struct: {},
+    data: 'string',
+    perms: { read: '?boolean' },
+  });
+  require('../../src/formats/index.js').register();
+  assert.deepStrictEqual(fieldOf({ type: 'string', contentEncoding: 'base64' }), {
+    type: 'string',
+    format: 'base64',
+  });
+  assert.deepStrictEqual(fieldOf({ type: 'string', format: 'byte' }), {
+    type: 'string',
+    format: 'base64',
+  });
+});
+
 test('fromJSONSchema: the root is a struct with its kind, or a definition of one type', () => {
   const open = { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] };
   assert.deepStrictEqual(fromJSONSchema(open), { Struct: { unknown: 'ignore' }, a: 'string' });
@@ -551,6 +591,8 @@ test('fromJSONSchema: a keyword outside the subset throws with its place, or is 
   const cases = [
     [{ type: 'number', exclusiveMinimum: 0 }, 'The keyword "exclusiveMinimum"', '/properties/x'],
     [{ type: 'number', multipleOf: 2 }, 'The keyword "multipleOf"', '/properties/x'],
+    [{ type: 'number', multipleOf: 0.25 }, 'The keyword "multipleOf"', '/properties/x'],
+    [{ type: 'integer', multipleOf: 0.01 }, 'The keyword "multipleOf"', '/properties/x'],
     [{ type: 'object', patternProperties: {} }, 'The keyword "patternProperties"', '/properties/x'],
     [{ not: { type: 'string' } }, 'The keyword "not"', '/properties/x'],
     [{ if: {}, then: {} }, 'The keyword "if"', '/properties/x'],
@@ -878,5 +920,33 @@ test('fromJSONSchema: a long property name is shortened in the pointer of an err
   assert.throws(() => fromJSONSchema(document), {
     code: 'ERR_UNSUPPORTED_SCHEMA',
     message: `The keyword "not" is not supported in a JSON Schema at "/properties/${'p'.repeat(100)}..."`,
+  });
+});
+
+test('fromJSONSchema: a discriminator a branch does not require is refused when built', () => {
+  // OpenAPI asks every branch to require the discriminator; a branch that
+  // does not could never be picked, and the union says so when it is built.
+  const branch = (value, required) => ({
+    type: 'object',
+    properties: { k: { const: value }, x: { type: 'number' } },
+    required,
+  });
+  const document = (required) => ({
+    type: 'object',
+    properties: {
+      u: {
+        oneOf: [branch('a', required), branch('b', ['k'])],
+        discriminator: { propertyName: 'k' },
+      },
+    },
+    required: ['u'],
+  });
+  assert.strictEqual(
+    fromJSONSchema(document(['k']), { as: 'schema' }).check({ u: { k: 'a' } }).valid,
+    true,
+  );
+  assert.throws(() => fromJSONSchema(document(['x']), { as: 'schema' }), {
+    code: 'ERR_INVALID_UNION',
+    message: 'Union discriminator "k" of branch 0 must be required and not nullable in "u"',
   });
 });

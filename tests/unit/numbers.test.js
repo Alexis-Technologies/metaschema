@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { Schema, Model } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
-const { codePoints } = require('../../src/rules.js');
+const { codePoints } = require('../../src/checks.js');
 
 register();
 
@@ -191,4 +191,104 @@ test('Numbers: string length counts UTF-16 units, or code points with unicode', 
   const list = Schema.from({ l: { array: 'string', length: { max: 1 }, unicode: true } });
   assert.strictEqual(list.check({ l: ['😀😀'] }).valid, true);
   assert.strictEqual(list.check({ l: ['a', 'b'] }).valid, false);
+});
+
+test('Numbers: decimals bounds the digits after the point of a number', () => {
+  const schema = Schema.from({
+    price: { type: 'number', decimals: 2, min: 0 },
+    'whole?': { type: 'number', decimals: 0 },
+    'fine?': { type: 'number', decimals: 15 },
+  });
+  // The error a sum of doubles carries is no decimal of its own.
+  for (const price of [0, 19.99, 0.1 + 0.2, 19.99 * 3, -0 + 1.5, 1e300, 12345678.12]) {
+    assert.strictEqual(schema.check({ price }).valid, true, String(price));
+  }
+  for (const price of [0.123, 1.005, 12345678.123, 1e10 + 0.005]) {
+    const result = schema.check({ price });
+    assert.deepStrictEqual(
+      result.issues,
+      [
+        {
+          code: 'decimals',
+          path: ['price'],
+          message: 'has more than 2 decimals',
+          params: { decimals: 2 },
+        },
+      ],
+      String(price),
+    );
+  }
+  // NaN and the infinities have no decimals to count: the value is named.
+  for (const price of [NaN, Infinity]) {
+    assert.deepStrictEqual(
+      schema.check({ price }).issues,
+      [
+        {
+          code: 'decimals',
+          path: ['price'],
+          message: `is ${price}, not a finite number`,
+          params: { decimals: 2, received: String(price) },
+        },
+      ],
+      String(price),
+    );
+  }
+  assert.deepStrictEqual(schema.check({ price: 1, whole: 2.5 }).errors, [
+    'Field "whole" has more than 0 decimals',
+  ]);
+  assert.strictEqual(schema.check({ price: 1, fine: 0.123456789012345 }).valid, true);
+  // The type first, then the rules, each on its own.
+  assert.deepStrictEqual(
+    schema.check({ price: -0.123 }).issues.map((issue) => issue.code),
+    ['decimals', 'range'],
+  );
+  assert.deepStrictEqual(schema.check({ price: '1.5' }).issues[0].code, 'type');
+  // Fifteen decimals are told apart only below 2⁴³ units of the last one.
+  assert.deepStrictEqual(schema.warnings, [
+    'Warning [unenforceable-decimals]: "fine" has 15 decimals, which the check tells apart only below 0.0088',
+  ]);
+  const uk = require('../../src/locales/uk.js');
+  assert.strictEqual(
+    schema.check({ price: 0.123 }, { messages: uk }).errors[0],
+    'Поле "price" має більше знаків після коми, ніж 2',
+  );
+  assert.strictEqual(
+    schema.check({ price: NaN }, { messages: uk }).errors[0],
+    'Поле "price" дорівнює NaN і не є скінченним числом',
+  );
+  assert.strictEqual(schema.fields.price.decimals, 2);
+  for (const decimals of [-1, 16, 1.5, '2', null, true]) {
+    assert.throws(() => Schema.from({ n: { type: 'number', decimals } }), {
+      code: 'ERR_INVALID_RULE',
+      message: 'Rule "decimals" needs an integer from 0 to 15 in "n"',
+    });
+  }
+  for (const type of ['integer', 'bigint', 'string']) {
+    assert.throws(() => Schema.from({ n: { type, decimals: 2 } }), {
+      code: 'ERR_INVALID_RULE',
+      message: `Rule "decimals" does not apply to type "${type}" in "n"`,
+    });
+  }
+  // An alias of number takes the rule; the export writes it as multipleOf.
+  const model = new Model({ money: { js: 'number' } }, [
+    ['Order', { Struct: {}, total: { type: 'money', decimals: 2 } }],
+  ]);
+  const order = model.entities.get('Order');
+  assert.strictEqual(order.check({ total: 1.25 }).valid, true);
+  assert.strictEqual(order.check({ total: 1.255 }).valid, false);
+  assert.deepStrictEqual(order.toJSONSchema().properties.total, {
+    type: 'number',
+    multipleOf: 0.01,
+  });
+  assert.deepStrictEqual(Schema.from({ n: { type: 'number', decimals: 0 } }).toJSONSchema(), {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+    properties: { n: { type: 'number', multipleOf: 1 } },
+    required: ['n'],
+    additionalProperties: false,
+  });
+  assert.strictEqual(
+    order.toJSONSchema({ profile: 'strict' }).properties.total.multipleOf,
+    undefined,
+  );
 });

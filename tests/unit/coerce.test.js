@@ -84,6 +84,7 @@ test('Coerce: register() fills the table once, and only with converters of types
     'bigint',
     'boolean',
     'date',
+    'bytes',
     'enum',
     'array',
     'set',
@@ -210,6 +211,68 @@ test('Coerce: what each built-in converter reads, and what it leaves to the chec
       }
     }
   }
+});
+
+test('Coerce: bytes from canonical base64 only', () => {
+  register();
+  const schema = Schema.from({ data: 'bytes' });
+  const read = (data) => {
+    const result = schema.parse({ data }, { coerce: true });
+    return result.valid ? Array.from(result.value.data) : result.issues[0].code;
+  };
+  assert.deepStrictEqual(read('QQ=='), [65]);
+  assert.deepStrictEqual(read('QUI='), [65, 66]);
+  assert.deepStrictEqual(read('QUJD'), [65, 66, 67]);
+  assert.deepStrictEqual(read('AAAAAAAA'), [0, 0, 0, 0, 0, 0]);
+  assert.deepStrictEqual(read('/+8='), [255, 239]);
+  assert.deepStrictEqual(read('AA=='), [0]);
+  // The text of no bytes is the empty string: an exception to the rule that
+  // '' is never converted, since it is what an encoder writes for them.
+  assert.deepStrictEqual(read(''), []);
+  // What a decoder would forgive is left to the check: the bits the padding
+  // leaves unused, the padding itself, whitespace, the URL alphabet.
+  for (const text of [
+    'QR==',
+    'QUI',
+    '====',
+    'A===',
+    '=QUJ',
+    'QU=J',
+    'QUJ=',
+    'QQ',
+    'QQ=',
+    'Q===',
+    'QUJD\n',
+    ' QUJD',
+    '_-8=',
+    'QU JD',
+  ]) {
+    assert.strictEqual(read(text), 'type', JSON.stringify(text));
+  }
+  // A view already is bytes; another value is the check's.
+  const bytes = new Uint8Array([1]);
+  assert.strictEqual(schema.parse({ data: bytes }, { coerce: true }).value.data, bytes);
+  assert.strictEqual(read(7), 'type');
+  // Linear on hostile text.
+  const started = Date.now();
+  assert.strictEqual(read(`${'A'.repeat(1_000_000)}!`), 'type');
+  assert.strictEqual(read(`${'AAAA'.repeat(250_000)}A===`), 'type');
+  assert.ok(Date.now() - started < 1000);
+  // A valid text of megabytes: one expression of quanta overflowed the stack
+  // of the engine on it, and the converter left the text to the check.
+  // A text whose bytes would be over length.max is not decoded: the check
+  // rejects what is left, and nothing of that size is allocated for it.
+  const bounded = Schema.from({ data: { type: 'bytes', length: { max: 3 } } });
+  const bytesOf = (data) => bounded.parse({ data }, { coerce: true });
+  assert.deepStrictEqual(Array.from(bytesOf('QUJD').value.data), [65, 66, 67]);
+  assert.deepStrictEqual(bytesOf('QUJDRA==').issues[0].params, {
+    expected: 'bytes',
+    received: 'string',
+  });
+  const large = schema.parse({ data: `${'AAAA'.repeat(4_000_000)}/w==` }, { coerce: true });
+  assert.strictEqual(large.valid, true);
+  assert.strictEqual(large.value.data.length, 12_000_001);
+  assert.strictEqual(large.value.data[12_000_000], 255);
 });
 
 test('Coerce: enums, collections and maps', () => {

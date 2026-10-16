@@ -4,7 +4,7 @@
 // are rendered once, at the end of the check, through the locale of that check.
 // Every issue has the same keys in the same order, so loops over them see one
 // shape.
-const { hasBrand, shorten, safeString } = require('./util.js');
+const { hasBrand, shorten, safeString, typeOf } = require('./util.js');
 const { asyncReturn } = require('./errors.js');
 const en = require('./locales/en.js');
 
@@ -37,12 +37,6 @@ const record = (context, code, params, key, message = '') => {
   push(context, { code, path: pathOf(context, key), message, params });
 };
 
-const typeOf = (value) => {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-};
-
 const issues = {
   required: (context, key) => record(context, 'required', EMPTY, key),
   type: (context, expected, value, key) =>
@@ -55,6 +49,14 @@ const issues = {
   range: (context, min, max, actual, key) => record(context, 'range', { min, max, actual }, key),
   pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
   format: (context, format, key) => record(context, 'format', { format }, key),
+  // NaN and the infinities have no decimals: the value is named then.
+  decimals: (context, decimals, value, key) =>
+    record(
+      context,
+      'decimals',
+      Number.isFinite(value) ? { decimals } : { decimals, received: String(value) },
+      key,
+    ),
   union: (context, expected, discriminator, key) =>
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),

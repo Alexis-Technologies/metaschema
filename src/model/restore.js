@@ -11,6 +11,7 @@
 // named like a field) is ERR_INVALID_SNAPSHOT located where the walk was,
 // and the kind metadata it declares is never loosened by its `custom` keys.
 const { define, shorten } = require('../util.js');
+const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
 const { SchemaDefinitionError } = require('../errors.js');
@@ -21,11 +22,23 @@ const {
   atSchema,
   isObject,
   isSnapshot,
+  checkRoot,
   isFunctionMarker,
   capitalize,
 } = require('./data.js');
 
 const nothing = () => undefined;
+
+// The bytes of base64 text: any padded text of the alphabet, as written.
+const bytesOf = (text) => {
+  if (text.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) {
+    throw invalidSnapshot(`${JSON.stringify(shorten(text))} is not base64`);
+  }
+  const binary = atob(text);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+};
 const identity = (value) => value;
 
 // What stands in for a function, by the key it is under; `at` is the path
@@ -57,6 +70,18 @@ const revive = (value, key, at, depth, context) => {
     if (Number.isNaN(+date)) throw invalidSnapshot(`${JSON.stringify(value.$date)} is not a date`);
     return date;
   }
+  if (typeof value.$bytes === 'string') return bytesOf(value.$bytes);
+  if (Array.isArray(value.$map)) {
+    const map = new Map();
+    for (const entry of revive(value.$map, key, at, depth, context)) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw invalidSnapshot('An entry of a map needs a key and a value');
+      }
+      map.set(entry[0], entry[1]);
+    }
+    return map;
+  }
+  if (Array.isArray(value.$set)) return new Set(revive(value.$set, key, at, depth, context));
   const out = {};
   for (const name of Object.keys(value)) {
     define(out, name, revive(value[name], name, `${at}.${name}`, depth + 1, context));
@@ -111,14 +136,20 @@ const structDef = (fields, at, depth, context) => {
   return out;
 };
 
-// An entity as a definition: its kind as the first key with the metadata,
-// then its fields and its indexes; a schema of one type is that type.
+// An entity as a definition: its kind as the first key with the metadata
+// (a lowercase name, which becomes the capitalized key), then its fields
+// and its indexes; a schema of one type is that type. A name that starts
+// with `.` is no entity a model writes (it skips them).
 const entityDef = (name, entity, context) => {
   context.at = name;
-  if (!isObject(entity) || typeof entity.kind !== 'string') {
+  if (name.startsWith('.')) throw invalidSnapshot('An entity of a snapshot needs a name');
+  if (!isObject(entity) || typeof entity.kind !== 'string' || !isFirstLower(entity.kind)) {
     throw invalidSnapshot('An entity of a snapshot needs a kind');
   }
-  const { scope, store, allow, unknown, custom, fields, indexes } = entity;
+  const { scope, store, allow, unknown, parent, custom, fields, indexes } = entity;
+  if (parent !== undefined && typeof parent !== 'string') {
+    throw invalidSnapshot('The parent of an entity must be a name');
+  }
   if (fields === undefined) return fieldDef(entity.type, name, 0, context);
   for (const key of ['fields', 'custom', 'indexes']) {
     if (entity[key] !== undefined && !isObject(entity[key])) {
@@ -128,7 +159,8 @@ const entityDef = (name, entity, context) => {
   // The keys of the kind win over `custom`: a snapshot does not loosen
   // `unknown` through its metadata.
   const revived = revive(custom, 'custom', `${name}.custom`, 0, context);
-  const def = { [capitalize(entity.kind)]: { ...revived, scope, store, allow, unknown } };
+  const meta = { ...revived, scope, store, allow, unknown, parent };
+  const def = { [capitalize(entity.kind)]: meta };
   const struct = structDef(fields, name, 0, context);
   for (const key of Object.keys(struct)) define(def, key, struct[key]);
   for (const key of Object.keys(indexes ?? {})) {
@@ -185,7 +217,9 @@ const typesDef = (given, context) => {
   return out;
 };
 
-// The model of a snapshot. `options.types` are entries of the table Model
+// The model of a snapshot, of a model or of one schema (`root` names the
+// entity it is about; `model.entities.get(snapshot.root)` is that schema
+// again). `options.types` are entries of the table Model
 // takes, over the ones of the snapshot (the real custom types); the
 // registry is 'isolated' unless `options.registry` says otherwise, so the
 // placeholders never reach the shared one. The model lists the paths of its
@@ -194,6 +228,7 @@ const fromJSON = (snapshot, options = {}) => {
   if (!isSnapshot(snapshot)) {
     throw invalidSnapshot('A snapshot of format 1 with entities is expected');
   }
+  checkRoot(snapshot);
   if (!isObject(options)) {
     throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Restore options must be an object');
   }
@@ -218,7 +253,17 @@ const fromJSON = (snapshot, options = {}) => {
     throw field ? located.locate(context.name, field) : atSchema(located, context.name);
   }
   Object.assign(types, given);
-  const model = new Model(types, entities, snapshot.database ?? null, { registry });
+  let model;
+  try {
+    model = new Model(types, entities, snapshot.database ?? null, { registry });
+  } catch (error) {
+    // What the core rejects is located already; anything else is the
+    // snapshot's too, never a bare TypeError.
+    if (error instanceof SchemaDefinitionError) throw error;
+    const wrapped = invalidSnapshot(`The model of the snapshot cannot be built: ${error.message}`);
+    wrapped.cause = error;
+    throw wrapped;
+  }
   Object.defineProperty(model, 'placeholders', { value: Array.from(context.placeholders) });
   return model;
 };

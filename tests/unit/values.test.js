@@ -97,3 +97,59 @@ test('Values: a value whose constructor key names a built-in is not that built-i
   assert.strictEqual(schema.check(real).valid, true);
   assert.strictEqual(Schema.from({ at: 'date' }).check({ at: { getTime: () => 1 } }).valid, false);
 });
+
+test('Values: bytes is a Uint8Array of any realm, a Buffer included', () => {
+  const vm = require('node:vm');
+  const schema = Schema.from({ data: 'bytes', 'thumb?': 'bytes' });
+  assert.strictEqual(Schema.from('bytes').kind, 'scalar');
+  for (const data of [
+    new Uint8Array(0),
+    new Uint8Array([1, 2]),
+    Buffer.from('ab'),
+    vm.runInNewContext('new Uint8Array(3)'),
+  ]) {
+    assert.strictEqual(schema.check({ data }).valid, true);
+  }
+  // Another view, an array of numbers, base64 text and an object that claims
+  // the tag are not bytes.
+  for (const data of [
+    new Int8Array(1),
+    new Uint8ClampedArray(1),
+    new DataView(new ArrayBuffer(1)),
+    new ArrayBuffer(1),
+    [1, 2],
+    'AQI=',
+    { [Symbol.toStringTag]: 'Uint8Array', length: 0 },
+    Object.create(Uint8Array.prototype),
+    null,
+  ]) {
+    assert.deepStrictEqual(schema.check({ data }).errors, [
+      'Field "data" not of expected type: bytes',
+    ]);
+  }
+  assert.deepStrictEqual(schema.check({ data: [] }).issues[0].params, {
+    expected: 'bytes',
+    received: 'array',
+  });
+  assert.strictEqual(schema.check({ data: Buffer.from('a'), thumb: null }).valid, true);
+  assert.strictEqual(
+    new Schema('File', { data: 'bytes', 'thumb?': 'bytes' }).toInterface(),
+    'interface File {\n  data: Uint8Array;\n  thumb?: Uint8Array;\n}',
+  );
+  // `length` counts the bytes, on both backends (compile.test.js); the rules
+  // of text do not apply.
+  const sized = Schema.from({ data: { type: 'bytes', length: { min: 1, max: 3 } } });
+  assert.strictEqual(sized.check({ data: Buffer.from('abc') }).valid, true);
+  assert.deepStrictEqual(sized.check({ data: new Uint8Array(4) }).issues[0].params, {
+    min: 1,
+    max: 3,
+    actual: 4,
+  });
+  assert.deepStrictEqual(sized.check({ data: new Uint8Array(0) }).errors, [
+    'Field "data" value is too short',
+  ]);
+  assert.throws(() => Schema.from({ data: { type: 'bytes', pattern: /x/ } }), {
+    code: 'ERR_INVALID_RULE',
+    message: 'Rule "pattern" does not apply to type "bytes" in "data"',
+  });
+});

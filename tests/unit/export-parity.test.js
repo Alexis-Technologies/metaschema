@@ -14,6 +14,10 @@ const declaredValueExports = (dtsFile) => {
   const pattern = /^export (?:declare )?(?:abstract )?(?:class|function|const|let|var) ([\w$]+)/gm;
   const names = new Set();
   for (const match of source.matchAll(pattern)) names.add(match[1]);
+  // A re-export of the root's values (`export { Schema } from '../../index.js'`).
+  for (const match of source.matchAll(/^export \{([^}]*)\} from /gm)) {
+    for (const name of match[1].split(',')) if (name.trim() !== '') names.add(name.trim());
+  }
   return names;
 };
 
@@ -28,6 +32,7 @@ const entryPoints = [
   ['src/derive/index.js', 'src/derive/index.d.ts'],
   ['src/coerce/index.js', 'src/coerce/index.d.ts'],
   ['src/mongodb/index.js', 'src/mongodb/index.d.ts'],
+  ['src/definition/index.js', 'src/definition/index.d.ts'],
 ];
 
 for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -288,4 +293,38 @@ test('Exports: named imports work from ESM', () => {
   const args = ['--input-type=module', '-e', source];
   const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
   assert.deepStrictEqual(JSON.parse(output), []);
+});
+
+test('Exports: the definition subpath is the core without validation, as ESM too', () => {
+  const definition = require('@alexify/metaschema/definition');
+  assert.strictEqual(definition, require(path.join(ROOT, 'src/definition/index.js')));
+  assert.deepStrictEqual(Object.keys(definition), [
+    'KIND',
+    'KIND_STORED',
+    'KIND_MEMORY',
+    'SCOPE',
+    'STORE',
+    'ALLOW',
+    'getKindMetadata',
+    'Schema',
+    'Model',
+    'SchemaDefinitionError',
+  ]);
+  // The core's own classes: one Schema, one Model.
+  const core = require('@alexify/metaschema');
+  assert.strictEqual(definition.Schema, core.Schema);
+  assert.strictEqual(definition.Model, core.Model);
+  // A process that imports the definition alone builds and reads, and does
+  // not validate.
+  const source = [
+    "import { Schema, Model } from '@alexify/metaschema/definition';",
+    "const model = new Model({}, [['Tag', { Struct: {}, label: 'string', 'parent?': 'Tag' }]]);",
+    "const tag = model.entities.get('Tag');",
+    'let code = null;',
+    "try { tag.check({ label: 'x' }); } catch (error) { code = error.code; }",
+    "process.stdout.write(JSON.stringify([tag.toSnapshot().root, code, '~standard' in tag]));",
+  ].join('\n');
+  const args = ['--input-type=module', '-e', source];
+  const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
+  assert.deepStrictEqual(JSON.parse(output), ['Tag', 'ERR_NOT_REGISTERED', false]);
 });

@@ -15,7 +15,7 @@ const {
   invalidSnapshot,
   atSchema,
   isObject,
-  snapshotOf,
+  readSnapshot,
   same,
   isFunctionMarker,
 } = require('./data.js');
@@ -188,8 +188,8 @@ const diffEntity = (name, old, current, changes) => {
 // entities of `next` in their order (added, or their changes), the entities
 // that are gone, then the types.
 const diff = (prev, next) => {
-  const old = snapshotOf(prev);
-  const current = snapshotOf(next);
+  const old = readSnapshot(prev);
+  const current = readSnapshot(next);
   const changes = [];
   for (const name of Object.keys(current.entities)) {
     const to = current.entities[name];
@@ -243,7 +243,8 @@ const includes = (list, value) => {
   return false;
 };
 
-// Values added accept more (backward), values removed accept less (forward).
+// Values added accept more (backward), values removed accept less (forward);
+// the names of flags the same way.
 const enumLevel = (from, to) => {
   let level = FULL;
   for (const value of to) if (!includes(from, value)) level &= BACKWARD;
@@ -325,11 +326,13 @@ const keyLevel = (key, from, to, field) => {
     case 'min':
       return boundLevel(from, to, true);
     case 'max':
+    case 'decimals':
       return boundLevel(from, to, false);
     case 'pattern':
     case 'format':
       return from === undefined ? FORWARD : to === undefined ? BACKWARD : NONE;
     case 'enum':
+    case 'flags':
       return Array.isArray(from) && Array.isArray(to) ? enumLevel(from, to) : NONE;
     case 'validate':
     case 'parse':

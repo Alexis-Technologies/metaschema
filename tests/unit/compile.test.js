@@ -892,7 +892,7 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
   assert.strictEqual(schema[RUN], run);
   assert.deepStrictEqual(compile(schema), { accelerated: canEval() });
   assert.strictEqual(schema[RUN] !== run, canEval());
-  assert.strictEqual(schema[RUN].name, canEval() ? 'jit' : '');
+  assert.strictEqual(schema[RUN].name === 'jit', canEval());
   assert.deepStrictEqual(compile(schema, {}), { accelerated: canEval() });
   for (const jit of ['always', 1, null, 'true']) {
     assert.throws(() => compile(schema, { jit }), {
@@ -926,9 +926,9 @@ test('Compile: jit false leaves the closures, bad options and targets throw', ()
     assert.strictEqual(entity[RUN].name === 'jit', canEval());
   }
   // `jit: false` puts the closures back, the very functions the schemas were
-  // built with.
+  // built with (compiled on their first use).
   assert.deepStrictEqual(compile(model, { jit: false }), { accelerated: false });
-  for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
+  for (const entity of model.entities.values()) assert.notStrictEqual(entity[RUN].name, 'jit');
   const single = Schema.from({ a: 'string' });
   const closure = single[RUN];
   compile(single);
@@ -970,7 +970,7 @@ test(
       const later = new Schema('Later', { a: 'string' });
       register({ jit: false });
       assert.deepStrictEqual(calls, [['Later', 'ERR_JIT_BUILD']]);
-      assert.strictEqual(later[RUN].name, '');
+      assert.notStrictEqual(later[RUN].name, 'jit');
     } finally {
       globalThis.Function = Original;
     }
@@ -1000,7 +1000,7 @@ test(
     } finally {
       globalThis.Function = Original;
     }
-    for (const entity of model.entities.values()) assert.strictEqual(entity[RUN].name, '');
+    for (const entity of model.entities.values()) assert.notStrictEqual(entity[RUN].name, 'jit');
   },
 );
 
@@ -1009,7 +1009,7 @@ test('Compile: register() compiles every schema built after it', () => {
   register();
   const after = Schema.from({ a: 'string' });
   const model = new Model({}, [['A', { Struct: {}, a: 'string' }]]);
-  assert.strictEqual(before[RUN].name, '');
+  assert.notStrictEqual(before[RUN].name, 'jit');
   assert.strictEqual(after[RUN].name === 'jit', canEval());
   assert.strictEqual(model.entities.get('A')[RUN].name === 'jit', canEval());
   assert.deepStrictEqual(after.check({ a: 1 }).errors, ['Field "a" not of expected type: string']);
@@ -1017,13 +1017,13 @@ test('Compile: register() compiles every schema built after it', () => {
   register({ jit: 'auto' });
   assert.strictEqual(Schema.from({ a: 'string' })[RUN].name === 'jit', canEval());
   register({ jit: false });
-  assert.strictEqual(Schema.from({ a: 'string' })[RUN].name, '');
+  assert.notStrictEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
   assert.throws(() => register({ jit: 'x' }), {
     name: 'SchemaDefinitionError',
     code: 'ERR_INVALID_OPTIONS',
   });
   assert.throws(() => register(null), { code: 'ERR_INVALID_OPTIONS' });
-  assert.strictEqual(Schema.from({ a: 'string' })[RUN].name, '');
+  assert.notStrictEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
 });
 
 test('Compile: without code generation from strings, auto falls back and true throws', () => {
@@ -1305,6 +1305,62 @@ test('Compile: formats on both backends', () => {
       checked: '256.0.0.1',
     },
     { email: 7, site: null, id: 'ZZZZ', when: '2026-10-11', checked: '1.2.3.4' },
+  ]);
+});
+
+test('Compile: decimals on both backends', () => {
+  const schema = new Schema('Decimals', {
+    price: { type: 'number', decimals: 2, min: 0, max: 100 },
+    'whole?': { type: 'number', decimals: 0, nullable: true },
+    'fine?': { type: 'number', decimals: 15 },
+    checked: { type: 'number', decimals: 1, validate: (value) => value !== 0.5 || 'is half' },
+  });
+  equivalent(schema, [
+    { price: 19.99, whole: 3, fine: 0.123456789012345, checked: 1.5 },
+    { price: 0.1 + 0.2, whole: null, checked: 0.1 * 3 },
+    { price: 0.123, whole: 2.5, fine: 1e-16, checked: 0.5 },
+    { price: -0.123, whole: NaN, fine: Infinity, checked: 0.55 },
+    { price: 1e300, whole: '1', fine: null, checked: -Infinity },
+    { price: 100.001, checked: 2 },
+  ]);
+});
+
+test('Compile: the numbers of a rule reach the source as data', () => {
+  // A field is not frozen and its check is compiled on first use, so a rule
+  // changed after the schema was built reaches the emitter: it must be a
+  // literal or a name of the scope there, never text of the source.
+  const schema = new Schema('Rule', { n: { type: 'number', decimals: 2 } });
+  const payload = '2, void 0); globalThis.INJECTED = 1; (0';
+  schema.fields.n.decimals = payload;
+  delete globalThis.INJECTED;
+  compile(schema, JIT);
+  if (canEval()) assert.strictEqual(schema[RUN].toString().includes(quote(payload)), true);
+  assert.strictEqual(schema.check({ n: NaN }).valid, false);
+  assert.strictEqual(globalThis.INJECTED, undefined);
+});
+
+test('Compile: bytes and flags on both backends', () => {
+  const vm = require('node:vm');
+  const schema = new Schema('Binary', {
+    data: 'bytes',
+    'thumb?': { type: 'bytes', nullable: true, length: { min: 1, max: 2 } },
+    perms: { flags: ['read', 'write', 'constructor'] },
+    'beta?': {
+      type: 'flags',
+      flags: ['on'],
+      validate: (value) => value.on !== false || 'is off',
+    },
+  });
+  equivalent(schema, [
+    { data: new Uint8Array(2), perms: { read: true } },
+    { data: Buffer.from('a'), thumb: null, perms: {}, beta: { on: true } },
+    { data: vm.runInNewContext('new Uint8Array(1)'), perms: { constructor: true }, beta: {} },
+    { data: [1], thumb: 'x', perms: { read: 1, admin: true, write: 'y', x: 0 }, beta: [] },
+    { data: new Int8Array(1), perms: { toString: true }, beta: { on: false } },
+    { data: null, perms: null, beta: { on: 1, off: true } },
+    { data: 'AQI=', perms: Object.assign(Object.create({ read: 1 }), { write: true }) },
+    { data: new Uint8Array(1), thumb: new Uint8Array(3), perms: {} },
+    { data: new Uint8Array(1), thumb: Buffer.alloc(0), perms: {} },
   ]);
 });
 

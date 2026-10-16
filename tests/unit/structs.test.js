@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { Schema } = require('../../index.js');
+const { Schema, Model } = require('../../index.js');
 
 test('Structs: nested schema', () => {
   const definition = {
@@ -367,8 +367,9 @@ test('Structs: fields enumerate and serialize as plain data', () => {
   assert.strictEqual(schema.check({ name: 'x' }).valid, true);
 });
 
-test('Structs: a struct carries its plan, known keys and compiled check', () => {
+test('Structs: a struct carries its plan and known keys, its check compiled apart', () => {
   const { STRUCT } = require('../../src/struct.js');
+  const { checkOf } = require('../../src/checks.js');
   const schema = Schema.from({
     name: 'string',
     'tags?': { array: 'string' },
@@ -387,14 +388,64 @@ test('Structs: a struct carries its plan, known keys and compiled check', () => 
     ],
   );
   assert.strictEqual(struct.plan[0].type, schema.fields.name);
-  assert.strictEqual(struct.plan[0].check, schema.fields.name.check);
+  assert.deepStrictEqual(Object.keys(struct.plan[0]), [
+    'key',
+    'type',
+    'required',
+    'own',
+    'aliases',
+  ]);
   assert.strictEqual(Object.getPrototypeOf(struct.known), null);
   assert.deepStrictEqual(Object.keys(struct.known), ['name', 'tags', 'toString', 'half']);
-  assert.strictEqual(typeof struct.check, 'function');
+  assert.deepStrictEqual(Object.keys(struct), ['plan', 'known', 'calculated']);
+  assert.strictEqual(typeof checkOf(schema.fields), 'function');
+  assert.strictEqual(checkOf(schema.fields), checkOf(schema.fields));
   assert.deepStrictEqual(Object.keys(schema.fields), ['name', 'tags', 'toString', 'half']);
   assert.deepStrictEqual(Object.keys(schema.fields.name), ['root', 'required', 'type']);
   assert.strictEqual(typeof schema.fields.name.check, 'function');
   assert.ok(!('check' in JSON.parse(JSON.stringify(schema.fields.name))));
+});
+
+test('Structs: a check is compiled on its first use, once', () => {
+  let compiled = 0;
+  const model = new Model(
+    {
+      counted: {
+        kind: 'scalar',
+        construct() {},
+        compile() {
+          compiled += 1;
+          return (value, context, key) => {
+            if (typeof value !== 'string') context.issues = [{ key }];
+          };
+        },
+      },
+    },
+    [
+      ['Inner', { Struct: {}, c: 'counted' }],
+      ['Outer', { Struct: {}, a: 'counted', list: { array: 'counted' }, inner: 'Inner' }],
+    ],
+  );
+  const outer = model.entities.get('Outer');
+  // Building, reading, rendering and writing a snapshot compile nothing,
+  // unless the JIT is registered (`pnpm run test:jit`), which compiles at
+  // construction what it calls out to.
+  const eager = process.env.METASCHEMA_BACKEND === 'jit';
+  const { toTypeScript, toJSONSchema } = require('../../src/generators/index.js');
+  assert.strictEqual(toTypeScript(outer).length > 0, true);
+  assert.strictEqual(typeof toJSONSchema(outer, { unrepresentable: 'any' }), 'object');
+  assert.strictEqual(JSON.stringify(outer.toSnapshot()).length > 0, true);
+  assert.strictEqual(compiled, eager ? 3 : 0);
+  outer.check({ a: 'x', list: ['y'], inner: { c: 'z' } });
+  assert.strictEqual(compiled, 3);
+  outer.check({ a: 'x', list: [], inner: { c: 'z' } });
+  model.entities.get('Inner').check({ c: 'z' });
+  assert.strictEqual(compiled, 3);
+  // A definition error is still found when the schema is built.
+  assert.throws(() => Schema.from({ n: { type: 'number', min: 5, max: 1 } }), {
+    code: 'ERR_INVALID_RULE',
+    message: 'Rule "max" is below "min" in "n"',
+  });
 });
 
 test('Structs: a required key is decided by the key and the definition together', () => {

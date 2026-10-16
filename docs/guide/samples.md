@@ -71,8 +71,10 @@ the time.
 | Definition | Sample |
 | --- | --- |
 | `'string'` | letters of the locale, within `length` (1 to 8 without one); a `pattern` is read, see below; a [`format`](/guide/formats) draws one of the examples the format was registered with |
-| `'number'`, `'integer'`, `'bigint'` | a value within `min` and `max` (0 to 100 without them); an integer is whole |
+| `'number'`, `'integer'`, `'bigint'` | a value within `min` and `max` (0 to 100 without them); an integer is whole, a number of `decimals` rounded to them toward the inside of the bounds |
 | `'boolean'`, `'date'`, `'null'` | either value, a date in the 2020s, `null` |
+| `'bytes'` | up to sixteen random bytes, a `Uint8Array` |
+| `{ flags: [...] }` | each name present half the time, `true` or `false` |
 | `'any'`, `'unknown'` | a short string |
 | `'json'` | `{}` |
 | `{ enum: [...] }` | one of the values |

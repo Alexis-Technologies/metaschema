@@ -72,6 +72,7 @@ test('Graph: the modules of src/ require each other without a cycle', () => {
   assert.deepStrictEqual(leaves, [
     'errors.js',
     'metautil.js',
+    'prototypes/json.js',
     'runtime/browser.js',
     'runtime/node.js',
     'util.js',
@@ -98,6 +99,7 @@ const SUBPATHS = [
   'derive',
   'coerce',
   'mongodb',
+  'definition',
 ];
 const SUBPATH_EDGES = ['derive/index.js -> model/data.js', 'mongodb/bson.js -> coerce/index.js'];
 
@@ -118,4 +120,67 @@ test('Graph: the core requires no subpath, a subpath another only where allowed'
     }
   }
   assert.deepStrictEqual(crossings.sort(), [...SUBPATH_EDGES].sort());
+});
+
+// The modules a file reaches through its requires, itself included.
+const closureOf = (file, graph = new Map(), seen = new Set()) => {
+  if (seen.has(file)) return seen;
+  seen.add(file);
+  for (const target of edgesOf(file)) closureOf(target, graph, seen);
+  return seen;
+};
+
+// What validates: the half of the core `validation.js` installs. The
+// definition half (what `./definition` loads, and what builds a schema)
+// reaches none of it, so that a bundle of the definition alone has none.
+const VALIDATION = [
+  'validation.js',
+  'checks.js',
+  'codec.js',
+  'context.js',
+  'issues.js',
+  'result.js',
+  'lint.js',
+  'locales/en.js',
+];
+
+test('Graph: the definition half reaches no module of the validation half', () => {
+  // The subpaths that only build or name things work beside the definition
+  // entry alone, as the definition guide says.
+  const entries = ['definition/index.js', 'schema.js', 'model.js', 'types.js'];
+  for (const entry of [...entries, 'derive/index.js', 'formats/index.js']) {
+    const reached = [...closureOf(path.join(SRC, entry))].map(relative);
+    const validating = reached.filter((name) => VALIDATION.includes(name));
+    assert.deepStrictEqual(validating, [], `${entry} reaches the validation half`);
+  }
+  // The core entry carries both halves.
+  const core = [...closureOf(path.join(SRC, 'index.js'))].map(relative);
+  for (const name of VALIDATION) assert.ok(core.includes(name), name);
+  assert.deepStrictEqual(
+    [...closureOf(path.join(SRC, 'definition/index.js'))].map(relative).sort(),
+    [
+      'definition/index.js',
+      'errors.js',
+      'kinds.js',
+      'metadata.js',
+      'metautil.js',
+      'model.js',
+      'preprocessor.js',
+      'prototypes/abstract.js',
+      'prototypes/collections.js',
+      'prototypes/flags.js',
+      'prototypes/json.js',
+      'prototypes/reference.js',
+      'prototypes/scalars.js',
+      'prototypes/schema.js',
+      'prototypes/tuple.js',
+      'prototypes/union.js',
+      'rules.js',
+      'schema.js',
+      'snapshot.js',
+      'struct.js',
+      'types.js',
+      'util.js',
+    ],
+  );
 });

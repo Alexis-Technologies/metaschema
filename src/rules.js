@@ -1,12 +1,11 @@
-// The rule checks a field may carry besides its type. A type lists the rules
-// it accepts (`rules: ['length']` on a prototype); a rule in a definition of a
+// The rules a field may carry besides its type. A type lists the rules it
+// accepts (`rules: ['length']` on a prototype); a rule in a definition of a
 // type that does not accept it is a definition error, not a silent no-op. A
-// rule's value is checked and normalized when the field is built (`format`),
-// and its check is compiled into a closure over the field's bounds, run after
-// the type check.
-const { issues } = require('./issues.js');
+// rule's value is checked and normalized when the field is built (`format`);
+// its check is the validation half's (`compileRules` of `checks.js`),
+// compiled into a closure over the field's bounds and run after the type
+// check.
 const { SchemaDefinitionError } = require('./errors.js');
-const { isMap, isSet } = require('./util.js');
 
 const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);
 
@@ -60,11 +59,27 @@ const formatPattern = (value) => {
 // the hint, never a check that passes everything.
 const FORMATS = Object.create(null);
 
-const formatName = (value) => {
+// The entry a field's format named when the field was built: a format the
+// program registers later under that name does not change the field, whose
+// check is compiled on its first use.
+const NAMED = new WeakMap();
+
+const formatName = (value, type) => {
   if (typeof value !== 'string') throw invalidRule('Rule "format" needs the name of a format');
   if (FORMATS[value] === undefined) {
     const hint = 'register() of @alexify/metaschema/formats';
     throw invalidRule(`Rule "format" names a format that is not registered: "${value}" (${hint})`);
+  }
+  NAMED.set(type, FORMATS[value]);
+  return value;
+};
+
+const formatOf = (type) => NAMED.get(type);
+
+// The decimals a number may have: what a double holds exactly in a fraction.
+const formatDecimals = (value) => {
+  if (!Number.isInteger(value) || value < 0 || value > 15) {
+    throw invalidRule('Rule "decimals" needs an integer from 0 to 15');
   }
   return value;
 };
@@ -75,160 +90,21 @@ const FORMAT = Object.assign(Object.create(null), {
   max: formatLimit('max'),
   pattern: formatPattern,
   format: formatName,
+  decimals: formatDecimals,
 });
+
+// The bounds of a field leave room for a value: the definition is checked
+// when the field is built, its check compiled later.
+const checkBounds = (type) => {
+  const { min, max } = type;
+  if (min !== undefined && max !== undefined && min > max) {
+    throw invalidRule('Rule "max" is below "min"');
+  }
+};
 
 const notApplicable = (rule, type, rules) => {
   const hint = rule === 'length' && rules.has('min') ? '; use min and max' : '';
   return invalidRule(`Rule "${rule}" does not apply to type "${type}"${hint}`);
 };
 
-// Code points of a string: a surrogate pair counts once, a lone surrogate
-// once too.
-const codePoints = (text) => {
-  const { length } = text;
-  let count = 0;
-  for (let index = 0; index < length; index += 1) {
-    const unit = text.charCodeAt(index);
-    if (unit >= 0xd800 && unit <= 0xdbff && index + 1 < length) {
-      const next = text.charCodeAt(index + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) index += 1;
-    }
-    count += 1;
-  }
-  return count;
-};
-
-// The own keys of an object, counted without a list of them.
-const keyCount = (value) => {
-  let count = 0;
-  for (const name in value) if (Object.hasOwn(value, name)) count += 1;
-  return count;
-};
-
-// The length of a value, by what the value is rather than by what it carries
-// (an object with a `size` key is an object): the units of a string, the
-// length of an array, the size of a Set or a Map, the own keys of an object.
-const lengthOf = (value) => {
-  if (typeof value === 'string' || Array.isArray(value)) return value.length;
-  return isMap(value) || isSet(value) ? value.size : keyCount(value);
-};
-
-// A string field measures its units, or its code points when it asks for
-// them; anything else is measured by what it is. One closure per case, each
-// calling its measure directly: a measure held in a variable is a call site
-// shared by every length rule of the process, which V8 then cannot inline.
-const compileLength = (type) => {
-  const { min, max } = type.length;
-  if (type.scalar === 'string') {
-    if (type.unicode === true) {
-      return (value, context, key) => {
-        const actual = codePoints(value);
-        const short = min !== undefined && actual < min;
-        const long = max !== undefined && actual > max;
-        if (short || long) issues.length(context, min, max, actual, key);
-      };
-    }
-    return (value, context, key) => {
-      const actual = value.length;
-      const short = min !== undefined && actual < min;
-      const long = max !== undefined && actual > max;
-      if (short || long) issues.length(context, min, max, actual, key);
-    };
-  }
-  return (value, context, key) => {
-    const actual = lengthOf(value);
-    const short = min !== undefined && actual < min;
-    const long = max !== undefined && actual > max;
-    if (short || long) issues.length(context, min, max, actual, key);
-  };
-};
-
-// One closure for both bounds when a field has both.
-const compileRange = (type) => {
-  const { min, max } = type;
-  if (min === undefined) {
-    return (value, context, key) => {
-      if (value > max) issues.range(context, min, max, value, key);
-    };
-  }
-  if (max === undefined) {
-    return (value, context, key) => {
-      if (value < min) issues.range(context, min, max, value, key);
-    };
-  }
-  if (min > max) throw invalidRule('Rule "max" is below "min"');
-  return (value, context, key) => {
-    if (value < min || value > max) issues.range(context, min, max, value, key);
-  };
-};
-
-// The units a pattern may be run over: `length.max` (twice it when the
-// length counts code points, each at most two units), so that a string past
-// the bound, reported for its length already, never reaches a pattern that
-// backtracks over it; no limit without the bound.
-const patternLimit = (type) => {
-  const max = type.length?.max;
-  if (max === undefined) return Infinity;
-  return type.unicode === true ? 2 * max : max;
-};
-
-const compilePattern = (type) => {
-  const { pattern } = type;
-  const { source } = pattern;
-  const limit = patternLimit(type);
-  return (value, context, key) => {
-    if (value.length <= limit && !pattern.test(value)) issues.pattern(context, source, key);
-  };
-};
-
-// A format is the test the subpath registered under its name, run after the
-// pattern and under the same bound.
-const compileFormat = (type) => {
-  const { format } = type;
-  const { test } = FORMATS[format];
-  const limit = patternLimit(type);
-  return (value, context, key) => {
-    if (value.length <= limit && !test(value)) issues.format(context, format, key);
-  };
-};
-
-// The rules a field carries, by name, in the order its type lists them, min
-// and max as the one `range`: the order the closures run them in and the JIT
-// emits them in.
-const ruleNames = (type) => {
-  const names = [];
-  let range = false;
-  for (const name of type.constructor.rules) {
-    if (type[name] === undefined) continue;
-    if (name === 'min' || name === 'max') range = true;
-    else names.push(name);
-  }
-  if (range) names.push('range');
-  return names;
-};
-
-const COMPILERS = Object.assign(Object.create(null), {
-  length: compileLength,
-  pattern: compilePattern,
-  format: compileFormat,
-  range: compileRange,
-});
-
-// The checks of the rules a field carries.
-const compileRules = (type) => {
-  const names = ruleNames(type);
-  const checks = [];
-  for (let index = 0; index < names.length; index += 1) checks.push(COMPILERS[names[index]](type));
-  return checks;
-};
-
-module.exports = {
-  FORMAT,
-  FORMATS,
-  notApplicable,
-  ruleNames,
-  compileRules,
-  patternLimit,
-  codePoints,
-  lengthOf,
-};
+module.exports = { FORMAT, FORMATS, formatOf, checkBounds, notApplicable };

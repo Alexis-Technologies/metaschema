@@ -9,7 +9,7 @@ const warning = (code, text) => `Warning [${code}]: ${text}`;
 
 // The types no converter of coercion exists for: a value of them is taken
 // as it is.
-const NEVER_CONVERTED = new Set(['any', 'unknown', 'json', 'null']);
+const NEVER_CONVERTED = new Set(['any', 'unknown', 'json', 'null', 'flags']);
 
 // A `coerce` key where no conversion can happen: a reference checked as an
 // id (the record it names is never entered), a type that takes any value.
@@ -69,6 +69,20 @@ const lintField = (field, path, warnings, element = false, member = false) => {
   if (field.pattern !== undefined && field.length?.max === undefined) {
     const text = `"${path}" has a pattern without length.max (see the note on ReDoS)`;
     warnings.push(warning('unbounded-pattern', text));
+  }
+  if (field.decimals !== undefined) {
+    // The check tells a decimal too many apart below 2⁴³ units of the last
+    // decimal (ULPS of checks.js); a bound past it lets any number through.
+    // A side without a bound counts as 1.
+    const bound = Math.max(Math.abs(field.min ?? 1), Math.abs(field.max ?? 1));
+    const limit = 2 ** 43 / 10 ** field.decimals;
+    if (bound >= limit) {
+      const below = Number(limit.toPrecision(2));
+      const text =
+        `"${path}" has ${field.decimals} decimals, ` +
+        `which the check tells apart only below ${below}`;
+      warnings.push(warning('unenforceable-decimals', text));
+    }
   }
   if (field.coerce !== undefined) {
     const dead = deadCoerce(field);

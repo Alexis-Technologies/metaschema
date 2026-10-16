@@ -93,6 +93,7 @@ or a set, the check accepts as one.
 | numbers with a fraction, `NaN`, `Infinity` | `'number'` |
 | booleans, bigints | `'boolean'`, `'bigint'` |
 | `Date` instances with a time | `'date'` |
+| `Uint8Array` instances of any realm, a `Buffer` included | `'bytes'` |
 | arrays | `{ array: T }`, `T` the definition of all the elements together; `'unknown'` when every array was empty |
 | `Set`, `Map` instances | `{ set: T }`; `{ map: { string: T } }` or `{ map: { number: T } }` by the keys, `'json'` for keys of another kind |
 | objects (plain, null-prototype, class instances) | a struct of their own enumerable keys fused into one, or a dictionary (below) |

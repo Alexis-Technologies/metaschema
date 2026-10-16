@@ -101,6 +101,55 @@ test('Sample: every form of the language, on both backends', () => {
   assert.strictEqual(value.half, undefined);
 });
 
+test('Sample: a number of decimals is drawn with them, inside its bounds', () => {
+  const schema = Schema.from({
+    price: { type: 'number', decimals: 2, min: 0, max: 1 },
+    tight: { type: 'number', decimals: 1, min: 0.95, max: 1.05 },
+    whole: { type: 'number', decimals: 0, max: -1 },
+  });
+  for (let seed = 1; seed <= 50; seed += 1) {
+    const value = sample(schema, { seed });
+    assert.strictEqual(schema.check(value).valid, true, `seed ${seed}`);
+    assert.strictEqual(Math.round(value.price * 100) / 100, value.price);
+    assert.strictEqual(value.tight, 1);
+    assert.strictEqual(Number.isInteger(value.whole), true);
+  }
+  // Past 2⁵³ units of the last decimal every double has the decimals, and
+  // the product with the scale may be no number: the value drawn is one.
+  const huge = Schema.from({ n: { type: 'number', decimals: 15, min: 1e300 } });
+  for (let seed = 1; seed <= 5; seed += 1) {
+    assert.strictEqual(huge.check(sample(huge, { seed })).valid, true);
+  }
+});
+
+test('Sample: bytes and flags', () => {
+  const schema = Schema.from({ data: 'bytes', perms: { flags: ['read', 'write'] } });
+  const seen = new Set();
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const value = sample(schema, { seed });
+    assert.strictEqual(schema.check(value).valid, true, `seed ${seed}`);
+    assert.strictEqual(value.data instanceof Uint8Array, true);
+    assert.strictEqual(value.data.length <= 16, true);
+    for (const name of Object.keys(value.perms)) seen.add(`${name}:${value.perms[name]}`);
+  }
+  assert.deepStrictEqual(Array.from(seen).sort(), [
+    'read:false',
+    'read:true',
+    'write:false',
+    'write:true',
+  ]);
+  assert.deepStrictEqual(sample(schema, { seed: 7 }), sample(schema, { seed: 7 }));
+});
+
+test('Sample: bytes within their length', () => {
+  const schema = Schema.from({ data: { type: 'bytes', length: { min: 20, max: 24 } } });
+  for (let seed = 1; seed <= 20; seed += 1) {
+    const value = sample(schema, { seed });
+    assert.strictEqual(schema.check(value).valid, true, `seed ${seed}`);
+    assert.strictEqual(value.data.length >= 20 && value.data.length <= 24, true);
+  }
+});
+
 test('Sample: the same seed gives the same value, another seed another one', () => {
   const schema = Schema.from({ name: 'string', n: 'number', tags: { array: 'string' } });
   assert.deepStrictEqual(sample(schema, { seed: 5 }), sample(schema, { seed: 5 }));

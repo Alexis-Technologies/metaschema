@@ -20,13 +20,10 @@ const {
   toDotPath,
 } = require('./issues.js');
 const { createContext } = require('./context.js');
-const { STRUCT, isStruct, aliasOf } = require('./struct.js');
+const { STRUCT, isStruct } = require('./struct.js');
+const { COMPILE, aliasOf, tableOf } = require('./checks.js');
 const { asyncReturn, notRegistered } = require('./errors.js');
-const collections = require('./prototypes/collections.js');
-const { schema: struct } = require('./prototypes/schema.js');
-const { tuple } = require('./prototypes/tuple.js');
-const { union, tableOf } = require('./prototypes/union.js');
-const { reference, embeds } = require('./prototypes/reference.js');
+const { embeds } = require('./prototypes/reference.js');
 
 // What a subtree carries, as bits; a phase is the bit it applies.
 const DEFAULTS = 1;
@@ -71,15 +68,17 @@ const KEYED = 5;
 const TUPLE = 6;
 const UNION = 7;
 const REFERENCE = 8;
+const FLAGS = 9;
 
 const SHAPES = new Map([
-  [struct.compile, NESTED],
-  [collections.array.compile, LIST],
-  [collections.object.compile, KEYED],
-  [collections.map.compile, KEYED],
-  [tuple.compile, TUPLE],
-  [union.compile, UNION],
-  [reference.compile, REFERENCE],
+  [COMPILE.schema, NESTED],
+  [COMPILE.array, LIST],
+  [COMPILE.object, KEYED],
+  [COMPILE.map, KEYED],
+  [COMPILE.tuple, TUPLE],
+  [COMPILE.union, UNION],
+  [COMPILE.reference, REFERENCE],
+  [COMPILE.flags, FLAGS],
 ]);
 
 const shapeOf = (node) => {
@@ -144,6 +143,9 @@ const infoOf = (node) => {
   } else if (shape === REFERENCE) {
     bits |= DEFAULTS | DECODERS | ENCODERS | STRUCTS;
     refs.push(node);
+  } else if (shape === FLAGS) {
+    bits |= STRUCTS;
+    table = new Set(node.flags);
   }
   if (plan === null) {
     for (let index = 0; index < children.length; index += 1) {
@@ -645,6 +647,27 @@ const walkReference = (info, node, value, context, key, phase, want) => {
   return out;
 };
 
+// The names of a flags value: under strip the ones the field does not have
+// are left out, the value copied only when it has one (a value of names of
+// the list comes back as it is). The names are in a Set on the info; no
+// name is `__proto__` (the type refuses it), so a plain object holds them.
+const walkFlags = (info, node, given, context, key, phase, want) => {
+  const value = convert(want, given, node, info);
+  if ((want & STRUCTS) === 0 || value === null || typeof value !== 'object') return value;
+  const known = info.table;
+  let foreign = false;
+  for (const name in value) {
+    if (Object.hasOwn(value, name) && !known.has(name)) {
+      foreign = true;
+      break;
+    }
+  }
+  if (!foreign) return value;
+  const out = {};
+  for (const name of node.flags) if (Object.hasOwn(value, name)) out[name] = value[name];
+  return out;
+};
+
 // A field's own `coerce` turns coercion on or off for its subtree, in the
 // pass before the check.
 const walkPolicy = (info, node, value, context, key, phase, want) => {
@@ -663,6 +686,7 @@ const WALKERS = [
   walkList,
   walkUnion,
   walkReference,
+  walkFlags,
 ];
 
 // The bits a pass wants of a subtree, decided once per pass: its own, and

@@ -77,6 +77,24 @@ test('Types: the same table registers twice, a different definition does not', (
   assert.strictEqual(updated.types.money.metadata.pg, 'numeric');
 });
 
+test('Types: bytes and flags are built in, so a table of its own for them is refused', () => {
+  // What protoarray 1.2 gave a model for the two before they were built in.
+  const table = {
+    bytes: { kind: 'scalar', construct() {}, checkType: (value) => value instanceof Uint8Array },
+    flags: { kind: 'scalar', construct() {}, checkType: () => null },
+  };
+  for (const name of ['bytes', 'flags']) {
+    assert.throws(() => new Model({ [name]: table[name] }, []), {
+      code: 'ERR_TYPE_REGISTERED',
+      message: `Type "${name}" is already registered; only { metadata } may be added`,
+    });
+  }
+  const model = new Model({ bytes: { metadata: { pg: 'bytea' } } }, [], null, {
+    registry: 'isolated',
+  });
+  assert.strictEqual(model.types.bytes.metadata.pg, 'bytea');
+});
+
 test('Types: js must name a registered type, built-in or custom', () => {
   assert.throws(() => new Model({ bad: { js: 'strng' } }, []), {
     name: 'SchemaDefinitionError',
@@ -149,6 +167,40 @@ test('Types: an isolated model keeps its types to itself', () => {
     code: 'ERR_INVALID_OPTIONS',
     message: 'Model option "registry" must be "shared" or "isolated", got "private"',
   });
+});
+
+test('Types: a custom compile that throws is the error of the type, with the cause', () => {
+  // A compile of the type's own runs when the check is first compiled: on
+  // the first check on the closures, when the schema is built under the JIT.
+  const cause = new TypeError('boom');
+  const table = {
+    brokenType: {
+      construct() {},
+      compile: () => {
+        throw cause;
+      },
+    },
+  };
+  const build = () => new Model(table, [['Broken', { Struct: {}, code: 'brokenType' }]]);
+  if (process.env.METASCHEMA_BACKEND === 'jit') {
+    assert.throws(build, (error) => {
+      assert.strictEqual(error.code, 'ERR_JIT_BUILD');
+      assert.strictEqual(error.cause.code, 'ERR_INVALID_CUSTOM_TYPE');
+      assert.strictEqual(error.cause.cause, cause);
+      return true;
+    });
+    return;
+  }
+  const broken = build().entities.get('Broken');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    assert.throws(() => broken.check({ code: 'x' }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_CUSTOM_TYPE',
+      message: 'Custom type "brokenType" could not compile its check: boom in "Broken"',
+      schema: 'Broken',
+      cause,
+    });
+  }
 });
 
 test('Types: a custom checkType that throws is an exception issue', () => {

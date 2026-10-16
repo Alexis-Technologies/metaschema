@@ -11,7 +11,8 @@ const { embeds } = require('../prototypes/reference.js');
 const { infoOf } = require('../codec.js');
 const { referencesOf } = require('../context.js');
 const { invalidTarget, invalidOption } = require('../errors.js');
-const { ID, HEX, driverOf, idOf, isObjectId } = require('./bson.js');
+const { baseTypeOf } = require('../types.js');
+const { ID, HEX, driverOf, idOf, isObjectId, binaryBytes } = require('./bson.js');
 
 // The shapes of infoOf in codec.js, by name, for the three walks of the
 // subpath; `mongodb.test.js` holds them to the numbers of the core.
@@ -25,9 +26,10 @@ const SHAPES = Object.freeze({
   TUPLE: 6,
   UNION: 7,
   REFERENCE: 8,
+  FLAGS: 9,
 });
 
-const { SCHEMA, FIELDS, NESTED, LIST, KEYED, TUPLE, UNION, REFERENCE } = SHAPES;
+const { LEAF, SCHEMA, FIELDS, NESTED, LIST, KEYED, TUPLE, UNION, REFERENCE } = SHAPES;
 
 // A plain object of any realm: its prototype is the root of its realm or
 // none (an Array, a Date, a Map or a value of bson has one in between).
@@ -138,6 +140,12 @@ const walk = (state, node, value) => {
   if (shape === UNION && info.table !== null && typeof value === 'object') {
     const index = info.table.get(value[node.discriminator]);
     return index === undefined ? value : walk(state, node.union[index], value);
+  }
+  // The driver writes a Uint8Array as binData and reads it back as a Binary:
+  // its bytes again, where the field holds bytes.
+  if (shape === LEAF && !state.out && typeof value === 'object') {
+    const bytes = binaryBytes(value);
+    if (bytes !== null && baseTypeOf(node).type === 'bytes') return bytes;
   }
   return value;
 };

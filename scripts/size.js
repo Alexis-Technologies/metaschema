@@ -9,11 +9,14 @@
  * `--max-gzip-derive <KB>` when the `./derive` subpath does, with
  * `--max-gzip-coerce <KB>` when the `./coerce` subpath does and with
  * `--max-gzip-mongodb <KB>` when the `./mongodb` subpath does on top of
- * `./coerce`, which it requires (CI uses the nine as gates). The budgets are
- * 19 KB per core entry, 7.5 KB for the generators, 5 KB for the compile
- * subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB
- * for the formats subpath, 2.5 KB for the derive subpath, 2 KB for the
- * coerce subpath and 4 KB for the mongodb subpath (CLAUDE.md "Budgets").
+ * `./coerce`, which it requires, and with `--max-gzip-definition <KB>` when
+ * the `./definition` subpath on its own (the half of the core that builds
+ * schemas, bundled for the browser without the other) exceeds that (CI uses
+ * the ten as gates). The budgets are 22 KB per core entry, 8 KB for the
+ * generators, 5 KB for the compile subpath, 13 KB for the model subpath,
+ * 1.5 KB for the stream subpath, 5 KB for the formats subpath, 2.5 KB for
+ * the derive subpath, 2 KB for the coerce subpath, 4 KB for the mongodb
+ * subpath and 11 KB for the definition subpath (CLAUDE.md "Budgets").
  *
  * Bundles each shipped entry point with esbuild the way a consumer's bundler
  * would, then reports:
@@ -104,9 +107,20 @@ const SUBPATHS = [
   },
 ];
 
+// The entries measured on their own, as the program that imports nothing
+// else pays for them: `./definition` is the core without its validation half.
+const ALONE = [
+  {
+    label: 'Definition (./definition) on its own',
+    entry: 'src/definition/index.js',
+    platform: 'browser',
+    flag: '--max-gzip-definition',
+  },
+];
+
 // `entry` alone, or `entry` plus subpaths in one bundle, exported so that
-// the bundle keeps them: the package says `sideEffects: false`, and esbuild
-// drops a require whose result nothing uses.
+// the bundle keeps them: the package says that only its entries have side
+// effects, and a bundler may drop an import of a subpath nothing uses.
 const bundle = async (entry, platform, minify, subpaths = []) => {
   let extra = '';
   for (const subpath of subpaths) extra += `, require('${subpath}')`;
@@ -174,6 +188,7 @@ const main = async () => {
   for (const entry of ENTRIES) rows.push(await measure(entry));
   const core = rows[0];
   const extras = await extrasOf(core);
+  for (const entry of ALONE) extras.push({ ...(await measure(entry)), max: budget(entry.flag) });
   console.log('| Entry | raw | min | min+gzip |');
   console.log('| ----- | ---:| ---:| --------:|');
   for (const row of [...rows, ...extras]) {
@@ -194,4 +209,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { SUBPATHS, extrasOf };
+module.exports = { SUBPATHS, ALONE, extrasOf };

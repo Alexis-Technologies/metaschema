@@ -87,6 +87,7 @@ and a model collects the warnings of its entities and adds its own:
 | `unbounded-pattern` | a `pattern` without a `length.max`; see [Patterns and ReDoS](/guide/validation#patterns-and-redos) | `schema.warnings` |
 | `dead-aliases` | `aliases` on anything but a field of a struct (an element, a branch, a schema of one type), where nothing reads them | `schema.warnings` |
 | `dead-coerce` | `coerce` where no conversion can happen: on a reference checked as an id (the record it names is never entered), on `any`, `unknown`, `json` or `null`; see [coercion](/guide/coercion) | `schema.warnings` |
+| `unenforceable-decimals` | a `decimals` rule the check cannot tell apart within the bounds of the field (past 2⁴³ units of the last decimal every number passes; a side without a bound counts as 1); see [decimals](/guide/types#decimals) | `schema.warnings` |
 | `missing-index-field` | an index (`index`, `primary`, `unique`) naming a field the schema does not have | `schema.warnings` |
 | `missing-reference` | a reference to an entity that is not in the model | `model.warnings` (also `schema.checkConsistency()`) |
 | `missing-type` | a type the schema can no longer resolve after a namespace is detached | `schema.checkConsistency()` |
@@ -166,19 +167,104 @@ The format, `format: 1`:
 | Key | Contents |
 | --- | --- |
 | `database` | the `database` argument, as given |
-| `types` | the types the entities use, by name, sorted: an alias of a built-in as `{ js, metadata }`, a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
-| `entities` | every entity in `model.order`: `kind`, `scope`, `store`, `allow`, `parent` (`''` unless a projection), `unknown`, `custom` (the other keys of the kind metadata, as given), then `fields` for a struct or `type` for a schema of one type, `indexes` (the `index`, `primary` and `unique` definitions, as given; a `many` field is a field) and `relations` (`{ to, type }`) |
+| `root` | only in the snapshot of one schema (below): the name of the schema it is about |
+| `types` | the types the entities use, by name, sorted: an alias as `{ js, metadata }` (and the custom type it names, down the chain, which restoring it needs), a type with a check of its own as `{ kind, check: true, metadata }`, a built-in only when it carries metadata (`{ metadata }`) |
+| `entities` | every entity in `model.order`: `kind`, `scope`, `store`, `allow`, `parent` (`''` unless a projection), `unknown`, `custom` (the other keys of the kind metadata, a copy with its values written as any value is), then `fields` for a struct or `type` for a schema of one type, `indexes` (the `index`, `primary` and `unique` definitions, copied; a `many` field is a field) and `relations` (`{ to, type }`) |
 | a field | its `type` and `required` first, then the other keys of its definition sorted: a nested struct under `schema`, the element of a collection under `value`, the elements of a tuple as a list under `value`, the branches under `union`, the rules as the definition normalised them (`length` as `{ min, max }`, `pattern` as its source, or `{ source, flags }` with flags beyond `u`, `format` by its name), `aliases`, `deprecated` and every annotation |
 
 A function has no JSON form and is written as `{ $function: true }` wherever it stands: a
 `validate`, a `parse`, a `serialize`, a `default` factory, a calculated field, and the functions
 of the schema itself, which are written among its fields as a nested struct's are. A bigint is
-`{ $bigint: '10' }`, a `Date` is `{ $date: '2026-10-11T00:00:00.000Z' }`. What has no JSON form
-at all (a symbol, `NaN`) is left to `JSON.stringify`, which drops or nulls it; a `Map` or a
-`Set` as a `default` is written as `{}`.
+`{ $bigint: '10' }`, a `Date` is `{ $date: '2026-10-11T00:00:00.000Z' }`, bytes (a
+`Uint8Array`, a `Buffer`) are `{ $bytes: 'AQL/' }` (base64), a `Map` is `{ $map: [['x', 1]] }`
+(its entries) and a `Set` is `{ $set: ['a'] }` (its values), each value inside written the same
+way; `fromJSON` reads every tag back into its value, so a restored `default` is a value of its
+field again. What has no JSON form at all (a symbol, `NaN`) is left to `JSON.stringify`, which
+drops or nulls it.
 
 The repository pins the format with `tests/fixtures/snapshot.json`, the snapshot of its fixture
-model.
+model, and `tests/fixtures/schema-snapshot.json`, the text of `toSnapshot()` for a schema of
+every form 3.4 added and for a schema that names itself, both compared as text.
+
+### The snapshot of one schema
+
+`schema.toSnapshot()` writes the same format for one schema: the schema and every entity it
+reaches through its references (and the parent of a projection, which restoring it needs), each
+after the ones it references, with the name of the schema as `root` and no `database` metadata. It is
+what a program that reads one schema takes (a codec built from it, a form, a client that
+encodes positionally), and it needs no model: a schema that names itself (`parent:
+'?Category'`) reaches itself.
+
+```js
+const model = new Model({}, [
+  ['Company', { Dictionary: {}, name: 'string' }],
+  ['Category', { Struct: {}, title: 'string', 'parent?': 'Category' }],
+  ['Product', { Entity: {}, name: 'string', price: { type: 'number', decimals: 2 }, maker: 'Company', category: 'Category', photo: '?bytes', flags: { flags: ['featured', 'sold'] } }],
+]);
+
+model.entities.get('Product').toSnapshot();
+// {
+//   format: 1,
+//   root: 'Product',
+//   database: null,
+//   types: {},
+//   entities: {
+//     Company: { kind: 'dictionary', …, fields: { name: …, companyId: … }, … },
+//     Category: { kind: 'struct', …, fields: { title: …, parent: { type: 'Category', required: false, one: 'Category' } }, … },
+//     Product: {
+//       kind: 'entity', …,
+//       fields: {
+//         name: { type: 'string', required: true },
+//         price: { type: 'number', required: true, decimals: 2 },
+//         maker: { type: 'Company', required: true, one: 'Company' },
+//         category: { type: 'Category', required: true, one: 'Category' },
+//         photo: { type: 'bytes', required: false },
+//         flags: { type: 'flags', required: true, flags: ['featured', 'sold'] },
+//         productId: { type: 'string', required: false },
+//       },
+//       …
+//     },
+//   },
+// }
+```
+
+An anonymous schema is the entity `''` (`root: ''`). A reference no model resolves is left out,
+as the snapshot of a model leaves it; two schemas of one name in what a schema reaches (one
+derived from an entity keeps its name, and references the entity) cannot be one snapshot, and
+are `ERR_UNREPRESENTABLE`. [`fromJSON`](#restoring-a-model) reads it back as a model, whose
+entity `snapshot.root` is the schema again (`toSnapshot()` of it writes the same text), and
+checks that `root` names one of the entities (`ERR_INVALID_SNAPSHOT` otherwise); `diff` reads it
+as any snapshot.
+
+### What format 1 guarantees
+
+The snapshot is a contract, and these hold for every snapshot of format 1; a change of any of
+them is a major release, with a format of its own:
+
+- **The fields of a struct come in the order of the definition**, the order `check` visits them
+  in: a calculated field in its place, the functions of the schema itself (its `validate`,
+  `parse`, `serialize` and `format`) after the fields.
+- **The id field of a stored kind (`<entity>Id`, `'?string'`) comes after the fields of the
+  definition**, the last of the validated fields, unless the definition has a field of that
+  name, which the id field replaces in its place.
+- **The entities come in dependency order**: `Identifier` first, then every entity after the
+  ones it references, a cycle cut where it closes. A model writes them in `model.order`; the
+  snapshot of one schema in the order a walk from the schema meets them, which depends on the
+  schema alone and not on the order the model was given its entities in, so a schema restored
+  from its snapshot writes the same text again, a cycle included.
+- **The keys of a field are its `type` and `required`, then the others sorted**, so the text
+  does not depend on how the definition was written; a function is `{ $function: true }`, a
+  bigint `{ $bigint }`, a `Date` `{ $date }`, bytes `{ $bytes }` (base64), a `Map`
+  `{ $map: [[k, v]] }` (its entries), a `Set` `{ $set: [v] }` (its values), a `RegExp` its source
+  (or `{ source, flags }` with flags beyond `u`); a value inside a tag is written the same way.
+- **Keys are only added.** A program that reads format 1 ignores a key it does not know: `root`
+  is one that 3.4 added, and the rules and types a later release adds (`decimals`, `bytes`,
+  `flags` in 3.4) come as new keys of a field and new values of `type`.
+
+In TypeScript a field of a snapshot (`FieldSnapshot`) narrows on its `type`: `{ type: 'enum' }`
+has `enum`, `{ type: 'flags' }` has `flags`, a collection its `value`, a reference (whose type is
+the capitalized name of its entity) `one` or `many`, a custom type the names `CustomTypes`
+declares; `schema.toSnapshot()` is a `SchemaSnapshot`.
 
 ### Restoring a model
 
@@ -241,9 +327,9 @@ reads it as such, and `diff` the same.
   of the restored model, defined on the definition rather than assigned, and `diff` reads own
   keys only, so such a field added is `added`, never compared with `Object.prototype`.
 - **The tags are reserved.** Inside a definition value (an `enum` value, a `default`, the
-  `metadata` of a type), `{ $function: true }`, `{ $bigint }` and `{ $date }` are read as a
-  function, a bigint and a `Date`, since `revive` cannot tell them from a value a program
-  wrote that way. A program whose values look like the tags should not round-trip them through
+  `metadata` of a type), `{ $function: true }`, `{ $bigint }`, `{ $date }`, `{ $bytes }`,
+  `{ $map }` and `{ $set }` are read as a function, a bigint, a `Date`, bytes, a `Map` and a
+  `Set`, since `revive` cannot tell them from a value a program wrote that way. A program whose values look like the tags should not round-trip them through
   a snapshot.
 - **What a snapshot cannot say is an error, located.** A bigint or a pattern that does not
   read, a date that is not one, a pattern written as an object without a string `source`

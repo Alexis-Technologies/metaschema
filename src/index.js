@@ -1,8 +1,9 @@
 const { constants, getKindMetadata } = require('./kinds.js');
-const { Schema } = require('./schema.js');
+// The core entry: the definition half (the classes) with the validation
+// half installed into them (validation.js).
+const { Schema, ValidationResult } = require('./validation.js');
 const { Model } = require('./model.js');
 const { SchemaDefinitionError } = require('./errors.js');
-const { ValidationResult } = require('./result.js');
 
 const { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW } = constants;
 

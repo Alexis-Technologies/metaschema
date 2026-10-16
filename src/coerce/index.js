@@ -8,7 +8,7 @@
 // the check reports it as given.
 const { hasBrand, isSet, isMap } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
@@ -78,6 +78,38 @@ const toText = (value) => {
   const type = typeof value;
   if (type === 'number') return Number.isFinite(value) ? String(value) : value;
   return type === 'bigint' || type === 'boolean' ? String(value) : value;
+};
+
+// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
+// leaves unused at zero, so that one text is one value; what a decoder
+// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
+// the check. A charset, a length and the last quantum rather than one
+// expression of quanta, whose repetition grows the stack of the engine by a
+// frame each and overflowed it on a valid text of a few megabytes (the
+// formats subpath reads base64 the same way). `''` is the text of no bytes.
+const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
+
+const isBase64 = (text) => {
+  const { length } = text;
+  if (length % 4 !== 0 || !ALPHABET.test(text)) return false;
+  if (text[length - 1] !== '=') return true;
+  if (text[length - 2] === '=') return 'AQgw'.includes(text[length - 3]);
+  return 'AEIMQUYcgkosw048'.includes(text[length - 2]);
+};
+
+// A text whose bytes would be over `length.max` is not decoded: the check
+// rejects it, and a converter runs before the check, so this is what bounds
+// what it allocates.
+const toBytes = (value, field) => {
+  if (typeof value !== 'string' || !isBase64(value)) return value;
+  const max = field.length?.max;
+  const pad = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  if (max !== undefined && (value.length / 4) * 3 - pad > max) return value;
+  if (Uint8Array.fromBase64 !== undefined) return Uint8Array.fromBase64(value);
+  const text = atob(value);
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index += 1) bytes[index] = text.charCodeAt(index);
+  return bytes;
 };
 
 const isPrimitive = (value) => {
@@ -168,6 +200,7 @@ const BUILT_IN = {
   bigint: toBigint,
   boolean: toBoolean,
   date: toDate,
+  bytes: toBytes,
   enum: toEnum,
   array: toArray,
   set: toSet,

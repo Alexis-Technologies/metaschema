@@ -248,6 +248,18 @@ const dictionary = (field, context) => {
   return json;
 };
 
+// A flags value: a boolean per name, every one optional (all of them
+// under the strict profile, which lists every property as required), no
+// other key when the document is closed.
+const flags = (field, context) => {
+  const properties = {};
+  for (const name of field.flags) define(properties, name, typed('boolean', context));
+  const json = { [context.key]: 'object', properties };
+  if (context.strict) json.required = field.flags.slice();
+  if (context.closed) json.additionalProperties = false;
+  return json;
+};
+
 const isJSON = (value) =>
   value === null || (typeof value !== 'object' && typeof value !== 'bigint');
 
@@ -316,16 +328,17 @@ const reference = (field, context) => {
   } else if (!embeds(target, field.embed, context.references)) {
     json = id;
   } else {
-    json = definition(target, context);
+    json = definition(target, name, context);
   }
   return field.many === undefined ? json : { [context.key]: 'array', items: json };
 };
 
-// A referenced entity: `#` for the root of the document, a `$ref` into the
-// definitions (rendered once) otherwise, and inline where the target has no
-// `$ref` (mongodb), where a cycle has no form.
-const definition = (schema, context) => {
-  const { name } = schema;
+// A referenced entity, under the name the reference reached it through (an
+// anonymous schema of a model is the entity of the name the model gives
+// it): `#` for the root of the document, a `$ref` into the definitions
+// (rendered once) otherwise, and inline where the target has no `$ref`
+// (mongodb), where a cycle has no form.
+const definition = (schema, name, context) => {
   if (context.prefix === null) {
     if (context.stack.has(name)) return unrepresentable(context, `Recursive reference "${name}"`);
     context.stack.add(name);
@@ -358,7 +371,13 @@ const RENDER = Object.assign(Object.create(null), {
     }
     return json;
   },
-  number: (field, context) => ranged(typed('number', context), field, context),
+  // A number of `n` decimals is a multiple of 10⁻ⁿ (a validator that
+  // divides may disagree with `check` on the last bit of a sum).
+  number: (field, context) => {
+    const json = ranged(typed('number', context), field, context);
+    if (field.decimals !== undefined && !context.strict) json.multipleOf = 10 ** -field.decimals;
+    return json;
+  },
   integer: (field, context) => ranged(typed('integer', context), field, context),
   bigint: (field, context) =>
     context.mongo ? typed('bigint', context) : unrepresentable(context, 'Type "bigint"'),
@@ -368,6 +387,24 @@ const RENDER = Object.assign(Object.create(null), {
     if (context.input) return { type: 'string', format: 'date-time' };
     return unrepresentable(context, 'Type "date" (output)');
   },
+  // Binary data is base64 text on a JSON wire (the input `./coerce` reads
+  // back) and binData in MongoDB; the Uint8Array parse gives is no JSON. The
+  // length of the text bounds the bytes: four characters for every three
+  // started (a text that long may decode to two bytes more than `max`).
+  bytes: (field, context) => {
+    if (context.mongo) return typed('binData', context);
+    if (!context.input) return unrepresentable(context, 'Type "bytes" (output)');
+    if (context.strict) return typed('string', context);
+    const json =
+      context.target.byte === true
+        ? { type: 'string', format: 'byte' }
+        : { type: 'string', contentEncoding: 'base64' };
+    const { length } = field;
+    if (length?.min !== undefined) json.minLength = 4 * Math.ceil(length.min / 3);
+    if (length?.max !== undefined) json.maxLength = 4 * Math.ceil(length.max / 3);
+    return json;
+  },
+  flags,
   null: (field, context) => typed('null', context),
   any: (field, context) => unconstrained(context, 'any') || {},
   unknown: (field, context) => unconstrained(context, 'unknown') || {},

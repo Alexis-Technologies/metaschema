@@ -23,7 +23,7 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 18.6 KB min+gzip, `@alexify/metaschema/model` adds 12.0 KB on
+them: `@alexify/metaschema` is 21.3 KB min+gzip, `@alexify/metaschema/model` adds 12.7 KB on
 top. The subpath exports eight functions:
 
 | Export | Meaning |
@@ -191,6 +191,8 @@ that adds one.
 | `length`, `min` or `max` tightened (a lower bound raised, an upper one lowered, a bound added) | `forward` | old data may lie outside |
 | loosened (a bound lowered, raised or removed) | `backward` | new data may lie outside |
 | tightened on one end and loosened on the other | `none` | |
+| `decimals` lowered or added | `forward` | old data may have more decimals |
+| `decimals` raised or removed | `backward` | new data may have more decimals |
 | a `pattern` added | `forward` | old data may not match |
 | a `pattern` removed | `backward` | |
 | a `pattern` changed | `none` | two patterns compare as nothing |
@@ -198,6 +200,7 @@ that adds one.
 | `enum` values added | `backward` | new data may hold them |
 | `enum` values removed | `forward` | old data may hold them |
 | values added and removed | `none` | |
+| names of `flags` added, removed, or both | `backward`, `forward`, `none` | as the values of an enum |
 | a `validate` added (a field's, a struct's, the schema's) | `forward` | it may reject old data |
 | a `validate` removed | `backward` | |
 | a `parse` or `serialize` added, removed or changed | `full` | the wire format is the same |

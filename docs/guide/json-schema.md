@@ -51,8 +51,8 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 18.6 KB min+gzip, `@alexify/metaschema/generators` adds
-7.3 KB on top. The subpath exports five functions:
+carry them: `@alexify/metaschema` is 21.3 KB min+gzip, `@alexify/metaschema/generators` adds
+7.7 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
 | --- | --- |
@@ -109,11 +109,14 @@ The `openapi-3.0` document is a schema object, not an OpenAPI document: put it u
 | `'string'`, `{ type: 'string', length: { min, max }, pattern }` | `{ type: 'string', minLength, maxLength, pattern }` (the pattern's source, without flags) |
 | `{ type: 'string', format: 'email' }` | `{ type: 'string', format: 'email' }`, the name as given (the built-in names are JSON Schema's); dropped by the strict profile and for mongodb; see [String formats](/guide/formats) |
 | `'number'`, `'integer'`, with `min`/`max` | `{ type: 'number' }`, `{ type: 'integer' }`, with `minimum`/`maximum` |
+| `{ type: 'number', decimals: 2 }` | `multipleOf: 0.01` (10⁻ⁿ); dropped by the strict profile |
 | `'boolean'`, `'null'` | `{ type: 'boolean' }`, `{ type: 'null' }` |
 | `'any'`, `'unknown'` | `{}` |
 | `'json'` | `{ type: ['object', 'array'] }` |
 | `'date'` | `{ type: 'string', format: 'date-time' }` on the input side; unrepresentable on the output side; `bsonType: 'date'` for mongodb |
 | `'bigint'` | unrepresentable; `bsonType: 'long'` for mongodb |
+| `'bytes'` | `{ type: 'string', contentEncoding: 'base64' }` on the input side (`format: 'byte'` for openapi-3.0), `length` as `minLength`/`maxLength` of the text (four characters for every three bytes started); unrepresentable on the output side; `bsonType: 'binData'` for mongodb |
+| `{ flags: ['read', 'write'] }` | `{ type: 'object', properties: { read: { type: 'boolean' }, ... } }`, `additionalProperties: false` when the document is closed, every name `required` under the strict profile |
 | `{ enum: [...] }` | `{ enum: [...] }`; one value is `{ const: value }` where the dialect has it |
 | `{ array: T, length }` | `{ type: 'array', items: T, minItems, maxItems }` |
 | `{ set: T }` | the same with `uniqueItems: true` on the input side; unrepresentable on the output side and for mongodb |
@@ -133,6 +136,18 @@ A struct is closed (`additionalProperties: false`) unless the schema at the root
 [`check`](/guide/validation#options). A calculated field (a function), an index definition,
 the kind key and the schema-level options are not properties.
 
+`decimals` is `multipleOf: 10⁻ⁿ`, and a validator tests `multipleOf` by dividing, which in
+binary floating point leaves a remainder: with its defaults ajv rejects `19.99`, `0.29` or `4.35`
+against `multipleOf: 0.01`, all of which `check` accepts. Where a validator reads the document
+(a client, a gateway that validates against the OpenAPI export), give it the precision it
+divides with (`new Ajv({ multipleOfPrecision: 9 })` accepts them and still rejects `0.123`), or
+leave the decimals to `check` on the server.
+
+```js
+const ajv = new Ajv({ multipleOfPrecision: 9 });
+ajv.validate(toJSONSchema(Schema.from({ price: { type: 'number', decimals: 2 } })), { price: 19.99 }); // true
+```
+
 ### Optional, nullable and null
 
 `check` accepts `null` and an absent key for an optional field, and `null` for a nullable one,
@@ -144,8 +159,8 @@ listed in `required`; a nullable field is the same type and is listed. An option
 ## Input and output
 
 `io: 'input'`, the default, describes the JSON a value is parsed from: a `date` is a
-`date-time` string, a `set` an array of unique items, a `map` an object. `io: 'output'`
-describes the value `check` accepts, so those three have no JSON form there and throw (or
+`date-time` string, `bytes` base64 text, a `set` an array of unique items, a `map` an object.
+`io: 'output'` describes the value `check` accepts, so those four have no JSON form there and throw (or
 render as `{}` with `unrepresentable: 'any'`). The `mongodb` target describes the stored
 document and has one side only: a `date` is a BSON date, a `map` a document, a `set` has no
 form.
@@ -394,7 +409,8 @@ The subset, the reverse of [the mapping](#the-mapping):
 | --- | --- |
 | `type: 'string'` with `minLength`, `maxLength`, `pattern` | `{ type: 'string', length: { min, max }, pattern }`; a pattern the `u` flag rejects is outside the subset (see below) |
 | `type: 'string'` with `format` | `{ type: 'string', format }` when the [formats subpath](/guide/formats) registered that name; any other `format` is dropped |
-| `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }` |
+| `type: 'number'`, `'integer'`, with `minimum`, `maximum` | `{ type, min, max }`; `multipleOf` of 10⁻ⁿ on a number is `decimals: n` (0 to 15), `multipleOf: 1` on an integer says nothing more, any other step is outside the subset |
+| `type: 'string'` with `contentEncoding: 'base64'` (what `bytes` exports as) | a string of the `base64` format when the formats subpath is registered, else a string |
 | `type: 'boolean'`, `'null'` | `'boolean'`, `'null'` |
 | `type: 'object'` with `properties` and `required` | a nested struct, a property outside `required` optional (`'?string'`, `required: false`); `{ schema }` when its first key would read as a type or a kind |
 | `type: 'object'` with `additionalProperties: T`, `minProperties`, `maxProperties` | `{ object: { string: T }, length }`; a `propertyNames` with the number-key pattern gives a `number` key |
@@ -402,7 +418,7 @@ The subset, the reverse of [the mapping](#the-mapping):
 | `type: 'array'` with `items: T`, `minItems`, `maxItems` | `{ array: T, length }`; `uniqueItems: true` gives a `set` |
 | `prefixItems` (2020-12) or an `items` list (draft-07) with `minItems` | a tuple, the elements past `minItems` optional |
 | `enum`, `const` | `{ enum: [...] }`; `null` among the values makes the field nullable |
-| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` |
+| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` (each branch lists it in `required`, as OpenAPI asks; one that does not is `ERR_INVALID_UNION` when the definition is built) |
 | `type: ['T', 'null']`, `nullable: true` | `nullable: true` on a required property; an optional one accepts null anyway |
 | a `type` list | a `union` of the types |
 | `allOf` of one schema | that schema (`{ allOf: [{ $ref }], nullable: true }` is how OpenAPI 3.0 writes a nullable reference) |

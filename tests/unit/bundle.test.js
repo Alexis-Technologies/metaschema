@@ -244,6 +244,22 @@ const checkBundle = async (
     'Field "tags[1]" not of expected type: string',
   ]);
   assert.strictEqual(fast.check({ name: 'x', tags: [] }).valid, true);
+  // Bytes of this realm in the bundle's, flags and decimals, compiled or not.
+  const binary = Schema.from({
+    data: 'bytes',
+    perms: { flags: ['read'] },
+    price: { type: 'number', decimals: 2 },
+  });
+  compile.compile(binary);
+  assert.strictEqual(
+    binary.check({ data: new Uint8Array(1), perms: { read: true }, price: 0.1 + 0.2 }).valid,
+    true,
+  );
+  assert.deepStrictEqual(errorsOf(binary.check({ data: [1], perms: { x: true }, price: 0.123 })), [
+    'Field "data" not of expected type: bytes',
+    'Field "perms" has unexpected keys: x',
+    'Field "price" has more than 2 decimals',
+  ]);
   const flat = Schema.from({ name: 'string', age: 'number' });
   assert.deepStrictEqual(errorsOf(flat.check({ name: 1, age: 'x' })), [
     'Field "name" not of expected type: string',
@@ -386,4 +402,114 @@ for (const minify of [false, true]) {
   const label = minify ? 'minified' : 'unminified';
   test(`Bundle: browser entry, ${label}`, async () => checkBundle(await loadBrowser(minify), true));
   test(`Bundle: node entry, ${label}`, async () => checkBundle(await loadNode(minify), false));
+}
+
+// The definition entry bundled on its own, the way a browser client that
+// only reads schemas gets it, and run in a bare context: it builds and
+// writes snapshots, and says that it does not validate.
+const loadDefinition = async (minify, withCore = false) => {
+  const contents = withCore
+    ? "module.exports = { definition: require('./src/definition/index.js'), core: require('./browser.js') };"
+    : "module.exports = { definition: require('./src/definition/index.js') };";
+  const result = await esbuild.build({
+    stdin: { contents, resolveDir: ROOT },
+    bundle: true,
+    write: false,
+    logLevel: 'silent',
+    platform: 'browser',
+    format: 'iife',
+    globalName: 'metaschema',
+    minify,
+  });
+  const code = result.outputFiles[0].text;
+  const context = vm.createContext({});
+  vm.runInContext(code, context);
+  return { ...context.metaschema, size: code.length };
+};
+
+const codeOf = (fn) => {
+  try {
+    fn();
+    return null;
+  } catch (error) {
+    return error.code;
+  }
+};
+
+for (const minify of [false, true]) {
+  const label = minify ? 'minified' : 'unminified';
+  test(`Bundle: the definition entry alone, ${label}`, async () => {
+    const { definition } = await loadDefinition(minify);
+    const { Schema, Model } = definition;
+    const model = new Model({}, [
+      ['Tag', { Struct: {}, label: 'string', data: '?bytes', 'parent?': 'Tag' }],
+      ['Item', { Entity: {}, tag: 'Tag', perms: { flags: ['read'] } }],
+    ]);
+    const item = model.entities.get('Item');
+    // The brand of the core, read across the copy of the bundle.
+    assert.strictEqual(Schema.extractSchema(item), item);
+    const snapshot = JSON.parse(JSON.stringify(item.toSnapshot()));
+    assert.strictEqual(snapshot.root, 'Item');
+    assert.deepStrictEqual(Object.keys(snapshot.entities), ['Tag', 'Item']);
+    assert.strictEqual(snapshot.entities.Item.fields.perms.type, 'flags');
+    assert.strictEqual('~standard' in item, false);
+    for (const fn of [() => item.check({}), () => item.parse({}), () => model.warnings]) {
+      assert.strictEqual(codeOf(fn), 'ERR_NOT_REGISTERED');
+    }
+  });
+
+  test(`Bundle: the definition entry with the core, ${label}`, async () => {
+    const { definition, core, size } = await loadDefinition(minify, true);
+    assert.strictEqual(definition.Schema, core.Schema);
+    const tag = new definition.Schema('Tag', { label: 'string', 'parent?': 'Tag' });
+    assert.deepStrictEqual(errorsOf(tag.check({ label: 'a', parent: { label: 1 } })), [
+      'Field "Tag.parent.label" not of expected type: string',
+    ]);
+    assert.strictEqual('~standard' in tag, true);
+    // One copy of each module: the bundle of both is the core's, and the
+    // few lines of the definition entry.
+    const coreAlone = await esbuild.build({
+      stdin: { contents: "module.exports = require('./browser.js');", resolveDir: ROOT },
+      bundle: true,
+      write: false,
+      logLevel: 'silent',
+      platform: 'browser',
+      format: 'iife',
+      globalName: 'metaschema',
+      minify,
+    });
+    assert.ok(size - coreAlone.outputFiles[0].text.length < 1024);
+  });
+}
+
+// The core entry imported for what it installs, the way the definition guide
+// says to turn validation on (`import '@alexify/metaschema'`), in an ES
+// module bundle: a bundler reads `sideEffects` of the package and drops an
+// import of a module it believes free of them, so the entries and the
+// validation half are listed there.
+for (const platform of ['node', 'browser']) {
+  test(`Bundle: the core imported for its side effects, ${platform}`, async () => {
+    const entry = platform === 'node' ? 'index.js' : 'browser.js';
+    const contents = [
+      "import { Schema } from './src/definition/index.js';",
+      `import './${entry}';`,
+      "const tag = new Schema('Tag', { label: 'string' });",
+      'export const errors = Array.from(tag.check({ label: 1 }).errors);',
+    ].join('\n');
+    const result = await esbuild.build({
+      stdin: { contents, resolveDir: ROOT, loader: 'js' },
+      bundle: true,
+      write: false,
+      logLevel: 'silent',
+      platform,
+      format: 'cjs',
+    });
+    assert.deepStrictEqual(result.warnings, []);
+    const module = { exports: {} };
+    const load = vm.compileFunction(result.outputFiles[0].text, ['module', 'exports', 'require']);
+    load(module, module.exports, require);
+    assert.deepStrictEqual(Array.from(module.exports.errors), [
+      'Field "Tag.label" not of expected type: string',
+    ]);
+  });
 }

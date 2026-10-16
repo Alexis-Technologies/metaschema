@@ -3,7 +3,7 @@
 // snapshot is input (a file, a registry, another program), so what it says
 // is checked before it is read, and every error is ERR_INVALID_SNAPSHOT
 // located in the entity, never a bare SyntaxError or TypeError.
-const { hasBrand, define } = require('../util.js');
+const { hasBrand, define, isDate, isRegExp } = require('../util.js');
 const { FORMAT } = require('../snapshot.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { isStruct } = require('../struct.js');
@@ -32,12 +32,24 @@ const isSnapshot = (value) =>
   isObject(value.entities) &&
   (value.types === undefined || isObject(value.types));
 
-// The snapshot of a model, or the snapshot given.
-const snapshotOf = (target) => {
+// The entity a snapshot of one schema is about, when it names one: a key
+// format 1 gained in 3.4, read by nothing else.
+const checkRoot = (snapshot) => {
+  const { root } = snapshot;
+  if (root === undefined) return;
+  if (typeof root !== 'string' || !Object.hasOwn(snapshot.entities, root)) {
+    throw invalidSnapshot('The root of a snapshot must name one of its entities');
+  }
+};
+
+// The snapshot of a model, or the snapshot given, read as one (the writer of
+// the core is `snapshotOf` of snapshot.js).
+const readSnapshot = (target) => {
   if (hasBrand(target, 'Model')) return target.toJSON();
   if (!isSnapshot(target)) {
     throw invalidSnapshot(`A Model or a snapshot of format ${FORMAT} with entities is expected`);
   }
+  checkRoot(target);
   return target;
 };
 
@@ -49,12 +61,12 @@ const same = (a, b, depth = 0) => {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
   if (depth > DEPTH) throw tooDeep();
-  const name = a.constructor?.name;
-  if (name === 'RegExp' || name === 'Date') {
-    if (name !== b.constructor?.name) return false;
-    return name === 'Date'
-      ? a.getTime() === b.getTime()
-      : a.source === b.source && a.flags === b.flags;
+  // By their shape, which a value of JSON cannot fake: `{ constructor: {
+  // name: 'Date' } }` of a snapshot is data.
+  const regExp = isRegExp(a);
+  if (regExp || isRegExp(b) || isDate(a) || isDate(b)) {
+    if (regExp) return isRegExp(b) && a.source === b.source && a.flags === b.flags;
+    return isDate(a) && isDate(b) && a.getTime() === b.getTime();
   }
   if (Array.isArray(a)) {
     if (!Array.isArray(b) || a.length !== b.length) return false;
@@ -121,6 +133,32 @@ const structDefinition = (base, metadata, fields) => {
   return definition;
 };
 
+// The namespaces of a schema built from schemas: theirs, and for a schema
+// that names itself without a model holding it (`parent: '?Category'`
+// resolves to the schema itself), one that holds it, so that what is built
+// from it, under its name or another, reaches the schema it was built from
+// as it did.
+const namespacesOf = (schemas) => {
+  const namespaces = new Set();
+  for (const schema of schemas) {
+    const { name } = schema;
+    let held = false;
+    for (const ns of schema.namespaces) {
+      namespaces.add(ns);
+      if (ns.entities.get(name) !== undefined) held = true;
+    }
+    if (name !== '' && !held && schema.references.has(name)) {
+      namespaces.add({
+        entities: new Map([[name, schema]]),
+        get types() {
+          return schema.types;
+        },
+      });
+    }
+  }
+  return Array.from(namespaces);
+};
+
 module.exports = {
   DEPTH,
   invalidSnapshot,
@@ -128,7 +166,8 @@ module.exports = {
   atSchema,
   isObject,
   isSnapshot,
-  snapshotOf,
+  checkRoot,
+  readSnapshot,
   same,
   isFunctionMarker,
   capitalize,
@@ -136,4 +175,5 @@ module.exports = {
   structDefinitionOf,
   metadataOf,
   structDefinition,
+  namespacesOf,
 };

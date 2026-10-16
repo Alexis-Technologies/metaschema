@@ -5,11 +5,12 @@
 | Type | Accepts | Rules |
 | --- | --- | --- |
 | `string` | `typeof value === 'string'` | `length`, `unicode`, `pattern`, [`format`](/guide/formats) |
-| `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max` |
+| `number` | `typeof value === 'number'` (`NaN` included) | `min`, `max`, `decimals` |
 | `integer` | a number without a fraction (`Number.isInteger`) | `min`, `max` |
 | `bigint` | `typeof value === 'bigint'` | `min`, `max` |
 | `boolean` | `typeof value === 'boolean'` | — |
 | `date` | a `Date` instance with a valid time (`new Date('nope')` is rejected) | — |
+| `bytes` | a `Uint8Array` of any realm, a `Buffer` included | `length` (of bytes) |
 | `null` | `null` only | — |
 | `any`, `unknown` | any value, `null` and `undefined` included | — |
 | `enum` | one of the listed values | — |
@@ -28,7 +29,14 @@ Schema.from({
 ```
 
 `any` and `unknown` are the same type under two names (they differ only in the TypeScript they
-render); a required `any` field still has to be present. `null` is for a field that must be
+render); a required `any` field still has to be present. `bytes` is binary data: a view is told
+by the name the engine keeps in it, never by `instanceof` or a key of the value, so a
+`Uint8Array` of another realm is one, another view (`Int8Array`, `DataView`), an array of
+numbers and base64 text are not; base64 text is what [coercion](/guide/coercion) reads into bytes
+and what the [JSON Schema](/guide/json-schema) of the input side describes. `length` bounds the
+number of bytes (`{ type: 'bytes', length: { max: 65536 } }`), and coercion leaves a text whose
+bytes would be over `length.max` undecoded, for the check to reject, so the bound is also what
+caps what a request can make the converter allocate. `null` is for a field that must be
 `null`; a field that may be `null` next to its type is [`nullable`](#nullable), and one that may
 be absent is optional.
 
@@ -65,6 +73,27 @@ const schema = Schema.from({
 });
 schema.check({ stops: [null, { city: 'Lviv' }] }).valid; // true
 ```
+
+## Flags
+
+`{ flags: [...] }` is a set of named switches: an object whose keys are names of the list, each
+`true` or `false`, any of them left out (`{}` has every flag off). A name the list does not have
+is a key the schema does not have, so it follows the unknown-keys policy of the check, as a
+struct's keys do: `unexpected` by default, ignored under `unknown: 'ignore'`, left out of the
+output of `parse` under `strip`.
+
+```js
+const access = Schema.from({ perms: { flags: ['read', 'write', 'admin'] } });
+access.check({ perms: { read: true, admin: false } }).valid; // true
+access.check({ perms: { read: 'yes', owner: true } }).errors;
+// [ 'Field "perms.read" not of expected type: boolean', 'Field "perms" has unexpected keys: owner' ]
+access.parse({ perms: { read: true, owner: true } }, { unknown: 'strip' }).value;
+// { perms: { read: true } }
+```
+
+The list is a non-empty list of distinct names (`__proto__` is none), or the definition is
+`ERR_INVALID_DEFINITION`. It renders as `{ read?: boolean; write?: boolean; admin?: boolean }` in
+TypeScript and as an object of boolean properties in JSON Schema.
 
 ## Tuples
 
@@ -194,6 +223,30 @@ schema.check({ age: 150 }).issues[0];
 
 A `max` below `min` throws `ERR_INVALID_RULE`.
 
+### `decimals`
+
+`decimals` bounds the digits after the point of a `number` (an integer from 0 to 15): the value
+times 10ⁿ is a whole number, to within the error the arithmetic of doubles leaves on the way, so
+`0.1 + 0.2` has two decimals and `19.999` has three. `NaN` and the infinities have none to
+count (the issue names them: `params.received` is `'NaN'`, and the message says it is not a
+finite number). A failed test is a `decimals` issue:
+
+```js
+const schema = Schema.from({ price: { type: 'number', decimals: 2, min: 0 } });
+schema.check({ price: 0.1 + 0.2 }).valid; // true
+schema.check({ price: 19.999 }).issues;
+// [ { code: 'decimals', path: ['price'], message: 'has more than 2 decimals', params: { decimals: 2 } } ]
+```
+
+The tolerance is 256 units in the last place of the scaled value: a decimal too many is told
+apart while the value is under 2⁴³ units of its last decimal (about 88 billion at two
+decimals, 8.8 at twelve, 0.0088 at fifteen), where a bound of 1e-9 of the value would let
+`12345678.123` pass as two decimals. Past that every number passes, so a field whose bounds
+reach it (`max`, `min`, or 1 for a side without one) is an `unenforceable-decimals` warning in
+`schema.warnings`: thirteen decimals or more without bounds, two with `max: 1e12`. The JSON Schema
+export writes `multipleOf: 0.01` (a validator that divides disagrees with the last bit of a
+sum: ajv needs `multipleOfPrecision`, see [JSON Schema](/guide/json-schema#the-mapping)), and an `integer`, a `bigint` or a `string` with `decimals` is `ERR_INVALID_RULE`.
+
 ### `pattern`
 
 `pattern` tests a string against a regular expression, given as a string or a `RegExp`. It is
@@ -217,7 +270,7 @@ is never run over it; see [Patterns and ReDoS](/guide/validation#patterns-and-re
 
 ### `format`
 
-`format` names a form a string must have, `email`, `uuid`, `date`, `uri`, one of the nine the
+`format` names a form a string must have, `email`, `uuid`, `date`, `uri`, one of the 35 the
 `@alexify/metaschema/formats` subpath registers or one of your own. It runs after `pattern`,
 under the same `length.max` bound, and a failed test is a `format` issue:
 

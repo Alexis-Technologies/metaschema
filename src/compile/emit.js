@@ -7,16 +7,21 @@
 //
 // Generated code names three things: `v` the value, `c` the context and `k`
 // the key the root was called with. Every other identifier is fresh.
-const { ENUM_SET_SIZE } = require('../util.js');
+const { ENUM_SET_SIZE, isBytes } = require('../util.js');
 const { issues, runValidate, release } = require('../issues.js');
-const { FORMATS, codePoints, lengthOf, ruleNames, patternLimit } = require('../rules.js');
+const { formatOf } = require('../rules.js');
 const { STRUCT, isStruct } = require('../struct.js');
-const scalars = require('../prototypes/scalars.js');
 const collections = require('../prototypes/collections.js');
-const { schema } = require('../prototypes/schema.js');
-const { tuple } = require('../prototypes/tuple.js');
-const { union, nameOf, tableOf } = require('../prototypes/union.js');
-const { json } = require('../prototypes/json.js');
+const {
+  COMPILE,
+  decimalsOff,
+  codePoints,
+  lengthOf,
+  ruleNames,
+  patternLimit,
+  nameOf,
+  tableOf,
+} = require('../checks.js');
 const { prop, quote, literal } = require('./code.js');
 
 // The key of the field under check, as source: a quoted name, an index, a
@@ -75,9 +80,8 @@ const emitLength = (type, x, key, state) => {
   if (min === undefined && max === undefined) return;
   const n = code.name('n');
   let measure = `${code.ref(lengthOf)}(${x})`;
-  if (type.scalar === 'string') {
-    measure = type.unicode === true ? `${code.ref(codePoints)}(${x})` : `${x}.length`;
-  }
+  if (type.scalar === 'string' && type.unicode === true) measure = `${code.ref(codePoints)}(${x})`;
+  else if (type.scalar === 'string' || type.scalar === 'bytes') measure = `${x}.length`;
   code.push(`const ${n} = ${measure};`);
   code.push(`if (${outside(state, n, min, max)}) {`);
   const bounds = `${code.value(min)}, ${code.value(max)}, ${n}, ${keyOf(key)}`;
@@ -103,9 +107,20 @@ const emitPattern = (type, x, key, state) => {
 const emitFormat = (type, x, key, state) => {
   const { code } = state;
   const { format } = type;
-  const { test } = FORMATS[format];
+  const { test } = formatOf(type);
   code.push(`if (${withinLength(type, x, code)}!${code.ref(test)}(${x})) {`);
   record(state, issue(state, 'format', `${quote(format)}, ${keyOf(key)}`));
+  code.push('}');
+};
+
+// The decimals of a number, by the test of checks.js (`decimalsOff`); the
+// numbers of the rule reach the source as literals of `code.value`, never as
+// the text of the field.
+const emitDecimals = (type, x, key, state) => {
+  const { code } = state;
+  const { decimals } = type;
+  code.push(`if (${code.ref(decimalsOff)}(${x}, ${code.value(10 ** decimals)})) {`);
+  record(state, issue(state, 'decimals', `${code.value(decimals)}, ${x}, ${keyOf(key)}`));
   code.push('}');
 };
 
@@ -122,6 +137,7 @@ const RULES = Object.assign(Object.create(null), {
   length: emitLength,
   pattern: emitPattern,
   format: emitFormat,
+  decimals: emitDecimals,
   range: emitRange,
 });
 
@@ -183,6 +199,16 @@ const emitDate = (type, x, key, state) => {
   const fails = `!(${isDateCode(x)} && !Number.isNaN(${x}.getTime()))`;
   typed(type, x, key, state, fails, typeIssue(state, 'date', x, key));
 };
+
+const emitBytes = (type, x, key, state) =>
+  typed(
+    type,
+    x,
+    key,
+    state,
+    `!${state.code.ref(isBytes)}(${x})`,
+    typeIssue(state, 'bytes', x, key),
+  );
 
 const emitNull = (type, x, key, state) =>
   typed(type, x, key, state, `${x} !== null`, typeIssue(state, 'null', x, key));
@@ -246,6 +272,37 @@ const emitObject = (type, x, key, state) => {
     if (!type.required) return;
     code.push(`if (${count} === 0) {`);
     record(state, issue(state, 'required', keyOf(key)));
+    code.push('}');
+  });
+};
+
+// The own keys of a flags value: a name of the list holds a boolean, any
+// other key is unexpected under the reject policy, as in the closure.
+const emitFlags = (type, x, key, state) => {
+  const { code } = state;
+  const failure = typeIssue(state, type.type, x, key);
+  typed(type, x, key, state, notObject(x), failure, () => {
+    const children = inside(state, key);
+    const name = code.name('n');
+    const item = code.name('x');
+    const unexpected = code.name('u');
+    let cases = '';
+    for (const flag of type.flags) cases += `case ${quote(flag)}: `;
+    code.push(`let ${unexpected} = null;`);
+    code.push(`for (const ${name} in ${x}) {`);
+    code.push(`if (!Object.hasOwn(${x}, ${name})) continue;`);
+    code.push(`switch (${name}) { ${cases}{`);
+    code.push(`const ${item} = ${x}[${name}];`);
+    code.push(`if (typeof ${item} !== "boolean") {`);
+    record(children, typeIssue(state, 'boolean', item, name));
+    code.push('}');
+    code.push('continue; } }');
+    code.push(
+      `if (c.unknown === "reject") (${unexpected} === null ? (${unexpected} = []) : ${unexpected}).push(${name});`,
+    );
+    code.push('}');
+    code.push(`if (${unexpected} !== null) {`);
+    record(children, issue(state, 'unexpected', unexpected));
     code.push('}');
   });
 };
@@ -337,7 +394,7 @@ const emitStruct = (fields, x, key, state) => {
     if (entry.aliases.length > 0) {
       // A field with aliases, when the value has nothing under its own key:
       // the first alias the value carries, and the key the check reports
-      // under, as `aliasOf` in struct.js finds them.
+      // under, as `aliasOf` of checks.js finds them.
       const alias = code.name('k');
       const inherited = own ? ` || !Object.hasOwn(${x}, ${name})` : '';
       code.push(`let ${item} = ${prop(x, entry.key)}, ${alias} = ${name};`);
@@ -383,9 +440,9 @@ const emitStruct = (fields, x, key, state) => {
   code.push(`let ${total} = 0;`);
   code.push(`for (const ${name} in ${x}) ${total} += 1;`);
   code.push(`if (${total} !== ${found}) {`);
-  // The scan of struct.js with the known keys as cases: a key for...in
-  // yields is an internalized string, so a case is a pointer comparison
-  // where a dictionary lookup would hash it.
+  // The scan of `checkOf` (checks.js) with the known keys as cases: a key
+  // for...in yields is an internalized string, so a case is a pointer
+  // comparison where a dictionary lookup would hash it.
   let cases = '';
   for (const field in known) cases += `case ${quote(field)}: `;
   code.push(`let ${unexpected} = null;`);
@@ -492,19 +549,21 @@ const emitUnion = (type, x, key, state) => {
 };
 
 const EMITTERS = new Map([
-  [scalars.string.compile, emitScalar],
-  [scalars.integer.compile, emitInteger],
-  [scalars.date.compile, emitDate],
-  [scalars.null.compile, emitNull],
-  [scalars.any.compile, emitAny],
-  [scalars.enum.compile, emitEnum],
-  [json.compile, emitJson],
-  [collections.object.compile, emitObject],
-  [collections.map.compile, emitMap],
-  [collections.array.compile, emitList],
-  [tuple.compile, emitTuple],
-  [union.compile, emitUnion],
-  [schema.compile, emitSchema],
+  [COMPILE.string, emitScalar],
+  [COMPILE.integer, emitInteger],
+  [COMPILE.date, emitDate],
+  [COMPILE.bytes, emitBytes],
+  [COMPILE.flags, emitFlags],
+  [COMPILE.null, emitNull],
+  [COMPILE.any, emitAny],
+  [COMPILE.enum, emitEnum],
+  [COMPILE.json, emitJson],
+  [COMPILE.object, emitObject],
+  [COMPILE.map, emitMap],
+  [COMPILE.array, emitList],
+  [COMPILE.tuple, emitTuple],
+  [COMPILE.union, emitUnion],
+  [COMPILE.schema, emitSchema],
 ]);
 
 // The check of one field over the local `x`. A built-in prototype is

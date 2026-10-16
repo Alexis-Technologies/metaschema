@@ -1,9 +1,9 @@
 # Exports
 
-The core is exported from the package root, in Node.js and in the browser; the generators, the
-JIT backend, the model tools, the record tools, the string formats, the derive tools, the
-converters of coercion, the MongoDB tools and the locales are subpaths (see
-[Architecture](/guide/architecture#the-packages)).
+The core is exported from the package root, in Node.js and in the browser; the half of it that
+builds schemas without validating, the generators, the JIT backend, the model tools, the record
+tools, the string formats, the derive tools, the converters of coercion, the MongoDB tools and
+the locales are subpaths (see [Architecture](/guide/architecture#the-packages)).
 
 ```js
 const {
@@ -19,6 +19,7 @@ const formats = require('@alexify/metaschema/formats'); // register, FORMATS
 const derive = require('@alexify/metaschema/derive'); // pick, omit, partial, required, extend, keyof, register
 const coercion = require('@alexify/metaschema/coerce'); // COERCIONS, coerce, register
 const bson = require('@alexify/metaschema/mongodb'); // types, register, toDocument, fromDocument, fromDocumentAsync, indexesOf, checkUpdate, toUpdate
+const definition = require('@alexify/metaschema/definition'); // KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW, getKindMetadata, Schema, Model, SchemaDefinitionError
 ```
 
 ## Constants
@@ -71,10 +72,11 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `schema.transform(options?)` | after `register()`: `transform(schema, options)`, a `TransformStream` that passes the valid records on as their parsed values (or as they are with `mode: 'check'`) and hands the others to `options.onInvalid`, or ends with `ERR_INVALID_RECORD` |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
-| `schema.findReference(name)` | the entity `name` from the attached models, or `null` |
+| `schema.findReference(name)` | the entity `name` from the attached models, else the schema itself when `name` is its own, else `null` |
 | `schema.attach(...models)` / `schema.detach(...models)` | add or remove namespaces |
 | `schema.types` | the type table in effect |
 | `schema.toJSON()` / `schema.toString()` | serialized fields |
+| `schema.toSnapshot()` | the schema as plain JSON: the [snapshot](/guide/model#the-snapshot-of-one-schema) of format 1 holding the schema and every entity it reaches through its references, with the name of the schema as `root` |
 
 Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unknown`, `fields`,
 `indexes`, `options`, `custom`, `references`, `relations`, `namespaces`.
@@ -96,10 +98,20 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 | `Model.fromJSON(snapshot, options?)` | after `register()` of the model subpath: `fromJSON(snapshot, options)`, a model back from its snapshot |
 | `Model.diff(prev, next)`, `Model.compatibility(changes)`, `Model.compatibilityOf(change)` | after `register()` of the model subpath: `diff`, `compatibility` and `compatibilityOf` of the subpath |
 
+## `@alexify/metaschema/definition`
+
+The half of the core that builds schemas and models and reads them, on its own (10.3 KB
+min+gzip); see [The definition entry](/guide/definition). Its exports are the core's own:
+`Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError` and the six constants. Until the
+core entry is loaded too, `check`, `checkAsync`, `parse`, `parseAsync`, `serialize`,
+`validate`, `checkConsistency`, `warnings`, the `check` of a field and `model.warnings` are a
+`TypeError` with `code: 'ERR_NOT_REGISTERED'` (the async pair rejects with it), and a schema has
+no `~standard`.
+
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (18.6 KB min+gzip) does not carry them (7.3 KB more); see
+subpath so that the core entry (21.3 KB min+gzip) does not carry them (7.7 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -114,7 +126,7 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (12.0 KB min+gzip on top of the
+The model as the source of truth, in a subpath of its own (12.7 KB min+gzip on top of the
 core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
 [Schema inference](/guide/infer).
 
@@ -135,7 +147,7 @@ argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (4.2 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (4.3 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
@@ -152,7 +164,7 @@ does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileO
 
 ## `@alexify/metaschema/stream`
 
-A schema over a sequence of records, in a subpath of its own (1.0 KB min+gzip on top of the
+A schema over a sequence of records, in a subpath of its own (0.9 KB min+gzip on top of the
 core); see [Records and streams](/guide/streaming).
 
 | Export | Description |
@@ -172,7 +184,7 @@ integer of at least 1, got 0`).
 ## `@alexify/metaschema/formats`
 
 The formats a string field may name with the [`format`](/guide/formats) rule, in a subpath of
-its own (4.0 KB min+gzip on top of the core); the rule is the core's, the table of formats the
+its own (3.9 KB min+gzip on top of the core); the rule is the core's, the table of formats the
 subpath's, empty until `register()` ran.
 
 | Export | Description |
@@ -185,7 +197,7 @@ of an entry is `FormatDefinition`.
 
 ## `@alexify/metaschema/derive`
 
-Schemas made from a schema of a struct, in a subpath of its own (1.9 KB min+gzip on top of the
+Schemas made from a schema of a struct, in a subpath of its own (2.2 KB min+gzip on top of the
 core); see [Deriving schemas](/guide/derive). Each builds a new `Schema` from the definition the
 source was built from, with `options.name` (the source's by default) and `options.metadata`
 (over the source's; a stored kind or a projection is a struct, keeping `unknown`).
@@ -208,7 +220,7 @@ not a list of names and options that are not an object are a `TypeError` with
 
 ## `@alexify/metaschema/coerce`
 
-The converters of [coercion](/guide/coercion), in a subpath of its own (1.7 KB min+gzip on top
+The converters of [coercion](/guide/coercion), in a subpath of its own (1.9 KB min+gzip on top
 of the core); the policy (`coerce` of a parse call, of the kind metadata, of a field) and the
 step in the pass before the check are the core's.
 
@@ -224,7 +236,7 @@ enters the schema, whatever the value holds. The type of a converter is `Coercio
 
 ## `@alexify/metaschema/mongodb`
 
-The schema side of a MongoDB program, in a subpath of its own (3.5 KB min+gzip on top of the
+The schema side of a MongoDB program, in a subpath of its own (3.6 KB min+gzip on top of the
 core and `./coerce`, which it requires), without a dependency on the driver and without I/O;
 see [MongoDB](/guide/mongodb).
 
@@ -253,8 +265,9 @@ Validation of data never throws because of the value. A synchronous `check` or `
 them. A `transform` of the stream subpath ends its stream with a `TypeError` with
 `code: 'ERR_INVALID_RECORD'` for an invalid record it was not told to drop. A parse that
 coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value
-holds), and a document or an update written with ObjectIds before `register({ bson })` of the
-mongodb subpath, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. An option of a call that
+holds), a document or an update written with ObjectIds before `register({ bson })` of the
+mongodb subpath, and a schema of the [definition entry](/guide/definition) asked to validate
+before the core entry was loaded, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. An option of a call that
 is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the
 stream, derive and mongodb subpaths) is a `TypeError` with `code: 'ERR_INVALID_OPTION'`; the
 kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is a
@@ -300,7 +313,7 @@ it; see [Validation](/guide/validation#the-result).
 
 | Code | Raised for |
 | --- | --- |
-| `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function |
+| `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function, or `flags` without a list of distinct names |
 | `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
 | `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
 | `ERR_INVALID_TUPLE` | a tuple whose definition is not an array, or an element that is a function |
@@ -309,16 +322,16 @@ it; see [Validation](/guide/validation#the-result).
 | `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
 | `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
 | `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
-| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string), a `min`/`max` that is not a number or a bigint, a `max` below `min`, or a `pattern` that is not a string or `RegExp` or does not compile, a `format` the table does not have (the [formats subpath](/guide/formats) registers them) or on a type other than `string` |
+| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string, `decimals` on anything but a number), a `min`/`max` that is not a number or a bigint, a `max` below `min`, `decimals` that is not an integer from 0 to 15, or a `pattern` that is not a string or `RegExp` or does not compile, a `format` the table does not have (the [formats subpath](/guide/formats) registers them) or on a type other than `string` |
 | `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
 | `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` or `coerce` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have, `ids` with a target other than mongodb), an option of `sample` or `infer`, the keys or options of a derive function, or the `jit` option of `compile`/`register` with a value it does not accept |
 | `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
 | `ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
-| `ERR_UNREPRESENTABLE` | a type with no form in the JSON Schema target (a `bigint`, a `date`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
+| `ERR_UNREPRESENTABLE` | two schemas of one name in what `schema.toSnapshot()` reaches; a type with no form in the JSON Schema target (a `bigint`, a `date`, `bytes`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
 | `ERR_UNSUPPORTED_SCHEMA` | a keyword of a JSON Schema document outside the subset `fromJSONSchema` reads, with its place as a JSON pointer, when `unsupported` is `'throw'`; see [Importing a document](/guide/json-schema#importing-a-document) |
-| `ERR_INVALID_SNAPSHOT` | `fromJSON` or `diff` of the model subpath given a value that is not a snapshot of format 1, or a snapshot with a broken entity, field or type |
+| `ERR_INVALID_SNAPSHOT` | `fromJSON` or `diff` of the model subpath given a value that is not a snapshot of format 1, a snapshot with a broken entity, field or type, or a `root` that names none of its entities |
 | `ERR_UNSATISFIABLE` | `sample` found a field no draw satisfies (an object with number keys, a pattern a length contradicts, a `validate` that rejects everything, a reference the model does not have, a required reference nested deeper than `maxDepth`); the message names the field and the reason |
 | `ERR_SAMPLE_PATTERN` | a `pattern` outside the subset `sample` reads (a lookaround, a back reference, a word boundary, another Unicode property) |
 | `ERR_SAMPLE_TYPE` | a custom type with a check of its own and no `metadata.sample` |
@@ -345,7 +358,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'`, and `coerce` (whether the input is converted before the check; the kind metadata's default) |
 | `CoerceOptions` | the options of `coerce` of the coerce subpath: `references`, `maxDepth` |
 | `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
-| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_OPTION'` (an option of a call is not what it must be), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered) |
+| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_OPTION'` (an option of a call is not what it must be), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered, or a schema of the definition entry asked to validate without the core) |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |
@@ -358,7 +371,8 @@ it; see [Validation](/guide/validation#the-result).
 | `JSONSchemaOptions`, `ModelJSONSchemaOptions`, `JSONSchemaTarget` | the options of `schema.toJSONSchema`, those of `model.toJSONSchema` (plus `root`), and the four targets |
 | `InterfaceOptions` | the options of `toTypeScript`, `toInterface` and `saveTypes`: `named` |
 | `FromJSONSchemaOptions` | the options of `fromJSONSchema`: `name`, `as`, `references`, `unsupported`, `onUnsupported` |
-| `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`, `FunctionSnapshot`, `TypeSnapshot` | what `model.toJSON()` returns and its parts |
+| `ModelSnapshot`, `EntitySnapshot`, `FieldSnapshot`, `FieldsSnapshot`, `FunctionSnapshot`, `TypeSnapshot` | what `model.toJSON()` returns and its parts; `FieldSnapshot` is a union that narrows on `type` (`StringFieldSnapshot`, `NumberFieldSnapshot`, `IntegerFieldSnapshot`, `ScalarFieldSnapshot`, `EnumFieldSnapshot`, `FlagsFieldSnapshot`, `ListFieldSnapshot`, `KeyedFieldSnapshot`, `TupleFieldSnapshot`, `StructFieldSnapshot`, `UnionFieldSnapshot`, `ReferenceFieldSnapshot`, `CustomFieldSnapshot`), over `FieldSnapshotBase`, with `LengthSnapshot`, `BigintSnapshot`, `DateSnapshot` and `TupleElementSnapshot` |
+| `SchemaSnapshot` | what `schema.toSnapshot()` returns: a `ModelSnapshot` with `root` and no `database` |
 | `RestoreOptions` | the options of `fromJSON`: `types`, `registry` |
 | `SchemaChange`, `ChangeKind`, `ChangeOp`, `Compatibility` | a change of `diff`, its `kind` and `op`, and the class `compatibility` returns |
 | `SampleOptions`, `MergeOptions`, `InferOptions` | the options of `sample` (`seed`, `locale`, `references`, `maxDepth`), of `merge` (`name`, `metadata`) and of `infer` (`as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`) |

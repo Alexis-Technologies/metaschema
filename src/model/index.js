@@ -6,7 +6,7 @@
 // program that only validates does not carry them. The functions take
 // Models, Schemas, snapshots or samples; `register()` installs them as
 // members of the classes for the programs that want the methods.
-const { Schema } = require('../schema.js');
+const { Schema } = require('../validation.js');
 const { Model } = require('../model.js');
 const { fromJSON } = require('./restore.js');
 const { diff, compatibility, compatibilityOf } = require('./diff.js');

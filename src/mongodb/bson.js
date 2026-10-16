@@ -7,6 +7,7 @@
 // value of another realm or of another copy of bson is one too.
 const { idFieldOf } = require('../kinds.js');
 const { invalidOption, notRegistered } = require('../errors.js');
+const { isBytes } = require('../util.js');
 const { register: coercion } = require('../coerce/index.js');
 
 // The tag every value of bson carries, and the key of a document.
@@ -22,9 +23,20 @@ const isObjectId = (value) => {
 
 const isDecimal128 = (value) => tagOf(value) === 'Decimal128' && typeof value.toJSON === 'function';
 
+// The bytes of a generic Binary of the driver (subtype 0, or 2, its old
+// form), copied off the memory the driver read it into; null for anything
+// else. A Binary of another subtype (a UUID, an encrypted value, a vector)
+// written back as bytes would lose its subtype, so it is left for the check.
+const binaryBytes = (value) => {
+  const binary = tagOf(value) === 'Binary' && typeof value.toJSON === 'function';
+  if (!binary || !isBytes(value.buffer)) return null;
+  const subtype = value.sub_type;
+  if (subtype !== 0 && subtype !== 2) return null;
+  return new Uint8Array(value.buffer.subarray(0, value.position));
+};
+
 const isBinary = (value) =>
-  (tagOf(value) === 'Binary' && typeof value.toJSON === 'function') ||
-  Object.prototype.toString.call(value) === '[object Uint8Array]';
+  (tagOf(value) === 'Binary' && typeof value.toJSON === 'function') || isBytes(value);
 
 const construct = () => {};
 
@@ -115,4 +127,4 @@ const idOf = (schema) => {
   return id === null || ID in schema.fields ? null : id;
 };
 
-module.exports = { ID, HEX, types, register, driverOf, idOf, isObjectId };
+module.exports = { ID, HEX, types, register, driverOf, idOf, isObjectId, binaryBytes };

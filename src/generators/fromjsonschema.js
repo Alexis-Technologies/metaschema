@@ -55,6 +55,10 @@ const KNOWN = new Set([
   'json',
 ]);
 
+// The steps `multipleOf` writes for a number of 0 to 15 decimals, by count.
+const DECIMALS = [];
+for (let count = 0; count <= 15; count += 1) DECIMALS.push(10 ** -count);
+
 // How deep a document may nest: past it the conversion stops whatever the
 // mode, since a lenient conversion must not recurse without end either.
 const MAX_DEPTH = 128;
@@ -265,6 +269,11 @@ const typed = (context, node, type, used) => {
       def.format = name;
       if (def.pattern === FORMATS[name].pattern) delete def.pattern;
     }
+    // Base64 text (what `bytes` exports as) is the base64 format when the
+    // formats are registered, as OpenAPI's `byte` is.
+    if (def.format === undefined && node.contentEncoding === 'base64' && FORMATS.base64) {
+      def.format = 'base64';
+    }
     return def;
   }
   if (type === 'number' || type === 'integer') {
@@ -272,6 +281,11 @@ const typed = (context, node, type, used) => {
     const max = take('maximum');
     if (min !== undefined) def.min = min;
     if (max !== undefined) def.max = max;
+    // A multiple of 10⁻ⁿ is a number of n decimals and 1 says nothing more
+    // of an integer; any other step is a keyword outside the subset.
+    const decimals = DECIMALS.indexOf(node.multipleOf);
+    if (type === 'integer' ? node.multipleOf === 1 : decimals !== -1) take('multipleOf');
+    if (type === 'number' && decimals !== -1) def.decimals = decimals;
     return def;
   }
   if (type === 'array') {

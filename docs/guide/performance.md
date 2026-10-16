@@ -12,18 +12,20 @@ validators and beside every earlier release.
 
 ## The core
 
-Everything a `check` needs is computed once, when the schema is built, and nothing of the kind
-per call.
+Everything a `check` needs is computed once, when the schema is built or on its first check,
+and nothing of the kind per call.
 
 **The plan.** A struct definition becomes a frozen list of entries, one per validated field
-(`{ key, type, required, own, aliases, check }`), plus a null-prototype dictionary of the known keys. The
-struct check is an index loop over that list: one keyed load per field, the field's compiled
+(`{ key, type, required, own, aliases }`), plus a null-prototype dictionary of the known keys.
+The struct check, compiled on its first use, is an index loop over entries of the same fields
+that hold the check of each: one keyed load per field, the field's compiled
 check called with its key, and `Object.hasOwn` consulted only when the value is `undefined` and
 the field is required (or the field is named after a member of `Object.prototype`). Unknown keys
 are looked for only when `for...in` counts more keys than the plan found, so a value with exactly
 the expected keys is never scanned twice.
 
-**The closures.** Every field compiles its check when it is built, as a closure over the field: a
+**The closures.** Every field compiles its check on the first use of `check`, as a closure over
+the field: a
 scalar without rules is one `typeof`, an `enum` with more than eight values a `Set` lookup, a
 `Map` or `Set` is iterated directly, an `object` through `for...in`, a tuple by index, a nested
 struct through its own compiled check, a reference through a lookup plus cycle tracking. Rules
@@ -53,9 +55,12 @@ and `maxErrors` stops every loop over fields, elements and records at the limit.
 does less work, not more.
 
 Construction is deliberately not optimised at the cost of `check`: a field settles its rules and
-its `required` flag before its closure is built, a projection re-parses its parent's fields, and
-the lint runs only on the first read of `schema.warnings`, so a schema built in a request handler
-(`Schema.from` per request) never pays for it.
+its `required` flag when it is built, a projection re-parses its parent's fields, and the lint
+runs only on the first read of `schema.warnings`, so a schema built in a request handler
+(`Schema.from` per request) never pays for it. The closures are compiled on the first check
+(3.4), so a schema that is only read (rendered, written as a snapshot, built through
+[`./definition`](/guide/definition)) costs its construction alone: `Schema.from` is 13 to 15%
+faster for it than in 3.3, and `check` and `parse` are where they were.
 
 ## The JIT backend
 
@@ -75,49 +80,49 @@ closures stay.
 
 <BenchFigure chart="engine" />
 
-`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.3 branch (Node
-24, Apple silicon, 2026-10-13). The 1.0 column is the same scenarios on the same machine the day
+`bench/baseline.json` in the repository is a snapshot of `pnpm bench` on the 3.4 branch (Node
+24, Apple silicon, 2026-10-15). The 1.0 column is the same scenarios on the same machine the day
 before 2.0; the closure column is what every `check` does, the JIT column the same schemas after
 `compile`. A run of one scenario on its own comes out higher than the same scenario in the whole
 run (the call sites are warmer); the figures are from the whole run.
 
 | Scenario | 1.0 | closures | JIT |
 | --- | ---: | ---: | ---: |
-| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 255 K ops/s | — |
-| `Schema.from`, nested struct, collections, tuple | 94 K | 84 K | — |
-| `check`, flat struct, valid | 2.1 M | 10.3 M | 29.0 M |
-| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.2 M | 5.5 M |
-| `check`, nested struct, valid | 0.33 M | 2.7 M | 16.9 M |
+| `Schema.from`, flat struct (4 fields) | 276 K ops/s | 296 K ops/s | — |
+| `Schema.from`, nested struct, collections, tuple | 94 K | 95 K | — |
+| `check`, flat struct, valid | 2.1 M | 10.6 M | 29.7 M |
+| `check`, flat struct, invalid (4 issues) | 0.87 M | 3.3 M | 5.6 M |
+| `check`, nested struct, valid | 0.33 M | 2.7 M | 17.2 M |
 | `check`, nested struct, invalid | 0.23 M | 1.5 M | 2.0 M |
-| `check`, sparse struct, two optional fields absent | — | 7.4 M | 31.0 M |
-| `parse`, flat struct, valid | — | 9.2 M | 26.0 M |
+| `check`, sparse struct, two optional fields absent | — | 7.5 M | 30.9 M |
+| `parse`, flat struct, valid | — | 9.2 M | 25.8 M |
 | `parse`, nested struct, valid | — | 2.5 M | 14.1 M |
-| `parse`, flat struct, a default and a `Date` decoder | — | 2.1 M | 2.9 M |
-| `parse`, flat struct with an alias, no alias in the input | — | 8.2 M | 27.0 M |
-| `parse`, flat struct with an alias, the alias in the input | — | 3.2 M | 4.5 M |
-| `parse`, nested struct under `strip`, an extra key at every level | — | 1.2 M | 2.0 M |
-| `parse`, 100 records under `strip` | — | 64 K | 95 K |
-| `parse` with `coerce: true`, flat struct, two strings converted | — | 3.1 M | 4.0 M |
-| `parse` with `coerce: true`, flat struct, nothing to convert | — | 3.5 M | 4.7 M |
-| `coerce()`, flat struct, two strings converted | — | 4.1 M | — |
-| `parse` with `coerce: true`, nested struct, the numbers as text | — | 404 K | 462 K |
-| `parse` with `coerce: true`, plain unions, a number and a boolean as text | — | 1.2 M | — |
-| `parse` with `coerce: true`, enums of 32 members, a member as text | — | 3.2 M | — |
-| `parse`, flat struct, a plain and a coercing parse in turn | — | 4.0 M | — |
-| `toDocument` of `./mongodb`, an entity with a reference, a struct and a list | — | 740 K | — |
-| `fromDocument` of `./mongodb`, the same document (`parse` with `coerce`) | — | 467 K | — |
+| `parse`, flat struct, a default and a `Date` decoder | — | 2.2 M | 2.9 M |
+| `parse`, flat struct with an alias, no alias in the input | — | 9.0 M | 27.0 M |
+| `parse`, flat struct with an alias, the alias in the input | — | 3.4 M | 4.6 M |
+| `parse`, nested struct under `strip`, an extra key at every level | — | 1.3 M | 2.0 M |
+| `parse`, 100 records under `strip` | — | 66 K | 95 K |
+| `parse` with `coerce: true`, flat struct, two strings converted | — | 3.2 M | 4.1 M |
+| `parse` with `coerce: true`, flat struct, nothing to convert | — | 3.6 M | 4.9 M |
+| `coerce()`, flat struct, two strings converted | — | 4.2 M | — |
+| `parse` with `coerce: true`, nested struct, the numbers as text | — | 409 K | 468 K |
+| `parse` with `coerce: true`, plain unions, a number and a boolean as text | — | 1.1 M | — |
+| `parse` with `coerce: true`, enums of 32 members, a member as text | — | 3.3 M | — |
+| `parse`, flat struct, a plain and a coercing parse in turn | — | 4.1 M | — |
+| `toDocument` of `./mongodb`, an entity with a reference, a struct and a list | — | 728 K | — |
+| `fromDocument` of `./mongodb`, the same document (`parse` with `coerce`) | — | 465 K | — |
 | `check`, flat struct, four sync validators | — | 3.7 M | 5.7 M |
-| `checkAsync`, the same four sync validators | — | 2.8 M | 3.7 M |
+| `checkAsync`, the same four sync validators | — | 2.7 M | 3.7 M |
 | `checkAsync`, four async validators, resolved promises | — | 1.5 M | 1.7 M |
-| `checkAsync`, four independent validators awaiting `setImmediate` | — | 66 K | 69 K |
-| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 850 | 848 |
+| `checkAsync`, four independent validators awaiting `setImmediate` | — | 66 K | 66 K |
+| `checkAsync`, four independent validators awaiting `setTimeout(1)` | — | 861 | 842 |
 | `checkAsync`, 32 records with a validator awaiting `setImmediate` each | — | 44 K | 45 K |
-| `parseAsync`, flat struct, an async decoder | — | 1.1 M | 1.3 M |
-| `check`, 1 000 flat records in a loop | — | 9.0 K | 31 K |
-| `checkEach`, the same 1 000 records | — | 7.6 K | 19 K |
-| moltar flat (6 fields), four modes | — | 7.0–7.1 M | 26.5–29.6 M |
-| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.6–24.7 M |
-| `new Model`, fixture model (6 entities) | 18 K | 16 K | — |
+| `parseAsync`, flat struct, an async decoder | — | 1.2 M | 1.3 M |
+| `check`, 1 000 flat records in a loop | — | 9.2 K | 31 K |
+| `checkEach`, the same 1 000 records | — | 7.5 K | 19 K |
+| moltar flat (6 fields), four modes | — | 7.1–7.2 M | 25.8–28.6 M |
+| moltar nested (6 + 3 fields), four modes | — | 4.4–4.5 M | 23.1–24.4 M |
+| `new Model`, fixture model (6 entities) | 18 K | 17 K | — |
 | `toTypeScript(model)`, fixture model | — | 88 K | — |
 
 The moltar scenarios are the object of the

@@ -51,14 +51,15 @@ The codes the library produces, and their `params`:
 | --- | --- | --- |
 | `required` | a required field is missing, or a required `object`/`map` is empty | `{}` |
 | `type` | the value is not of the field's type (also a message from a custom type's `checkType`) | `{ expected, received }`, plus `key` when a key of an `object` or `map` has the wrong type |
-| `unexpected` | keys the schema does not have; one issue per struct | `{ keys }`, all of them; the message lists the first ten |
+| `unexpected` | keys the schema does not have; one issue per struct (and per `flags` value) | `{ keys }`, all of them; the message lists the first ten |
 | `enum` | the value is not one of the `enum` values | `{ values }` |
 | `length` | a `length` rule failed, or a tuple has too many elements | `{ min, max, actual }` |
 | `range` | a `min` or `max` rule failed | `{ min, max, actual }` |
 | `pattern` | a `pattern` rule failed | `{ pattern }`, the source of the expression |
 | `format` | a [`format`](/guide/formats) rule failed | `{ format }`, the name of the format |
+| `decimals` | a [`decimals`](/guide/types#decimals) rule failed: more digits after the point, or not a finite number | `{ decimals }` |
 | `union` | no branch of a `union` matched; with a discriminator, the path ends with it | `{ expected, discriminator }`: the branch names, or the discriminator values |
-| `reference` | the referenced entity is not in any attached model | `{ entity }` |
+| `reference` | the referenced entity is not in any attached model, nor the schema's own name | `{ entity }` |
 | `circular` | the value refers back to itself through a reference | `{}` |
 | `depth` | embedded records are nested deeper than `maxDepth` (128 by default) | `{ max }` |
 | `exception` | a `validate` or `checkType` function threw | `{ error }` |
