@@ -88,8 +88,8 @@ Key facts:
 - `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as data, format 1: the
   entities in dependency order with kind, scope, store, allow, parent, unknown, custom, fields
   (each `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities
-  use; a function is `{ $function: true }`, a bigint `{ $bigint }`, a Date `{ $date }`, a
-  RegExp its source; `fromJSON(snapshot)` restores a model with placeholders for the functions;
+  use; a function is `{ $function: true }`, a bigint `{ $bigint }`, a Date `{ $date }`, bytes
+  `{ $bytes }` (base64), a Map `{ $map: [[k, v]] }`, a Set `{ $set: [v] }`, a RegExp its source; `fromJSON(snapshot)` restores a model with placeholders for the functions;
   `schema.toSnapshot()` writes the same format for one schema and the entities it reaches,
   with its name as `root`; format 1 guarantees the fields in the order of the definition (the
   id field of a stored kind after them), the entities in `model.order`, and that keys are only

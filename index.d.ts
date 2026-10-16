@@ -452,10 +452,11 @@ export type RuntimeErrorCode =
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes, and
 // `schema.toSnapshot()`, the same for one schema and the entities it
 // reaches. The entities in dependency order with a fixed key order, the
-// types the entities use, and the `database` metadata as given. A function
+// types the entities use, and a copy of the `database` metadata. A function
 // is `{ $function: true }` wherever it stands, a bigint `{ $bigint }`, a
-// Date `{ $date }`, a RegExp its source (or `{ source, flags }` with flags
-// beyond `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads
+// Date `{ $date }`, bytes `{ $bytes }` (base64), a Map `{ $map }` (its
+// entries), a Set `{ $set }` (its values), a RegExp its source (or
+// `{ source, flags }` with flags beyond `u`). `fromJSON` of the `@alexify/metaschema/model` subpath reads
 // it back. Format 1 is a contract: the fields of a struct come in the order
 // of the definition (the id field a stored kind adds after them, unless the
 // definition has a field of that name), the entities each after the ones

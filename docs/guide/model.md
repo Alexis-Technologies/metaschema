@@ -254,7 +254,9 @@ them is a major release, with a format of its own:
   from its snapshot writes the same text again, a cycle included.
 - **The keys of a field are its `type` and `required`, then the others sorted**, so the text
   does not depend on how the definition was written; a function is `{ $function: true }`, a
-  bigint `{ $bigint }`, a `Date` `{ $date }`.
+  bigint `{ $bigint }`, a `Date` `{ $date }`, bytes `{ $bytes }` (base64), a `Map`
+  `{ $map: [[k, v]] }` (its entries), a `Set` `{ $set: [v] }` (its values), a `RegExp` its source
+  (or `{ source, flags }` with flags beyond `u`); a value inside a tag is written the same way.
 - **Keys are only added.** A program that reads format 1 ignores a key it does not know: `root`
   is one that 3.4 added, and the rules and types a later release adds (`decimals`, `bytes`,
   `flags` in 3.4) come as new keys of a field and new values of `type`.
@@ -325,9 +327,9 @@ reads it as such, and `diff` the same.
   of the restored model, defined on the definition rather than assigned, and `diff` reads own
   keys only, so such a field added is `added`, never compared with `Object.prototype`.
 - **The tags are reserved.** Inside a definition value (an `enum` value, a `default`, the
-  `metadata` of a type), `{ $function: true }`, `{ $bigint }` and `{ $date }` are read as a
-  function, a bigint and a `Date`, since `revive` cannot tell them from a value a program
-  wrote that way. A program whose values look like the tags should not round-trip them through
+  `metadata` of a type), `{ $function: true }`, `{ $bigint }`, `{ $date }`, `{ $bytes }`,
+  `{ $map }` and `{ $set }` are read as a function, a bigint, a `Date`, bytes, a `Map` and a
+  `Set`, since `revive` cannot tell them from a value a program wrote that way. A program whose values look like the tags should not round-trip them through
   a snapshot.
 - **What a snapshot cannot say is an error, located.** A bigint or a pattern that does not
   read, a date that is not one, a pattern written as an object without a string `source`
