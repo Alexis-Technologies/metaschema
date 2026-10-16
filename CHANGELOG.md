@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.4.0] - 2026-10-15
+## [3.4.0] - 2026-10-16
 
 3.4 makes the snapshot a contract a program can build on and the language complete for the
 programs that encode from it. A schema writes its own snapshot (`schema.toSnapshot()`, with the
