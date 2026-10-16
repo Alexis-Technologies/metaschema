@@ -922,3 +922,31 @@ test('fromJSONSchema: a long property name is shortened in the pointer of an err
     message: `The keyword "not" is not supported in a JSON Schema at "/properties/${'p'.repeat(100)}..."`,
   });
 });
+
+test('fromJSONSchema: a discriminator a branch does not require is refused when built', () => {
+  // OpenAPI asks every branch to require the discriminator; a branch that
+  // does not could never be picked, and the union says so when it is built.
+  const branch = (value, required) => ({
+    type: 'object',
+    properties: { k: { const: value }, x: { type: 'number' } },
+    required,
+  });
+  const document = (required) => ({
+    type: 'object',
+    properties: {
+      u: {
+        oneOf: [branch('a', required), branch('b', ['k'])],
+        discriminator: { propertyName: 'k' },
+      },
+    },
+    required: ['u'],
+  });
+  assert.strictEqual(
+    fromJSONSchema(document(['k']), { as: 'schema' }).check({ u: { k: 'a' } }).valid,
+    true,
+  );
+  assert.throws(() => fromJSONSchema(document(['x']), { as: 'schema' }), {
+    code: 'ERR_INVALID_UNION',
+    message: 'Union discriminator "k" of branch 0 must be required and not nullable in "u"',
+  });
+});

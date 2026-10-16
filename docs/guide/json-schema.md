@@ -418,7 +418,7 @@ The subset, the reverse of [the mapping](#the-mapping):
 | `type: 'array'` with `items: T`, `minItems`, `maxItems` | `{ array: T, length }`; `uniqueItems: true` gives a `set` |
 | `prefixItems` (2020-12) or an `items` list (draft-07) with `minItems` | a tuple, the elements past `minItems` optional |
 | `enum`, `const` | `{ enum: [...] }`; `null` among the values makes the field nullable |
-| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` |
+| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` (each branch lists it in `required`, as OpenAPI asks; one that does not is `ERR_INVALID_UNION` when the definition is built) |
 | `type: ['T', 'null']`, `nullable: true` | `nullable: true` on a required property; an optional one accepts null anyway |
 | a `type` list | a `union` of the types |
 | `allOf` of one schema | that schema (`{ allOf: [{ $ref }], nullable: true }` is how OpenAPI 3.0 writes a nullable reference) |

@@ -138,6 +138,13 @@ and 11 KB for `./definition`.
 - **What a snapshot holds is a copy.** The `custom` metadata of a kind, the index definitions
   and the `database` metadata were the model's own objects inside the snapshot; they are written
   as any value is now, their functions, bigints and dates tagged.
+- **A discriminator field that is optional or nullable is `ERR_INVALID_UNION`**
+  (`'kind?'`, `required: false`, `nullable: true` on the field a `discriminator` names), as a
+  `default` on it already was: a value without the tag or with `null` is in no branch, so such a
+  branch could never be picked. A definition of that kind built until now and rejected every
+  value without the tag; it throws when it is built now, a snapshot that says so does not
+  restore, and an OpenAPI document whose branch does not require its discriminator does not
+  build. protoarray holds the same rule.
 - **`prepublishOnly` runs both backends and the bundle budgets** (`test:jit`, `test:nojit`,
   `size:gate`) besides the gates it ran, so that a release from a machine is held to what CI
   holds; the release process tags the squash commit on `main`.

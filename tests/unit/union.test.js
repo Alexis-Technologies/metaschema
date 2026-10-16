@@ -184,3 +184,59 @@ test('Union: a discriminator field cannot have a default', () => {
     },
   );
 });
+
+test('Union: a discriminator field is required and not nullable', () => {
+  // A value without the tag, or with null, is in no branch: such a branch
+  // could never be picked, so the definition is refused, as a default is.
+  const other = { Struct: {}, kind: { enum: ['b'] }, y: 'number' };
+  const message = (index) =>
+    `Union discriminator "kind" of branch ${index} must be required and not nullable in "u"`;
+  const tags = [
+    { 'kind?': { enum: ['a'] } },
+    { kind: { type: 'enum', enum: ['a'], required: false } },
+    { kind: { enum: ['a'], nullable: true } },
+  ];
+  for (const tag of tags) {
+    assert.throws(
+      () =>
+        Schema.from({
+          u: { union: [{ Struct: {}, ...tag, x: 'number' }, other], discriminator: 'kind' },
+        }),
+      { name: 'SchemaDefinitionError', code: 'ERR_INVALID_UNION', message: message(0) },
+    );
+  }
+  // A branch that is a Schema instance is held to it too.
+  const branch = new Schema('Circle', { Struct: {}, 'kind?': { enum: ['c'] }, r: 'number' });
+  assert.throws(() => Schema.from({ u: { union: [other, branch], discriminator: 'kind' } }), {
+    code: 'ERR_INVALID_UNION',
+    message: message(1),
+  });
+  // A snapshot that says so does not restore (the error of the definition,
+  // located in the entity, as every definition error of a snapshot is).
+  const { fromJSON } = require('../../src/model/index.js');
+  const valid = new Model({}, [
+    [
+      'A',
+      {
+        Struct: {},
+        u: { union: [{ Struct: {}, kind: { enum: ['a'] } }, other], discriminator: 'kind' },
+      },
+    ],
+  ]);
+  const snapshot = JSON.parse(JSON.stringify(valid));
+  snapshot.entities.A.fields.u.union[0].schema.kind.required = false;
+  assert.throws(() => fromJSON(snapshot), {
+    code: 'ERR_INVALID_UNION',
+    message: 'Union discriminator "kind" of branch 0 must be required and not nullable in "A.u"',
+  });
+  // What merge and derive make of a valid one keeps the tags required:
+  // deep partial stops at a union.
+  const { merge } = require('../../src/model/index.js');
+  const { partial } = require('../../src/derive/index.js');
+  const entity = valid.entities.get('A');
+  assert.strictEqual(merge(entity, entity).fields.u.union[0].schema.kind.required, true);
+  const patch = partial(entity, { deep: true });
+  assert.strictEqual(patch.fields.u.required, false);
+  assert.strictEqual(patch.fields.u.union[0].schema.kind.required, true);
+  assert.strictEqual(patch.check({ u: { kind: 'b', y: 1 } }).valid, true);
+});

@@ -447,12 +447,13 @@ installs before it ran: a
 parse that coerces without `./coerce` (thrown as the pass enters the schema, whatever the
 value holds: an empty body in a test must not hide it), a document written with ObjectIds
 without `register({ bson })` of `./mongodb`, and a schema of `./definition` asked to validate
-before the core entry was loaded (`noValidation` in `errors.js`). A
-definition
-that can never validate correctly (an `enum` without values, a `length` that is not numeric or
-whose min is above its max, a `max` below `min`, a rule on a type that does not accept it, a
-pattern that does not compile, a union that cannot discriminate, a projection naming a field its
-parent does not have) is rejected when the schema is built, never discovered inside `check`. What
+before the core entry was loaded (`noValidation` in `errors.js`). A definition that can never
+validate correctly (an `enum` without values, a `length` that is not numeric or whose min is
+above its max, a `max` below `min`, a rule on a type that does not accept it, a pattern that does
+not compile, a union that cannot discriminate (a branch without an enum field of the
+discriminator's name, a value in two branches, a discriminator field with a default, or one that
+is optional or nullable, since the review of 3.4), a projection naming a field its parent does
+not have) is rejected when the schema is built, never discovered inside `check`. What
 is merely suspicious (an option the type does not read, a pattern without `length.max`, an index
 over a missing field) is a `Warning [code]: text` string in `schema.warnings` (`src/lint.js`, run on
 first use), and `model.warnings` adds `missing-reference`, `missing-type` and

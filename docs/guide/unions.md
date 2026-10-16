@@ -55,13 +55,16 @@ after the walk and may still fail the value, and the next branch is not tried. B
 async validators want a [discriminator](#discriminated-unions); the details are in
 [Parse and serialize](/guide/parse#async-validators-in-a-plain-union). A `default` on the
 discriminator field is `ERR_INVALID_UNION`: the branch is picked before any default applies.
+So is a discriminator field that is optional or nullable (`'kind?'`, `required: false`,
+`nullable: true`): a value without the tag or with `null` is in no branch, so such a branch
+could never be picked.
 
 ### Discriminated unions
 
 With `discriminator: '<field>'` every branch must be a nested struct (inline or a `Schema`
-instance) whose field of that name is an `enum`. The branch is picked from the value of that
-field in one lookup, in a table built when the schema is built, so the other branches are never
-tried, and errors come from the branch that was picked:
+instance) whose field of that name is a required, non-nullable `enum`. The branch is picked from
+the value of that field in one lookup, in a table built when the schema is built, so the other
+branches are never tried, and errors come from the branch that was picked:
 
 ```js
 const canvas = new Schema('Canvas', {

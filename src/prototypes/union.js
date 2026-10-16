@@ -41,10 +41,17 @@ const union = {
     for (let index = 0; index < built.length; index += 1) {
       const values = valuesOf(built[index], discriminator, index);
       // The branch is picked by the value before any default is applied, so
-      // a default on the discriminator could never decide anything.
-      if (built[index].schema[discriminator].default !== undefined) {
+      // a default on the discriminator could never decide anything; nor can
+      // a missing or a null one, which no branch has among its values.
+      const tag = built[index].schema[discriminator];
+      if (tag.default !== undefined) {
         throw invalidUnion(
           `discriminator "${discriminator}" of branch ${index} cannot have a default`,
+        );
+      }
+      if (tag.required === false || tag.nullable === true) {
+        throw invalidUnion(
+          `discriminator "${discriminator}" of branch ${index} must be required and not nullable`,
         );
       }
       for (let at = 0; at < values.length; at += 1) {
