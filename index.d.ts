@@ -981,6 +981,9 @@ export interface StandardConverter {
 // `enum`, `tuple`, `union`, `schema`, `one`, `many`) is that shorthand, and
 // anything else is a struct. A struct with a field named like one of those
 // says so with a kind (`{ Struct: {}, ... }`), as the runtime needs it to.
+// A kind key is what the runtime takes for one (`KindKey` below): a name like
+// `Entity` or `Settings` holding an object, never `PORT` or `Name: 'string'`,
+// which are fields.
 // ---------------------------------------------------------------------------
 
 // The value types of custom types, by type name, for module augmentation:
@@ -1049,7 +1052,7 @@ type ScalarOf<N extends string> = N extends 'string'
                     : unknown;
 
 // Whether the first character is an uppercase letter: a reference when it is
-// the first character of a type name, a kind when it is the first of a key.
+// the first character of a type name, and what a kind key starts with.
 type IsCapitalized<K> = K extends `${infer C}${string}`
   ? C extends Uppercase<C>
     ? C extends Lowercase<C>
@@ -1067,7 +1070,46 @@ type StoredKind =
   | 'relation'
   | 'view';
 
-type KindKey<D> = { [K in keyof D]: IsCapitalized<K> extends true ? K : never }[keyof D];
+// A kind key, as the runtime reads one (`isKindKey` of src/kinds.js): a
+// capital letter, then letters and digits, one of them lowercase (`Entity`,
+// `Settings`, never `PORT` or `DATABASE_URL`), holding the metadata of the
+// kind, an object that is no list, function or Schema. Any other capitalized
+// key is a field.
+type KnownKindKey = Capitalize<KnownKind>;
+
+// The characters of a string as a union, gathered in an accumulator so that
+// the recursion is a tail call (62 levels of a union are too deep otherwise).
+type CharsOf<S, A = never> = S extends `${infer C}${infer R}` ? CharsOf<R, A | C> : A;
+
+type WordChar = CharsOf<'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'>;
+
+type IsWord<S> = S extends `${infer C}${infer R}` ? (C extends WordChar ? IsWord<R> : false) : true;
+
+// Read for a capitalized key only, so the walk over its characters is paid
+// by the few keys that may be kinds.
+type IsKindName<K> =
+  IsCapitalized<K> extends true ? (K extends Uppercase<K & string> ? false : IsWord<K>) : false;
+
+type IsKindMeta<V> =
+  IsAny<V> extends true
+    ? false
+    : [V] extends [object]
+      ? [V] extends [readonly unknown[] | Fn | Schema<any>]
+        ? false
+        : true
+      : false;
+
+type KindCandidates<D> = {
+  [K in keyof D]: IsKindName<K> extends true ? (IsKindMeta<D[K]> extends true ? K : never) : never;
+}[keyof D];
+
+// The runtime takes the first key; the keys of a type have no order, so
+// among the keys that may be the kind a built-in one is it (the others are
+// fields then, as `{ Struct: {}, Address: { ... } }` says), and without one
+// every candidate is read as a kind.
+type KindKey<D> = [Extract<KindCandidates<D>, KnownKindKey>] extends [never]
+  ? KindCandidates<D>
+  : Extract<KindCandidates<D>, KnownKindKey>;
 
 // The store of an entity definition: its kind metadata, else the default of
 // its kind; a definition without a kind is a struct, held in memory.
@@ -1147,7 +1189,8 @@ type UnionOf<T extends readonly unknown[], E, M extends Mode> = {
 }[number];
 
 // A one-key object holding a type name names a tuple element (`{ x: 'number'
-// }`); the key must not itself be `type`, a type name or a kind.
+// }`); the key must not itself be `type` or a type name (a string is no
+// metadata of a kind, so a capitalized key names an element too).
 type NamedKey<T> = keyof T extends infer K
   ? [K] extends [string]
     ? IsUnion<K> extends true
@@ -1155,14 +1198,10 @@ type NamedKey<T> = keyof T extends infer K
       : K extends `${infer F}?`
         ? F extends TypeName | 'type'
           ? never
-          : IsCapitalized<F> extends true
-            ? never
-            : K
+          : K
         : K extends TypeName | 'type'
           ? never
-          : IsCapitalized<K> extends true
-            ? never
-            : K
+          : K
     : never
   : never;
 
@@ -1360,20 +1399,17 @@ type Projection<D, E, M extends Mode> = D extends {
     : unknown
   : unknown;
 
-type WithKind<D, K extends keyof D, E, M extends Mode> = K extends 'Projection'
+type WithKind<D, K extends keyof D, E, M extends Mode> = [K] extends ['Projection']
   ? Projection<D, E, M>
   : Struct<Omit<D, K>, E, M>;
 
-type ObjectDef<D, E, M extends Mode> =
-  KindKey<D> extends infer K
-    ? [K] extends [never]
-      ? D extends { type: infer T extends string }
-        ? LongForm<T, D, E, M>
-        : Shorthand<D, E, M>
-      : K extends keyof D
-        ? Decoded<WithKind<D, K, E, M>, D, M>
-        : never
-    : never;
+// The kind keys are taken as one set, never one by one: a union of structs,
+// each without one key, is what distributing over them gave.
+type ObjectDef<D, E, M extends Mode> = [KindKey<D>] extends [never]
+  ? D extends { type: infer T extends string }
+    ? LongForm<T, D, E, M>
+    : Shorthand<D, E, M>
+  : Decoded<WithKind<D, KindKey<D> & keyof D, E, M>, D, M>;
 
 // The id field a stored kind adds, named after the entity.
 type IdOf<Name extends string, Def> =

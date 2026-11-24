@@ -472,6 +472,9 @@ test('Infer: a wrong argument is a TypeError, a wrong option ERR_INVALID_OPTIONS
   invalid({ as: 'json' }, 'Infer option "as" must be "definition" or "schema"');
   invalid({ name: 1 }, 'Infer option "name" must be a string');
   invalid({ kind: '' }, 'Infer option "kind" must be the name of a kind');
+  // A name its capitalized key would not be read back as a kind from.
+  invalid({ kind: 'dTO' }, 'Infer option "kind" must be the name of a kind');
+  invalid({ kind: 'api_config' }, 'Infer option "kind" must be the name of a kind');
   invalid({ enum: -1 }, 'Infer option "enum" must be an integer of at least 0, or false');
   invalid({ enum: 'many' }, 'Infer option "enum" must be an integer of at least 0, or false');
   invalid({ integer: 1 }, 'Infer option "integer" must be a boolean');

@@ -6,10 +6,10 @@
 // too), so the source is never touched and every rule of a field comes along.
 // `register()` installs the functions as methods of Schema, so they chain.
 const { hasBrand, define, formatters } = require('../util.js');
-const { isFirstUpper, firstKey } = require('../metautil.js');
+const { firstKey } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
-const { idFieldOf } = require('../kinds.js');
+const { idFieldOf, isKindKey } = require('../kinds.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
 const {
   structDefinitionOf,
@@ -188,9 +188,12 @@ const extend = (schema, extension, options) => {
     sources.push(extension);
   } else if (extension === null || typeof extension !== 'object' || Array.isArray(extension)) {
     throw invalidTarget('An extension is a Schema of a struct or an object of fields');
-  } else if (isFirstUpper(firstKey(extension))) {
-    const reason = 'An extension has fields only; the kind is options.metadata';
-    throw atSchema(new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason), schema.name);
+  } else {
+    const first = firstKey(extension);
+    if (isKindKey(first, extension[first])) {
+      const reason = 'An extension has fields only; the kind is options.metadata';
+      throw atSchema(new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason), schema.name);
+    }
   }
   const keys = new Map();
   for (const key of Object.keys(additions)) keys.set(formatters.key(key).field, key);

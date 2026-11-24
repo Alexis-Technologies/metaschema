@@ -82,6 +82,10 @@ const TRACKED = Symbol('tracked');
 const COERCES = Symbol('coerces');
 const CODEC = Symbol('codec');
 const STANDARD = Symbol('standard');
+// The kinds of the program's own a definition named, at any depth, as
+// [key, metadata] pairs (null when there is none): the lint of the
+// validation half reads them for `ambiguous-kind`.
+const KINDS = Symbol('kinds');
 // The recursive dependencies a model met while ordering its entities, as
 // [entity, reference] pairs: the validation half writes the warnings.
 const CYCLES = Symbol('cycles');
@@ -141,6 +145,7 @@ module.exports = {
   COERCES,
   CODEC,
   STANDARD,
+  KINDS,
   CYCLES,
   ENUM_SET_SIZE,
   shorten,

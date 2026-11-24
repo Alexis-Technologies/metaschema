@@ -826,3 +826,26 @@ test('Snapshot: what a consumer reads back checks as the schema did, on both bac
     original,
   );
 });
+
+test('Snapshot: a schema of upper-case keys writes every field', () => {
+  // Until 3.4.1 the first of them was the kind and its definition the
+  // metadata, a string spread into `custom`.
+  const env = new Schema('Env', { DATABASE_URL: 'string', PORT: { type: 'number', min: 1 } });
+  const snapshot = env.toSnapshot();
+  assert.strictEqual(snapshot.root, 'Env');
+  assert.deepStrictEqual(snapshot.entities.Env, {
+    kind: 'struct',
+    scope: 'local',
+    store: 'memory',
+    allow: 'write',
+    parent: '',
+    unknown: 'reject',
+    custom: {},
+    fields: {
+      DATABASE_URL: { type: 'string', required: true },
+      PORT: { type: 'number', required: true, min: 1 },
+    },
+    indexes: {},
+    relations: [],
+  });
+});

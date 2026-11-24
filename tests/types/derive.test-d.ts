@@ -151,3 +151,33 @@ const assigned: Schema = account.pick(['login']).required();
 expectAssignable<Schema>(assigned);
 
 expectAssignable<DefinitionErrorCode>('ERR_UNKNOWN_FIELD');
+
+// A struct of upper-case keys derives by its keys: until 3.4.1 they were
+// kind keys for the types, and naming one was an error.
+const env = Schema.from({
+  DATABASE_URL: 'string',
+  PORT: { type: 'number', default: 3000 },
+  'DEBUG?': 'boolean',
+});
+const envUrl = pick(env, ['DATABASE_URL']);
+expectType<{ DATABASE_URL: string }>({} as InferSchema<typeof envUrl>);
+const envRest = omit(env, ['PORT']);
+expectType<{ DATABASE_URL: string; DEBUG?: boolean | null | undefined }>(
+  {} as InferSchema<typeof envRest>,
+);
+const envPatch = partial(env);
+expectType<{
+  DATABASE_URL?: string | null | undefined;
+  PORT?: number | null | undefined;
+  DEBUG?: boolean | null | undefined;
+}>({} as InferSchema<typeof envPatch>);
+const envWide = extend(env, { REDIS_URL: 'string' });
+expectType<{
+  DATABASE_URL: string;
+  REDIS_URL: string;
+  DEBUG?: boolean | null | undefined;
+  PORT?: number | undefined;
+}>({} as InferSchema<typeof envWide>);
+const envNames = keyof(env);
+expectType<'DATABASE_URL' | 'PORT' | 'DEBUG'>({} as InferSchema<typeof envNames>);
+expectError(pick(env, ['database_url']));

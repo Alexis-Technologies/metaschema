@@ -1,11 +1,14 @@
 const { isFirstUpper, toLowerCamel, firstKey } = require('./metautil.js');
 
 const { hasBrand, formatters, typeOf } = require('./util.js');
+const { constants, isKindKey } = require('./kinds.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 // The first key of an object decides what it is: a Schema or a built field is
-// used as it is, a capitalized key is a kind, `type` is the long form, a type
-// name is that type's shorthand, and anything else is a nested struct.
+// used as it is, a kind key (`isKindKey` of kinds.js: a name like `Entity`
+// holding the metadata object) is a kind, `type` is the long form, a type
+// name is that type's shorthand, and anything else is a nested struct, a
+// capitalized key that is no kind (`PORT`, `Name: 'string'`) included.
 const PARSERS = Object.assign(Object.create(null), {
   string: ['stringShorthand'],
   object: [
@@ -31,6 +34,7 @@ class Preprocessor {
     this.Schema = root.constructor;
     this.root = root;
     this.types = root.types;
+    this.kinds = null;
   }
 
   // The first key of an object is read once here and handed to the parsers
@@ -102,9 +106,15 @@ class Preprocessor {
 
   schemaWithKind(source, first) {
     const { types, root } = this;
-    if (!isFirstUpper(first)) return null;
+    if (!isKindKey(first, source[first])) return null;
     const { [first]: meta, ...fields } = source;
     const kind = toLowerCamel(first);
+    // A kind of the program's own is kept for the lint: metadata that reads
+    // as field definitions is most likely a field that was read as a kind.
+    if (!constants.KIND.includes(kind)) {
+      if (this.kinds === null) this.kinds = [];
+      this.kinds.push([first, meta]);
+    }
     const kindMeta = { kind, meta, root };
     const defs = { schema: fields };
     return { Type: types.schema, defs, kindMeta };

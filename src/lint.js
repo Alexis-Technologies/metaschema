@@ -2,7 +2,8 @@
 // what the author meant either. A contradiction that can never validate
 // (an enum without values, a min above max) is a SchemaDefinitionError at
 // build time; these are warnings, as `Warning [code]: text` strings.
-const { hasBrand } = require('./util.js');
+const { hasBrand, formatters, KINDS } = require('./util.js');
+const { firstKey } = require('./metautil.js');
 const { embeds } = require('./prototypes/reference.js');
 
 const warning = (code, text) => `Warning [${code}]: ${text}`;
@@ -134,11 +135,58 @@ const lintIndexes = (schema, warnings) => {
   }
 };
 
+// Whether the first key of an object makes it the long form or the
+// shorthand of a type.
+const startsField = (def, types) => {
+  const first = firstKey(def);
+  if (first === undefined) return false;
+  const { field } = formatters.key(first);
+  return field === 'type' || types[field] !== undefined;
+};
+
+// Whether a value under a key reads as the definition of a field: the name
+// of a type, or an object its first key makes one.
+const readsAsField = (value, types) => {
+  if (typeof value === 'string') return types[formatters.type(value).type] !== undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return startsField(value, types);
+};
+
+// A kind of the program's own (`{ Settings: { theme: 'dark' }, ... }`) whose
+// metadata reads as a field or holds fields: most likely a field with a name
+// like `Address`, first in its struct, that the first key made a kind, so
+// the struct has no such field. The kinds are the ones the definition named
+// at any depth, as the preprocessor kept them. `unknown` is a type name and
+// a key of the metadata of every kind, where it is the policy.
+const lintKinds = (schema, warnings) => {
+  const kinds = schema[KINDS];
+  if (!kinds) return;
+  const { name, types } = schema;
+  for (const pair of kinds) {
+    const key = pair[0];
+    const meta = pair[1];
+    let suspect = firstKey(meta) !== 'unknown' && startsField(meta, types);
+    if (!suspect) {
+      for (const option of Object.keys(meta)) {
+        if (!readsAsField(meta[option], types)) continue;
+        suspect = true;
+        break;
+      }
+    }
+    if (!suspect) continue;
+    const text =
+      `"${key}" of "${name}" is read as a kind, and its metadata reads as field definitions: ` +
+      `a field of that name needs a kind before it ({ Struct: {}, ${key}: ... })`;
+    warnings.push(warning('ambiguous-kind', text));
+  }
+};
+
 // The warnings of one schema on its own: everything that needs no model.
 const lintSchema = (schema) => {
   const warnings = [];
   lintStruct(schema.fields, schema.name, warnings);
   lintIndexes(schema, warnings);
+  lintKinds(schema, warnings);
   return warnings;
 };
 

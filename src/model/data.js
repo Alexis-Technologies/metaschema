@@ -7,6 +7,7 @@ const { hasBrand, define, isDate, isRegExp } = require('../util.js');
 const { FORMAT } = require('../snapshot.js');
 const { SchemaDefinitionError } = require('../errors.js');
 const { isStruct } = require('../struct.js');
+const { isKindKey } = require('../kinds.js');
 
 // How deep the walks over a snapshot go: a definition nested deeper is not
 // one a program wrote.
@@ -88,6 +89,16 @@ const isFunctionMarker = (value) => isObject(value) && value.$function === true;
 
 const capitalize = (name) => name.charAt(0).toUpperCase() + name.slice(1);
 
+// The key a kind is written under as the first key of a definition (`entity`
+// is `Entity`), null for a name that key would not be read back as a kind
+// from (`dTO`, `api_config`: `isKindKey` of kinds.js): the fields after it
+// would read as something else.
+const kindKeyOf = (kind) => {
+  if (typeof kind !== 'string' || kind === '') return null;
+  const key = capitalize(kind);
+  return isKindKey(key, {}) ? key : null;
+};
+
 // The definition a built field was made from, with its nested fields as
 // definitions and its functions kept: what `merge` unifies and `Schema`
 // takes back.
@@ -128,7 +139,12 @@ const metadataOf = (schema) => {
 // its first key, so the fields after it read as a struct whatever their names.
 const structDefinition = (base, metadata, fields) => {
   const { kind = base.kind, ...rest } = { ...base, ...metadata };
-  const definition = { [capitalize(kind)]: rest };
+  const kindKey = kindKeyOf(kind);
+  if (kindKey === null) {
+    const reason = `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`;
+    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+  }
+  const definition = { [kindKey]: rest };
   for (const key of Object.keys(fields)) define(definition, key, fields[key]);
   return definition;
 };
@@ -171,6 +187,7 @@ module.exports = {
   same,
   isFunctionMarker,
   capitalize,
+  kindKeyOf,
   definitionOf,
   structDefinitionOf,
   metadataOf,

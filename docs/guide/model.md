@@ -89,6 +89,7 @@ and a model collects the warnings of its entities and adds its own:
 | `dead-coerce` | `coerce` where no conversion can happen: on a reference checked as an id (the record it names is never entered), on `any`, `unknown`, `json` or `null`; see [coercion](/guide/coercion) | `schema.warnings` |
 | `unenforceable-decimals` | a `decimals` rule the check cannot tell apart within the bounds of the field (past 2⁴³ units of the last decimal every number passes; a side without a bound counts as 1); see [decimals](/guide/types#decimals) | `schema.warnings` |
 | `missing-index-field` | an index (`index`, `primary`, `unique`) naming a field the schema does not have | `schema.warnings` |
+| `ambiguous-kind` | a [custom kind](/guide/kinds-and-metadata#custom-kinds), at any depth, whose metadata reads as field definitions (`{ Address: { street: 'string' }, ... }`): most likely a field that was read as a kind because it comes first, and so is not a field | `schema.warnings` |
 | `missing-reference` | a reference to an entity that is not in the model | `model.warnings` (also `schema.checkConsistency()`) |
 | `missing-type` | a type the schema can no longer resolve after a namespace is detached | `schema.checkConsistency()` |
 | `recursive-reference` | a cycle in the references between entities | `model.warnings` |

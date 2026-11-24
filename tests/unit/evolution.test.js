@@ -1186,3 +1186,53 @@ test('Evolution: register() installs the statics on Model, once', () => {
     ['removed', 'removed', 'removed', 'removed', 'removed', 'removed'],
   );
 });
+
+test('Evolution: a model of upper-case keys is written and restored whole', () => {
+  const model = new Model({}, [
+    ['Env', { DATABASE_URL: 'string', PORT: { type: 'number', default: 3000 } }],
+    ['App', { Settings: { theme: 'dark' }, name: 'string', config: { HOST: 'string' } }],
+  ]);
+  const snapshot = json(model);
+  assert.strictEqual(snapshot.entities.Env.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(snapshot.entities.Env.fields), ['DATABASE_URL', 'PORT']);
+  assert.strictEqual(snapshot.entities.App.kind, 'settings');
+  assert.deepStrictEqual(snapshot.entities.App.custom, { theme: 'dark' });
+  const restored = fromJSON(snapshot);
+  assert.deepStrictEqual(json(restored), snapshot);
+  const env = restored.entities.get('Env');
+  assert.deepStrictEqual(Object.keys(env.fields), ['DATABASE_URL', 'PORT']);
+  assert.strictEqual(env.check({ DATABASE_URL: 'x', PORT: 1 }).valid, true);
+  assert.deepStrictEqual(env.check({ PORT: 1 }).errors, ['Field "Env.DATABASE_URL" is required']);
+  assert.deepStrictEqual(diff(model, restored), []);
+  // A field added under an upper-case key is a change like any other.
+  const next = new Model({}, [
+    ['Env', { DATABASE_URL: 'string', PORT: { type: 'number', default: 3000 }, 'TZ?': 'string' }],
+    ['App', { Settings: { theme: 'dark' }, name: 'string', config: { HOST: 'string' } }],
+  ]);
+  const changes = diff(model, next);
+  assert.deepStrictEqual(
+    changes.map((change) => [change.kind, change.op, change.entity, change.name]),
+    [['field', 'added', 'Env', 'TZ']],
+  );
+  assert.strictEqual(compatibility(changes), 'full');
+});
+
+test('Evolution: fromJSON refuses a kind a definition would not read as a kind', () => {
+  // The kind is written as the first key of the definition of the entity.
+  // 3.4.0 took any capitalized first key for a kind, so a snapshot it wrote
+  // may name one (`dATABASE_URL`, `dTO`) that reads as a field now.
+  const fields = { PORT: field('number') };
+  for (const kind of ['dATABASE_URL', 'dTO', 'api_config', 'x']) {
+    assert.throws(() => fromJSON(broken({ Env: struct(fields, { kind }) })), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_SNAPSHOT',
+      message: `The kind "${kind}" of an entity is not the name of a kind in "Env"`,
+      schema: 'Env',
+    });
+  }
+  for (const kind of ['struct', 'entity', 'settings', 'http2Server']) {
+    const restored = fromJSON(broken({ Env: struct(fields, { kind }) }));
+    assert.strictEqual(restored.entities.get('Env').kind, kind);
+    assert.strictEqual('PORT' in restored.entities.get('Env').fields, true);
+  }
+});

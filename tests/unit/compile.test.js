@@ -1392,3 +1392,37 @@ test('Compile: compiled() says which backend a schema runs on', () => {
   assert.strictEqual(isCompiled(Schema.from({ x: 'number' })), false);
   assert.throws(() => isCompiled({ name: 'string' }), { code: 'ERR_INVALID_TARGET' });
 });
+
+test('Compile: a struct of upper-case keys checks alike on both backends', () => {
+  const schema = new Schema('Env', {
+    DATABASE_URL: { type: 'string', length: { min: 3 } },
+    PORT: { type: 'integer', min: 1, max: 65535 },
+    'DEBUG?': 'boolean',
+    Limits: { MAX_CONN: 'number', 'Timeout?': 'number' },
+    HOSTS: { array: { NAME: 'string', Weight: '?number' } },
+  });
+  assert.deepStrictEqual(Object.keys(schema.fields), [
+    'DATABASE_URL',
+    'PORT',
+    'DEBUG',
+    'Limits',
+    'HOSTS',
+  ]);
+  const valid = {
+    DATABASE_URL: 'postgres://db',
+    PORT: 5432,
+    Limits: { MAX_CONN: 10 },
+    HOSTS: [{ NAME: 'a' }, { NAME: 'b', Weight: 2 }],
+  };
+  equivalent(schema, [
+    valid,
+    { ...valid, DEBUG: true },
+    {},
+    { ...valid, DATABASE_URL: 'x', PORT: 0, DEBUG: 'yes' },
+    { ...valid, Limits: { Timeout: 'soon' }, HOSTS: [{}, { NAME: 1, Weight: 'heavy' }] },
+    { ...valid, EXTRA: 1, Limits: { MAX_CONN: 1, Extra: 2 } },
+    { database_url: 'postgres://db', port: 5432 },
+    null,
+    [],
+  ]);
+});

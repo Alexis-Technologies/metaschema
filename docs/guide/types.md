@@ -108,8 +108,9 @@ row.check({ row: ['a', [1, 'b'], { x: 1 }] }).errors;
 
 A one-key object holding a type name is a **named** scalar element, as in upstream metaschema:
 `[{ x: 'number' }, { 'y?': 'number' }]` is two numbers named `x` and `y` (the name is kept on the
-element type, `fields.position.value[1].name`), not two one-field structs. A struct element with
-one field is written with the `schema` shorthand: `[{ schema: { x: 'number' } }]`.
+element type, `fields.position.value[1].name`), not two one-field structs; the name may be
+capitalized (`[{ X: 'number' }, { Y: 'number' }]`). A struct element with one field is written
+with the `schema` shorthand: `[{ schema: { x: 'number' } }]`.
 
 Optional elements use the usual prefix (`['string', '?number']`) or the optional key of a named
 element. A tuple rejects arrays longer than its definition. `{ tuple: ['string', 'number'] }` is

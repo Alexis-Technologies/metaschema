@@ -79,10 +79,13 @@ const TYPES = createTypes(PROTOTYPES);
 const createRegistry = () => createTypes(PROTOTYPES);
 
 // Whether a dictionary of fields reads as a struct under the first-key rule
-// (`preprocessor.js`): the first key that starts with a letter is a kind
-// when capitalized, the long form when it is `type` and a shorthand when it
-// is a type name of the registry; a struct that reads otherwise needs the
-// `schema` shorthand around it. What generates a definition asks here.
+// (`preprocessor.js`): the first key that starts with a letter may be a kind
+// when capitalized, is the long form when it is `type` and a shorthand when
+// it is a type name of the registry; a struct that reads otherwise needs the
+// `schema` shorthand around it. What generates a definition asks here, and
+// the answer for a capitalized key is the careful one on purpose (whatever
+// the key holds, where `isKindKey` of kinds.js looks at it): the definition
+// then reads the same for `Infer`, which sees no key order, and for 3.4.0.
 const readsAsStruct = (fields, types = TYPES) => {
   const first = firstKey(fields);
   if (first === undefined) return true;

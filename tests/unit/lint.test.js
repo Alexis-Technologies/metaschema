@@ -199,3 +199,52 @@ test('Lint: a model collects the warnings of its entities and its own', () => {
     'Warning [missing-type]: type "coin" is not found in "Item"',
   ]);
 });
+
+test('Lint: a kind of its own whose metadata reads as fields is ambiguous', () => {
+  const ambiguous = (key) =>
+    `Warning [ambiguous-kind]: "${key}" of "User" is read as a kind, and its metadata reads ` +
+    `as field definitions: a field of that name needs a kind before it ({ Struct: {}, ${key}: ... })`;
+  const suspects = [
+    ['Address', { Address: { street: 'string' }, name: 'string' }],
+    ['Address', { Address: { geo: ['number', 'number'], street: '?string' }, name: 'string' }],
+    ['Port', { Port: { type: 'number', default: 3000 }, host: 'string' }],
+    ['Status', { Status: { enum: ['on', 'off'] }, host: 'string' }],
+    ['Tags', { Tags: { 'array?': 'string' }, host: 'string' }],
+    ['Geo', { Geo: { lat: { type: 'number' }, lng: { type: 'number' } }, name: 'string' }],
+    ['Address', { name: 'string', user: { Address: { street: 'string' }, name: 'string' } }],
+    ['Item', { list: { array: { Item: { sku: 'string' }, qty: 'number' } } }],
+  ];
+  for (const [key, definition] of suspects) {
+    const schema = new Schema('User', definition);
+    assert.deepStrictEqual(schema.warnings, [ambiguous(key)], JSON.stringify(definition));
+  }
+  // The field was not built: the warning is what says so.
+  const lost = new Schema('User', { Address: { street: 'string' }, name: 'string' });
+  assert.strictEqual(lost.kind, 'address');
+  assert.deepStrictEqual(Object.keys(lost.fields), ['name']);
+  const kept = new Schema('User', { Struct: {}, Address: { street: 'string' }, name: 'string' });
+  assert.deepStrictEqual(Object.keys(kept.fields), ['Address', 'name']);
+  assert.deepStrictEqual(kept.warnings, []);
+
+  // Metadata that is metadata: values that name no type, the keys every
+  // kind reads (`unknown` is a type name and the policy), a built-in kind.
+  const clean = [
+    { Settings: { theme: 'dark', tags: ['a'], limits: { max: 5 } }, mode: 'string' },
+    { Settings: {}, mode: 'string' },
+    { Custom: { unknown: 'ignore', scope: 'global', store: 'memory' }, a: 'string' },
+    { Entity: { scope: 'global' }, name: 'string' },
+    { Form: { unknown: 'ignore', coerce: true }, name: 'string' },
+    { DATABASE_URL: 'string', PORT: { type: 'number' } },
+  ];
+  for (const definition of clean) {
+    assert.deepStrictEqual(new Schema('User', definition).warnings, [], JSON.stringify(definition));
+  }
+  // Every one is told, and a model collects them with the rest.
+  const two = new Schema('User', {
+    Address: { street: 'string' },
+    home: { Geo: { lat: 'number' }, name: 'string' },
+  });
+  assert.deepStrictEqual(two.warnings, [ambiguous('Address'), ambiguous('Geo')]);
+  const model = new Model({}, [['User', { Address: { street: 'string' }, name: 'string' }]]);
+  assert.deepStrictEqual(model.warnings, [ambiguous('Address')]);
+});

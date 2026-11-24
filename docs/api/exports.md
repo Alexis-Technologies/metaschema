@@ -100,7 +100,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/definition`
 
-The half of the core that builds schemas and models and reads them, on its own (10.3 KB
+The half of the core that builds schemas and models and reads them, on its own (10.5 KB
 min+gzip); see [The definition entry](/guide/definition). Its exports are the core's own:
 `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError` and the six constants. Until the
 core entry is loaded too, `check`, `checkAsync`, `parse`, `parseAsync`, `serialize`,
@@ -111,7 +111,7 @@ no `~standard`.
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (21.3 KB min+gzip) does not carry them (7.7 KB more); see
+subpath so that the core entry (21.7 KB min+gzip) does not carry them (7.7 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -126,7 +126,7 @@ A target that is neither a `Schema` nor a `Model` is a `TypeError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (12.7 KB min+gzip on top of the
+The model as the source of truth, in a subpath of its own (12.8 KB min+gzip on top of the
 core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
 [Schema inference](/guide/infer).
 
@@ -164,7 +164,7 @@ does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileO
 
 ## `@alexify/metaschema/stream`
 
-A schema over a sequence of records, in a subpath of its own (0.9 KB min+gzip on top of the
+A schema over a sequence of records, in a subpath of its own (1.0 KB min+gzip on top of the
 core); see [Records and streams](/guide/streaming).
 
 | Export | Description |
@@ -184,7 +184,7 @@ integer of at least 1, got 0`).
 ## `@alexify/metaschema/formats`
 
 The formats a string field may name with the [`format`](/guide/formats) rule, in a subpath of
-its own (3.9 KB min+gzip on top of the core); the rule is the core's, the table of formats the
+its own (3.8 KB min+gzip on top of the core); the rule is the core's, the table of formats the
 subpath's, empty until `register()` ran.
 
 | Export | Description |
@@ -197,7 +197,7 @@ of an entry is `FormatDefinition`.
 
 ## `@alexify/metaschema/derive`
 
-Schemas made from a schema of a struct, in a subpath of its own (2.2 KB min+gzip on top of the
+Schemas made from a schema of a struct, in a subpath of its own (2.3 KB min+gzip on top of the
 core); see [Deriving schemas](/guide/derive). Each builds a new `Schema` from the definition the
 source was built from, with `options.name` (the source's by default) and `options.metadata`
 (over the source's; a stored kind or a projection is a struct, keeping `unknown`).

@@ -24,7 +24,7 @@ const {
   isSnapshot,
   checkRoot,
   isFunctionMarker,
-  capitalize,
+  kindKeyOf,
 } = require('./data.js');
 
 const nothing = () => undefined;
@@ -146,6 +146,13 @@ const entityDef = (name, entity, context) => {
   if (!isObject(entity) || typeof entity.kind !== 'string' || !isFirstLower(entity.kind)) {
     throw invalidSnapshot('An entity of a snapshot needs a kind');
   }
+  // A kind is written as the first key of the definition: one that would not
+  // be read back as a kind from there would turn into a field.
+  const kindKey = kindKeyOf(entity.kind);
+  if (kindKey === null) {
+    const kind = JSON.stringify(shorten(entity.kind));
+    throw invalidSnapshot(`The kind ${kind} of an entity is not the name of a kind`);
+  }
   const { scope, store, allow, unknown, parent, custom, fields, indexes } = entity;
   if (parent !== undefined && typeof parent !== 'string') {
     throw invalidSnapshot('The parent of an entity must be a name');
@@ -160,7 +167,7 @@ const entityDef = (name, entity, context) => {
   // `unknown` through its metadata.
   const revived = revive(custom, 'custom', `${name}.custom`, 0, context);
   const meta = { ...revived, scope, store, allow, unknown, parent };
-  const def = { [capitalize(entity.kind)]: meta };
+  const def = { [kindKey]: meta };
   const struct = structDef(fields, name, 0, context);
   for (const key of Object.keys(struct)) define(def, key, struct[key]);
   for (const key of Object.keys(indexes ?? {})) {

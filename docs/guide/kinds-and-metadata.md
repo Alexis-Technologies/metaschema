@@ -1,7 +1,7 @@
 # Kinds and Metadata
 
-The first key of a definition can be a capitalized **kind**. Its value is the schema's metadata,
-and the remaining keys are its fields:
+The first key of a definition can be a **kind**: a capitalized name holding an object. That
+object is the schema's metadata, and the remaining keys are its fields:
 
 ```js
 const { Schema } = require('@alexify/metaschema');
@@ -80,7 +80,8 @@ Any other value throws `ERR_INVALID_OPTIONS` when the schema is built.
 
 ## Custom kinds
 
-Any capitalized key works as a kind. Unknown kinds behave like memory kinds, and their metadata
+Any kind name works as a kind: a capital letter, then letters and digits, at least one of them
+lowercase (`Settings`, `Http2Server`). Unknown kinds behave like memory kinds, and their metadata
 ends up in `schema.custom`:
 
 ```js
@@ -88,6 +89,34 @@ const settings = Schema.from({ Settings: { theme: 'dark' }, mode: 'string' });
 settings.kind; // 'settings'
 settings.custom; // { theme: 'dark' }
 ```
+
+The metadata is a plain object, always. A capitalized first key that holds anything else, or
+whose name is no kind name, is a field of a struct, which is what a name in upper case is
+(`PORT: 'number'`, and also `DTO: {}`: name such a kind `Dto`):
+
+```js
+Schema.from({ DATABASE_URL: 'string', PORT: 'number' }).kind; // 'struct', two fields
+Schema.from({ Name: 'string', age: 'number' }).kind; // 'struct', two fields
+```
+
+That leaves one case the first key cannot tell apart: a field with a name like a kind's that
+holds a nested struct or a long form, first in its struct. It is read as a kind, the field is
+not built, and the schema's [warnings](/guide/model#warnings) name it:
+
+```js
+const user = new Schema('User', { Address: { street: 'string' }, name: 'string' });
+user.kind; // 'address'
+Object.keys(user.fields); // ['name']
+user.warnings;
+// [ 'Warning [ambiguous-kind]: "Address" of "User" is read as a kind, and its metadata reads as
+//   field definitions: a field of that name needs a kind before it ({ Struct: {}, Address: ... })' ]
+
+const fixed = new Schema('User', { Struct: {}, Address: { street: 'string' }, name: 'string' });
+Object.keys(fixed.fields); // ['Address', 'name']
+```
+
+The warning is for metadata that names a type (`street: 'string'`) or reads as a definition
+(`{ type: 'number' }`, `{ enum: [...] }`); `{ Settings: { theme: 'dark' } }` has none.
 
 ## Projections
 

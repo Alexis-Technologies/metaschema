@@ -1,18 +1,18 @@
-const { isFirstUpper } = require('../metautil.js');
 const { formatters } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidTuple = (reason) => new SchemaDefinitionError('ERR_INVALID_TUPLE', `Tuple ${reason}`);
 
-// A named element is `{ name: 'type' }`: one key that is not `type`, a type
-// name or a kind, holding a type name. Anything else is a definition of its
-// own (a nested struct, a collection, a tuple).
+// A named element is `{ name: 'type' }`: one key that is not `type` or a type
+// name, holding a type name (a string is no metadata of a kind, so `{ X:
+// 'number' }` is a name too). Anything else is a definition of its own (a
+// nested struct, a collection, a tuple).
 const nameOf = (element, types) => {
   if (element === null || typeof element !== 'object' || Array.isArray(element)) return null;
   const keys = Object.keys(element);
   if (keys.length !== 1 || typeof element[keys[0]] !== 'string') return null;
   const { field } = formatters.key(keys[0]);
-  if (field === 'type' || types[field] || isFirstUpper(field)) return null;
+  if (field === 'type' || types[field]) return null;
   return keys[0];
 };
 
