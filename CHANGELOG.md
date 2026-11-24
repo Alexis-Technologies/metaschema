@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-11-24
+
+3.4.1 settles what a capitalized key is. Until now the first key of an object was a kind
+whenever it began with a capital letter, whatever it was called and whatever it held, so a
+struct that began with `DATABASE_URL: 'string'` lost that field without a word (a schema of
+environment variables lost its first variable), and `Infer` took every capitalized key for a
+kind and left it out of the type. A kind is now a **kind name holding its metadata**: a capital
+letter, then letters and digits, at least one of them lowercase (`Entity`, `Settings`), holding
+a plain object. Every other capitalized key is a field, for the runtime and for the types alike,
+and the one case the first key still cannot tell apart is a warning.
+
+### Fixed
+
+- **A capitalized first key that is no kind is a field.** `Schema.from({ DATABASE_URL: 'string',
+  PORT: 'number' })` was the kind `dATABASE_URL` with the string spread into `custom`
+  (`{ 0: 's', 1: 't', … }`) over a struct of `PORT` alone, with no warning, and a value that
+  carried `DATABASE_URL` was rejected for an unexpected key. It is a struct of both fields now,
+  and so is every first key in upper case (`PORT: { type: 'number', default: 3000 }`,
+  `NODE_ENV: { enum: […] }`), every name with a character that is no letter or digit
+  (`Api_key`), and a kind name that holds no metadata: a type name (`Name: 'string'`), a tuple,
+  a function, a `Schema`, a built field. The same holds wherever a definition is read: a nested
+  struct, an element of a collection or a tuple, a branch of a union, an entity of a `Model` and
+  its snapshot.
+- **`Infer` reads a kind key as the runtime does.** `Infer<{ host: 'string', PORT: 'number' }>`
+  was `{ host: string }`, `Infer<{ HOST: 'string' }>` was `{}`, and a struct with a kind and
+  capitalized fields (`{ Struct: {}, DATABASE_URL: 'string', PORT: 'number' }`) was a union of
+  structs, each without one of its keys. A kind key of the types is a kind name holding an
+  object now, the keys are taken as one set instead of one by one, and where several keys could
+  be the kind a built-in one is it (`{ Struct: {}, Address: { … }, name: 'string' }` infers with
+  `Address`). `InferOutput`, `InferEntity`, a projection and the types of `./derive` read the
+  same keys, so `pick(env, ['DATABASE_URL'])` compiles.
+- **`extend` of `./derive` takes capitalized fields.** `extend(schema, { REDIS_URL: 'string' })`
+  threw "An extension has fields only"; an extension is refused for a kind only.
+- **A capitalized key holding a type name names a tuple element**: `[{ X: 'number' }, { Y:
+  'number' }]` is two numbers named `X` and `Y`, as `{ x: 'number' }` always was (it was an
+  empty struct of the kind `x`), for `check` and for `Infer`.
+
+### Changed
+
+- **A custom kind is a kind name.** `{ DTO: {}, … }`, `{ X: {}, … }` and `{ Api_config: {}, … }`
+  were the kinds `dTO`, `x` and `api_config`; they are structs with a field of that name now.
+  Name the kind with a lowercase letter and nothing but letters and digits (`Dto`,
+  `ApiConfig`). The built-in kinds and the custom kinds of the documentation
+  (`{ Settings: { theme: 'dark' }, … }`) read as they did.
+- **A kind that would not read back is refused where it is written**: `fromJSON` of a snapshot
+  whose entity has such a kind (`dTO`, or the `dATABASE_URL` that 3.4.0 wrote for the struct
+  above) is `ERR_INVALID_SNAPSHOT` located at the entity, and `metadata: { kind }` of `./derive`
+  and `merge` and the `kind` option of `infer` are `ERR_INVALID_OPTIONS`. Each writes the kind
+  as the first key of a definition, where it would have become a field.
+
+### Added
+
+- **`ambiguous-kind` in `schema.warnings`.** A field with a name like a kind's that holds a
+  nested struct or a long form, first in its struct (`{ Address: { street: 'string' }, name:
+  'string' }`), is still read as the custom kind `address`: the first key decides, and such
+  metadata is what a custom kind looks like. The warning names every custom kind, at any depth,
+  whose metadata names a type or reads as a field definition; a kind before the field settles
+  it (`{ Struct: {}, Address: { … }, name: 'string' }`). `{ Settings: { theme: 'dark' } }` has
+  no warning.
+
+The core measures 21.7 KB (22224 / 22233 bytes, under its 22 KB gate), `./definition` 10.5 KB,
+the model subpath 12.8 KB and the derive subpath 2.3 KB; building a schema and checking with it
+are at parity with 3.4.0.
+
 ## [3.4.0] - 2026-10-16
 
 3.4 makes the snapshot a contract a program can build on and the language complete for the
@@ -1578,7 +1642,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.0...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.1...HEAD
+[3.4.1]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...v3.3.0
 [3.2.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.1.0...v3.2.0
