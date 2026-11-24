@@ -7,6 +7,7 @@ const {
   COERCES,
   CODEC,
   STANDARD,
+  KINDS,
   hasBrand,
 } = require('./util.js');
 const { TYPES } = require('./types.js');
@@ -83,11 +84,13 @@ class Schema extends SchemaMetadata {
     // the cycle detection (only a struct with references can reach it
     // again), whether parse coerces unless the call says otherwise (the
     // `coerce` of the kind metadata, read once: an own property would shadow
-    // the method the `./coerce` subpath installs), and its caches.
+    // the method the `./coerce` subpath installs), its caches, and the kinds
+    // of the program's own the definition named, for the lint.
     this[TRACKED] = isSchemaType && this.relations.size > 0;
     this[COERCES] = Object.hasOwn(this.custom, 'coerce') && this.custom.coerce === true;
     this[CODEC] = null;
     this[STANDARD] = null;
+    this[KINDS] = preprocessor.kinds;
     this[RUN] = lazyRun(this);
     const hook = Schema[HOOK];
     if (hook !== undefined) hook(this);

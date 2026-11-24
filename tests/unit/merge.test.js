@@ -519,3 +519,23 @@ test('Merge: register() installs Schema.merge', () => {
   const merged = Schema.merge(Schema.from({ a: 'string' }), Schema.from({ b: 'number' }));
   assert.deepStrictEqual(Object.keys(merged.fields), ['a', 'b']);
 });
+
+test('Merge: structs of upper-case keys merge field by field', () => {
+  const base = new Schema('Env', { DATABASE_URL: 'string', PORT: { type: 'number', min: 1 } });
+  const more = new Schema('Env', { PORT: { type: 'number', max: 65535 }, REDIS_URL: '?string' });
+  for (const merged of both(base, more)) {
+    assert.strictEqual(merged.kind, 'struct');
+    assert.deepStrictEqual(Object.keys(merged.fields), ['DATABASE_URL', 'PORT', 'REDIS_URL']);
+    assert.strictEqual(merged.fields.PORT.min, 1);
+    assert.strictEqual(merged.fields.PORT.max, 65535);
+    assert.strictEqual(merged.check({ DATABASE_URL: 'x', PORT: 80 }).valid, true);
+    assert.deepStrictEqual(merged.check({ PORT: 0 }).errors, [
+      'Field "Env.DATABASE_URL" is required',
+      'Field "Env.PORT" is less than 1',
+    ]);
+  }
+  assert.throws(() => merge(base, more, { metadata: { kind: 'dTO' } }), {
+    code: 'ERR_INVALID_OPTIONS',
+    message: 'Metadata "kind" must be the name of a kind, got "dTO"',
+  });
+});

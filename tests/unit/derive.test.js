@@ -571,3 +571,65 @@ test('Derive: register() installs the functions as methods of Schema', () => {
   const embedded = new Schema('Outer', { inner: Account.pick(['login']) });
   assert.strictEqual(embedded.check({ inner: { login: 'marcus' } }).valid, true);
 });
+
+test('Derive: a struct of upper-case keys is derived whole, and extended with more', () => {
+  const env = new Schema('Env', {
+    DATABASE_URL: 'string',
+    PORT: { type: 'number', default: 3000 },
+    'DEBUG?': 'boolean',
+  });
+  for (const picked of both(() => pick(env, ['DATABASE_URL', 'PORT']))) {
+    assert.strictEqual(picked.kind, 'struct');
+    assert.deepStrictEqual(Object.keys(picked.fields), ['DATABASE_URL', 'PORT']);
+    assert.strictEqual(picked.check({ DATABASE_URL: 'x', PORT: 1 }).valid, true);
+  }
+  assert.deepStrictEqual(Object.keys(omit(env, ['PORT']).fields), ['DATABASE_URL', 'DEBUG']);
+  assert.strictEqual(partial(env).check({}).valid, true);
+  assert.deepStrictEqual(required(env).check({ DATABASE_URL: 'x', PORT: 1 }).errors, [
+    'Field "Env.DEBUG" is required',
+  ]);
+  assert.deepStrictEqual(keyof(env).fields.enum, ['DATABASE_URL', 'PORT', 'DEBUG']);
+  // An extension of capitalized fields is fields; until 3.4.1 it was taken
+  // for a kind and refused.
+  const extensions = [
+    { REDIS_URL: 'string' },
+    { PORT: 'integer', REDIS_URL: 'string' },
+    { Name: 'string', REDIS_URL: 'string' },
+  ];
+  for (const extension of extensions) {
+    for (const wider of both(() => extend(env, extension))) {
+      const keys = Object.keys(wider.fields);
+      assert.deepStrictEqual(keys.slice(0, 3), ['DATABASE_URL', 'PORT', 'DEBUG']);
+      assert.strictEqual(keys.includes('REDIS_URL'), true);
+      assert.deepStrictEqual(wider.check({ DATABASE_URL: 'x', PORT: 1 }).errors.slice(-1), [
+        'Field "Env.REDIS_URL" is required',
+      ]);
+    }
+  }
+  assert.strictEqual(extend(env, { PORT: 'integer' }).fields.PORT.type, 'integer');
+  // A kind is still no field of an extension, whichever kind.
+  for (const extension of [{ Settings: { theme: 'dark' }, a: 'string' }, { Struct: {} }]) {
+    assert.throws(() => extend(env, extension), {
+      code: 'ERR_INVALID_DEFINITION',
+      message: 'An extension has fields only; the kind is options.metadata in "Env"',
+    });
+  }
+});
+
+test('Derive: the kind of the metadata must be a name a definition reads as a kind', () => {
+  const env = new Schema('Env', { DATABASE_URL: 'string', PORT: 'number' });
+  // The kind is written as the first key of the derived definition; a name
+  // that key is not read back as a kind from would make it a field.
+  for (const kind of ['dTO', 'DTO', 'api_config', 'x', '', 7, null]) {
+    assert.throws(() => pick(env, ['PORT'], { metadata: { kind } }), {
+      name: 'SchemaDefinitionError',
+      code: 'ERR_INVALID_OPTIONS',
+      message: `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`,
+    });
+  }
+  for (const kind of ['form', 'Form', 'settings', 'http2Server']) {
+    const derived = pick(env, ['PORT'], { metadata: { kind } });
+    assert.strictEqual(derived.kind, kind.charAt(0).toLowerCase() + kind.slice(1));
+    assert.deepStrictEqual(Object.keys(derived.fields), ['PORT']);
+  }
+});

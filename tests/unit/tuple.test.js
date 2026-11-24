@@ -144,3 +144,27 @@ test('Tuple: elements may be any definition, named elements stay scalars', () =>
   assert.strictEqual(named.check({ p: [1, null, ['a']] }).valid, true);
   assert.strictEqual(named.check({ p: [1] }).valid, false);
 });
+
+test('Tuple: a capitalized key holding a type name is a named element', () => {
+  // A string is no metadata of a kind; until 3.4.1 `{ X: 'number' }` was the
+  // kind `x` over an empty struct.
+  const point = Schema.from([{ X: 'number' }, { 'Y?': 'number' }, { LABEL: 'string' }]);
+  const elements = point.fields.value;
+  assert.deepStrictEqual(
+    elements.map((element) => [element.type, element.name, element.required]),
+    [
+      ['number', 'X', true],
+      ['number', 'Y', false],
+      ['string', 'LABEL', true],
+    ],
+  );
+  assert.strictEqual(point.check([1, null, 'a']).valid, true);
+  assert.deepStrictEqual(point.check([{}, 2, 'a']).errors, [
+    'Field "[0]" not of expected type: number',
+  ]);
+  assert.deepStrictEqual(point.warnings, []);
+  // An object under the key is a definition of its own, a kind where it is one.
+  const structs = Schema.from([{ Struct: {}, X: 'number' }, { Point: { x: 'number' } }]);
+  assert.deepStrictEqual(Object.keys(structs.fields.value[0].schema), ['X']);
+  assert.deepStrictEqual(Object.keys(structs.fields.value[1].schema), []);
+});

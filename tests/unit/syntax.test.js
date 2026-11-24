@@ -166,3 +166,141 @@ test('Syntax: an object with no key that starts with a letter is a struct', () =
   assert.strictEqual(typed.fields.a.type, 'string');
   assert.deepStrictEqual(Object.keys(typed.fields.a.toJSON()).includes('_id'), true);
 });
+
+// A kind key is a name a kind may have (a capital letter, then letters and
+// digits, one of them lowercase) holding the metadata of the kind, a plain
+// object. Until 3.4.1 every capitalized first key was a kind, so a struct
+// that began with `DATABASE_URL: 'string'` lost that field without a word.
+test('Syntax: a capitalized first key is a kind only as a kind name holding metadata', () => {
+  const inner = Schema.from({ a: 'string' });
+  const fields = [
+    [{ DATABASE_URL: 'string', host: 'string' }, ['DATABASE_URL', 'host']],
+    [{ PORT: { type: 'number', default: 3000 }, host: 'string' }, ['PORT', 'host']],
+    [{ NODE_ENV: { enum: ['dev', 'prod'] }, host: 'string' }, ['NODE_ENV', 'host']],
+    [{ DTO: {}, host: 'string' }, ['DTO', 'host']],
+    [{ X: {}, host: 'string' }, ['X', 'host']],
+    [{ Api_key: {}, host: 'string' }, ['Api_key', 'host']],
+    [{ 'Kind?': {}, host: 'string' }, ['Kind', 'host']],
+    [{ Name: 'string', host: 'string' }, ['Name', 'host']],
+    [{ Name: '?string', host: 'string' }, ['Name', 'host']],
+    [{ Ids: ['string', 'number'], host: 'string' }, ['Ids', 'host']],
+    [{ Total: () => 0, host: 'string' }, ['Total', 'host']],
+    [{ Inner: inner, host: 'string' }, ['Inner', 'host']],
+    [{ Built: inner.fields.a, host: 'string' }, ['Built', 'host']],
+    [{ Fields: inner.fields, host: 'string' }, ['Fields', 'host']],
+  ];
+  for (const [definition, keys] of fields) {
+    const schema = Schema.from(definition);
+    const label = keys[0];
+    assert.strictEqual(schema.kind, 'struct', label);
+    assert.deepStrictEqual(schema.custom, {}, label);
+    assert.deepStrictEqual(Object.keys(schema.fields), keys, label);
+    assert.deepStrictEqual(schema.warnings, [], label);
+  }
+  assert.strictEqual(Schema.from({ Ids: ['string', 'number'] }).fields.Ids.type, 'tuple');
+  assert.strictEqual(Schema.from({ Inner: inner }).check({ Inner: { a: 'x' } }).valid, true);
+  assert.strictEqual(Schema.from({ Built: inner.fields.a }).fields.Built.type, 'string');
+  // What is no definition is an error where it stands, not kind metadata.
+  assert.throws(() => new Schema('Env', { Nothing: null, host: 'string' }), {
+    name: 'SchemaDefinitionError',
+    code: 'ERR_INVALID_DEFINITION',
+    field: 'Nothing',
+  });
+
+  const kinds = [
+    [{ Struct: {}, PORT: 'number' }, 'struct', ['PORT']],
+    [{ Struct: Object.create(null), PORT: 'number' }, 'struct', ['PORT']],
+    [{ Form: { unknown: 'ignore' }, Name: 'string' }, 'form', ['Name']],
+    [{ Settings: { theme: 'dark' }, mode: 'string' }, 'settings', ['mode']],
+    [{ Http2Server: {}, port: 'number' }, 'http2Server', ['port']],
+    [{ _id: 'string', Custom: {}, type: 'string' }, 'custom', ['_id', 'type']],
+  ];
+  for (const [definition, kind, keys] of kinds) {
+    const schema = Schema.from(definition);
+    assert.strictEqual(schema.kind, kind, kind);
+    assert.deepStrictEqual(Object.keys(schema.fields), keys, kind);
+  }
+  assert.deepStrictEqual(Schema.from(kinds[3][0]).custom, { theme: 'dark' });
+  // The metadata of another realm is metadata: its prototype is an
+  // Object.prototype, whichever.
+  const vm = require('node:vm');
+  const foreign = Schema.from({ Form: vm.runInNewContext('({ unknown: "ignore" })'), a: 'string' });
+  assert.strictEqual(foreign.kind, 'form');
+  assert.strictEqual(foreign.unknown, 'ignore');
+  // Only the first key is asked: after a kind a capitalized key is a field,
+  // whatever it holds.
+  const after = Schema.from({ Struct: {}, Address: { street: 'string' }, Settings: {} });
+  assert.deepStrictEqual(Object.keys(after.fields), ['Address', 'Settings']);
+  assert.strictEqual(after.check({ Address: { street: 'x' }, Settings: {} }).valid, true);
+});
+
+test('Syntax: a struct of upper-case keys keeps every field, at any depth', () => {
+  const env = new Schema('Env', {
+    DATABASE_URL: 'string',
+    PORT: { type: 'number', default: 3000 },
+    NODE_ENV: { enum: ['development', 'production'] },
+    'DEBUG?': 'boolean',
+  });
+  assert.strictEqual(env.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(env.fields), ['DATABASE_URL', 'PORT', 'NODE_ENV', 'DEBUG']);
+  const value = { DATABASE_URL: 'postgres://db', PORT: 8080, NODE_ENV: 'production' };
+  assert.strictEqual(env.check(value).valid, true);
+  assert.deepStrictEqual(env.check({ PORT: 8080, NODE_ENV: 'production' }).errors, [
+    'Field "Env.DATABASE_URL" is required',
+  ]);
+  assert.deepStrictEqual(env.check({ ...value, DATABASE_URL: 1 }).errors, [
+    'Field "Env.DATABASE_URL" not of expected type: string',
+  ]);
+  const filled = env.parse({ DATABASE_URL: 'postgres://db', NODE_ENV: 'development' });
+  assert.deepStrictEqual(filled.value, {
+    DATABASE_URL: 'postgres://db',
+    NODE_ENV: 'development',
+    PORT: 3000,
+  });
+  // The environment of a process: strings, and keys the schema does not have.
+  require('../../src/coerce/index.js').register();
+  const source = { DATABASE_URL: 'postgres://db', PORT: '8080', NODE_ENV: 'production', HOME: '/' };
+  const parsed = env.parse(source, { coerce: true, unknown: 'strip' });
+  assert.deepStrictEqual(parsed.value, {
+    DATABASE_URL: 'postgres://db',
+    PORT: 8080,
+    NODE_ENV: 'production',
+  });
+
+  const nested = new Schema('App', {
+    name: 'string',
+    config: { DATABASE_URL: 'string', PORT: 'number' },
+    services: { array: { ID: 'string', name: 'string' } },
+    pair: [{ LEFT: 'string', RIGHT: 'string' }, 'number'],
+    either: { union: [{ A: 'string', B: 'number' }, 'boolean'] },
+  });
+  assert.deepStrictEqual(Object.keys(nested.fields.config.schema), ['DATABASE_URL', 'PORT']);
+  assert.deepStrictEqual(Object.keys(nested.fields.services.value.schema), ['ID', 'name']);
+  assert.deepStrictEqual(Object.keys(nested.fields.pair.value[0].schema), ['LEFT', 'RIGHT']);
+  assert.deepStrictEqual(Object.keys(nested.fields.either.union[0].schema), ['A', 'B']);
+  const app = {
+    name: 'api',
+    config: { DATABASE_URL: 'x', PORT: 1 },
+    services: [{ ID: 'a', name: 'b' }],
+    pair: [{ LEFT: 'l', RIGHT: 'r' }, 1],
+    either: { A: 'a', B: 1 },
+  };
+  assert.strictEqual(nested.check(app).valid, true);
+  assert.deepStrictEqual(nested.check({ ...app, config: { PORT: 1 } }).errors, [
+    'Field "App.config.DATABASE_URL" is required',
+  ]);
+
+  const model = new Model({}, [
+    ['Env', { DATABASE_URL: 'string', PORT: 'number' }],
+    ['Stored', { Entity: {}, API_KEY: 'string' }],
+  ]);
+  const entity = model.entities.get('Env');
+  assert.strictEqual(entity.kind, 'struct');
+  assert.deepStrictEqual(Object.keys(entity.fields), ['DATABASE_URL', 'PORT']);
+  assert.deepStrictEqual(Object.keys(model.entities.get('Stored').fields), ['API_KEY', 'storedId']);
+  const written = model.toJSON().entities.Env;
+  assert.strictEqual(written.kind, 'struct');
+  assert.deepStrictEqual(written.custom, {});
+  assert.deepStrictEqual(Object.keys(written.fields), ['DATABASE_URL', 'PORT']);
+  assert.deepStrictEqual(model.warnings, []);
+});

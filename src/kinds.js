@@ -1,4 +1,5 @@
 const { toLowerCamel } = require('./metautil.js');
+const { hasBrand } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 const projectionError = (name, reason) =>
@@ -9,6 +10,24 @@ const KIND_AUX = ['journal', 'details', 'relation', 'view'];
 const KIND_STORED = [...KIND_ENT, ...KIND_AUX];
 const KIND_MEMORY = ['struct', 'scalar', 'form', 'projection'];
 const KIND = [...KIND_MEMORY, ...KIND_STORED];
+
+// A key is a kind when its name is one a kind may have (a capital letter,
+// then letters and digits, one of them lowercase: `Entity`, `Settings`,
+// never `PORT` or `DATABASE_URL`) and its value is the metadata of a kind:
+// a plain object of any realm, not a string, a list, a function or anything
+// built (a Schema, a field, a struct). Any other capitalized key is a field.
+// The one rule: the preprocessor reads the first key by it, what writes a
+// definition (derive, merge, fromJSON) holds a kind to it, and `KindKey` of
+// the typings mirrors it.
+const KIND_NAME = /^[A-Z][A-Z\d]*[a-z][A-Za-z\d]*$/;
+
+const isMetadata = (value) => {
+  if (value === null || typeof value !== 'object' || hasBrand(value, 'Struct')) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || Object.getPrototypeOf(proto) === null;
+};
+
+const isKindKey = (key, meta) => KIND_NAME.test(key) && isMetadata(meta);
 
 const SCOPE = ['application', 'global', 'local'];
 const STORE = ['persistent', 'memory'];
@@ -74,4 +93,4 @@ const getKindMetadata = (kind, meta = {}, root) => {
 
 const constants = { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW };
 
-module.exports = { constants, getKindMetadata, idFieldOf };
+module.exports = { constants, getKindMetadata, idFieldOf, isKindKey };

@@ -15,7 +15,7 @@ const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
-const { DEPTH, capitalize } = require('./data.js');
+const { DEPTH, kindKeyOf } = require('./data.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
@@ -416,7 +416,7 @@ const optionsOf = (options) => {
   } = options;
   if (as !== 'definition' && as !== 'schema') throw option('as', '"definition" or "schema"');
   if (typeof name !== 'string') throw option('name', 'a string');
-  if (typeof kind !== 'string' || kind === '') throw option('kind', 'the name of a kind');
+  if (kindKeyOf(kind) === null) throw option('kind', 'the name of a kind');
   if (cap !== false && (!Number.isInteger(cap) || cap < 0)) {
     throw option('enum', 'an integer of at least 0, or false');
   }
@@ -475,7 +475,7 @@ const infer = (samples, options = {}) => {
   if (form === null) definition = bareOf(root.bits, (root.bits & UNDEF) !== 0);
   else if (form.struct === undefined) definition = written(form, presence);
   else if (presence === REQUIRED) {
-    definition = { [capitalize(state.kind)]: {} };
+    definition = { [kindKeyOf(state.kind)]: {} };
     for (const key of Object.keys(form.struct)) define(definition, key, form.struct[key]);
   } else definition = written({ def: { union: [written(form, REQUIRED)] } }, presence);
   const schema = new Schema(state.name, definition);
