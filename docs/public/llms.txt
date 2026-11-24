@@ -10,11 +10,11 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 21.3 KB min+gzip for the core entry (the generators subpath adds
-  7.7 KB, the compile subpath 4.3 KB, the model subpath 12.7 KB, the stream subpath 0.9 KB, the
-  formats subpath 3.9 KB, the derive subpath 2.2 KB, the coerce subpath 1.9 KB, the mongodb
+- Zero runtime dependencies, 21.7 KB min+gzip for the core entry (the generators subpath adds
+  7.7 KB, the compile subpath 4.3 KB, the model subpath 12.8 KB, the stream subpath 1.0 KB, the
+  formats subpath 3.8 KB, the derive subpath 2.3 KB, the coerce subpath 1.9 KB, the mongodb
   subpath 3.6 KB on top of coerce; the definition subpath, the half of the core that builds and
-  reads schemas without validating, is 10.3 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
+  reads schemas without validating, is 10.5 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
   struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
@@ -171,9 +171,14 @@ Key facts:
   `json`; rules `length`/`pattern`/`format` for strings, `length` for collections, `min`/`max`
   for numbers, `decimals` (0 to 15) for a number; a schema references itself by its name
   without a model
-- Kinds via a capitalized first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
+- Kinds via the first key: `Entity`, `Registry`, `Dictionary`, `Journal`, `Details`,
   `Relation`, `View` (stored), `Struct`, `Scalar`, `Form`, `Projection` (memory), or any custom
-  kind
+  kind. A kind key is a kind name (a capital letter, then letters and digits, one of them
+  lowercase) holding a plain object; any other capitalized first key is a field, so
+  `{ DATABASE_URL: 'string', PORT: 'number' }` is a struct of two fields (since 3.4.1), for the
+  runtime and for `Infer` alike. A custom kind whose metadata reads as field definitions
+  (`{ Address: { street: 'string' }, ... }`) is an `ambiguous-kind` warning: put `Struct: {}`
+  first
 - `new Model(types, entities, database)` resolves references and orders entities;
   `toTypeScript(model)` renders the interfaces (`{ named: true }` names enums and nested structs,
   a field's `description` is its JSDoc and `deprecated: true` adds `@deprecated`)

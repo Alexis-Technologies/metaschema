@@ -46,7 +46,7 @@ An object definition is read by its **first key**, the first key that starts wit
 | First key | The object is | Example |
 | --- | --- | --- |
 | a `Schema` instance (no keys) | that schema, as a nested struct | `name: fullName` |
-| capitalized | a [kind](#kinds) with its metadata | `{ Entity: {}, ... }` |
+| a kind name holding an object | a [kind](#kinds) with its metadata | `{ Entity: {}, ... }` |
 | `type` | the [long form](#the-long-form) | `{ type: 'string', length: 8 }` |
 | a type name | that type's [shorthand](#type-shorthands) | `{ array: 'string' }` |
 | anything else | a [nested struct](#nested-structs) | `{ first: 'string', last: 'string' }` |
@@ -64,6 +64,35 @@ Schema.from({ part: { schema: { type: { enum: ['cpu', 'ram'] }, name: 'string' }
 The type names include `bytes` and `flags` since 3.4, so a struct whose first field is called
 `bytes` or `flags` (`{ flags: ['a'], name: 'string' }`) is read as that type now and needs a
 kind; `schema.warnings` names the options such a misread leaves unknown.
+
+A **kind name** is a capital letter followed by letters and digits, at least one of them
+lowercase (`Entity`, `Settings`, `Http2Server`), and a kind is such a name holding its metadata,
+a plain object. Any other capitalized first key is a field of a struct: an upper-case name
+(`PORT`, `DATABASE_URL`, `DTO`), a name with another character in it (`Api_key`), and a kind name
+that holds something else (`Name: 'string'`, a list, a function, a `Schema`). So a schema of
+environment variables is written as it reads:
+
+```js
+const env = new Schema('Env', {
+  DATABASE_URL: 'string',
+  PORT: { type: 'integer', default: 3000 },
+  NODE_ENV: { enum: ['development', 'production'] },
+  'DEBUG?': 'boolean',
+});
+Object.keys(env.fields); // ['DATABASE_URL', 'PORT', 'NODE_ENV', 'DEBUG']
+
+// With the converters of the coerce subpath registered:
+const source = { DATABASE_URL: 'postgres://db', PORT: '8080', NODE_ENV: 'production', HOME: '/root' };
+env.parse(source, { coerce: true, unknown: 'strip' }).value;
+// { DATABASE_URL: 'postgres://db', PORT: 8080, NODE_ENV: 'production' }
+```
+
+(Until 3.4.1 every capitalized first key was a kind, and such a struct lost its first field.)
+What stays a kind is a kind name holding an object, so a struct whose **first** field is named
+like one and is a nested struct or a long form (`{ Address: { street: 'string' }, ... }`) is
+still read as the [custom kind](/guide/kinds-and-metadata#custom-kinds) `address`, and its
+[warnings](/guide/model#warnings) say so (`ambiguous-kind`). A kind before it settles it:
+`{ Struct: {}, Address: { street: 'string' }, name: 'string' }`.
 
 An object that cannot be what its first key says is a `SchemaDefinitionError`
 (`ERR_INVALID_DEFINITION`): `{ required: false, type: 'string' }` is read as a struct, and `false`
@@ -143,9 +172,10 @@ const person = Schema.from({
 
 ## Kinds
 
-A capitalized first key sets the schema's **kind** and its metadata, for example
-`{ Entity: {}, ... }` or `{ Registry: { scope: 'global' }, ... }`. Kinds matter for domain models;
-see [Kinds and Metadata](/guide/kinds-and-metadata).
+A [kind name](#the-first-key-decides) as the first key, holding an object, sets the schema's
+**kind** and its metadata, for example `{ Entity: {}, ... }` or
+`{ Registry: { scope: 'global' }, ... }`. Kinds matter for domain models; see
+[Kinds and Metadata](/guide/kinds-and-metadata).
 
 ## Scalars and tuples on their own
 

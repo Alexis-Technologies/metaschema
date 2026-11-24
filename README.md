@@ -110,13 +110,13 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   schemas (`merge`) and infers a definition from the values that exist (`infer`); `aliases` and
   `deprecated` let a model carry its history, and `fromJSONSchema` of the generators reads a
   JSON Schema document back.
-- **Zero dependencies, 21.3 KB min+gzip.** CommonJS with ESM named imports, no build step,
+- **Zero dependencies, 21.7 KB min+gzip.** CommonJS with ESM named imports, no build step,
   one package for Node.js and browsers; the generators add 7.7 KB, the JIT backend 4.3 KB, the
-  model tools 12.7 KB, the record tools 0.9 KB, the string formats 3.9 KB, the derive tools
-  2.2 KB, the converters of coercion 1.9 KB and the MongoDB tools 3.6 KB (on top of the
+  model tools 12.8 KB, the record tools 1.0 KB, the string formats 3.8 KB, the derive tools
+  2.3 KB, the converters of coercion 1.9 KB and the MongoDB tools 3.6 KB (on top of the
   converters, which they require) where they are imported. A program that reads schemas
   without validating them (a client that encodes from their snapshots) imports
-  `@alexify/metaschema/definition`, the half of the core that builds them: 10.3 KB.
+  `@alexify/metaschema/definition`, the half of the core that builds them: 10.5 KB.
 
 ## Benchmarks
 
@@ -225,7 +225,7 @@ interactive.
 | Effect Schema<br><sub>decodeUnknownResult() · is() · v4.0.3</sub> | 72.9 KB | 24.4 KB |  |
 | Zod<br><sub>safeParse() · v4.6.6</sub> | 88.4 KB | 25.7 KB |  |
 | TypeBox<br><sub>Value.Check() · v1.3.36</sub> | 146.7 KB | 37.5 KB |  |
-| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 130.9 KB | 39.5 KB |  |
+| Ajv<br><sub>compile(…)(value), draft 2020-12 · v8.20.0</sub> | 131.0 KB | 39.5 KB |  |
 | TypeBox<br><sub>Compile(…).Check() · v1.3.36</sub> | 161.5 KB | 40.8 KB |  |
 | ArkType<br><sub>type(value) · allows() · v2.2.8</sub> | 151.9 KB | 46.4 KB |  |
 | Joi<br><sub>validate(), convert: false · v18.2.9</sub> | 169.5 KB | 53.3 KB |  |
@@ -497,7 +497,9 @@ TypeScript 5.0 or newer.
 | Any object | `payload: 'json'` | any non-null object |
 | Calculated | `ratio: (file) => file.compressed / file.size` | a function, never validated |
 
-The first key of an object decides what it is. Built-in types: `string`, `number`, `integer`,
+The first key of an object decides what it is: a kind when it is a name like `Entity` holding an
+object, so a struct may begin with a capitalized field (`{ DATABASE_URL: 'string', PORT: 'number' }`
+is a struct of two fields). Built-in types: `string`, `number`, `integer`,
 `bigint`, `boolean`, `date`, `bytes`, `null`, `any`/`unknown`, `enum`, `flags`, `array`, `set`,
 `object`, `map`, `tuple`, `union`, `json`. Rules: `length` (with `unicode: true` for code
 points), `pattern` and `format` for strings, `length` for collections, `min`/`max` for numbers,
@@ -508,7 +510,7 @@ can have a top-level `validate` for rules across fields. `check(value, options)`
 `{ Struct: { unknown: 'ignore' } }` makes it the schema's default), `references` (`'kind'`,
 `'embed'` or `'id'`) and `messages` (a locale); the result has `issues`, `errors`, `summary`,
 `flatten()`, `tree()` and `toJSON()`. `schema.warnings` lints the definition (a mistyped option, a `pattern`
-without `length.max`). See [Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax),
+without `length.max`, a field that was read as a kind). See [Schema Syntax](https://metaschema.vercel.app/guide/schema-syntax),
 [Types](https://metaschema.vercel.app/guide/types),
 [Unions, nullable and null](https://metaschema.vercel.app/guide/unions),
 [References](https://metaschema.vercel.app/guide/references) and
@@ -569,7 +571,8 @@ interface User {
 `register()` adds `model.dts`, `model.toTypeScript` and `schema.toInterface` as methods. The first
 key of a definition sets
 its kind and metadata (`Entity`, `Registry`, `Dictionary`, `Journal`, `Details`, `Relation`,
-`View`, `Struct`, `Form`, `Projection`, or any custom kind). Stored kinds default to
+`View`, `Struct`, `Form`, `Projection`, or any custom kind: a capitalized name with a lowercase
+letter in it, holding the metadata object). Stored kinds default to
 `scope: 'application'` and `store: 'persistent'`, and they get an id field; a reference to a
 stored kind holds its id, a reference to a memory kind embeds the record, in `check` and in the
 generated types alike. See

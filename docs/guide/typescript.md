@@ -85,6 +85,27 @@ const part = Schema.from({ Struct: {}, type: { enum: ['cpu', 'ram'] }, name: 'st
 type Part = InferSchema<typeof part>; // { type: 'cpu' | 'ram'; name: string }
 ```
 
+A **kind key** is what the runtime takes for one: a
+[kind name](/guide/schema-syntax#the-first-key-decides) (`Entity`, `Settings`) holding an object.
+Every other capitalized key is a field, so a struct of upper-case keys infers whole:
+
+```ts
+const env = Schema.from({
+  DATABASE_URL: 'string',
+  PORT: { type: 'number', default: 3000 },
+  'DEBUG?': 'boolean',
+});
+type Env = InferSchema<typeof env>;
+// { DATABASE_URL: string; DEBUG?: boolean | null | undefined; PORT?: number | undefined }
+```
+
+(Until 3.4.1 `Infer` took every capitalized key for a kind and left it out of the type.) Where
+several keys could be the kind, a built-in one is it and the others are fields:
+`{ Struct: {}, Address: { street: 'string' }, name: 'string' }` infers with `Address`. Without a
+built-in kind the two differ again on a field with a kind name that holds an object and is not
+the first key: `{ name: 'string', Address: { street: 'string' } }` validates with the field
+`Address` and infers without it. `Struct: {}` first settles it for both.
+
 ### Custom types
 
 `Infer` knows a custom type through the `CustomTypes` interface, extended by module

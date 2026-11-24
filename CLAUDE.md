@@ -230,7 +230,9 @@ src/
                     compileField (rules, validate, nullable around it), checkOf/aliasOf (the struct loop),
                     compileRules/ruleNames/patternLimit/decimalsOff/codePoints/lengthOf, nameOf/tableOf (unions)
   kinds.js          KIND/KIND_STORED/KIND_MEMORY/SCOPE/STORE/ALLOW, getKindMetadata, idFieldOf (the one rule
-                    of the id field a stored kind adds, read by derive, mongodb and the generators)
+                    of the id field a stored kind adds, read by derive, mongodb and the generators),
+                    isKindKey (the one rule of what a kind key is: a kind name holding a plain object;
+                    read by the preprocessor, derive and `kindKeyOf` of model/data.js)
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
   schema.js         Schema (extends SchemaMetadata), the definition half: construction, the lazy stub of
                     Schema[RUN], types, findReference, attach/detach, toJSON, toSnapshot; the stubs of the
@@ -244,18 +246,19 @@ src/
                     decimals), FORMATS (the table the formats subpath fills), formatOf (the entry a field's
                     format named when it was built), checkBounds, notApplicable
   lint.js           lintSchema: schema.warnings (unknown-option, unbounded-pattern, missing-index-field, dead-aliases,
-                    dead-coerce, unenforceable-decimals)
+                    dead-coerce, unenforceable-decimals, ambiguous-kind)
   snapshot.js       snapshotOf: model.toJSON(), the model as JSON (format 1, a function as { $function: true });
                     schemaSnapshotOf: schema.toSnapshot() (the entities a schema reaches, `root`);
                     orderOf (the iterative order of a model and of a snapshot), usesOf (every name
                     the fields of a schema use, with the root that resolves it)
   locales/          en.js (built in) and uk.js (subpath export), one renderer per issue code
-  preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides
+  preprocessor.js   Preprocessor: turns a definition into { Type, defs, kindMeta }; the first key decides;
+                    `kinds`, the custom kinds it read at any depth (kept on the schema under KINDS)
   types.js          TYPES registry, createType (static rules/options per type), typeFactory, baseTypeOf (the
                     type at the end of the alias chain of a field, read by the generators, sample and mongodb)
   model.js          Model: entities, ordering (the cycles as data under CYCLES); branded 'Model'
   util.js           BRAND/hasBrand identity brand, RUN, HOOK, the state symbols of a schema (TRACKED,
-                    COERCES, CODEC, STANDARD) and of a model (CYCLES), isMap/isSet/isDate/isBytes, typeOf,
+                    COERCES, CODEC, STANDARD, KINDS) and of a model (CYCLES), isMap/isSet/isDate/isBytes, typeOf,
                     shorten, formatters (type '?x', key 'x?', length)
   errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR),
                     invalidTarget, notRegistered, noValidation (the definition half without the other), invalidOption
@@ -325,17 +328,20 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   requires `errors` only. `util.js` must not require `issues.js`. `tests/unit/graph.test.js` walks
   the relative requires of `src/` and fails on a cycle (oxlint's `import/no-cycle` does not
   see a CommonJS require).
-- The definition half: `kinds → metadata` (+ `errors`); `struct` (`util`, `errors`) →
+- The definition half: `kinds` (`metautil`, `util` for the brand of a struct, `errors`) →
+  `metadata` (+ `errors`); `struct` (`util`, `errors`) →
   `prototypes/schema`; `prototypes/abstract` (`util`, `rules`, `errors`) and the other
   prototypes (`errors`, `util`, `metautil`; `json` nothing) → `types`; `preprocessor`
-  (`metautil`, `util`, `errors`) stands alone; `snapshot` requires `metautil`, `util`,
+  requires `metautil`, `util`, `errors` and `kinds` (`isKindKey`, `KIND`); `snapshot` requires
+  `metautil`, `util`,
   `errors`; `schema.js` requires `types`, `preprocessor`, `metadata`, `errors`, `struct`,
   `prototypes/abstract` (`BUILD`), `snapshot` and `util`; `model.js` requires `schema`,
   `types`, `util`, `errors`, `snapshot`. None of them requires a module of the validation half
   (`graph.test.js`).
 - The validation half: `checks.js` requires `util`, `issues`, `rules` (`formatOf`), `struct`,
   `errors` (the error of a custom `compile`) and `prototypes/reference` (`embeds`); `lint`
-  requires `util` and `prototypes/reference` (`embeds`, to tell a reference checked as an id for
+  requires `util` (`KINDS`, `formatters`), `metautil` (`firstKey`, for `ambiguous-kind`) and
+  `prototypes/reference` (`embeds`, to tell a reference checked as an id for
   `dead-coerce`); `validation.js` requires `metautil`, `util`, `schema`, `snapshot` (`usesOf`,
   for `checkConsistency`), `model`, `lint`, `prototypes/abstract`, `types` (`PROTOTYPES`),
   `checks`, `struct`, `context`, `result`, `issues`, `errors` and `codec`; `src/index.js`
@@ -363,8 +369,8 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 - `generators/fromjsonschema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
   (for `as: 'schema'`), `types` (`readsAsStruct`, to tell a struct key that reads as a type),
   `rules` (`FORMATS`, to read a registered `format` back) and `errors`.
-- `model/data.js` requires `util`, `snapshot` (`FORMAT`), `errors` and `struct` (`isStruct`,
-  for `definitionOf`); `model/restore.js` requires `util`, `schema.js`, `model.js`, `errors`
+- `model/data.js` requires `util`, `snapshot` (`FORMAT`), `errors`, `struct` (`isStruct`,
+  for `definitionOf`) and `kinds` (`isKindKey`, for `kindKeyOf`); `model/restore.js` requires `util`, `schema.js`, `model.js`, `errors`
   and `data`;
   `model/diff.js` requires `errors` and `data`; `model/pattern.js` requires `errors` only;
   `model/sample.js` requires `util`, `context` (`createContext`, for the verification of a
@@ -387,7 +393,8 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   and the `POLICY` bit of a subtree with a field's own `coerce: true`; `coerce/index.js`
   requires `util`, `metautil`, `validation.js`, `context`, `codec` (`COERCE`, `COERCION`,
   `PREPARE`, `infoOf`, `apply`, `wantOf`, `looped`) and `errors`.
-- `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`KIND_STORED`),
+- `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`idFieldOf`,
+  `isKindKey`),
   `errors` and `model/data.js` (`structDefinitionOf`, `metadataOf`, `structDefinition`,
   `atSchema`): one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
   other, `mongodb/bson.js` → `coerce/index.js`. The rest of `mongodb/` requires core modules
@@ -409,19 +416,27 @@ with a letter) and handing it to the parsers:
     prototype through the next parsers, and its `construct` accepts the instance)
   - `typeInstance` (a built field, re-parsed from `toJSON()`: a projection copies its parent's
     fields this way, so the copies belong to the projection)
-  - `schemaWithKind` (capitalized first key = kind)
+  - `schemaWithKind` (the first key is a kind key, `isKindKey` of `kinds.js`: a kind name, which
+    is a capital letter, then letters and digits, one of them lowercase, holding a plain object)
   - `typeLongForm` (**only when `type` is the first key**)
   - `typeShorthand` (first key is a type name, e.g. `{ array: 'number' }`)
   - `kindlessSchema` (any other first key: a nested struct)
 - function → `functionField`: a calculated field, kept as is and never validated
 - array → `tupleShorthand`; an element may be any definition, except that a one-key object holding
-  a type name (`{ x: 'number' }`) is a *named* scalar element, as upstream
+  a type name (`{ x: 'number' }`, `{ X: 'number' }`) is a *named* scalar element, as upstream
 
 It returns `{ Type, defs, kindMeta }`. Unknown lowercase type names **throw**, because a broken
 definition is a programming error. Capitalized names become `reference` fields. `{ name:
 'string', type: 'string' }` is a struct; `{ required: false, type: 'string' }` is
 `ERR_INVALID_DEFINITION`; a struct whose first field is called `type` or named like a type needs a
-kind or the `schema` shorthand.
+kind or the `schema` shorthand. **A capitalized first key that is no kind key is a field**
+(3.4.1; until then every capitalized first key was a kind, and `{ DATABASE_URL: 'string', PORT:
+'number' }` was the kind `dATABASE_URL` over a struct of `PORT`): a name in upper case or with a
+character that is no letter or digit (`PORT`, `DTO`, `Api_key`), and a kind name that holds
+anything but a plain object (`Name: 'string'`, a list, a function, a Schema, a built field or
+struct). What writes a kind as the first key of a definition holds its name to the same rule
+(`kindKeyOf` of `model/data.js`): `structDefinition` (derive, merge: `ERR_INVALID_OPTIONS`),
+`entityDef` of `restore.js` (`ERR_INVALID_SNAPSHOT`) and `infer`.
 
 **Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
 (`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
@@ -455,7 +470,8 @@ discriminator's name, a value in two branches, a discriminator field with a defa
 is optional or nullable, since the review of 3.4), a projection naming a field its parent does
 not have) is rejected when the schema is built, never discovered inside `check`. What
 is merely suspicious (an option the type does not read, a pattern without `length.max`, an index
-over a missing field) is a `Warning [code]: text` string in `schema.warnings` (`src/lint.js`, run on
+over a missing field, a custom kind whose metadata reads as field definitions) is a
+`Warning [code]: text` string in `schema.warnings` (`src/lint.js`, run on
 first use), and `model.warnings` adds `missing-reference`, `missing-type` and
 `recursive-reference`. Throw sites do not know where
 they are; `createStruct` catches on the way up and calls `error.locate(root.name, field)`, which
@@ -511,7 +527,8 @@ counts the keys and scans for unknown ones only when the count differs from what
 A leaf check receives its key and never touches `context.path`; a container pushes its own key
 before its children.
 
-**Kinds.** A capitalized first key sets kind and metadata via `getKindMetadata`; the metadata
+**Kinds.** A kind key as the first key (`isKindKey`) sets kind and metadata via
+`getKindMetadata`; the metadata
 may carry `unknown: 'reject' | 'ignore'`, the default of that schema's `check`:
 
 - Stored kinds (`entity`, `registry`, `dictionary`, `journal`, `details`, `relation`, `view`)
@@ -678,6 +695,19 @@ and `parent`, after its references, one entity per name (`ERR_UNREPRESENTABLE` o
 interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
+
+**3.4.1 (2026-11-24) left the gates where they were**: the kind-key rule (`isKindKey`, the
+custom kinds kept for the lint, `lintKinds` with its text, `kindKeyOf` of the model subpath)
+cost the core about 410 bytes (22224 / 22233 bytes, 21.7 KB, 295 bytes under the 22 KB gate),
+`./definition` about 145 (10747, 10.5 KB), the model subpath about 110 (13104, 12.8 KB, 208
+bytes under its gate) and the derive subpath about 90 (2304); the generators measure 7892, the
+compile subpath 4412, the stream subpath 983, the formats subpath 3920, the coerce subpath 1979
+(69 under its gate) and the mongodb subpath 3709. The stream and formats rows moved by 25 bytes
+without a change of theirs (a subpath is a difference of two gzips), which flipped their
+rounded figures in the docs (1.0 and 3.8 KB). `Schema.from`, `new Model` and `check` are at
+parity with 3.4.0 (three alternating runs in separate processes against an archive of `main`:
+−0.2 to −1.5%, ±1.5% and ±1%); `bench/baseline.json` was not re-saved. The paragraph that
+follows is 3.4.0's.
 
 **The 3.4 bundle budgets are 22 KB min+gzip per core entry, 8 KB for the generators, 5 KB for
 the compile subpath, 13 KB for the model subpath, 1.5 KB for the stream subpath, 5 KB for the
@@ -1124,6 +1154,19 @@ change. **This file wins** if they ever disagree.
   its header says); the base64 converter in `coerce.test.js`; a Binary of the real bson read
   back as bytes in `mongodb-bson.test.js`; `decimals` and `flags` rows of `RULES` in
   `evolution.test.js`.
+- 3.4.1 suites (the kind key): the two tables of `syntax.test.js` (every capitalized first key
+  that is a field, every one that is a kind, metadata of another realm, a struct of upper-case
+  keys at every depth, through a Model and its snapshot, and parsed with coercion and `strip`
+  like `process.env`), `ambiguous-kind` in `lint.test.js` (root, nested, an element; the
+  metadata that is clean, `unknown` among it), a capitalized named element in `tuple.test.js`,
+  `extend` over capitalized fields and the kind of `metadata` in `derive.test.js`,
+  `merge.test.js`, the round trip and the kind a snapshot may name in `evolution.test.js`, the
+  `kind` option in `infer.test.js`, the written entity in `snapshot.test.js`, parity of the
+  backends in `compile.test.js`; `tests/types/infer.test-d.ts` (every row of the rule, the
+  built-in kind among candidates, the documented difference, the example of the TypeScript
+  guide) and `derive.test-d.ts` (pick, omit, partial, extend, keyof over upper-case keys). The
+  quickest look at what `Infer` gives for a definition is the compiler tsd bundles
+  (`@tsd/typescript`) over an in-memory file; `typescript` itself is 7.x here and has no JS API.
 - Review of 3.4 suites: the bare ES import of the core in `bundle.test.js` (esbuild reads
   `sideEffects`; it fails with `ignored-bare-import` without the list); the committed text of
   `toSnapshot()` (`tests/fixtures/schema-snapshot.json` from `forms-snapshot.js`), a Schema reused
@@ -1232,6 +1275,33 @@ change. **This file wins** if they ever disagree.
 
 ## Things that look like bugs but aren't
 
+- **A kind name holding an object, first in its struct, is a kind, whatever the object is.**
+  `{ Address: { street: 'string' }, name: 'string' }` is the custom kind `address` over a struct
+  of `name`: metadata is any plain object, so the first key cannot tell a nested struct or a long
+  form from it, and the hard rule stays the simple one (Alex's decision, 2026-11-24: name +
+  value). What reads as fields is the `ambiguous-kind` warning of `lint.js` (the metadata's first
+  key is `type` or a type name other than `unknown`, which is also the policy key of every kind,
+  or one of its values names a type or reads as a long form or a shorthand), for every custom
+  kind the preprocessor read, nested ones included: nested kind metadata is dropped, so the
+  built schema has no trace of it, and the preprocessor keeps `[key, metadata]` pairs
+  (`schema[KINDS]`, null when there are none; allocated on the first custom kind, so `Struct:
+  {}` costs nothing). `{ Report: { output: 'json' } }` is a false positive the heuristic accepts.
+- **`{ Entity: 'string' }` is a field named `Entity`**, not an error: a built-in kind name has
+  no rule of its own, the value decides for every name. `{ DTO: {} }` and `{ X: {} }` are fields
+  too (no lowercase letter); a custom kind is named `Dto`.
+- **`readsAsStruct` of `types.js` still answers no for every capitalized first key**, so `infer`
+  and `fromJSONSchema` wrap such a nested struct in `{ schema }` although most of them would
+  read as structs now: the definition they write then reads the same for `Infer`, which sees no
+  key order, and for 3.4.0.
+- **`KindKey` of the typings takes a built-in kind over the other candidates, and every
+  candidate when there is none.** The keys of a type have no order: `{ Struct: {}, Address: {
+  … } }` infers with the field `Address`, while `{ name: 'string', Address: { … } }` validates
+  with it and infers without it (documented in the TypeScript guide; `Struct: {}` settles it).
+  `ObjectDef` takes the kind keys as one set (`[KindKey<D>] extends [never]`): distributing over
+  them gave a union of structs, each without one key. `CharsOf` gathers the characters of a
+  kind name in an accumulator because a union built on the way back (`C | CharsOf<R>`) is no
+  tail call and 62 levels of it are "excessively deep", which made every `Infer` of a struct
+  with a capitalized key `{}`; `IsWord` runs for capitalized keys only.
 - **A schema of `./definition` throws `ERR_NOT_REGISTERED` from `check`, and validates once
   the core is loaded anywhere in the process.** The halves share the classes: `validation.js`
   installs the methods on `Schema.prototype` and the `compile` of the types on the prototype
@@ -1392,7 +1462,9 @@ change. **This file wins** if they ever disagree.
   later read of the field throw a bare TypeError until the review of 3.4).
 - **`{ x: 'number' }` as a tuple element is a named number, not a struct.** Upstream's named
   elements (`[{ x: 'number' }, { y: 'number' }]`) are kept: a one-key object holding a type name
-  names the element. A one-field struct element is `{ schema: { x: 'number' } }`.
+  names the element, a capitalized key included since 3.4.1 (a string is no metadata of a kind;
+  `{ X: 'number' }` was the kind `x` over an empty struct). A one-field struct element is
+  `{ schema: { x: 'number' } }`.
 - **`nullable` is not optional.** `'?string'` and `required: false` accept `undefined` and
   `null` and let the key be absent; `nullable: true` keeps the key required and only lets the value
   be `null`. The nullable wrapper is the outermost closure, so rules and `validate` never see
