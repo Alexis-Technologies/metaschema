@@ -509,3 +509,95 @@ expectType<{ label: string; parent?: DocTag | null | undefined }>(as<DocTag>());
 type DocPerson = InferEntity<typeof docEntities, 'Person'>;
 expectType<{ name: string; employer: string; tags: DocTag[]; personId?: string }>(as<DocPerson>());
 expectType<Model>(new Model({}, new Map(Object.entries(docEntities))));
+
+// A kind key is a name like `Entity` or `Settings` holding the metadata
+// object, as the runtime reads one; any other capitalized key is a field.
+// Until 3.4.1 every capitalized key was a kind for `Infer`, and the type was
+// a union of structs, each without one of them.
+const env = Schema.from({
+  DATABASE_URL: 'string',
+  PORT: { type: 'number', default: 3000 },
+  NODE_ENV: { enum: ['development', 'production'] },
+  'DEBUG?': 'boolean',
+});
+expectType<{
+  DATABASE_URL: string;
+  NODE_ENV: 'development' | 'production';
+  DEBUG?: boolean | null | undefined;
+  PORT?: number | undefined;
+}>(as<InferSchema<typeof env>>());
+expectType<{ DATABASE_URL: string; PORT: number }>(
+  as<InferOutput<{ DATABASE_URL: 'string'; PORT: { type: 'number'; default: 3000 } }>>(),
+);
+expectType<{ HOST: string }>(infer({ HOST: 'string' }));
+expectType<{ host: string; PORT: number }>(infer({ host: 'string', PORT: 'number' }));
+expectType<{ DATABASE_URL: string; PORT: number }>(
+  infer({ Struct: {}, DATABASE_URL: 'string', PORT: 'number' }),
+);
+expectType<{ cfg: { DATABASE_URL: string; PORT: number } }>(
+  infer({ cfg: { DATABASE_URL: 'string', PORT: 'number' } }),
+);
+// A name of a kind that holds no metadata is a field: a string, a list, a
+// function (a calculated field, so no key of the value), a Schema.
+expectType<{ name: string; Title: string }>(infer({ Entity: {}, name: 'string', Title: 'string' }));
+expectType<{ Name: string; Pair: [string, number]; Inner: { a: string } }>(
+  infer({
+    Name: 'string',
+    Pair: ['string', 'number'],
+    Total: () => 0,
+    Inner: Schema.from({ a: 'string' }),
+  }),
+);
+// What is no name of a kind is a field whatever it holds: upper case, a
+// character that is no letter or digit, an optional key.
+expectType<{
+  'Content-Type': 'json';
+  API_v2: string;
+  DTO: {};
+  X: {};
+  Kind?: {} | null | undefined;
+}>(
+  infer({
+    'Content-Type': { enum: ['json'] },
+    API_v2: { type: 'string' },
+    DTO: {},
+    X: {},
+    'Kind?': {},
+  }),
+);
+// A kind of the program's own is still a kind, and its metadata no field.
+expectType<{ mode: string }>(infer({ Settings: { theme: 'dark' }, mode: 'string' }));
+expectType<{ port: number }>(infer({ Http2Server: {}, port: 'number' }));
+// The keys of a type have no order: a built-in kind among them is the kind,
+// and a name like `Address` after it is a field, as it is for the runtime.
+expectType<{ name: string; Address: { street: string } }>(
+  infer({ Struct: {}, Address: { street: 'string' }, name: 'string' }),
+);
+// Without one, every such key is read as a kind (the runtime takes the
+// first): a struct with a field like that says so with `Struct`.
+expectType<{ name: string }>(infer({ name: 'string', Address: { street: 'string' } }));
+// A capitalized key holding a type name names a tuple element.
+expectType<[number, number | null | undefined, string]>(
+  infer([{ X: 'number' }, { 'Y?': 'number' }, { LABEL: 'string' }]),
+);
+// The id of a stored kind and a projection read the same keys.
+expectType<{ API_KEY: string; envId?: string }>(
+  as<InferEntity<{ Env: { Entity: {}; API_KEY: 'string' } }, 'Env'>>(),
+);
+expectType<{ LOGIN: string }>(
+  as<
+    Infer<
+      { Projection: { schema: 'Account'; fields: ['LOGIN'] } },
+      { Account: { Registry: {}; LOGIN: 'string'; LEVEL: 'number' } }
+    >
+  >(),
+);
+// The example of "What `Infer` reads" in docs/guide/typescript.md.
+const docEnv = Schema.from({
+  DATABASE_URL: 'string',
+  PORT: { type: 'number', default: 3000 },
+  'DEBUG?': 'boolean',
+});
+expectType<{ DATABASE_URL: string; DEBUG?: boolean | null | undefined; PORT?: number | undefined }>(
+  as<InferSchema<typeof docEnv>>(),
+);
