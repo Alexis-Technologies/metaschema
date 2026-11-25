@@ -243,7 +243,7 @@ const fromJSON = (snapshot, options = {}) => {
   const context = { name: 'types', at: 'types', given, shared: registry === 'shared' };
   context.placeholders = new Set();
   const entities = [];
-  let types;
+  let types = null;
   try {
     types = typesDef(snapshot.types ?? {}, context);
     for (const name of Object.keys(snapshot.entities)) {
@@ -260,7 +260,7 @@ const fromJSON = (snapshot, options = {}) => {
     throw field ? located.locate(context.name, field) : atSchema(located, context.name);
   }
   Object.assign(types, given);
-  let model;
+  let model = null;
   try {
     model = new Model(types, entities, snapshot.database ?? null, { registry });
   } catch (error) {

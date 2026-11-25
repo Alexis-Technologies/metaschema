@@ -227,7 +227,9 @@ class PatternParser {
       const match = /^\{(\d+)(,(\d*))?\}$/.exec(this.source.slice(this.at, close + 1));
       if (match === null) return node;
       min = Number(match[1]);
-      max = match[2] === undefined ? min : match[3] === '' ? Infinity : Number(match[3]);
+      if (match[2] === undefined) max = min;
+      else if (match[3] === '') max = Infinity;
+      else max = Number(match[3]);
       if (min > MAX_REPEAT || (max !== Infinity && max > MAX_REPEAT)) {
         throw this.fail(`a repetition over ${MAX_REPEAT}`);
       }

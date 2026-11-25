@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tooling
+
+- **The agent skills are alexiskills.** `@alexify/metaskills` 1.0.1, a devDependency, links its
+  37 skills into `.claude/skills` from the `prepare` script (`alexiskills claude`) on every
+  `pnpm install`, and `.gitignore` leaves the link out. The seven skills of metarhia/metaskills
+  1.0.5 the repository kept there are gone; what two of them said of metaschema alone (the steps
+  of a release, the code style) is in CLAUDE.md. Nothing of it ships: the `files` of the package
+  are what they were.
+- **The lint rules of alexiskills, and `src/` brought to them.**
+  - New rules: `func-style`, `no-nested-ternary`, `max-depth` and a strict `eqeqeq` (`null`
+    included) everywhere; in `src/` every array iteration method, the unicorn rules and
+    `max-lines-per-function`.
+  - The code changed for them: 31 loose comparisons with `null`, 16 nested ternaries,
+    3 `Object.entries`, 14 `let` without a value, three membership lists made Sets, three sorts
+    written as statements, three long functions split.
+  - No behaviour changed: the suites pass on both backends and without eval. The core measures
+    22298 bytes (21.8 KB, +74), and `check`, `parse` and the moltar rows are at parity or faster.
+
 ## [3.4.1] - 2026-11-24
 
 3.4.1 settles what a capitalized key is. Until now the first key of an object was a kind

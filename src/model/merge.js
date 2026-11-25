@@ -41,9 +41,17 @@ const compose = (first, second) =>
     return [a, b];
   };
 
-const lower = (a, b) => (a === undefined ? b : b === undefined ? a : a > b ? a : b);
+const lower = (a, b) => {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a > b ? a : b;
+};
 
-const upper = (a, b) => (a === undefined ? b : b === undefined ? a : a < b ? a : b);
+const upper = (a, b) => {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a < b ? a : b;
+};
 
 // The length both rules allow: the greater of the minimums, the lesser of
 // the maximums.

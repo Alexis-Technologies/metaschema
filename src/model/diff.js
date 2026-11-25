@@ -34,7 +34,9 @@ const own = (object, key) => (Object.hasOwn(object, key) ? object[key] : undefin
 const keysOf = (a, b) => {
   const keys = new Set(Object.keys(a));
   for (const key of Object.keys(b)) keys.add(key);
-  return Array.from(keys).sort();
+  const sorted = Array.from(keys);
+  sorted.sort();
+  return sorted;
 };
 
 // The keys whose values differ between two objects, sorted.
@@ -330,7 +332,8 @@ const keyLevel = (key, from, to, field) => {
       return boundLevel(from, to, false);
     case 'pattern':
     case 'format':
-      return from === undefined ? FORWARD : to === undefined ? BACKWARD : NONE;
+      if (from === undefined) return FORWARD;
+      return to === undefined ? BACKWARD : NONE;
     case 'enum':
     case 'flags':
       return Array.isArray(from) && Array.isArray(to) ? enumLevel(from, to) : NONE;

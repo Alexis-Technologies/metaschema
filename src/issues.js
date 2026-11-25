@@ -193,7 +193,7 @@ const fallbackOf = (code, owner, value) =>
 
 // What a validator or a checkType returned, into the context.
 const conclude = (context, output, code, owner, value) => {
-  if (output === true || output == null) return;
+  if (output === true || output === undefined || output === null) return;
   const bare = output === false || Array.isArray(output);
   absorb(context, output, code, bare ? fallbackOf(code, owner, value) : EMPTY);
 };
@@ -227,7 +227,7 @@ const guarded = (context, code, owner, fn, value) => {
     pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
     return;
   }
-  let output;
+  let output = undefined;
   try {
     output = fn.call(owner, value, toDotPath(path, context.root));
   } catch (error) {
@@ -270,7 +270,7 @@ const settle = async (context) => {
     const entry = pending[index];
     if (entry.fn !== null && failedUnder(context, entry)) continue;
     context.path = entry.path;
-    let output;
+    let output = undefined;
     try {
       output =
         entry.fn === null

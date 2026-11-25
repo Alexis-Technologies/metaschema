@@ -76,6 +76,11 @@ const PARSE = (schema, record, options) => schema.parse(record, options);
 const CHECK_ASYNC = (schema, record, options) => schema.checkAsync(record, options);
 const PARSE_ASYNC = (schema, record, options) => schema.parseAsync(record, options);
 
+const callOf = (async, parse) => {
+  if (async) return parse ? PARSE_ASYNC : CHECK_ASYNC;
+  return parse ? PARSE : CHECK;
+};
+
 // One record after the other. The entry of a record carries its position,
 // since an iterator has none, and the record itself, since a stream cannot
 // be read again. The options are handed to check or parse as given (they
@@ -182,7 +187,7 @@ const transform = (schema, options) => {
   const async = asyncOf(options);
   const onInvalid = callbackOf(options);
   const parse = mode === 'parse';
-  const call = async ? (parse ? PARSE_ASYNC : CHECK_ASYNC) : parse ? PARSE : CHECK;
+  const call = callOf(async, parse);
   let failed = 0;
   let index = 0;
   const settle = (record, result, controller) => {

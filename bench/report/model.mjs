@@ -48,10 +48,12 @@ export const formatValue = (value, unit) => {
 
 // ─── Scales ─────────────────────────────────────────────────────────────────
 
+const NICE_STEPS = [1, 2, 5];
+
 const niceStep = (raw) => {
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const residual = raw / magnitude;
-  const nice = residual <= 1 ? 1 : residual <= 2 ? 2 : residual <= 5 ? 5 : 10;
+  const nice = NICE_STEPS.find((step) => residual <= step) ?? 10;
   return nice * magnitude;
 };
 
@@ -238,6 +240,12 @@ const versionKey = (entry) => {
 export const releaseList = (releases) =>
   [...releases.releases].sort((a, b) => versionKey(a) - versionKey(b));
 
+// The colour of a bar of this release: the backend's, none for an older release.
+const toneOf = (entry) => {
+  if (!entry.current) return undefined;
+  return entry.backend === 'jit' ? 'primary' : 'secondary';
+};
+
 const releaseLabel = (entry) =>
   entry.name === 'Metarhia metaschema' ? `Metarhia ${entry.version}` : entry.version;
 
@@ -260,7 +268,7 @@ export const releaseModel = (releases, scenarioId) => {
           ? entry.name
           : `×${speed < 10 ? speed.toFixed(1) : Math.round(speed)} vs ${releaseLabel(first)}`,
       value: result.median,
-      tone: entry.current ? (entry.backend === 'jit' ? 'primary' : 'secondary') : undefined,
+      tone: toneOf(entry),
       details: [
         `${grouped(result.median)} ${scenario.unit}`,
         `${perCall(result.median)} ${PER_WHAT[scenario.unit] ?? 'per call'}`,

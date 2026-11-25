@@ -103,7 +103,7 @@ const isBase64 = (text) => {
 const toBytes = (value, field) => {
   if (typeof value !== 'string' || !isBase64(value)) return value;
   const max = field.length?.max;
-  const pad = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const pad = (value.endsWith('=') ? 1 : 0) + (value.endsWith('==') ? 1 : 0);
   if (max !== undefined && (value.length / 4) * 3 - pad > max) return value;
   if (Uint8Array.fromBase64 !== undefined) return Uint8Array.fromBase64(value);
   const text = atob(value);
@@ -179,16 +179,27 @@ const isPlain = (value) => {
   return prototype === null || Object.getPrototypeOf(prototype) === null;
 };
 
-// A plain object or a list of pairs; the keys of a map of numbers that are
-// written as numbers become numbers.
+// The keys of a map of numbers that are written as numbers become numbers.
+const mapKey = (key, field) =>
+  field.key === 'number' && typeof key === 'string' ? toNumber(key) : key;
+
+// A plain object or a list of pairs.
 const toMap = (value, field) => {
   if (value === null || typeof value !== 'object') return value;
   const list = Array.isArray(value);
   if (list ? !isPairs(value) : !isPlain(value)) return value;
   const map = new Map();
-  for (const pair of list ? value : Object.entries(value)) {
-    const key = field.key === 'number' && typeof pair[0] === 'string' ? toNumber(pair[0]) : pair[0];
-    map.set(key, pair[1]);
+  if (list) {
+    for (let index = 0; index < value.length; index += 1) {
+      const pair = value[index];
+      map.set(mapKey(pair[0], field), pair[1]);
+    }
+    return map;
+  }
+  const keys = Object.keys(value);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    map.set(mapKey(key, field), value[key]);
   }
   return map;
 };
@@ -221,8 +232,8 @@ const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERC
 // process-wide one: the models among the namespaces of the schema.
 const ownConverterOf = (root, name) => {
   for (const namespace of root.namespaces) {
-    const own = namespace.coercions;
-    if (own != null && own[name] !== undefined) return own[name];
+    const own = namespace.coercions?.[name];
+    if (own !== undefined) return own;
   }
   return undefined;
 };

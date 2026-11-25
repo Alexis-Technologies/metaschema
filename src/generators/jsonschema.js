@@ -317,19 +317,20 @@ const union = (field, context) => {
 // the record for a memory kind, `embed` on the field and the `references`
 // option deciding otherwise. A target that cannot be resolved is held as
 // an id, as the dts does, unless the field embeds it.
-const reference = (field, context) => {
+const referenceOf = (field, context) => {
   const name = field.type;
   const target = field.root.findReference(name);
-  let json;
   const id = context.objectIds ? { bsonType: 'objectId' } : typed('string', context);
   if (target === null) {
-    if (field.embed === true) json = unrepresentable(context, `Reference "${name}" (embed)`);
-    else json = id;
-  } else if (!embeds(target, field.embed, context.references)) {
-    json = id;
-  } else {
-    json = definition(target, name, context);
+    if (field.embed === true) return unrepresentable(context, `Reference "${name}" (embed)`);
+    return id;
   }
+  if (!embeds(target, field.embed, context.references)) return id;
+  return definition(target, name, context);
+};
+
+const reference = (field, context) => {
+  const json = referenceOf(field, context);
   return field.many === undefined ? json : { [context.key]: 'array', items: json };
 };
 
@@ -587,7 +588,7 @@ const modelToJSONSchema = (model, options = {}) => {
   return place({}, context);
 };
 
-const STANDARD_TARGETS = ['draft-2020-12', 'draft-07', 'openapi-3.0'];
+const STANDARD_TARGETS = new Set(['draft-2020-12', 'draft-07', 'openapi-3.0']);
 
 // The converter of Standard JSON Schema: `input` and `output` take the
 // target (one of the three JSON ones) and the other options as
@@ -595,7 +596,7 @@ const STANDARD_TARGETS = ['draft-2020-12', 'draft-07', 'openapi-3.0'];
 const standardConverter = (schema) => {
   const convert = (io) => (options) => {
     const target = options === null || typeof options !== 'object' ? undefined : options.target;
-    if (!STANDARD_TARGETS.includes(target)) {
+    if (!STANDARD_TARGETS.has(target)) {
       throw invalidOptions(`JSON Schema target ${JSON.stringify(target)} is not supported`);
     }
     return toJSONSchema(schema, { ...options.libraryOptions, target, io });

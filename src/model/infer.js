@@ -43,6 +43,12 @@ const BYTES = 16384;
 
 const PRESENCE = NULL | UNDEF;
 
+// The bit of the type of a key of a Map.
+const KEY_BITS = new Map([
+  ['string', STRING],
+  ['number', FLOAT],
+]);
+
 // How a key is written: a field, its presence (absent, undefined or null
 // among its values) written as the language writes it.
 const REQUIRED = 0;
@@ -200,7 +206,7 @@ const add = (target, value, state, depth) => {
     state.path.push(ITEM);
     for (const pair of value) {
       const key = typeof pair[0];
-      target.names.bits |= key === 'string' ? STRING : key === 'number' ? FLOAT : ANY;
+      target.names.bits |= KEY_BITS.get(key) ?? ANY;
       add(target.entries, pair[1], state, depth + 1);
     }
     state.path.pop();
@@ -297,7 +303,10 @@ const written = (form, presence) => {
 };
 
 // A place that held nothing but null or undefined.
-const bareOf = (bits, absent) => (bits & NULL ? (absent ? '?null' : 'null') : '?unknown');
+const bareOf = (bits, absent) => {
+  if ((bits & NULL) === 0) return '?unknown';
+  return absent ? '?null' : 'null';
+};
 
 // The element of a list, the value of a dictionary: `?type` when null or
 // undefined was among them.
@@ -312,10 +321,12 @@ const itemOf = (target, state) => {
 // string of the place passed, else a string.
 const stringOf = (target, state) => {
   const { strings, texts, formats } = target;
-  if (strings != null && texts >= 4 && texts >= 2 * strings.size) {
+  const counted = strings !== undefined && strings !== null;
+  if (counted && texts >= 4 && texts >= 2 * strings.size) {
     return { def: { enum: Array.from(strings) } };
   }
-  if (formats != null && formats.length > 0) return { def: { type: 'string', format: formats[0] } };
+  const formatted = formats !== undefined && formats !== null && formats.length > 0;
+  if (formatted) return { def: { type: 'string', format: formats[0] } };
   return { def: 'string' };
 };
 
@@ -335,13 +346,18 @@ const mapOf = (target, state) => {
 // as an optional key, so it is written with one more.
 const nameOf = (key) => (key.endsWith('?') ? `${key}?` : key);
 
+const presenceOf = (absent, nul) => {
+  if (absent) return OPTIONAL;
+  return nul ? NULLABLE : REQUIRED;
+};
+
 // A key of a struct: optional when some record lacks it or holds undefined,
 // nullable when every record has it and some hold null.
 const keyOf = (child, records, state) => {
   const absent = child.count < records || (child.bits & UNDEF) !== 0;
   const nul = (child.bits & NULL) !== 0;
   if ((child.bits & ~PRESENCE) === 0) return bareOf(child.bits, absent);
-  return written(formOf(child, state), absent ? OPTIONAL : nul ? NULLABLE : REQUIRED);
+  return written(formOf(child, state), presenceOf(absent, nul));
 };
 
 const recordOf = (target, state) => {
@@ -453,6 +469,24 @@ const listOf = (samples) => {
   return list;
 };
 
+// The definition of the root. A root of records is a struct with its kind;
+// a root of records and null or undefined is a union of that one struct,
+// since the `schema` shorthand at the root is the struct itself and cannot
+// be optional.
+const rootDefinition = (root, state) => {
+  const presence = root.bits & PRESENCE ? OPTIONAL : REQUIRED;
+  const form = (root.bits & ~PRESENCE) === 0 ? null : formOf(root, state);
+  if (form === null) return bareOf(root.bits, (root.bits & UNDEF) !== 0);
+  if (form.struct === undefined) return written(form, presence);
+  if (presence !== REQUIRED) {
+    const union = { def: { union: [written(form, REQUIRED)] } };
+    return written(union, presence);
+  }
+  const definition = { [kindKeyOf(state.kind)]: {} };
+  for (const key of Object.keys(form.struct)) define(definition, key, form.struct[key]);
+  return definition;
+};
+
 // A definition (or a Schema, with `as: 'schema'`) that accepts every
 // sample. `options`: `as`, `name`, `kind` (the kind of a root that is a
 // struct, 'struct'), `enum` (the most distinct strings of a place for an
@@ -466,18 +500,7 @@ const infer = (samples, options = {}) => {
     state.index = index;
     add(root, list[index], state, 0);
   }
-  // A root of records is a struct with its kind; a root of records and
-  // null or undefined is a union of that one struct, since the `schema`
-  // shorthand at the root is the struct itself and cannot be optional.
-  let definition;
-  const presence = root.bits & PRESENCE ? OPTIONAL : REQUIRED;
-  const form = (root.bits & ~PRESENCE) === 0 ? null : formOf(root, state);
-  if (form === null) definition = bareOf(root.bits, (root.bits & UNDEF) !== 0);
-  else if (form.struct === undefined) definition = written(form, presence);
-  else if (presence === REQUIRED) {
-    definition = { [kindKeyOf(state.kind)]: {} };
-    for (const key of Object.keys(form.struct)) define(definition, key, form.struct[key]);
-  } else definition = written({ def: { union: [written(form, REQUIRED)] } }, presence);
+  const definition = rootDefinition(root, state);
   const schema = new Schema(state.name, definition);
   const check = { unknown: 'reject', maxErrors: 1 };
   for (let index = 0; index < list.length; index += 1) {

@@ -217,13 +217,10 @@ const members = {
     if (this[TRACKED]) context.source = value;
     walkAsync(this, value, context);
     if (context.async.length > 0) await settle(context);
-    let output;
-    if (context.count === 0) {
-      // Only a promise of the pass is awaited: a thenable in the value is data.
-      output = pass(this, FINISH, value, context, 0);
-      if (output instanceof Promise) output = (await output).value;
-    }
-    return parsed(context, output);
+    if (context.count !== 0) return parsed(context, undefined);
+    // Only a promise of the pass is awaited: a thenable in the value is data.
+    const output = pass(this, FINISH, value, context, 0);
+    return parsed(context, output instanceof Promise ? (await output).value : output);
   },
 
   // The other direction: the schema's own `serialize`, then the serializers
@@ -275,7 +272,7 @@ const members = {
     if (this[STANDARD] === null) {
       const async = hasAsync(this);
       const validate = (value, options) => {
-        const libraryOptions = options == null ? undefined : options.libraryOptions;
+        const libraryOptions = options?.libraryOptions;
         if (async) return this.parseAsync(value, libraryOptions).then(standardize);
         return standardize(this.parse(value, libraryOptions));
       };

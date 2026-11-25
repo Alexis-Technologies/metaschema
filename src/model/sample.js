@@ -89,6 +89,13 @@ const stringOf = (state, field, key) => {
 
 const asNumber = (value) => (typeof value === 'bigint' ? Number(value) : value);
 
+// The units of one in the last decimal a number is drawn to: 1 for a whole
+// number, 10ⁿ for n decimals, 0 when any number will do.
+const scaleOf = (field, whole) => {
+  if (whole) return 1;
+  return field.decimals === undefined ? 0 : 10 ** field.decimals;
+};
+
 // A number within the bounds; a whole one, or one of `decimals` decimals,
 // rounded toward the inside of the bounds.
 const numberOf = (state, field, whole) => {
@@ -97,7 +104,7 @@ const numberOf = (state, field, whole) => {
   const low = min ?? (max === undefined ? 0 : max - 100);
   const high = max ?? low + 100;
   const value = low + state.random() * (high - low);
-  const scale = whole ? 1 : field.decimals === undefined ? 0 : 10 ** field.decimals;
+  const scale = scaleOf(field, whole);
   // Past 2⁵³ units of the last decimal every double is a whole number of
   // them (and the product may be no number at all): the value is one.
   if (scale === 0 || !(Math.abs(value * scale) < 2 ** 53)) return value;
@@ -108,13 +115,15 @@ const numberOf = (state, field, whole) => {
 // The widest span a bigint is drawn from: what a number holds exactly.
 const SPAN = 2n ** 53n;
 
+// The lower bound of a bigint drawn: the minimum, else a hundred under the
+// maximum, else zero.
+const lowOf = (field) => {
+  if (field.min !== undefined) return BigInt(field.min);
+  return field.max === undefined ? 0n : BigInt(field.max) - 100n;
+};
+
 const bigintOf = (state, field) => {
-  const low =
-    field.min === undefined
-      ? field.max === undefined
-        ? 0n
-        : BigInt(field.max) - 100n
-      : BigInt(field.min);
+  const low = lowOf(field);
   const high = field.max === undefined ? low + 100n : BigInt(field.max);
   const span = high - low > SPAN ? SPAN : high - low;
   return low + BigInt(int(state, Number(span)));
@@ -366,7 +375,7 @@ const sampleField = (field, state, key) => {
 
 // How a reference may be held, as in check, and how deep embedded records
 // may nest: a `many` reference fans out by up to four records a level.
-const REFERENCES = ['kind', 'embed', 'id'];
+const REFERENCES = new Set(['kind', 'embed', 'id']);
 const MAX_DEPTH = 32;
 
 const optionsOf = (options) => {
@@ -380,7 +389,7 @@ const optionsOf = (options) => {
       `Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`,
     );
   }
-  if (!REFERENCES.includes(references)) {
+  if (!REFERENCES.has(references)) {
     throw invalidOptions(
       `Sample option "references" must be "kind", "embed" or "id", got ${JSON.stringify(references)}`,
     );

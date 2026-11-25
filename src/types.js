@@ -65,10 +65,10 @@ const createType = (name, prototype) => {
 
 const createTypes = (prototypes) => {
   const types = Object.create(null);
-  for (const pair of Object.entries(prototypes)) {
-    const name = pair[0];
-    const proto = pair[1];
-    types[name] = createType(name, proto);
+  const names = Object.keys(prototypes);
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
+    types[name] = createType(name, prototypes[name]);
   }
   return types;
 };
@@ -125,9 +125,10 @@ const redefines = (Type, { js, construct, checkType }) => {
 };
 
 const typeFactory = (customTypes, registry = TYPES) => {
-  for (const pair of Object.entries(customTypes)) {
-    const name = pair[0];
-    const value = pair[1];
+  const names = Object.keys(customTypes);
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
+    const value = customTypes[name];
     if (value === null || typeof value !== 'object') {
       throw customTypeError(name, 'must be an object with methods "construct" and "checkType"');
     }

@@ -200,7 +200,7 @@ const nullable = (inner) => (value, context, key) => {
 const withRules = (type, inner, rules) => {
   const { required, validate } = type;
   return (value, context, key) => {
-    if (value == null && !required) return;
+    if ((value === undefined || value === null) && !required) return;
     const before = context.count;
     inner(value, context, key);
     if (context.count !== before) return;
@@ -255,7 +255,7 @@ const custom = {
     const type = this;
     const { required } = this;
     return (value, context, key) => {
-      if (value == null && !required) return;
+      if ((value === undefined || value === null) && !required) return;
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       runCheckType(type, value, context);
@@ -302,11 +302,9 @@ const scanUnknown = (value, known, context) => {
 // return is what the field adds to the keys found.
 const checkAbsent = (entry, value, context, name) => {
   const under = aliasOf(value, entry.aliases, name);
-  let item;
-  if (under !== name) {
-    item = value[under];
-    context.renamed = true;
-  }
+  const renamed = under !== name;
+  if (renamed) context.renamed = true;
+  const item = renamed ? value[under] : undefined;
   if (item === undefined) {
     if (!entry.required) return 0;
     if (!Object.hasOwn(value, under)) {
@@ -376,7 +374,7 @@ const checkOf = (fields) => {
 const scalarCheck = (scalar, required) => (value, context, key) => {
   // oxlint-disable-next-line valid-typeof
   if (typeof value === scalar) return;
-  if (!required && value == null) return;
+  if (!required && (value === undefined || value === null)) return;
   issues.type(context, scalar, value, key);
 };
 
@@ -392,7 +390,7 @@ const compileList = (type, isList) => {
   const name = type.type;
   return (value, context, key) => {
     if (!isList(value)) {
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, name, value, key);
       return;
     }
@@ -475,7 +473,7 @@ const compilePlain = (type, required) => {
   }
   const { length } = checks;
   return (value, context, key) => {
-    if (!required && value == null) return;
+    if (!required && (value === undefined || value === null)) return;
     const { count } = context;
     // The validators a failed branch set aside in an async check go with
     // its issues: they belong to a branch the value does not match.
@@ -507,7 +505,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (Number.isInteger(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'integer', value, key);
     };
   },
@@ -516,7 +514,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (isDate(value) && !Number.isNaN(value.getTime())) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'date', value, key);
     };
   },
@@ -525,7 +523,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (isBytes(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'bytes', value, key);
     };
   },
@@ -548,13 +546,13 @@ const COMPILE = {
       const set = new Set(values);
       return (value, context, key) => {
         if (set.has(value)) return;
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.enum(context, values, key);
       };
     }
     return (value, context, key) => {
       if (values.includes(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.enum(context, values, key);
     };
   },
@@ -567,7 +565,7 @@ const COMPILE = {
     const { check } = this.value;
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -594,7 +592,7 @@ const COMPILE = {
     const { check } = this.value;
     return (value, context, key) => {
       if (!isMap(value)) {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -626,7 +624,7 @@ const COMPILE = {
     const { one, many, root, required, embed } = this;
     if (one) {
       return (value, context, key) => {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         const schema = root.findReference(one);
         if (!schema) {
           issues.reference(context, one, key);
@@ -638,7 +636,7 @@ const COMPILE = {
     }
     const expected = `array of ${many}`;
     return (value, context, key) => {
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       const schema = root.findReference(many);
       if (!schema) {
         issues.reference(context, many, key);
@@ -666,7 +664,7 @@ const COMPILE = {
     const { required } = this;
     const check = isStruct(this.schema) ? checkOf(this.schema) : this.schema.check;
     return (value, context, key) => {
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       check(value, context, key);
     };
   },
@@ -678,7 +676,7 @@ const COMPILE = {
     const { length } = checks;
     return (value, context, key) => {
       if (!Array.isArray(value)) {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.type(context, type, value, key);
         return;
       }
@@ -707,7 +705,7 @@ const COMPILE = {
     for (const value of table.keys()) expected.push(value);
     return (value, context, key) => {
       if (value === null || typeof value !== 'object') {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.type(context, 'object', value, key);
         return;
       }
@@ -727,7 +725,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (value !== null && typeof value === 'object') return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'object', value, key);
     };
   },
@@ -740,7 +738,7 @@ const COMPILE = {
     for (const name of this.flags) known[name] = true;
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.type(context, type, value, key);
         return;
       }

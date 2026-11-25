@@ -67,7 +67,9 @@ const valueOf = (value) => {
 // sorted, so the text does not depend on how the definition was written.
 const fieldOf = (field) => {
   const out = { type: field.type, required: field.required };
-  for (const key of Object.keys(field).sort()) {
+  const keys = Object.keys(field);
+  keys.sort();
+  for (const key of keys) {
     const item = field[key];
     if (key !== 'root' && item !== undefined) out[key] = valueOf(item);
   }
@@ -172,7 +174,9 @@ const typesOf = (entities, tableOf) => {
     }
   }
   const out = {};
-  for (const name of Array.from(found.keys()).sort()) {
+  const names = Array.from(found.keys());
+  names.sort();
+  for (const name of names) {
     const entry = typeOf(found.get(name));
     if (entry !== null) out[name] = entry;
   }

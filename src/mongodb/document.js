@@ -75,7 +75,8 @@ const record = (state, owner, value) => {
   const id = hasBrand(owner, 'Schema') ? idOf(owner) : null;
   const { calculated } = fields[STRUCT];
   const out = {};
-  if (state.out && id !== null && value[id] != null) out[ID] = idValue(state, value[id]);
+  const held = id !== null && value[id] !== undefined && value[id] !== null;
+  if (state.out && held) out[ID] = idValue(state, value[id]);
   for (const key of Object.keys(value)) {
     const item = value[key];
     if (state.out) {
@@ -113,7 +114,7 @@ const reference = (state, node, value) => {
 };
 
 const walk = (state, node, value) => {
-  if (value == null) return value;
+  if (value === undefined || value === null) return value;
   const info = infoOf(node);
   const { shape } = info;
   if (shape === SCHEMA || shape === FIELDS) return record(state, node, value);

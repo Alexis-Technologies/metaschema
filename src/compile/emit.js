@@ -225,7 +225,7 @@ const emitEnum = (type, x, key, state) => {
   const { code } = state;
   const values = type.enum;
   const { length } = values;
-  let fails;
+  let fails = '';
   if (length > ENUM_SET_SIZE) {
     fails = `!${code.ref(new Set(values))}.has(${x})`;
   } else {

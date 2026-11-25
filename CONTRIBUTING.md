@@ -10,7 +10,10 @@ pnpm install
 pnpm test
 ```
 
-There is no build step. What you edit in `src/` is what ships.
+There is no build step. What you edit in `src/` is what ships. `pnpm install` also links the
+agent skills of [alexiskills](https://alexiskills.vercel.app) (`@alexify/metaskills`, a
+devDependency) into `.claude/skills`, a symlink git leaves out; the code style they describe is
+the one `pnpm run lint` holds `src/` to, and [CLAUDE.md](CLAUDE.md) says where metaschema differs.
 
 ## The rules that are not negotiable
 

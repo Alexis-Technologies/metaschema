@@ -111,7 +111,7 @@ const restore = (target) => {
 // Replaces the check of a schema with the generated one; a failure to build
 // it is a fallback, reported to `onFallback` and returned.
 const install = (target, onFallback) => {
-  let run;
+  let run = null;
   try {
     run = build(target);
   } catch (error) {
@@ -120,7 +120,7 @@ const install = (target, onFallback) => {
     return wrapped;
   }
   replace(target, run);
-  return undefined;
+  return null;
 };
 
 const schemasOf = (target) => {
@@ -151,12 +151,12 @@ const compile = (target, options = {}) => {
     for (let index = 0; index < length; index += 1) replace(schemas[index], runs[index]);
     return { accelerated: true };
   }
-  let error;
+  let error = null;
   for (let index = 0; index < length; index += 1) {
     const failed = install(schemas[index], onFallback);
-    if (failed !== undefined && error === undefined) error = failed;
+    if (failed !== null && error === null) error = failed;
   }
-  return error === undefined ? { accelerated: true } : { accelerated: false, error };
+  return error === null ? { accelerated: true } : { accelerated: false, error };
 };
 
 // Whether the check of a schema (of every entity of a model) runs the

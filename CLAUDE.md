@@ -32,6 +32,7 @@ Package manager is **pnpm** (pinned in `packageManager`).
 ## Commands
 
 ```bash
+pnpm install                       # also links the alexiskills skills into .claude/skills (prepare)
 pnpm test                          # node --test tests/unit/*.test.js
 pnpm run test:jit                  # the same suite with every schema compiled by ./compile (tests/helpers/jit.js)
 pnpm run test:nojit                # the same under --disallow-code-generation-from-strings: the fallback
@@ -314,7 +315,7 @@ bench/              zero-dependency ops/sec harness (closures and JIT); baseline
                     results/*.json; report.js + report/ (model.mjs: the chart models shared by the
                     docs components and svg.mjs, the README images) render them
 docs/               VitePress site (metaschema.vercel.app), not published
-.claude/skills/     metaskills v1.0.5 skills (js-conventions, npm-publish adapted)
+.claude/skills      a symlink to the alexiskills of node_modules (made by prepare, git-ignored)
 ```
 
 ## Architecture
@@ -696,6 +697,30 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
+**The conventions of alexiskills (2026-11-25, unreleased) left the gates where they were**:
+bringing `src/` to its rules (see "Conventions") cost the core 74 bytes (22298 / 22308 bytes,
+21.8 KB, 230 bytes under the 22 KB gate):
+- `codec.js` about 20, for the flag test and the plan of `infoOf` taken out of it;
+- `snapshot.js` about 20, for the sorts in statements of their own;
+- `checks.js` and `types.js` about 10 each, for `checkAbsent` and the index loops over
+  `Object.keys`;
+- `validation.js` and `issues.js` the rest.
+
+The strict comparisons with `null` cost nothing, since esbuild folds `x === undefined || x ===
+null` back into `x == null`. The generators measure 7924, the compile subpath 4407, the model
+subpath 13128, the stream subpath 983, the formats subpath 3909, the derive subpath 2291 (2.2
+KB, its code unchanged: a difference of two gzips moved), the coerce subpath 1975, the mongodb
+subpath 3727 and `./definition` 10775.
+
+The bench was three alternating runs of all 74 rows in separate processes, against an archive of
+`main`. The median row moved +1.1%; every `check`, `parse` and moltar row on both backends
+moved −0.5% to +5%. Two rows stood out:
+- `check — nested struct, invalid` +11%, every run of the branch above every run of `main`;
+- the two `setTimeout(1)` rows −8%, bimodal on both trees (775 or 850, the timer).
+
+The inlining into `parse` is what it was. `bench/baseline.json` was not re-saved. The paragraph
+that follows is 3.4.1's.
+
 **3.4.1 (2026-11-24) left the gates where they were**: the kind-key rule (`isKindKey`, the
 custom kinds kept for the lint, `lintKinds` with its text, `kindKeyOf` of the model subpath)
 cost the core about 410 bytes (22224 / 22233 bytes, 21.7 KB, 295 bytes under the 22 KB gate),
@@ -980,27 +1005,63 @@ file means updating the `browser` map keys.
 
 ## Conventions (oxlint/oxfmt + review)
 
+The style is `js-conventions` of alexiskills, its Library profile (CommonJS, hand-written
+`.d.ts`, `node:test` with c8, no runtime dependency). This section is what metaschema adds to it
+or does otherwise, and it wins.
+
 - Formatting: 2 spaces, single quotes, semicolons, trailing commas, **100 columns**, LF
   (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` (from kerberos: the explicit rule
   list, plus the `correctness` and `suspicious` categories as errors and `no-console` everywhere
-  but `scripts/` and `bench/`); `forEach` and `reduce` are errors through
-  `no-restricted-properties` (index loops instead; `map`/`filter`/`find` stay in `tests/` and
-  `bench/` where they render or set up, and are loops in `src/`). Suppress a rule only for an
-  intentional construct, with a
-  targeted `// oxlint-disable-next-line <rule>`. `valid-typeof` is disabled at the two places that
-  compare `typeof` with a type name held in a property.
+  but `scripts/` and `bench/`), with the rules of alexiskills since 2026-11-25:
+  - everywhere: `func-style: expression`, `no-nested-ternary`, `max-depth` 4, and `eqeqeq`
+    `always` with `null` included (stricter than the configuration of alexiskills, as its text
+    asks: `===` and `!==` only);
+  - in `src/`: every array iteration method (`map`, `filter`, `some`, `every`, `find`,
+    `findIndex`, `findLast`, `findLastIndex`, `reduce`, `reduceRight`, `flatMap`, `forEach`)
+    through `no-restricted-properties`, the unicorn plugin (`no-array-for-each`,
+    `no-array-reduce`, `no-useless-spread`, `prefer-set-has`, and its `suspicious` rules,
+    `no-array-sort` among them) and `max-lines-per-function` 80 as a warning. `map` is also a type
+    name and an option of `infer`, so the property is allowed on `COMPILE`, `options` and `state`
+    (`allowObjects`);
+  - `forEach` and `reduce` are errors in `tests/` and `bench/` too, where `map`, `filter` and
+    `find` render or set up.
+
+  Suppress a rule only for an intentional construct, with a targeted
+  `// oxlint-disable-next-line <rule>`. `valid-typeof` is disabled at the two places that compare
+  `typeof` with a type name held in a property.
 - Keep metaschema's code style:
   - module-level functions are arrow functions assigned to `const`; classes and prototype objects
     use method shorthand; no `function` declarations;
   - `Object.create(null)` for dictionaries;
-  - hot loops avoid destructuring: `for (const pair of Object.entries(x)) { const key = pair[0]; … }`;
-    use index loops, not `forEach`;
-  - prefer `const`; no `var`;
+  - the keys of an object are read as `const keys = Object.keys(x)` with an index loop, never
+    `Object.entries`; use index loops, not `forEach`;
+  - prefer `const`; no `var`; a `let` starts with a value of its kind (`null` for a reference,
+    `''`, `0`, `false`), or is a `const` bound once by a ternary or by a function that returns
+    the value; one that holds what user code returned starts as `undefined`, the value of no
+    return;
+  - no nested ternaries: `if`/`else`, a function that returns the value, or a table;
   - private class members with `#`;
-  - `value == null` for "null or undefined" (`eqeqeq` ignores `null`), nothing else loose;
+  - strict comparisons only. A value of the program that may be either absent value is
+    `x === undefined || x === null` (esbuild folds it back into `x == null`, so the bundle does
+    not grow); where the kind is ours, one comparison (`null` for a reference, `undefined` for a
+    scalar). `infer` keeps three states in `strings` and `formats` (`undefined` before the first
+    string, `null` past the cap, else the values) and tests both;
   - in the hot path (`check` closures): no closures or regexes created per call, one object
     shape per kind of object (context, issue, plan entry), `try/catch` only around user code,
     and functions chosen at build time instead of lookups in the definition.
+- Where metaschema keeps a way of its own, on purpose:
+  - `for...in` with `Object.hasOwn` counts the keys of a value in the struct check, measured
+    (see "Structs"); `for...of` over arrays, Maps, Sets and iterators is how the rest of `src/` is
+    written, and `for...in` over plain objects outside the check;
+  - Node 18 is the floor, so `toSorted`, `toReversed` and `with` are not used: a fresh array
+    (`Object.keys`, `Array.from`) is sorted in place, in a statement of its own, which
+    `no-array-sort` accepts;
+  - `delete` stays where a definition built for the program must lack a key (`./derive`,
+    `fromJSONSchema`): a definition is data whose keys say something, not a record;
+  - `String(key)` stays where a key may be a symbol (a key of a path), which a template literal
+    throws on;
+  - the generated code of `./compile` is text, not source: it keeps `!= null`, the one
+    comparison the closures' check stands for.
 - Built-ins with the `node:` prefix; relative requires always end in `.js`.
 - Validators return messages; `throw` only for definition errors, always a
   `SchemaDefinitionError` with a code.
@@ -1009,21 +1070,28 @@ file means updating the `browser` map keys.
 
 ## Skills
 
-`.claude/skills/` holds the seven [metaskills](https://github.com/metarhia/metaskills) v1.0.5
-skills: `js-conventions`, `js-data-structures`, `data-structures`, `metautil-data-structures`,
-`js-gof`, `error-handling` and `npm-publish`.
+The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.0.1, a
+devDependency: the skills of the Alexis libraries, forked from
+[metarhia/metaskills](https://github.com/metarhia/metaskills) 1.0.6. All 37 of them are linked,
+from the seven packs (`core`, `design`, `library`, `runtime`, `backend`, `security`,
+`realtime`). `.claude/skills` is one symlink to `node_modules/@alexify/metaskills/skills`, made
+by the `prepare` script (`alexiskills claude`) on every `pnpm install`, a worktree's included,
+and left out by `.gitignore`; a skill a `pnpm update` brings appears without a relink. Until
+2026-11-24 the directory held seven skills of metarhia/metaskills 1.0.5, `js-conventions` and
+`npm-publish` adapted to this repository; what they said of metaschema alone is in this file
+now.
 
-- **`js-conventions` is adapted to this toolchain:** oxlint/oxfmt instead of ESLint/Prettier,
-  pnpm, 100 columns, plus a Modules section (CommonJS, no `'use strict'`, `node:` prefix, `.js` in
-  relative requires) and the loop rule (`forEach` and `reduce` are lint errors; `map`, `filter`
-  and `find` outside `src/` only). Its naming and optimization rules are upstream's.
-- **`npm-publish` is adapted to the release process below:** pnpm commands, the `prepublishOnly`
-  gates, this CHANGELOG's format (including the upstream-history section), docs and `pnpm pack`
-  checks, and `pnpm run release`.
-- **The other five are verbatim copies.**
+- **The skills are not edited here.** A change to one goes to `Alexis-Technologies/metaskills`
+  and comes back with a release of the package. A skill of this repository's own beside them
+  would turn the symlink into a directory of links (the pack mode of the CLI, with a block of its
+  own in `.gitignore`), and one named like a skill of the package hides that skill.
+- **`js-conventions` and `npm-publish` are the Alexis ones, for every library.** What metaschema
+  does differently or adds is here: "Conventions" for the style, "Release process" for the
+  release.
+- `npm-publish` runs only as `/npm-publish`; the agent does not call it on its own
+  (`disable-model-invocation: true`).
 
-Keep the two adapted skills in sync with this file when conventions or the release process
-change. **This file wins** if they ever disagree.
+**This file wins** if a skill and this file ever disagree.
 
 ## Testing notes
 
@@ -1846,7 +1914,9 @@ fact.
 
 ## Release process
 
-Manual, as in the sibling repositories. The `npm-publish` skill walks through it step by step:
+Manual, as in the sibling repositories. The `npm-publish` skill of alexiskills walks through it
+step by step; it runs only as `/npm-publish` (its frontmatter has `disable-model-invocation:
+true`), and this section wins where the two differ:
 
 1. Bump `version` in `package.json`.
 2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD` and add its link
@@ -1857,8 +1927,35 @@ Manual, as in the sibling repositories. The `npm-publish` skill walks through it
 5. Run `pnpm run release` from it (`pnpm publish`, gated by `prepublishOnly`: the gates, both
    backends and the bundle budgets; `publishConfig.access` is public).
 
-The upstream history (`metaschema` 2.2.2 and older) is kept under its own heading at the bottom of
-the CHANGELOG with `upstream-*` link references.
+What metaschema adds to the steps of the skill:
+
+- **Gates (its step 1).** `prepublishOnly`, then `pnpm docs:build`, which CI runs and
+  `prepublishOnly` does not. `pnpm outdated` and `pnpm audit` are about the devDependencies only:
+  the package has no runtime dependency.
+- **CHANGELOG (step 3).** A major release has `Upgrading from X.y`, the migration guide (every
+  change to the shape of a result or the meaning of a definition, the old form and the new), and
+  its docs twin `docs/guide/migrating-from-<major>.md` with before-and-after examples; the two
+  change together. The upstream history (`metaschema` 2.2.2 and older) stays under its own
+  heading, `## Upstream history (metarhia/metaschema)`, at the bottom of the CHANGELOG with its
+  `[upstream-*]` link references, unchanged; a new version link goes above them. Tags `v2.2.2`
+  and older are upstream's, not releases of this package.
+- **Typings (step 4).** Every `.d.ts` that "No build step" lists (the root, the subpaths, the
+  locales) passes `check:dts` and `test:types`, and `tests/unit/export-parity.test.js` holds the
+  runtime exports of both entries and of the subpaths to the declared ones. Read `src/index.js`,
+  the `index.js` of every subpath and their `.d.ts` for a name exported and not declared, or
+  declared and internal. The methods a `register()` installs are declared in the root
+  `index.d.ts` on purpose.
+- **Docs and license (step 5).** The min+gzip figures come from `pnpm size` and change together
+  in the files "Budgets" lists; the generated regions are regenerated (`pnpm bench:report`,
+  `pnpm docs:comparison`), never edited; `docs/guide/performance.md` follows
+  `bench/baseline.json` when it was re-saved; `docs/public/llms.txt` holds the key facts; the
+  example outputs of README and the docs stay true. In `LICENSE` only the year of the `Alexis
+  Technologies` line changes, never the `Metarhia contributors` line.
+- **Package (step 6).** `exports` lists `types` first for every entry and the `browser` map
+  covers the root entry and `src/runtime/node.js`; there is no `dependencies` key and no
+  `.npmignore` (the `files` allowlist decides), so `pnpm pack --dry-run` ships `src/` and the
+  root entries, never `.claude`, tests, docs, bench or scripts. The report gives the file count
+  and the rows of `pnpm run size`.
 
 ## Upstream sync
 

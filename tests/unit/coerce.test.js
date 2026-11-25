@@ -738,8 +738,12 @@ test('Coerce: a model gives converters for its own type names', () => {
   assert.deepStrictEqual(valueOf(attached, { total: '2' }), { total: 200 });
   // A model's converter of a built-in name wins over the process-wide one
   // for its entities only.
+  const yesNo = (value) => {
+    if (value === 'yes') return true;
+    return value === 'no' ? false : value;
+  };
   const flags = new Model({}, [['Flag', { Struct: {}, on: 'boolean' }]], null, {
-    coercions: { boolean: (value) => (value === 'yes' ? true : value === 'no' ? false : value) },
+    coercions: { boolean: yesNo },
   });
   assert.deepStrictEqual(valueOf(flags.entities.get('Flag'), { on: 'yes' }), { on: true });
   assert.strictEqual(

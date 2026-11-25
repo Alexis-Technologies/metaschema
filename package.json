@@ -116,6 +116,7 @@
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs",
     "docs:comparison": "node scripts/comparison.js",
+    "prepare": "alexiskills claude",
     "prepublishOnly": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:jit && pnpm run test:nojit && pnpm run test:types && pnpm run check:dts && pnpm run size:gate",
     "release": "pnpm publish"
   },
@@ -147,6 +148,7 @@
     "metarhia"
   ],
   "devDependencies": {
+    "@alexify/metaskills": "^1.0.1",
     "@braintree/sanitize-url": "^7.1.2",
     "@standard-schema/spec": "^1.1.0",
     "@vercel/analytics": "^2.0.1",

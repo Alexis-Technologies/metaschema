@@ -171,7 +171,7 @@ const resolve = (context, ref) => {
   const keys = [];
   let node = context.document;
   for (const segment of segments) {
-    let key;
+    let key = '';
     try {
       key = decodeURIComponent(segment);
     } catch {
@@ -240,6 +240,119 @@ const structOf = (context, node, used) => {
   return fields;
 };
 
+// The rules of a JSON Schema type, into the definition: `take` reads a
+// keyword and marks it used.
+const stringRules = (context, node, def, take) => {
+  const min = take('minLength');
+  const max = take('maxLength');
+  if (min !== undefined || max !== undefined) def.length = { min, max };
+  const pattern = take('pattern');
+  if (pattern !== undefined) {
+    if (typeof pattern !== 'string') unsupported(context, 'A "pattern" that is not a string');
+    else if (compilesWithU(pattern)) def.pattern = pattern;
+    else {
+      const shown = JSON.stringify(pattern);
+      unsupported(context, `The pattern ${shown} (not a valid pattern under the u flag)`);
+    }
+  }
+  // A format the formats subpath registered is the rule; any other stays
+  // the annotation JSON Schema says it is. OpenAPI's `byte` is base64, and
+  // the shape the export writes beside a format is the format's own.
+  const format = take('format');
+  const name = format === 'byte' && FORMATS.byte === undefined ? 'base64' : format;
+  if (typeof name === 'string' && FORMATS[name] !== undefined) {
+    def.format = name;
+    if (def.pattern === FORMATS[name].pattern) delete def.pattern;
+  }
+  // Base64 text (what `bytes` exports as) is the base64 format when the
+  // formats are registered, as OpenAPI's `byte` is.
+  if (def.format === undefined && node.contentEncoding === 'base64' && FORMATS.base64) {
+    def.format = 'base64';
+  }
+  return def;
+};
+
+const numberRules = (node, def, take) => {
+  const { type } = def;
+  const min = take('minimum');
+  const max = take('maximum');
+  if (min !== undefined) def.min = min;
+  if (max !== undefined) def.max = max;
+  // A multiple of 10⁻ⁿ is a number of n decimals and 1 says nothing more
+  // of an integer; any other step is a keyword outside the subset.
+  const decimals = DECIMALS.indexOf(node.multipleOf);
+  if (type === 'integer' ? node.multipleOf === 1 : decimals !== -1) take('multipleOf');
+  if (type === 'number' && decimals !== -1) def.decimals = decimals;
+  return def;
+};
+
+// The elements of a tuple: the prefixItems of 2020-12, else an items list
+// of draft-07.
+const elementsOf = (prefix, items) => {
+  if (Array.isArray(prefix)) return prefix;
+  return Array.isArray(items) ? items : null;
+};
+
+const arrayRules = (context, def, take) => {
+  const items = take('items');
+  const prefix = take('prefixItems');
+  const min = take('minItems');
+  const max = take('maxItems');
+  const elements = elementsOf(prefix, items);
+  if (elements !== null) {
+    // A tuple: the elements up to minItems are required, the rest optional.
+    take('additionalItems');
+    if (items !== false && !Array.isArray(items) && items !== undefined) {
+      unsupported(context, 'A tuple with more items');
+    }
+    def.type = 'tuple';
+    def.value = [];
+    const key = Array.isArray(prefix) ? 'prefixItems' : 'items';
+    context.path.push(key);
+    for (let index = 0; index < elements.length; index += 1) {
+      context.path.push(index);
+      def.value.push(convert(context, elements[index], min === undefined || index < min));
+      context.path.pop();
+    }
+    context.path.pop();
+    return def;
+  }
+  def.type = take('uniqueItems') === true ? 'set' : 'array';
+  context.path.push('items');
+  def.value = items === undefined ? 'any' : convert(context, items);
+  context.path.pop();
+  if (min !== undefined || max !== undefined) def.length = { min, max };
+  return def;
+};
+
+const objectRules = (context, node, def, take, used) => {
+  const min = take('minProperties');
+  const max = take('maxProperties');
+  if (isObject(node.properties)) {
+    def.type = 'schema';
+    def.schema = structOf(context, node, used);
+    if (min !== undefined || max !== undefined) {
+      unsupported(context, 'A struct with minProperties or maxProperties');
+    }
+    return def;
+  }
+  const { additionalProperties: values } = node;
+  if (values === undefined || values === true) return { type: 'json' };
+  if (values === false) unsupported(context, 'An object with no properties');
+  def.type = 'object';
+  def.key = 'string';
+  const names = take('propertyNames');
+  if (names !== undefined) {
+    if (isObject(names) && names.pattern === NUMBER_KEY) def.key = 'number';
+    else unsupported(context, 'A "propertyNames" other than the number key pattern');
+  }
+  context.path.push('additionalProperties');
+  def.value = convert(context, values);
+  context.path.pop();
+  if (min !== undefined || max !== undefined) def.length = { min, max };
+  return def;
+};
+
 // A JSON Schema type as a definition: the rules of the type, then the rest.
 const typed = (context, node, type, used) => {
   const def = { type };
@@ -247,105 +360,10 @@ const typed = (context, node, type, used) => {
     used.add(name);
     return node[name];
   };
-  if (type === 'string') {
-    const min = take('minLength');
-    const max = take('maxLength');
-    if (min !== undefined || max !== undefined) def.length = { min, max };
-    const pattern = take('pattern');
-    if (pattern !== undefined) {
-      if (typeof pattern !== 'string') unsupported(context, 'A "pattern" that is not a string');
-      else if (compilesWithU(pattern)) def.pattern = pattern;
-      else {
-        const shown = JSON.stringify(pattern);
-        unsupported(context, `The pattern ${shown} (not a valid pattern under the u flag)`);
-      }
-    }
-    // A format the formats subpath registered is the rule; any other stays
-    // the annotation JSON Schema says it is. OpenAPI's `byte` is base64, and
-    // the shape the export writes beside a format is the format's own.
-    const format = take('format');
-    const name = format === 'byte' && FORMATS.byte === undefined ? 'base64' : format;
-    if (typeof name === 'string' && FORMATS[name] !== undefined) {
-      def.format = name;
-      if (def.pattern === FORMATS[name].pattern) delete def.pattern;
-    }
-    // Base64 text (what `bytes` exports as) is the base64 format when the
-    // formats are registered, as OpenAPI's `byte` is.
-    if (def.format === undefined && node.contentEncoding === 'base64' && FORMATS.base64) {
-      def.format = 'base64';
-    }
-    return def;
-  }
-  if (type === 'number' || type === 'integer') {
-    const min = take('minimum');
-    const max = take('maximum');
-    if (min !== undefined) def.min = min;
-    if (max !== undefined) def.max = max;
-    // A multiple of 10⁻ⁿ is a number of n decimals and 1 says nothing more
-    // of an integer; any other step is a keyword outside the subset.
-    const decimals = DECIMALS.indexOf(node.multipleOf);
-    if (type === 'integer' ? node.multipleOf === 1 : decimals !== -1) take('multipleOf');
-    if (type === 'number' && decimals !== -1) def.decimals = decimals;
-    return def;
-  }
-  if (type === 'array') {
-    const items = take('items');
-    const prefix = take('prefixItems');
-    const min = take('minItems');
-    const max = take('maxItems');
-    const elements = Array.isArray(prefix) ? prefix : Array.isArray(items) ? items : null;
-    if (elements !== null) {
-      // A tuple: the elements up to minItems are required, the rest optional.
-      take('additionalItems');
-      if (items !== false && !Array.isArray(items) && items !== undefined) {
-        unsupported(context, 'A tuple with more items');
-      }
-      def.type = 'tuple';
-      def.value = [];
-      const key = Array.isArray(prefix) ? 'prefixItems' : 'items';
-      context.path.push(key);
-      for (let index = 0; index < elements.length; index += 1) {
-        context.path.push(index);
-        def.value.push(convert(context, elements[index], min === undefined || index < min));
-        context.path.pop();
-      }
-      context.path.pop();
-      return def;
-    }
-    def.type = take('uniqueItems') === true ? 'set' : 'array';
-    context.path.push('items');
-    def.value = items === undefined ? 'any' : convert(context, items);
-    context.path.pop();
-    if (min !== undefined || max !== undefined) def.length = { min, max };
-    return def;
-  }
-  if (type === 'object') {
-    const min = take('minProperties');
-    const max = take('maxProperties');
-    if (isObject(node.properties)) {
-      def.type = 'schema';
-      def.schema = structOf(context, node, used);
-      if (min !== undefined || max !== undefined) {
-        unsupported(context, 'A struct with minProperties or maxProperties');
-      }
-      return def;
-    }
-    const { additionalProperties: values } = node;
-    if (values === undefined || values === true) return { type: 'json' };
-    if (values === false) unsupported(context, 'An object with no properties');
-    def.type = 'object';
-    def.key = 'string';
-    const names = take('propertyNames');
-    if (names !== undefined) {
-      if (isObject(names) && names.pattern === NUMBER_KEY) def.key = 'number';
-      else unsupported(context, 'A "propertyNames" other than the number key pattern');
-    }
-    context.path.push('additionalProperties');
-    def.value = convert(context, values);
-    context.path.pop();
-    if (min !== undefined || max !== undefined) def.length = { min, max };
-    return def;
-  }
+  if (type === 'string') return stringRules(context, node, def, take);
+  if (type === 'number' || type === 'integer') return numberRules(node, def, take);
+  if (type === 'array') return arrayRules(context, def, take);
+  if (type === 'object') return objectRules(context, node, def, take, used);
   return def;
 };
 
@@ -381,6 +399,16 @@ const branches = (context, node, key, used) => {
     } else unsupported(context, 'A discriminator without a propertyName');
   }
   return { def, nullable };
+};
+
+// The type of a node without `type`, read from the keywords it carries.
+const implicitType = (node) => {
+  if (isObject(node.properties)) return 'object';
+  if (node.items !== undefined || node.prefixItems !== undefined) return 'array';
+  const bounded = node.minLength !== undefined || node.maxLength !== undefined;
+  if (node.pattern !== undefined || bounded) return 'string';
+  if (node.minimum !== undefined || node.maximum !== undefined) return 'number';
+  return 'any';
 };
 
 // A node of the document as a definition object `{ type, ... }`.
@@ -446,18 +474,7 @@ const nodeOf = (context, node, used) => {
       return def;
     }
   }
-  if (type === undefined) {
-    if (isObject(node.properties)) type = 'object';
-    else if (node.items !== undefined || node.prefixItems !== undefined) type = 'array';
-    else if (
-      node.pattern !== undefined ||
-      node.minLength !== undefined ||
-      node.maxLength !== undefined
-    ) {
-      type = 'string';
-    } else if (node.minimum !== undefined || node.maximum !== undefined) type = 'number';
-    else type = 'any';
-  }
+  if (type === undefined) type = implicitType(node);
   if (!KNOWN.has(type)) {
     unsupported(context, `The type ${JSON.stringify(type)}`);
     return { type: 'any' };
@@ -517,19 +534,22 @@ const convert = (context, node, required = true) => compactDef(longOf(context, n
 // The root: a struct with its kind, the unknown-keys policy
 // (`additionalProperties: false` closes it, as the generator writes it) and
 // its annotations as the metadata of the kind, or the definition of one type.
+const rootDefinition = (def, document) => {
+  if (def.type !== 'schema') return compact(def, true);
+  const { schema, type, nullable, ...rest } = def;
+  const meta = document.additionalProperties === false ? rest : { unknown: 'ignore', ...rest };
+  const definition = { Struct: meta };
+  for (const key of Object.keys(schema)) define(definition, key, schema[key]);
+  return definition;
+};
+
 const fromJSONSchema = (document, options = {}) => {
   const context = createContext(document, options);
   if (!isObject(document) && document !== true) {
     throw invalidTarget('A JSON Schema document (an object) is expected');
   }
   const def = longOf(context, document);
-  let definition;
-  if (def.type === 'schema') {
-    const { schema, type, nullable, ...rest } = def;
-    const meta = document.additionalProperties === false ? rest : { unknown: 'ignore', ...rest };
-    definition = { Struct: meta };
-    for (const key of Object.keys(schema)) define(definition, key, schema[key]);
-  } else definition = compact(def, true);
+  const definition = rootDefinition(def, document);
   return context.as === 'schema' ? new Schema(context.name, definition) : definition;
 };
 

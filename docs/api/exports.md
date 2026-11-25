@@ -111,7 +111,7 @@ no `~standard`.
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (21.7 KB min+gzip) does not carry them (7.7 KB more); see
+subpath so that the core entry (21.8 KB min+gzip) does not carry them (7.7 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -197,7 +197,7 @@ of an entry is `FormatDefinition`.
 
 ## `@alexify/metaschema/derive`
 
-Schemas made from a schema of a struct, in a subpath of its own (2.3 KB min+gzip on top of the
+Schemas made from a schema of a struct, in a subpath of its own (2.2 KB min+gzip on top of the
 core); see [Deriving schemas](/guide/derive). Each builds a new `Schema` from the definition the
 source was built from, with `options.name` (the source's by default) and `options.metadata`
 (over the source's; a stored kind or a projection is a struct, keeping `unknown`).
