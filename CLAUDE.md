@@ -380,7 +380,7 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   `model/merge.js` requires `util`, `schema.js`, `struct`, `issues` (`isThenable`), `errors`
   and `data`; `model/infer.js` requires `util` (`define`, `IDENTIFIER`, `shorten`),
   `schema.js`, `errors`, `types` (`readsAsStruct`), `rules` (`FORMATS`), `issues`
-  (`toDotPath`, `finalize`), `locales/en` and `data` (`DEPTH`, `capitalize`); `model/index.js`
+  (`toDotPath`, `finalize`), `locales/en` and `data` (`MAX_DEPTH`, `capitalize`); `model/index.js`
   requires `validation.js`, `model.js` and the six (`infer.js` the same `validation.js`, for
   its self-check). Nothing in the core requires `model/`.
 - `stream/index.js` requires `util` (`hasBrand`), `issues` (`abandon`), `errors`
@@ -397,7 +397,8 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
 - `derive/index.js` requires `util`, `metautil`, `schema.js`, `struct`, `kinds` (`idFieldOf`,
   `isKindKey`),
   `errors` and `model/data.js` (`structDefinitionOf`, `metadataOf`, `structDefinition`,
-  `atSchema`): one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
+  `namespacesOf`):
+  one of the two subpath-to-subpath edges, pinned in `graph.test.js` with the
   other, `mongodb/bson.js` → `coerce/index.js`. The rest of `mongodb/` requires core modules
   (`util`, `struct`, `prototypes/reference`, `codec` for `infoOf`/`apply`/`SERIALIZE`,
   `context` for `createContext`/`referencesOf`, `issues`, `result`, `errors`, `kinds` for
@@ -700,6 +701,23 @@ and `parent`, after its references, one entity per name (`ALX_ERR_UNREPRESENTABL
 interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
+
+**The review of 4.0 against alexiskills 1.1.2 (2026-11-25, unreleased) moved the coerce gate to
+3 KB**: the observer guard (`notify`, a copy per subpath) took `./coerce` to 2027 bytes, 21
+under its 2 KB gate, so it moved to the next whole KB by the rule of the review of 3.3; it
+measures 2049 at the end of the review. The core measures 22402 / 22420 bytes (21.9 KB, 126
+bytes under the 22 KB gate: `observe` of `issues.js`, the cause option of the error classes,
+the empty field of `locate`, the call options as `SchemaUsageError`), the generators 8041 (7.9
+KB, 151 under its gate: the atomic write of `runtime/node.js` and the guard of `onUnsupported`),
+the compile subpath 4454, the model subpath 13194 (12.9 KB, 118 under), the stream subpath 1095
+(`stepsOf`), the formats subpath 3916, the derive subpath 2296, the mongodb subpath 3714 and
+`./definition` 10853. The bench was three alternating runs of the `check` and `parse` rows (60
+of them) in separate processes against an archive of `5995c3f`: the median row moved −0.8%,
+every synchronous row within the band of the machine; the `checkAsync` rows that hold promises
+pay the fix of `settle`, one rejection handler per promise when it is met (four resolved
+promises −8.5% on the closures and −18% on the JIT, 32 records of one validator each −5%,
+about 13 to 25 ns a promise), the cost of not ending the process on a rejection. The paragraph
+that follows is the errors of 4.0.
 
 **The errors of 4.0 (2026-11-25, unreleased) left the gates where they were**: the `ALX_` prefix
 of the 37 codes and `SchemaUsageError` cost the core 29 bytes (22348 / 22361 bytes, 21.8 KB,
@@ -1068,6 +1086,9 @@ wins.
     type name held in a property.
 - In the code, beyond the skill:
   - private class members with `#`;
+  - the documentation of the public API is JSDoc (`/** */`, which an editor shows on hover) in
+    the handwritten `.d.ts`; a `//` comment there is a note on a group of members, a section or
+    a member of a union, which hover does not show;
   - a `let` that holds what user code returned starts as `undefined`, the value of no return;
     `infer` keeps three states in `strings` and `formats` (`undefined` before the first string,
     `null` past the cap, else the values) and tests both;
@@ -1797,7 +1818,7 @@ of a caller's array).
   `ALX_ERR_TYPE_REGISTERED`), and `registry: 'shared'` refuses a placeholder type that
   `options.types` does not provide. A snapshot is untrusted input (Alex's decision,
   2026-10-11): what does not read is `ALX_ERR_INVALID_SNAPSHOT` located at the entity and the
-  field, the walks have a depth limit of 128 (`DEPTH` in `model/data.js`), its keys are
+  field, the walks have a depth limit of 128 (`MAX_DEPTH` in `model/data.js`), its keys are
   written with `define` and read with `Object.hasOwn`, the kind metadata wins over `custom`
   and an index named like a field is an error, so a snapshot cannot loosen what the model
   checks without saying so. The same holds for a JSON Schema document given to
@@ -1893,7 +1914,7 @@ of a caller's array).
   nothing) is a `type` issue, not a throw; a value of a class at the root (a model instance, a
   value of bson) is `ALX_ERR_INVALID_TARGET` rather than passed through with its id a string.
   Reading a document and `ids: 'string'` need no driver.
-- **A `regex` longer than 4096 characters is not a regex** (`REGEX_MAX` in
+- **A `regex` longer than 4096 characters is not a regex** (`REGEX_MAX_CHARS` in
   `formats/index.js`): compiling one costs memory in proportion to its text (a property
   escape expands as it is parsed, about 1 KB of heap per byte), and no program writes a
   pattern that long; `length.max` on the field bounds it further. Five built-in formats
@@ -1999,7 +2020,7 @@ true`), and this section wins where the two differ:
 3. Commit (`chore(release): X.Y.Z`) on the release branch and merge it into `main` (squashed).
 4. Tag `vX.Y.Z` on the squash commit on `main`, which is what the tags of the earlier releases
    point at, and push `main` and the tag.
-5. Run `pnpm run release` from it (`pnpm publish`, gated by `prepublishOnly`: the gates, both
+5. Run `pnpm publish` from it (gated by `prepublishOnly`: the gates, both
    backends and the bundle budgets; `publishConfig.access` is public).
 
 What metaschema adds to the steps of the skill:

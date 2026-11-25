@@ -112,7 +112,7 @@ no `~standard`.
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (21.8 KB min+gzip) does not carry them (7.7 KB more); see
+subpath so that the core entry (21.9 KB min+gzip) does not carry them (7.9 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -127,7 +127,7 @@ A target that is neither a `Schema` nor a `Model` is a `SchemaUsageError`.
 
 ## `@alexify/metaschema/model`
 
-The model as the source of truth, in a subpath of its own (12.8 KB min+gzip on top of the
+The model as the source of truth, in a subpath of its own (12.9 KB min+gzip on top of the
 core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) and
 [Schema inference](/guide/infer).
 
@@ -165,7 +165,7 @@ value it does not accept (`ALX_ERR_INVALID_OPTION`). The types of the subpath ar
 
 ## `@alexify/metaschema/stream`
 
-A schema over a sequence of records, in a subpath of its own (1.0 KB min+gzip on top of the
+A schema over a sequence of records, in a subpath of its own (1.1 KB min+gzip on top of the
 core); see [Records and streams](/guide/streaming).
 
 | Export | Description |
@@ -221,7 +221,7 @@ not a list of names and options that are not an object are a `SchemaUsageError` 
 
 ## `@alexify/metaschema/coerce`
 
-The converters of [coercion](/guide/coercion), in a subpath of its own (1.9 KB min+gzip on top
+The converters of [coercion](/guide/coercion), in a subpath of its own (2.0 KB min+gzip on top
 of the core); the policy (`coerce` of a parse call, of the kind metadata, of a field) and the
 step in the pass before the check are the core's.
 

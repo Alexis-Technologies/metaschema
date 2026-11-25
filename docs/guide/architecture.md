@@ -41,16 +41,16 @@ it. `@alexify/metaschema/definition` is the first half alone.
 
 ```mermaid
 flowchart LR
-    GEN["./generators · 7.7 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
+    GEN["./generators · 7.9 KB<br/>toJSONSchema · toTypeScript<br/>fromJSONSchema · saveTypes"] --> CORE
     COMP["./compile · 4.3 KB<br/>compile · register · canEval"] --> CORE
-    MOD["./model · 12.8 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
-    STR["./stream · 1.0 KB<br/>checkEach · parseEach · transform"] --> CORE
+    MOD["./model · 12.9 KB<br/>fromJSON · diff · compatibility<br/>sample · merge · infer"] --> CORE
+    STR["./stream · 1.1 KB<br/>checkEach · parseEach · transform"] --> CORE
     FMT["./formats · 3.8 KB<br/>35 formats · your own"] --> CORE
     DER["./derive · 2.2 KB<br/>pick · omit · partial<br/>required · extend · keyof"] --> CORE
-    COE["./coerce · 1.9 KB<br/>converters · coerce()"] --> CORE
+    COE["./coerce · 2.0 KB<br/>converters · coerce()"] --> CORE
     MDB["./mongodb · 3.6 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
-    CORE["@alexify/metaschema · 21.8 KB<br/>check · parse · serialize · async<br/>~standard · warnings"] --> DEFN
+    CORE["@alexify/metaschema · 21.9 KB<br/>check · parse · serialize · async<br/>~standard · warnings"] --> DEFN
     DEFN["./definition · 10.6 KB<br/>Schema · Model<br/>toJSON · toSnapshot"]
 ```
 

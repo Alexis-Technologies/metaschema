@@ -70,6 +70,9 @@ The same guide with before-and-after examples is
   library-errors): what one throws, or a promise of it that rejects, is dropped, where a
   throwing `onFallback` made `new Schema` throw under `register()`. `onInvalid` of a stream
   `transform` stays a step of the stream, and its throw ends it.
+- **`saveTypes` replaces the file whole.** It writes a file of its own beside the target and
+  renames it into place, so a reader (`tsc --watch`, an editor) never sees half a declaration
+  file and a write that fails leaves the old file as it was; it wrote the target in place.
 
 ### Fixed
 
@@ -95,6 +98,12 @@ The same guide with before-and-after examples is
   the source, the two unions of `index.d.ts` and the two tables to one set of codes, throws every
   code of a wrong call once to see its class, and fails on a code without the prefix.
 - **Migrating from 3.x**, a page of the guide, and "From 3.x" in the README.
+- **The public API is documented as JSDoc in the `.d.ts`**, which an editor shows on hover:
+  222 `//` comments over declarations became `/** */` blocks, and `Schema`, `Model`,
+  `ValidationResult`, `SchemaDefinitionError` and the options types got the ones they lacked.
+- **"At a trust boundary"** in the guide to parse: the four defaults a boundary sets otherwise
+  (`maxErrors`, the async validators a walk starts, a pattern without `length.max`, the text of
+  an `exception` issue).
 
 ### Tooling
 
@@ -129,6 +138,22 @@ The same guide with before-and-after examples is
   array. No loop of these changes replaced one, and a list with holes (an `enum`, a tuple, a
   union, `flags`, `aliases`, an index, an array value, the records of a stream, the keys of
   `pick`, the changes of `compatibility`) gives what it gave in 3.4.1 on both backends.
+- **The review against alexiskills 1.1.2** (no behaviour changed beyond what Fixed and Changed
+  say):
+  - `src/` keeps the order of a module (constants, functions, classes, exports in that order),
+    `concat` for a concatenation, `{ __proto__: null, ... }` for a fixed table, a `Set` for a
+    membership list, a `let` of one kind, named steps where an expression wrapped, tables for
+    two dispatchers, names with their units, and kebab-case files (`json-schema.js`,
+    `from-json-schema.js`). An A/B of the `check` and `parse` rows against the commit before is
+    at parity (median −0.8%); the `checkAsync` rows with promises pay the fix of settle (one
+    rejection handler per promise: −8% on four resolved promises, −15% on the JIT).
+  - The tests bound linearity relative to an input of an eighth of the size, not in
+    milliseconds, wait on `setImmediate` rather than timers, read the entries of
+    `export-parity` from the `exports` map and hold every subpath to a size row and a gate.
+  - `package.json` says `"type": "commonjs"`, leaves `CLAUDE.md` out of the tarball, and has no
+    `release` script: a release runs `pnpm publish`.
+  - The coerce subpath's gate is 3 KB: the observer guard took it to 2027 bytes, 21 under the
+    2 KB gate (2049 at the end of the review); the core measures 22402 bytes (21.9 KB).
 
 ## [3.4.1] - 2026-11-24
 
