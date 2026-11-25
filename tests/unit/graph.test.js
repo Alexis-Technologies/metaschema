@@ -3,8 +3,8 @@
 // partial module object. CLAUDE.md "Architecture" draws the graph by hand
 // and says nothing checks it; this does. Only relative requires are edges:
 // the one Node builtin lives in runtime/node.js (platform.test.js).
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -63,102 +63,101 @@ const inspect = (graph) => {
   return { cycles, leaves: leaves.sort() };
 };
 
-test('Graph: the modules of src/ require each other without a cycle', () => {
-  const graph = new Map();
-  for (const file of modulesOf(SRC)) graph.set(file, edgesOf(file));
-  assert.ok(graph.size > 30);
-  const { cycles, leaves } = inspect(graph);
-  assert.deepStrictEqual(cycles, []);
-  assert.deepStrictEqual(leaves, [
-    'errors.js',
-    'metautil.js',
-    'prototypes/json.js',
-    'runtime/browser.js',
-    'runtime/node.js',
-    'util.js',
-  ]);
-  // The check sees a cycle when there is one.
-  const a = path.join(SRC, 'a.js');
-  const b = path.join(SRC, 'b.js');
-  const looped = new Map([
-    [a, [b]],
-    [b, [a]],
-  ]);
-  assert.deepStrictEqual(inspect(looped).cycles, ['a.js -> b.js -> a.js']);
-});
+describe('Graph', () => {
+  it('should find no cycle where the modules of src/ require each other', () => {
+    const graph = new Map();
+    for (const file of modulesOf(SRC)) graph.set(file, edgesOf(file));
+    assert.ok(graph.size > 30);
+    const { cycles, leaves } = inspect(graph);
+    assert.deepEqual(cycles, []);
+    assert.deepEqual(leaves, [
+      'errors.js',
+      'metautil.js',
+      'prototypes/json.js',
+      'runtime/browser.js',
+      'runtime/node.js',
+      'util.js',
+    ]);
+    // The check sees a cycle when there is one.
+    const a = path.join(SRC, 'a.js');
+    const b = path.join(SRC, 'b.js');
+    const looped = new Map([
+      [a, [b]],
+      [b, [a]],
+    ]);
+    assert.deepEqual(inspect(looped).cycles, ['a.js -> b.js -> a.js']);
+  });
 
-// The directories of the subpaths: nothing in the core requires them, and a
-// subpath requires another only along the edges below (CLAUDE.md
-// "Architecture"), so a program that imports one subpath carries no other.
-const SUBPATHS = [
-  'generators',
-  'compile',
-  'model',
-  'stream',
-  'formats',
-  'derive',
-  'coerce',
-  'mongodb',
-  'definition',
-];
-const SUBPATH_EDGES = ['derive/index.js -> model/data.js', 'mongodb/bson.js -> coerce/index.js'];
+  // The directories of the subpaths: nothing in the core requires them, and a
+  // subpath requires another only along the edges below (CLAUDE.md
+  // "Architecture"), so a program that imports one subpath carries no other.
+  const SUBPATHS = [
+    'generators',
+    'compile',
+    'model',
+    'stream',
+    'formats',
+    'derive',
+    'coerce',
+    'mongodb',
+    'definition',
+  ];
+  const SUBPATH_EDGES = ['derive/index.js -> model/data.js', 'mongodb/bson.js -> coerce/index.js'];
 
-const subpathOf = (name) => {
-  const top = name.split('/')[0];
-  return SUBPATHS.includes(top) ? top : null;
-};
+  const subpathOf = (name) => {
+    const top = name.split('/')[0];
+    return SUBPATHS.includes(top) ? top : null;
+  };
 
-test('Graph: the core requires no subpath, a subpath another only where allowed', () => {
-  const crossings = [];
-  for (const file of modulesOf(SRC)) {
-    const from = relative(file);
-    for (const target of edgesOf(file)) {
-      const to = relative(target);
-      const source = subpathOf(from);
-      const destination = subpathOf(to);
-      if (destination !== null && destination !== source) crossings.push(`${from} -> ${to}`);
+  it('should require no subpath from the core, and a subpath from another only where allowed', () => {
+    const crossings = [];
+    for (const file of modulesOf(SRC)) {
+      const from = relative(file);
+      for (const target of edgesOf(file)) {
+        const to = relative(target);
+        const source = subpathOf(from);
+        const destination = subpathOf(to);
+        if (destination !== null && destination !== source) crossings.push(`${from} -> ${to}`);
+      }
     }
-  }
-  assert.deepStrictEqual(crossings.sort(), [...SUBPATH_EDGES].sort());
-});
+    assert.deepEqual(crossings.sort(), [...SUBPATH_EDGES].sort());
+  });
 
-// The modules a file reaches through its requires, itself included.
-const closureOf = (file, graph = new Map(), seen = new Set()) => {
-  if (seen.has(file)) return seen;
-  seen.add(file);
-  for (const target of edgesOf(file)) closureOf(target, graph, seen);
-  return seen;
-};
+  // The modules a file reaches through its requires, itself included.
+  const closureOf = (file, graph = new Map(), seen = new Set()) => {
+    if (seen.has(file)) return seen;
+    seen.add(file);
+    for (const target of edgesOf(file)) closureOf(target, graph, seen);
+    return seen;
+  };
 
-// What validates: the half of the core `validation.js` installs. The
-// definition half (what `./definition` loads, and what builds a schema)
-// reaches none of it, so that a bundle of the definition alone has none.
-const VALIDATION = [
-  'validation.js',
-  'checks.js',
-  'codec.js',
-  'context.js',
-  'issues.js',
-  'result.js',
-  'lint.js',
-  'locales/en.js',
-];
+  // What validates: the half of the core `validation.js` installs. The
+  // definition half (what `./definition` loads, and what builds a schema)
+  // reaches none of it, so that a bundle of the definition alone has none.
+  const VALIDATION = [
+    'validation.js',
+    'checks.js',
+    'codec.js',
+    'context.js',
+    'issues.js',
+    'result.js',
+    'lint.js',
+    'locales/en.js',
+  ];
 
-test('Graph: the definition half reaches no module of the validation half', () => {
-  // The subpaths that only build or name things work beside the definition
-  // entry alone, as the definition guide says.
-  const entries = ['definition/index.js', 'schema.js', 'model.js', 'types.js'];
-  for (const entry of [...entries, 'derive/index.js', 'formats/index.js']) {
-    const reached = [...closureOf(path.join(SRC, entry))].map(relative);
-    const validating = reached.filter((name) => VALIDATION.includes(name));
-    assert.deepStrictEqual(validating, [], `${entry} reaches the validation half`);
-  }
-  // The core entry carries both halves.
-  const core = [...closureOf(path.join(SRC, 'index.js'))].map(relative);
-  for (const name of VALIDATION) assert.ok(core.includes(name), name);
-  assert.deepStrictEqual(
-    [...closureOf(path.join(SRC, 'definition/index.js'))].map(relative).sort(),
-    [
+  it('should reach no module of the validation half from the definition half', () => {
+    // The subpaths that only build or name things work beside the definition
+    // entry alone, as the definition guide says.
+    const entries = ['definition/index.js', 'schema.js', 'model.js', 'types.js'];
+    for (const entry of [...entries, 'derive/index.js', 'formats/index.js']) {
+      const reached = [...closureOf(path.join(SRC, entry))].map(relative);
+      const validating = reached.filter((name) => VALIDATION.includes(name));
+      assert.deepEqual(validating, [], `${entry} reaches the validation half`);
+    }
+    // The core entry carries both halves.
+    const core = [...closureOf(path.join(SRC, 'index.js'))].map(relative);
+    for (const name of VALIDATION) assert.ok(core.includes(name), name);
+    assert.deepEqual([...closureOf(path.join(SRC, 'definition/index.js'))].map(relative).sort(), [
       'definition/index.js',
       'errors.js',
       'kinds.js',
@@ -181,6 +180,6 @@ test('Graph: the definition half reaches no module of the validation half', () =
       'struct.js',
       'types.js',
       'util.js',
-    ],
-  );
+    ]);
+  });
 });

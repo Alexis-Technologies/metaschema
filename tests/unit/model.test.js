@@ -1,5 +1,5 @@
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 
 const { Model, Schema } = require('../../index.js');
 const { register } = require('../../src/generators/index.js');
@@ -22,355 +22,364 @@ const types = {
 
 register();
 
-test('Model: from struct', () => {
-  const entities = new Map();
+describe('Model', () => {
+  it('should build a model from a struct', () => {
+    const entities = new Map();
 
-  entities.set('Company', {
-    Dictionary: { store: 'persistent', scope: 'application' },
-    name: { type: 'string', unique: true },
-    addresses: { many: 'Address' },
+    entities.set('Company', {
+      Dictionary: { store: 'persistent', scope: 'application' },
+      name: { type: 'string', unique: true },
+      addresses: { many: 'Address' },
+    });
+
+    const model = new Model(types, entities, database);
+
+    assert.deepEqual(model.database, {
+      name: 'example',
+      description: 'Example database schema',
+      version: 3,
+      driver: 'pg',
+    });
+
+    const { string, number, boolean } = model.types;
+    assert.equal(string.metadata.pg, types.string.metadata.pg);
+    assert.equal(number.metadata.pg, types.number.metadata.pg);
+    assert.equal(boolean.metadata.pg, types.boolean.metadata.pg);
+
+    const { datetime, text, customObject } = model.types;
+    assert.equal(datetime.metadata.pg, types.datetime.metadata.pg);
+    assert.equal(text.metadata.pg, types.text.metadata.pg);
+    assert.equal(customObject.metadata.pg, types.customObject.metadata.pg);
+
+    assert.deepEqual(model.order, new Set(['Company']));
+
+    const company = model.entities.get('Company');
+
+    assert.equal(company.name, 'Company');
+    assert.equal(company.kind, 'dictionary');
+    assert.equal(company.store, 'persistent');
+    assert.equal(company.scope, 'application');
+
+    const { name } = company.fields;
+    assert.equal(name.type, 'string');
+    assert.equal(name.required, true);
+    assert.equal(name.unique, true);
+
+    const warn = model.warnings[0];
+    assert.equal(
+      warn,
+      'Warning [missing-reference]: "Address" referenced by "Company" is not found',
+    );
   });
 
-  const model = new Model(types, entities, database);
+  it('should validate through a many relation Schema', () => {
+    const entities = new Map();
 
-  assert.deepStrictEqual(model.database, {
-    name: 'example',
-    description: 'Example database schema',
-    version: 3,
-    driver: 'pg',
+    entities.set('Company', {
+      Dictionary: {},
+      name: { type: 'string', unique: true },
+      addresses: { many: 'Address' },
+    });
+
+    entities.set('Address', {
+      Entity: {},
+      city: { type: 'string', unique: true },
+    });
+
+    const model = new Model(types, entities, database);
+
+    const company = model.entities.get('Company');
+
+    // Address is stored, so a company holds the ids of its addresses.
+    const obj = { name: 'Galeere', addresses: ['a1', 'a2'] };
+    const obj1 = { name: 'Leere' };
+    const embedded = { name: 'Galeere', addresses: [{ city: 'Berlin' }, { city: 'Kiev' }] };
+    assert.equal(company.check(obj).valid, true);
+    assert.equal(company.check(obj1).valid, false);
+    assert.equal(company.check(embedded).valid, false);
+    assert.equal(company.check(embedded, { references: 'embed' }).valid, true);
   });
 
-  const { string, number, boolean } = model.types;
-  assert.strictEqual(string.metadata.pg, types.string.metadata.pg);
-  assert.strictEqual(number.metadata.pg, types.number.metadata.pg);
-  assert.strictEqual(boolean.metadata.pg, types.boolean.metadata.pg);
-
-  const { datetime, text, customObject } = model.types;
-  assert.strictEqual(datetime.metadata.pg, types.datetime.metadata.pg);
-  assert.strictEqual(text.metadata.pg, types.text.metadata.pg);
-  assert.strictEqual(customObject.metadata.pg, types.customObject.metadata.pg);
-
-  assert.deepStrictEqual(model.order, new Set(['Company']));
-
-  const company = model.entities.get('Company');
-
-  assert.strictEqual(company.name, 'Company');
-  assert.strictEqual(company.kind, 'dictionary');
-  assert.strictEqual(company.store, 'persistent');
-  assert.strictEqual(company.scope, 'application');
-
-  const { name } = company.fields;
-  assert.strictEqual(name.type, 'string');
-  assert.strictEqual(name.required, true);
-  assert.strictEqual(name.unique, true);
-
-  const warn = model.warnings[0];
-  assert.strictEqual(
-    warn,
-    'Warning [missing-reference]: "Address" referenced by "Company" is not found',
-  );
-});
-
-test('Model: many relation Schema for validation', () => {
-  const entities = new Map();
-
-  entities.set('Company', {
-    Dictionary: {},
-    name: { type: 'string', unique: true },
-    addresses: { many: 'Address' },
-  });
-
-  entities.set('Address', {
-    Entity: {},
-    city: { type: 'string', unique: true },
-  });
-
-  const model = new Model(types, entities, database);
-
-  const company = model.entities.get('Company');
-
-  // Address is stored, so a company holds the ids of its addresses.
-  const obj = { name: 'Galeere', addresses: ['a1', 'a2'] };
-  const obj1 = { name: 'Leere' };
-  const embedded = { name: 'Galeere', addresses: [{ city: 'Berlin' }, { city: 'Kiev' }] };
-  assert.strictEqual(company.check(obj).valid, true);
-  assert.strictEqual(company.check(obj1).valid, false);
-  assert.strictEqual(company.check(embedded).valid, false);
-  assert.strictEqual(company.check(embedded, { references: 'embed' }).valid, true);
-});
-
-test('Model: custom types with nested schema and relation', () => {
-  const entities = new Map();
-  entities.set('Identifier', { Entity: {}, creation: 'datetime' });
-  entities.set('Tester', {
-    Registry: {},
-    access: {
-      last: { type: 'datetime', default: 'now' },
-      count: { type: 'number', default: 0 },
-      identifiers: { many: 'Identifier' },
-      id: { type: 'Identifier', required: false },
-    },
-  });
-  const model = new Model(types, entities, database);
-  const identifier = model.entities.get('Identifier');
-  assert.strictEqual(identifier.check({ creation: Date.now().toLocaleString() }).valid, true);
-  const tester = model.entities.get('Tester');
-  const embed = { references: 'embed' };
-  assert.strictEqual(
-    tester.check(
-      {
+  it('should check custom types with a nested schema and relation', () => {
+    const entities = new Map();
+    entities.set('Identifier', { Entity: {}, creation: 'datetime' });
+    entities.set('Tester', {
+      Registry: {},
+      access: {
+        last: { type: 'datetime', default: 'now' },
+        count: { type: 'number', default: 0 },
+        identifiers: { many: 'Identifier' },
+        id: { type: 'Identifier', required: false },
+      },
+    });
+    const model = new Model(types, entities, database);
+    const identifier = model.entities.get('Identifier');
+    assert.equal(identifier.check({ creation: Date.now().toLocaleString() }).valid, true);
+    const tester = model.entities.get('Tester');
+    const embed = { references: 'embed' };
+    assert.equal(
+      tester.check(
+        {
+          access: {
+            last: Date.now().toLocaleString(),
+            count: 2,
+            identifiers: [
+              { creation: Date.now().toLocaleString() },
+              { creation: Date.now().toLocaleString() },
+            ],
+            id: { creation: Date.now().toLocaleString() },
+          },
+        },
+        embed,
+      ).valid,
+      true,
+    );
+    assert.equal(
+      tester.check({
         access: {
           last: Date.now().toLocaleString(),
           count: 2,
-          identifiers: [
-            { creation: Date.now().toLocaleString() },
-            { creation: Date.now().toLocaleString() },
-          ],
-          id: { creation: Date.now().toLocaleString() },
+          identifiers: ['i1', 'i2'],
+          id: 'i3',
         },
-      },
-      embed,
-    ).valid,
-    true,
-  );
-  assert.strictEqual(
-    tester.check({
-      access: { last: Date.now().toLocaleString(), count: 2, identifiers: ['i1', 'i2'], id: 'i3' },
-    }).valid,
-    true,
-  );
-  assert.strictEqual(
-    tester.check({
-      access: {
-        last: Date.now().toLocaleString(),
-        count: 2,
-      },
-    }).valid,
-    false,
-  );
-});
-
-test('Model: custom type correct name using js type', () => {
-  const entities = new Map();
-  entities.set('CustomSchema', {
-    Struct: {},
-
-    data: { customObject: { string: 'string' } },
+      }).valid,
+      true,
+    );
+    assert.equal(
+      tester.check({
+        access: {
+          last: Date.now().toLocaleString(),
+          count: 2,
+        },
+      }).valid,
+      false,
+    );
   });
-  const model = new Model(types, entities, database);
-  const schema = model.entities.get('CustomSchema');
-  assert.strictEqual(schema.fields.data.type, 'customObject');
-  assert.strictEqual(schema.check({ data: { a: 'b' } }).valid, true);
-});
 
-const systemTypes = {
-  string: { metadata: { pg: 'varchar' } },
-  number: { metadata: { pg: 'integer' } },
-  boolean: { metadata: { pg: 'boolean' } },
-  datetime: { js: 'string', metadata: { pg: 'timestamp with time zone' } },
-  text: { js: 'string', metadata: { pg: 'text' } },
-  json: { metadata: { pg: 'jsonb' } },
-};
+  it('should name a custom type by its js type', () => {
+    const entities = new Map();
+    entities.set('CustomSchema', {
+      Struct: {},
 
-test('Model: from fixture schemas, projection', () => {
-  const fixture = require('../fixtures/schemas/index.js');
-  const { database: fixtureDatabase, types: customTypes, ...schemas } = fixture;
-  const fixtureTypes = Object.assign(Object.create(null), systemTypes, customTypes);
-  const model = new Model(fixtureTypes, new Map(Object.entries(schemas)), fixtureDatabase);
-  assert.strictEqual(model.entities.size, 6);
-  const Account = model.entities.get('Account');
-  assert.strictEqual(Account.fields.fullName.constructor.type, 'schema');
-  assert.strictEqual(model.order.size, 6);
-  assert.strictEqual(typeof model.types, 'object');
-  assert.strictEqual(typeof model.database, 'object');
-  const Projection = model.entities.get('Signin');
-  assert.strictEqual(Projection.fields.login.type, Account.fields.login.type);
-  assert.strictEqual(Projection.fields.login.required, Account.fields.login.required);
-  assert.strictEqual(Projection.fields.login.unique, Account.fields.login.unique);
-  assert.strictEqual(Projection.fields.password.type, Account.fields.password.type);
-  assert.strictEqual(Projection.fields.password.required, Account.fields.password.required);
-  const EarlyProjection = model.entities.get('Aaa');
-  assert.strictEqual(Projection.fields.login.type, EarlyProjection.fields.login.type);
-  assert.strictEqual(Projection.fields.login.required, EarlyProjection.fields.login.required);
-  assert.strictEqual(Projection.fields.login.unique, EarlyProjection.fields.login.unique);
-  assert.strictEqual(Projection.fields.password.type, EarlyProjection.fields.password.type);
-  assert.strictEqual(Projection.fields.password.required, EarlyProjection.fields.password.required);
-});
-
-test('Model: an alias of the schema type needs a schema definition', () => {
-  const aliases = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
-  const message = `Type "address" needs a schema definition: { type: 'address', schema: { ... } }`;
-  for (const field of [
-    'address',
-    '?address',
-    { address: { city: 'string' } },
-    { array: 'address' },
-  ]) {
-    const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
-    assert.throws(() => new Model(aliases, entities), {
-      name: 'SchemaDefinitionError',
-      code: 'ERR_MISSING_SCHEMA',
-      schema: 'Order',
-      field: 'delivery',
-      message: `${message} in "Order.delivery"`,
+      data: { customObject: { string: 'string' } },
     });
-  }
-  const entities = new Map([
-    ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],
-  ]);
-  const order = new Model(aliases, entities).entities.get('Order');
-  assert.deepStrictEqual(order.check({ delivery: { city: 1 } }).errors, [
-    'Field "Order.delivery.city" not of expected type: string',
-  ]);
-});
+    const model = new Model(types, entities, database);
+    const schema = model.entities.get('CustomSchema');
+    assert.equal(schema.fields.data.type, 'customObject');
+    assert.equal(schema.check({ data: { a: 'b' } }).valid, true);
+  });
 
-test('Model: a two-entity cycle is a warning, not a crash', () => {
-  const entities = new Map([
-    ['A', { Entity: {}, b: 'B' }],
-    ['B', { Entity: {}, a: 'A' }],
-  ]);
-  const model = new Model({}, entities);
-  assert.deepStrictEqual([...model.order], ['B', 'A']);
-  assert.deepStrictEqual(model.warnings, [
-    'Warning [recursive-reference]: "B" depends on "A" recursively',
-  ]);
-});
-
-test('Model: a cycle that does not pass through the first entity is a warning', () => {
-  const definitions = {
-    A: { Entity: {}, b: 'B' },
-    B: { Entity: {}, c: 'C' },
-    C: { Entity: {}, b: 'B' },
+  const systemTypes = {
+    string: { metadata: { pg: 'varchar' } },
+    number: { metadata: { pg: 'integer' } },
+    boolean: { metadata: { pg: 'boolean' } },
+    datetime: { js: 'string', metadata: { pg: 'timestamp with time zone' } },
+    text: { js: 'string', metadata: { pg: 'text' } },
+    json: { metadata: { pg: 'jsonb' } },
   };
-  for (const names of [
-    ['A', 'B', 'C'],
-    ['B', 'C', 'A'],
-    ['C', 'A', 'B'],
-  ]) {
-    const entities = names.map((name) => [name, definitions[name]]);
-    const model = new Model({}, entities);
-    const order = [...model.order];
-    assert.deepStrictEqual([...order].sort(), ['A', 'B', 'C'], names.join());
-    // A -> B is not part of the cycle, so A always comes after B. Which edge of
-    // the B <-> C cycle is reported depends on where the walk entered it.
-    assert.ok(order.indexOf('A') > order.indexOf('B'), names.join());
-    assert.strictEqual(model.warnings.length, 1, names.join());
-    const cycle = /^Warning \[recursive-reference\]: "(C|B)" depends on "(B|C)" recursively$/;
-    assert.match(model.warnings[0], cycle, names.join());
-  }
-});
 
-test('Model: a self-reference is neither a cycle nor a warning', () => {
-  const entities = new Map([['Category', { Entity: {}, parent: '?Category' }]]);
-  const model = new Model({}, entities);
-  assert.deepStrictEqual([...model.order], ['Category']);
-  assert.deepStrictEqual(model.warnings, []);
-});
+  it('should build a model from fixture schemas, with a projection', () => {
+    const fixture = require('../fixtures/schemas/index.js');
+    const { database: fixtureDatabase, types: customTypes, ...schemas } = fixture;
+    const fixtureTypes = Object.assign(Object.create(null), systemTypes, customTypes);
+    const model = new Model(fixtureTypes, new Map(Object.entries(schemas)), fixtureDatabase);
+    assert.equal(model.entities.size, 6);
+    const Account = model.entities.get('Account');
+    assert.equal(Account.fields.fullName.constructor.type, 'schema');
+    assert.equal(model.order.size, 6);
+    assert.equal(typeof model.types, 'object');
+    assert.equal(typeof model.database, 'object');
+    const Projection = model.entities.get('Signin');
+    assert.equal(Projection.fields.login.type, Account.fields.login.type);
+    assert.equal(Projection.fields.login.required, Account.fields.login.required);
+    assert.equal(Projection.fields.login.unique, Account.fields.login.unique);
+    assert.equal(Projection.fields.password.type, Account.fields.password.type);
+    assert.equal(Projection.fields.password.required, Account.fields.password.required);
+    const EarlyProjection = model.entities.get('Aaa');
+    assert.equal(Projection.fields.login.type, EarlyProjection.fields.login.type);
+    assert.equal(Projection.fields.login.required, EarlyProjection.fields.login.required);
+    assert.equal(Projection.fields.login.unique, EarlyProjection.fields.login.unique);
+    assert.equal(Projection.fields.password.type, EarlyProjection.fields.password.type);
+    assert.equal(Projection.fields.password.required, EarlyProjection.fields.password.required);
+  });
 
-test('Model: Identifier comes first, dependencies before dependents', () => {
-  const entities = new Map([
-    ['Order', { Entity: {}, buyer: 'Customer', id: 'Identifier' }],
-    ['Customer', { Entity: {}, name: 'string' }],
-    ['Identifier', { Entity: {}, value: 'string' }],
-  ]);
-  const model = new Model({}, entities);
-  assert.deepStrictEqual([...model.order], ['Identifier', 'Customer', 'Order']);
-  assert.deepStrictEqual(model.warnings, []);
-});
-
-test('Model: a projection must name fields its parent has', () => {
-  const account = ['Account', { Entity: {}, login: 'string', password: 'string' }];
-  assert.throws(
-    () =>
-      new Model({}, [account, ['Signin', { Projection: { schema: 'Account', fields: ['nope'] } }]]),
-    {
-      name: 'SchemaDefinitionError',
-      code: 'ERR_PROJECTION',
-      message: 'Projection "Signin" field "nope" is not in "Account"',
-    },
-  );
-  for (const meta of [
-    {},
-    { schema: 'Account' },
-    { fields: ['login'] },
-    { schema: 1, fields: [] },
-  ]) {
-    assert.throws(() => new Model({}, [account, ['Signin', { Projection: meta }]]), {
-      code: 'ERR_PROJECTION',
-      message: 'Projection "Signin" needs { schema, fields }',
-    });
-  }
-  const ok = new Model({}, [
-    account,
-    ['Signin', { Projection: { schema: 'Account', fields: ['login'] } }],
-  ]);
-  assert.deepStrictEqual(Object.keys(ok.entities.get('Signin').fields), ['login']);
-});
-
-test('Model: one and many need an entity name', () => {
-  for (const [field, key, got] of [
-    [{ many: 5 }, 'many', '5'],
-    [{ one: '' }, 'one', '""'],
-    [{ type: 'many', many: null }, 'many', 'null'],
-  ]) {
-    assert.throws(() => Schema.from({ ref: field }), {
-      name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_REFERENCE',
-      message: `Reference "${key}" needs an entity name, got ${got} in "ref"`,
-    });
-  }
-});
-
-test('Model: a many reference needs an array', () => {
-  const entities = new Map([
-    ['Company', { Struct: {}, name: 'string' }],
-    ['Person', { Entity: {}, companies: { many: 'Company' } }],
-  ]);
-  const person = new Model({}, entities).entities.get('Person');
-  for (const companies of [5, 'x', { name: 'Acme' }, new Set()]) {
-    assert.deepStrictEqual(person.check({ companies }).errors, [
-      'Field "Person.companies" not of expected type: array of Company',
+  it('should require a schema definition for an alias of the schema type', () => {
+    const aliases = { address: { js: 'schema', metadata: { pg: 'jsonb' } } };
+    const message = `Type "address" needs a schema definition: { type: 'address', schema: { ... } }`;
+    for (const field of [
+      'address',
+      '?address',
+      { address: { city: 'string' } },
+      { array: 'address' },
+    ]) {
+      const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
+      assert.throws(() => new Model(aliases, entities), {
+        name: 'SchemaDefinitionError',
+        code: 'ERR_MISSING_SCHEMA',
+        schema: 'Order',
+        field: 'delivery',
+        message: `${message} in "Order.delivery"`,
+      });
+    }
+    const entities = new Map([
+      ['Order', { Struct: {}, delivery: { type: 'address', schema: { city: 'string' } } }],
     ]);
-  }
-  assert.strictEqual(person.check({ companies: [] }).valid, true);
-  assert.strictEqual(person.check({ companies: [{ name: 'Acme' }] }).valid, true);
-  assert.deepStrictEqual(person.check({ companies: [{ name: 1 }] }).errors, [
-    'Field "Person.companies[0].name" not of expected type: string',
-  ]);
-});
+    const order = new Model(aliases, entities).entities.get('Order');
+    assert.deepEqual(order.check({ delivery: { city: 1 } }).errors, [
+      'Field "Order.delivery.city" not of expected type: string',
+    ]);
+  });
 
-test('Model: dts renders collections, enums, tuples, bigint and nested structs', () => {
-  const dtsTypes = {
-    datetime: { js: 'string' },
-    hex: { kind: 'scalar', construct() {}, checkType: () => null },
-  };
-  const entities = [
-    ['Owner', { Entity: {}, name: 'string' }],
-    [
-      'Doc',
+  it('should report a two-entity cycle as a warning, not a crash', () => {
+    const entities = new Map([
+      ['A', { Entity: {}, b: 'B' }],
+      ['B', { Entity: {}, a: 'A' }],
+    ]);
+    const model = new Model({}, entities);
+    assert.deepEqual([...model.order], ['B', 'A']);
+    assert.deepEqual(model.warnings, [
+      'Warning [recursive-reference]: "B" depends on "A" recursively',
+    ]);
+  });
+
+  it('should report a cycle that does not pass through the first entity as a warning', () => {
+    const definitions = {
+      A: { Entity: {}, b: 'B' },
+      B: { Entity: {}, c: 'C' },
+      C: { Entity: {}, b: 'B' },
+    };
+    for (const names of [
+      ['A', 'B', 'C'],
+      ['B', 'C', 'A'],
+      ['C', 'A', 'B'],
+    ]) {
+      const entities = names.map((name) => [name, definitions[name]]);
+      const model = new Model({}, entities);
+      const order = [...model.order];
+      assert.deepEqual([...order].sort(), ['A', 'B', 'C'], names.join());
+      // A -> B is not part of the cycle, so A always comes after B. Which edge of
+      // the B <-> C cycle is reported depends on where the walk entered it.
+      assert.ok(order.indexOf('A') > order.indexOf('B'), names.join());
+      assert.equal(model.warnings.length, 1, names.join());
+      const cycle = /^Warning \[recursive-reference\]: "(C|B)" depends on "(B|C)" recursively$/;
+      assert.match(model.warnings[0], cycle, names.join());
+    }
+  });
+
+  it('should treat a self-reference as neither a cycle nor a warning', () => {
+    const entities = new Map([['Category', { Entity: {}, parent: '?Category' }]]);
+    const model = new Model({}, entities);
+    assert.deepEqual([...model.order], ['Category']);
+    assert.deepEqual(model.warnings, []);
+  });
+
+  it('should order Identifier first, dependencies before dependents', () => {
+    const entities = new Map([
+      ['Order', { Entity: {}, buyer: 'Customer', id: 'Identifier' }],
+      ['Customer', { Entity: {}, name: 'string' }],
+      ['Identifier', { Entity: {}, value: 'string' }],
+    ]);
+    const model = new Model({}, entities);
+    assert.deepEqual([...model.order], ['Identifier', 'Customer', 'Order']);
+    assert.deepEqual(model.warnings, []);
+  });
+
+  it('should require a projection to name fields its parent has', () => {
+    const account = ['Account', { Entity: {}, login: 'string', password: 'string' }];
+    assert.throws(
+      () =>
+        new Model({}, [
+          account,
+          ['Signin', { Projection: { schema: 'Account', fields: ['nope'] } }],
+        ]),
       {
-        Entity: {},
-        tags: { array: 'string' },
-        ids: { set: 'bigint' },
-        scores: { object: { string: 'number' } },
-        byId: { map: { number: 'boolean' } },
-        status: { enum: ['open', 'done'] },
-        levels: { array: { enum: [1, 2] } },
-        point: ['number', 'number'],
-        'meta?': 'json',
-        address: { city: 'string', 'zip?': 'string' },
-        created: 'datetime',
-        color: 'hex',
-        owner: 'Owner',
-        refs: { many: 'Owner' },
-        half: (value) => value.ids.size / 2,
+        name: 'SchemaDefinitionError',
+        code: 'ERR_PROJECTION',
+        message: 'Projection "Signin" field "nope" is not in "Account"',
       },
-    ],
-  ];
-  const model = new Model(dtsTypes, entities);
-  assert.strictEqual(
-    model.dts,
-    `interface Owner {
+    );
+    for (const meta of [
+      {},
+      { schema: 'Account' },
+      { fields: ['login'] },
+      { schema: 1, fields: [] },
+    ]) {
+      assert.throws(() => new Model({}, [account, ['Signin', { Projection: meta }]]), {
+        code: 'ERR_PROJECTION',
+        message: 'Projection "Signin" needs { schema, fields }',
+      });
+    }
+    const ok = new Model({}, [
+      account,
+      ['Signin', { Projection: { schema: 'Account', fields: ['login'] } }],
+    ]);
+    assert.deepEqual(Object.keys(ok.entities.get('Signin').fields), ['login']);
+  });
+
+  it('should require an entity name for one and many', () => {
+    for (const [field, key, got] of [
+      [{ many: 5 }, 'many', '5'],
+      [{ one: '' }, 'one', '""'],
+      [{ type: 'many', many: null }, 'many', 'null'],
+    ]) {
+      assert.throws(() => Schema.from({ ref: field }), {
+        name: 'SchemaDefinitionError',
+        code: 'ERR_INVALID_REFERENCE',
+        message: `Reference "${key}" needs an entity name, got ${got} in "ref"`,
+      });
+    }
+  });
+
+  it('should require an array for a many reference', () => {
+    const entities = new Map([
+      ['Company', { Struct: {}, name: 'string' }],
+      ['Person', { Entity: {}, companies: { many: 'Company' } }],
+    ]);
+    const person = new Model({}, entities).entities.get('Person');
+    for (const companies of [5, 'x', { name: 'Acme' }, new Set()]) {
+      assert.deepEqual(person.check({ companies }).errors, [
+        'Field "Person.companies" not of expected type: array of Company',
+      ]);
+    }
+    assert.equal(person.check({ companies: [] }).valid, true);
+    assert.equal(person.check({ companies: [{ name: 'Acme' }] }).valid, true);
+    assert.deepEqual(person.check({ companies: [{ name: 1 }] }).errors, [
+      'Field "Person.companies[0].name" not of expected type: string',
+    ]);
+  });
+
+  it('should render collections, enums, tuples, bigint and nested structs in dts', () => {
+    const dtsTypes = {
+      datetime: { js: 'string' },
+      hex: { kind: 'scalar', construct() {}, checkType: () => null },
+    };
+    const entities = [
+      ['Owner', { Entity: {}, name: 'string' }],
+      [
+        'Doc',
+        {
+          Entity: {},
+          tags: { array: 'string' },
+          ids: { set: 'bigint' },
+          scores: { object: { string: 'number' } },
+          byId: { map: { number: 'boolean' } },
+          status: { enum: ['open', 'done'] },
+          levels: { array: { enum: [1, 2] } },
+          point: ['number', 'number'],
+          'meta?': 'json',
+          address: { city: 'string', 'zip?': 'string' },
+          created: 'datetime',
+          color: 'hex',
+          owner: 'Owner',
+          refs: { many: 'Owner' },
+          half: (value) => value.ids.size / 2,
+        },
+      ],
+    ];
+    const model = new Model(dtsTypes, entities);
+    assert.equal(
+      model.dts,
+      `interface Owner {
   name: string;
   ownerId?: string;
 }
@@ -392,89 +401,87 @@ interface Doc {
   docId?: string;
 }
 `,
-  );
-  assert.strictEqual(Schema.from('?string').toInterface(), 'type  = string;');
-  assert.strictEqual(
-    new Schema('Pair', ['number', 'string']).toInterface(),
-    'type Pair = [number, string];',
-  );
-});
+    );
+    assert.equal(Schema.from('?string').toInterface(), 'type  = string;');
+    assert.equal(
+      new Schema('Pair', ['number', 'string']).toInterface(),
+      'type Pair = [number, string];',
+    );
+  });
 
-test('Model: a reference checks its target with the value it gets', () => {
-  const entities = new Map([
-    ['Company', { Entity: {}, name: 'string' }],
-    [
-      'Person',
-      {
-        Entity: {},
-        employer: 'Company',
-        'former?': { many: 'Company' },
-        ghosts: { many: 'Nothing' },
-      },
-    ],
-  ]);
-  const person = new Model({}, entities).entities.get('Person');
-  // Company is stored: a person holds its id unless the check embeds.
-  assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }).errors, [
-    'Field "Person.ghosts" Entity "Nothing" is not found',
-  ]);
-  assert.deepStrictEqual(person.check({ employer: { name: 'Acme' }, ghosts: [] }).errors, [
-    'Field "Person.employer" not of expected type: string',
-    'Field "Person.ghosts" Entity "Nothing" is not found',
-  ]);
-  const embed = { references: 'embed' };
-  assert.deepStrictEqual(person.check({ employer: 'c1', ghosts: [] }, embed).errors, [
-    'Field "Person.employer" not of expected type: object',
-    'Field "Person.ghosts" Entity "Nothing" is not found',
-  ]);
-  assert.deepStrictEqual(
-    person.check({ employer: null, former: null, ghosts: null }, embed).errors,
-    [
+  it('should check the target of a reference with the value it gets', () => {
+    const entities = new Map([
+      ['Company', { Entity: {}, name: 'string' }],
+      [
+        'Person',
+        {
+          Entity: {},
+          employer: 'Company',
+          'former?': { many: 'Company' },
+          ghosts: { many: 'Nothing' },
+        },
+      ],
+    ]);
+    const person = new Model({}, entities).entities.get('Person');
+    // Company is stored: a person holds its id unless the check embeds.
+    assert.deepEqual(person.check({ employer: 'c1', ghosts: [] }).errors, [
+      'Field "Person.ghosts" Entity "Nothing" is not found',
+    ]);
+    assert.deepEqual(person.check({ employer: { name: 'Acme' }, ghosts: [] }).errors, [
+      'Field "Person.employer" not of expected type: string',
+      'Field "Person.ghosts" Entity "Nothing" is not found',
+    ]);
+    const embed = { references: 'embed' };
+    assert.deepEqual(person.check({ employer: 'c1', ghosts: [] }, embed).errors, [
       'Field "Person.employer" not of expected type: object',
       'Field "Person.ghosts" Entity "Nothing" is not found',
-    ],
-  );
-  const ok = person.check(
-    { employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] },
-    embed,
-  );
-  assert.deepStrictEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
-  const limited = person.check(
-    { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
-    { references: 'embed', maxErrors: 2 },
-  );
-  assert.deepStrictEqual(limited.errors, [
-    'Field "Person.employer.name" not of expected type: string',
-    'Field "Person.former[0].name" not of expected type: string',
-  ]);
-});
+    ]);
+    assert.deepEqual(person.check({ employer: null, former: null, ghosts: null }, embed).errors, [
+      'Field "Person.employer" not of expected type: object',
+      'Field "Person.ghosts" Entity "Nothing" is not found',
+    ]);
+    const ok = person.check(
+      { employer: { name: 'Acme' }, former: [{ name: 'Old' }], ghosts: [] },
+      embed,
+    );
+    assert.deepEqual(ok.errors, ['Field "Person.ghosts" Entity "Nothing" is not found']);
+    const limited = person.check(
+      { employer: { name: 1 }, former: [{ name: 2 }, { name: 3 }], ghosts: [] },
+      { references: 'embed', maxErrors: 2 },
+    );
+    assert.deepEqual(limited.errors, [
+      'Field "Person.employer.name" not of expected type: string',
+      'Field "Person.former[0].name" not of expected type: string',
+    ]);
+  });
 
-test('Model: a projection copies a many reference as a many reference', () => {
-  const entities = new Map([
-    ['Address', { Entity: {}, city: 'string' }],
-    ['Account', { Entity: {}, login: 'string', addresses: { many: 'Address' } }],
-    ['Signin', { Projection: { schema: 'Account', fields: ['login', 'addresses'] } }],
-  ]);
-  const model = new Model({}, entities);
-  const field = model.entities.get('Signin').fields.addresses;
-  assert.strictEqual(field.many, 'Address');
-  assert.strictEqual(field.one, undefined);
-  const signin = model.entities.get('Signin');
-  assert.strictEqual(signin.check({ login: 'x', addresses: ['a1', 'a2'] }).valid, true);
-  assert.deepStrictEqual(signin.check({ login: 'x', addresses: 'a1' }).errors, [
-    'Field "Signin.addresses" not of expected type: array of Address',
-  ]);
-  // The long form of a many reference says so too.
-  const long = Schema.from({ refs: { type: 'Address', many: 'Address' } }, [model]);
-  assert.strictEqual(long.fields.refs.one, undefined);
-  assert.strictEqual(long.check({ refs: ['a1'] }).valid, true);
-});
+  it('should copy a many reference into a projection as a many reference', () => {
+    const entities = new Map([
+      ['Address', { Entity: {}, city: 'string' }],
+      ['Account', { Entity: {}, login: 'string', addresses: { many: 'Address' } }],
+      ['Signin', { Projection: { schema: 'Account', fields: ['login', 'addresses'] } }],
+    ]);
+    const model = new Model({}, entities);
+    const field = model.entities.get('Signin').fields.addresses;
+    assert.equal(field.many, 'Address');
+    assert.equal(field.one, undefined);
+    const signin = model.entities.get('Signin');
+    assert.equal(signin.check({ login: 'x', addresses: ['a1', 'a2'] }).valid, true);
+    assert.deepEqual(signin.check({ login: 'x', addresses: 'a1' }).errors, [
+      'Field "Signin.addresses" not of expected type: array of Address',
+    ]);
+    // The long form of a many reference says so too.
+    const long = Schema.from({ refs: { type: 'Address', many: 'Address' } }, [model]);
+    assert.equal(long.fields.refs.one, undefined);
+    assert.equal(long.check({ refs: ['a1'] }).valid, true);
+  });
 
-test('Model: util.inspect prints the snapshot, as Schema prints its definition', () => {
-  const util = require('node:util');
-  const model = new Model({}, [['Item', { Entity: {}, name: 'string' }]]);
-  const text = util.inspect(model, { depth: 4 });
-  assert.ok(text.startsWith('Model {'), text);
-  assert.ok(text.includes("kind: 'entity'"), text);
-  assert.ok(!text.includes('Schema {'), text);
+  it('should print the snapshot in util.inspect, as Schema prints its definition', () => {
+    const util = require('node:util');
+    const model = new Model({}, [['Item', { Entity: {}, name: 'string' }]]);
+    const text = util.inspect(model, { depth: 4 });
+    assert.ok(text.startsWith('Model {'), text);
+    assert.ok(text.includes("kind: 'entity'"), text);
+    assert.ok(!text.includes('Schema {'), text);
+  });
 });

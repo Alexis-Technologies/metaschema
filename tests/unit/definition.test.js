@@ -3,8 +3,8 @@
 // JIT helper of `test:jit` does too), which installs the validation half
 // into the same classes, so what the definition does on its own is run in
 // a child process that requires nothing else.
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -32,18 +32,16 @@ const alone = (body) => {
 const FORMS = "require('./tests/fixtures/forms.js')()";
 const forms = require('../fixtures/forms.js');
 
-test('Definition: the core own classes and kinds, not copies', () => {
-  assert.strictEqual(definition.Schema, Schema);
-  assert.strictEqual(definition.Model, Model);
-  assert.strictEqual(definition.KIND, require('../../index.js').KIND);
-  assert.strictEqual(
-    definition.SchemaDefinitionError,
-    require('../../index.js').SchemaDefinitionError,
-  );
-});
+describe('Definition', () => {
+  it('should export the core own classes and kinds, not copies', () => {
+    assert.equal(definition.Schema, Schema);
+    assert.equal(definition.Model, Model);
+    assert.equal(definition.KIND, require('../../index.js').KIND);
+    assert.equal(definition.SchemaDefinitionError, require('../../index.js').SchemaDefinitionError);
+  });
 
-test('Definition: alone, a schema builds and reads, and nothing validates', () => {
-  const result = alone(`
+  it('should build and read a schema alone, and validate nothing', () => {
+    const result = alone(`
     const { Schema, Model, SchemaDefinitionError } = definition;
     const doc = new Schema('Doc', ${FORMS});
     const model = new Model({ money: { js: 'number' } }, [
@@ -97,51 +95,51 @@ test('Definition: alone, a schema builds and reads, and nothing validates', () =
       rejected,
     }));
   `);
-  assert.deepStrictEqual(result.fields, [
-    'name',
-    'price',
-    'count',
-    'big',
-    'data',
-    'perms',
-    'role',
-    'ids',
-    'byId',
-    'scores',
-    'point',
-    'shape',
-    'either',
-    'when',
-    'inner',
-    'note',
-    'parent',
-    'ratio',
-    'docId',
-  ]);
-  assert.strictEqual(result.kind, 'entity');
-  assert.strictEqual(result.store, 'persistent');
-  assert.deepStrictEqual(result.indexes, ['byName']);
-  assert.strictEqual(result.root, 'Doc');
-  assert.strictEqual(result.json, true);
-  assert.deepStrictEqual(result.model, ['Tag', 'Item']);
-  assert.deepStrictEqual(result.order, ['Tag', 'Item']);
-  assert.deepStrictEqual(result.reached, ['Tag', 'Item']);
-  assert.deepStrictEqual(result.types, ['money']);
-  // A definition error is the builder's, with or without validation.
-  assert.deepStrictEqual(result.invalid, [true, 'ERR_INVALID_RULE']);
-  assert.strictEqual(result.standard, false);
-  assert.deepStrictEqual(result.codes, Array(9).fill('ERR_NOT_REGISTERED'));
-  assert.deepStrictEqual(result.rejected, ['ERR_NOT_REGISTERED', 'ERR_NOT_REGISTERED']);
-  assert.deepStrictEqual(result.message, [
-    'check needs the core entry @alexify/metaschema: ./definition alone does not validate',
-    'check',
-  ]);
-  // The stub is named as the method, for the stack.
-  assert.strictEqual(result.name, 'check');
-});
+    assert.deepEqual(result.fields, [
+      'name',
+      'price',
+      'count',
+      'big',
+      'data',
+      'perms',
+      'role',
+      'ids',
+      'byId',
+      'scores',
+      'point',
+      'shape',
+      'either',
+      'when',
+      'inner',
+      'note',
+      'parent',
+      'ratio',
+      'docId',
+    ]);
+    assert.equal(result.kind, 'entity');
+    assert.equal(result.store, 'persistent');
+    assert.deepEqual(result.indexes, ['byName']);
+    assert.equal(result.root, 'Doc');
+    assert.equal(result.json, true);
+    assert.deepEqual(result.model, ['Tag', 'Item']);
+    assert.deepEqual(result.order, ['Tag', 'Item']);
+    assert.deepEqual(result.reached, ['Tag', 'Item']);
+    assert.deepEqual(result.types, ['money']);
+    // A definition error is the builder's, with or without validation.
+    assert.deepEqual(result.invalid, [true, 'ERR_INVALID_RULE']);
+    assert.equal(result.standard, false);
+    assert.deepEqual(result.codes, Array(9).fill('ERR_NOT_REGISTERED'));
+    assert.deepEqual(result.rejected, ['ERR_NOT_REGISTERED', 'ERR_NOT_REGISTERED']);
+    assert.deepEqual(result.message, [
+      'check needs the core entry @alexify/metaschema: ./definition alone does not validate',
+      'check',
+    ]);
+    // The stub is named as the method, for the stack.
+    assert.equal(result.name, 'check');
+  });
 
-test('Definition: a method taken before the core was loaded calls the core once it is', () => {
-  const result = alone(`
+  it('should call the core from a method taken before the core was loaded, once it is', () => {
+    const result = alone(`
     const doc = new definition.Schema('Doc', { label: 'string' });
     const { check } = doc;
     const parseAsync = doc.parseAsync.bind(doc);
@@ -151,17 +149,17 @@ test('Definition: a method taken before the core was loaded calls the core once 
       out({ before, errors: check.call(doc, { label: 1 }).errors, parsed: parsed.valid }),
     );
   `);
-  assert.deepStrictEqual(result, {
-    before: 'ERR_NOT_REGISTERED',
-    errors: ['Field "Doc.label" not of expected type: string'],
-    parsed: true,
+    assert.deepEqual(result, {
+      before: 'ERR_NOT_REGISTERED',
+      errors: ['Field "Doc.label" not of expected type: string'],
+      parsed: true,
+    });
   });
-});
 
-test('Definition: a schema of another copy of the package says so', () => {
-  // Two copies in one process: a library that builds with the definition
-  // entry of its own copy, and the program's core.
-  const result = alone(`
+  it('should name another copy of the package in the ERR_NOT_REGISTERED of its schema', () => {
+    // Two copies in one process: a library that builds with the definition
+    // entry of its own copy, and the program's core.
+    const result = alone(`
     const doc = new definition.Schema('Doc', { label: 'string' });
     for (const key of Object.keys(require.cache)) delete require.cache[key];
     const core = require('./index.js');
@@ -171,16 +169,16 @@ test('Definition: a schema of another copy of the package says so', () => {
       out([core.Schema === definition.Schema, error.code, error.method, error.message]);
     }
   `);
-  assert.deepStrictEqual(result, [
-    false,
-    'ERR_NOT_REGISTERED',
-    'check',
-    'check needs the core entry @alexify/metaschema: the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)',
-  ]);
-});
+    assert.deepEqual(result, [
+      false,
+      'ERR_NOT_REGISTERED',
+      'check',
+      'check needs the core entry @alexify/metaschema: the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)',
+    ]);
+  });
 
-test('Definition: the core loaded later validates the schemas built before it', () => {
-  const result = alone(`
+  it('should validate, once the core is loaded later, the schemas built before it', () => {
+    const result = alone(`
     const { Schema, Model } = definition;
     const before = new Schema('Tag', { label: { type: 'string', length: 3 }, 'parent?': 'Tag' });
     const model = new Model({ money: { js: 'number' } }, [
@@ -200,26 +198,26 @@ test('Definition: the core loaded later validates the schemas built before it', 
       after: core.Schema.from({ a: 'string' }).check({ a: 1 }).valid,
     });
   `);
-  assert.deepStrictEqual(result, {
-    same: true,
-    valid: true,
-    errors: [
-      'Field "Tag.label" exceeds the maximum length',
-      'Field "Tag.parent.label" not of expected type: string',
-    ],
-    order: [true, false],
-    parsed: true,
-    warnings: [],
-    model: [],
-    standard: true,
-    after: false,
+    assert.deepEqual(result, {
+      same: true,
+      valid: true,
+      errors: [
+        'Field "Tag.label" exceeds the maximum length',
+        'Field "Tag.parent.label" not of expected type: string',
+      ],
+      order: [true, false],
+      parsed: true,
+      warnings: [],
+      model: [],
+      standard: true,
+      after: false,
+    });
   });
-});
 
-test('Definition: alone and with the core, the same fields and the same snapshot', () => {
-  // The fixture model and a schema of every form, written by a process that
-  // has the definition alone and by this one, which has the core.
-  const fixtureText = alone(`
+  it('should build the same fields and the same snapshot alone and with the core', () => {
+    // The fixture model and a schema of every form, written by a process that
+    // has the definition alone and by this one, which has the core.
+    const fixtureText = alone(`
     const { inspect } = require('node:util');
     const { database, types, ...schemas } = require('./tests/fixtures/schemas/index.js');
     const table = {
@@ -233,16 +231,17 @@ test('Definition: alone and with the core, the same fields and the same snapshot
     const doc = new definition.Schema('Doc', ${FORMS});
     out([JSON.stringify(model), JSON.stringify(doc.toSnapshot()), inspect(doc, { depth: Infinity })]);
   `);
-  const { inspect } = require('node:util');
-  const { database, types, ...schemas } = fixture;
-  const table = {
-    string: { metadata: { pg: 'varchar' } },
-    datetime: { js: 'string', metadata: { pg: 'timestamp with time zone' } },
-    ...types,
-  };
-  const model = new Model(table, Object.entries(schemas), database, { registry: 'isolated' });
-  const doc = new Schema('Doc', forms());
-  assert.strictEqual(fixtureText[0], JSON.stringify(model));
-  assert.strictEqual(fixtureText[1], JSON.stringify(doc.toSnapshot()));
-  assert.strictEqual(fixtureText[2], inspect(doc, { depth: Infinity }));
+    const { inspect } = require('node:util');
+    const { database, types, ...schemas } = fixture;
+    const table = {
+      string: { metadata: { pg: 'varchar' } },
+      datetime: { js: 'string', metadata: { pg: 'timestamp with time zone' } },
+      ...types,
+    };
+    const model = new Model(table, Object.entries(schemas), database, { registry: 'isolated' });
+    const doc = new Schema('Doc', forms());
+    assert.equal(fixtureText[0], JSON.stringify(model));
+    assert.equal(fixtureText[1], JSON.stringify(doc.toSnapshot()));
+    assert.equal(fixtureText[2], inspect(doc, { depth: Infinity }));
+  });
 });

@@ -17,8 +17,8 @@
 //   valid and an invalid email or uri at different places (the subpath has
 //   its own table of values, cross-checked with ajv-formats);
 // - a value with inherited or non-enumerable keys, which JSON has none of.
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 const Ajv2020 = require('ajv/dist/2020');
 const Ajv07 = require('ajv');
 const addFormats = require('ajv-formats');
@@ -250,115 +250,117 @@ const compare = (schema, target, options, seed) => {
 
 const TARGETS = ['draft-2020-12', 'draft-07'];
 
-const differential = (name, schema, options = {}) => {
-  for (const target of TARGETS) {
-    test(`JSON Schema differential: ${name} (${target})`, { skip }, () => {
-      const valid = compare(schema, target, options, 42);
-      assert.ok(valid > 0, 'no valid value was generated');
-      assert.ok(valid < VALUES_PER_SCHEMA, 'no invalid value was generated');
-    });
+describe('JSON Schema differential', () => {
+  const differential = (name, schema, options = {}) => {
+    for (const target of TARGETS) {
+      it(`should agree with ajv on ${name} (${target})`, { skip }, () => {
+        const valid = compare(schema, target, options, 42);
+        assert.ok(valid > 0, 'no valid value was generated');
+        assert.ok(valid < VALUES_PER_SCHEMA, 'no invalid value was generated');
+      });
+    }
+  };
+
+  differential(
+    'flags, closed and open',
+    new Schema('Access', {
+      perms: { flags: ['read', 'write', 'admin'] },
+      'beta?': { type: 'flags', flags: ['on'], nullable: true },
+    }),
+  );
+
+  differential(
+    'flags of a schema that ignores unknown keys',
+    new Schema('Lenient', { Struct: { unknown: 'ignore' }, perms: { flags: ['read', 'write'] } }),
+  );
+
+  differential(
+    'scalars and rules',
+    new Schema('Flat', {
+      name: { type: 'string', length: { min: 2, max: 8 } },
+      code: { type: 'string', pattern: '^[a-z]{3}$', length: 3 },
+      word: { type: 'string', pattern: /^\p{L}+$/u, length: { max: 6 }, unicode: true },
+      age: { type: 'integer', min: 0, max: 120 },
+      'score?': { type: 'number', min: -1.5, max: 1.5 },
+      'count?': { type: 'number', max: 10 },
+      active: 'boolean',
+      nothing: 'null',
+      'anything?': 'any',
+      unknown: 'unknown',
+      payload: 'json',
+      role: { enum: ['admin', 'user', 'guest'] },
+      one: { enum: ['only'] },
+      'level?': { enum: [1, 2, 3] },
+      title: { type: 'string', nullable: true },
+    }),
+  );
+
+  differential(
+    'collections, tuples, unions and nested structs',
+    new Schema('Nested', {
+      address: { city: 'string', 'zip?': { type: 'string', length: [5, 5] } },
+      tags: { array: { enum: ['a', 'b'] }, length: { max: 3 } },
+      'optTags?': { type: 'array', value: '?string' },
+      matrix: { array: { array: 'number', length: [1, 2] } },
+      dict: { object: { string: 'integer' } },
+      'ldict?': { type: 'object', key: 'string', value: 'boolean', length: [1, 2] },
+      point: ['number', { 'label?': 'string' }],
+      'triple?': ['number', '?number', 'number'],
+      id: { union: ['string', 'number'] },
+      'alt?': { union: ['boolean', { n: 'integer' }] },
+      shape: {
+        union: [
+          { kind: { enum: ['c'] }, r: 'number' },
+          { kind: { enum: ['s'] }, side: 'integer' },
+        ],
+        discriminator: 'kind',
+      },
+      inner: { schema: { a: 'string', b: { c: '?number' } } },
+      part: Schema.from({ x: 'string' }),
+    }),
+  );
+
+  differential(
+    'a lenient struct',
+    new Schema('Lenient', { Form: { unknown: 'ignore' }, name: 'string', part: { a: 'string' } }),
+  );
+
+  differential('a schema of one type', Schema.from({ type: 'string', length: [1, 3] }));
+
+  differential('a list schema', Schema.from({ array: { x: 'number', 'y?': 'boolean' } }));
+
+  const graph = new Model({}, [
+    ['Tag', { Struct: {}, label: 'string', 'parent?': 'Tag' }],
+    ['Company', { Registry: {}, name: 'string' }],
+    [
+      'Person',
+      {
+        Entity: {},
+        name: 'string',
+        employer: 'Company',
+        tags: { many: 'Tag' },
+        former: { many: 'Company', embed: true },
+        label: { type: 'Tag', embed: false },
+        'mentor?': 'Person',
+      },
+    ],
+  ]);
+
+  differential('references by kind', graph.entities.get('Person'));
+  differential('a recursive struct', graph.entities.get('Tag'));
+  differential('every reference embedded', graph.entities.get('Person'), { references: 'embed' });
+  differential('every reference as an id', graph.entities.get('Person'), { references: 'id' });
+
+  const fixture = new Model(
+    { datetime: { js: 'string' }, ...customTypes },
+    new Map(Object.entries(entities)),
+    database,
+  );
+
+  for (const name of fixture.order) {
+    differential(`the fixture entity ${name}`, fixture.entities.get(name));
   }
-};
-
-differential(
-  'flags, closed and open',
-  new Schema('Access', {
-    perms: { flags: ['read', 'write', 'admin'] },
-    'beta?': { type: 'flags', flags: ['on'], nullable: true },
-  }),
-);
-
-differential(
-  'flags of a schema that ignores unknown keys',
-  new Schema('Lenient', { Struct: { unknown: 'ignore' }, perms: { flags: ['read', 'write'] } }),
-);
-
-differential(
-  'scalars and rules',
-  new Schema('Flat', {
-    name: { type: 'string', length: { min: 2, max: 8 } },
-    code: { type: 'string', pattern: '^[a-z]{3}$', length: 3 },
-    word: { type: 'string', pattern: /^\p{L}+$/u, length: { max: 6 }, unicode: true },
-    age: { type: 'integer', min: 0, max: 120 },
-    'score?': { type: 'number', min: -1.5, max: 1.5 },
-    'count?': { type: 'number', max: 10 },
-    active: 'boolean',
-    nothing: 'null',
-    'anything?': 'any',
-    unknown: 'unknown',
-    payload: 'json',
-    role: { enum: ['admin', 'user', 'guest'] },
-    one: { enum: ['only'] },
-    'level?': { enum: [1, 2, 3] },
-    title: { type: 'string', nullable: true },
-  }),
-);
-
-differential(
-  'collections, tuples, unions and nested structs',
-  new Schema('Nested', {
-    address: { city: 'string', 'zip?': { type: 'string', length: [5, 5] } },
-    tags: { array: { enum: ['a', 'b'] }, length: { max: 3 } },
-    'optTags?': { type: 'array', value: '?string' },
-    matrix: { array: { array: 'number', length: [1, 2] } },
-    dict: { object: { string: 'integer' } },
-    'ldict?': { type: 'object', key: 'string', value: 'boolean', length: [1, 2] },
-    point: ['number', { 'label?': 'string' }],
-    'triple?': ['number', '?number', 'number'],
-    id: { union: ['string', 'number'] },
-    'alt?': { union: ['boolean', { n: 'integer' }] },
-    shape: {
-      union: [
-        { kind: { enum: ['c'] }, r: 'number' },
-        { kind: { enum: ['s'] }, side: 'integer' },
-      ],
-      discriminator: 'kind',
-    },
-    inner: { schema: { a: 'string', b: { c: '?number' } } },
-    part: Schema.from({ x: 'string' }),
-  }),
-);
-
-differential(
-  'a lenient struct',
-  new Schema('Lenient', { Form: { unknown: 'ignore' }, name: 'string', part: { a: 'string' } }),
-);
-
-differential('a schema of one type', Schema.from({ type: 'string', length: [1, 3] }));
-
-differential('a list schema', Schema.from({ array: { x: 'number', 'y?': 'boolean' } }));
-
-const graph = new Model({}, [
-  ['Tag', { Struct: {}, label: 'string', 'parent?': 'Tag' }],
-  ['Company', { Registry: {}, name: 'string' }],
-  [
-    'Person',
-    {
-      Entity: {},
-      name: 'string',
-      employer: 'Company',
-      tags: { many: 'Tag' },
-      former: { many: 'Company', embed: true },
-      label: { type: 'Tag', embed: false },
-      'mentor?': 'Person',
-    },
-  ],
-]);
-
-differential('references by kind', graph.entities.get('Person'));
-differential('a recursive struct', graph.entities.get('Tag'));
-differential('every reference embedded', graph.entities.get('Person'), { references: 'embed' });
-differential('every reference as an id', graph.entities.get('Person'), { references: 'id' });
-
-const fixture = new Model(
-  { datetime: { js: 'string' }, ...customTypes },
-  new Map(Object.entries(entities)),
-  database,
-);
-
-for (const name of fixture.order) {
-  differential(`the fixture entity ${name}`, fixture.entities.get(name));
-}
-differential('the fixture graph of an account', fixture.entities.get('Account'), {
-  references: 'embed',
+  differential('the fixture graph of an account', fixture.entities.get('Account'), {
+    references: 'embed',
+  });
 });
