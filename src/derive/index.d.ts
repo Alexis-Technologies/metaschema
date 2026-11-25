@@ -23,8 +23,10 @@ import type {
 // `ALX_ERR_UNKNOWN_FIELD`, located in the schema; anything but a Schema of a
 // struct is `ALX_ERR_INVALID_TARGET`.
 
-// The fields named, in the order of the schema. The schema's own functions
-// do not come along.
+/**
+ * The fields named, in the order of the schema. The schema's own functions
+ * do not come along.
+ */
 export function pick<
   D extends string | object,
   const K extends readonly DeriveKeyOf<D>[],
@@ -35,7 +37,7 @@ export function pick<
   options?: O,
 ): DerivedSchema<D, PickDefinition<D, K[number], O>>;
 
-// Every field but the ones named.
+/** Every field but the ones named. */
 export function omit<
   D extends string | object,
   const K extends readonly DeriveKeyOf<D>[],
@@ -46,25 +48,29 @@ export function omit<
   options?: O,
 ): DerivedSchema<D, OmitDefinition<D, K[number], O>>;
 
-// Every field (or the ones in `options.keys`) optional, without its default
-// unless `defaults: true`; `deep` goes into nested structs, not into
-// collections, tuples, unions or references.
+/**
+ * Every field (or the ones in `options.keys`) optional, without its default
+ * unless `defaults: true`; `deep` goes into nested structs, not into
+ * collections, tuples, unions or references.
+ */
 export function partial<
   D extends string | object,
   const O extends PartialOptions<DeriveKeyOf<D>> = {},
 >(schema: Schema<D> & StructGuardOf<D>, options?: O): DerivedSchema<D, PartialDefinition<D, O>>;
 
-// Every field (or the ones in `options.keys`) required; the defaults stay.
+/** Every field (or the ones in `options.keys`) required; the defaults stay. */
 export function required<
   D extends string | object,
   const O extends RequiredOptions<DeriveKeyOf<D>> = {},
 >(schema: Schema<D> & StructGuardOf<D>, options?: O): DerivedSchema<D, RequiredDefinition<D, O>>;
 
-// The fields of the extension (an object of fields, or a Schema of a
-// struct) over the schema's: one of the same name takes the place of the
-// schema's, the others come after. `merge` of `./model` unifies instead. An
-// extension whose definition is not known (an entity of a model) gives a
-// `Schema` of an unknown one, as a source whose definition is not known does.
+/**
+ * The fields of the extension (an object of fields, or a Schema of a
+ * struct) over the schema's: one of the same name takes the place of the
+ * schema's, the others come after. `merge` of `./model` unifies instead. An
+ * extension whose definition is not known (an entity of a model) gives a
+ * `Schema` of an unknown one, as a source whose definition is not known does.
+ */
 export function extend<
   D extends string | object,
   const X extends object,
@@ -75,12 +81,14 @@ export function extend<
   options?: O,
 ): ExtendedSchema<D, X, ExtendDefinition<D, X, O>>;
 
-// The names of the fields a value carries, as a schema of an enum.
+/** The names of the fields a value carries, as a schema of an enum. */
 export function keyof<D extends string | object>(
   schema: Schema<D> & StructGuardOf<D>,
   options?: DeriveOptions,
 ): DerivedSchema<D, KeyofDefinition<D>>;
 
-// Adds the six as methods of Schema (`schema.omit(['id']).partial()`), not
-// enumerable. Once per process; importing the subpath registers nothing.
+/**
+ * Adds the six as methods of Schema (`schema.omit(['id']).partial()`), not
+ * enumerable. Once per process; importing the subpath registers nothing.
+ */
 export function register(): void;

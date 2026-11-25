@@ -17,8 +17,10 @@ export type KnownKind =
   | 'struct'
   | 'scalar';
 
-// A capitalized first key that is not a known kind is a custom kind; the
-// intersection keeps the known names in completions.
+/**
+ * A capitalized first key that is not a known kind is a custom kind; the
+ * intersection keeps the known names in completions.
+ */
 export type Kind = KnownKind | (string & {});
 
 export type Cardinality = 'one-to-many' | 'many-to-one';
@@ -28,7 +30,7 @@ export interface Relation {
   type: Cardinality;
 }
 
-// Codes of the issues the library produces; a validator may use its own.
+/** Codes of the issues the library produces; a validator may use its own. */
 export type IssueCode =
   | 'required'
   | 'type'
@@ -46,42 +48,48 @@ export type IssueCode =
   | 'exception'
   | 'custom';
 
-// The params of the issues the library produces, by code.
+/** The params of the issues the library produces, by code. */
 export interface IssueParams {
   required: {};
-  // `key` is set when a key of an `object` or `map`, not a value, has the wrong type.
+  /** `key` is set when a key of an `object` or `map`, not a value, has the wrong type. */
   type: { expected: string; received: string; key?: PropertyKey };
   unexpected: { keys: string[] };
   enum: { values: unknown[] };
   length: { min: number | undefined; max: number | undefined; actual: number };
-  // A `min`/`max` rule failed; the bounds are what the definition gave.
+  /** A `min`/`max` rule failed; the bounds are what the definition gave. */
   range: {
     min: number | bigint | undefined;
     max: number | bigint | undefined;
     actual: number | bigint;
   };
-  // The source of the pattern the string did not match.
+  /** The source of the pattern the string did not match. */
   pattern: { pattern: string };
-  // The name of the format the string is not of.
+  /** The name of the format the string is not of. */
   format: { format: string };
-  // The decimals the number may have: it has more, or it is not finite
-  // (`received` names NaN or the infinity then).
+  /**
+   * The decimals the number may have: it has more, or it is not finite
+   * (`received` names NaN or the infinity then).
+   */
   decimals: { decimals: number; received?: string };
-  // No branch of a union matched: the branch names, or the discriminator
-  // values when the union has a discriminator (the path then ends with it).
+  /**
+   * No branch of a union matched: the branch names, or the discriminator
+   * values when the union has a discriminator (the path then ends with it).
+   */
   union: { expected: unknown[]; discriminator: string | undefined };
   reference: { entity: string };
   circular: {};
   depth: { max: number };
   exception: { error: unknown };
-  // A validator's own issue carries the params it gave, if any.
+  /** A validator's own issue carries the params it gave, if any. */
   custom: Record<string, unknown>;
 }
 
-// An issue is data: the code, the path of keys from the root of the value, the
-// message about the problem (without the location) and the params the message
-// was rendered from. A validator's own issue carries the code and params it
-// gave; `IssueOf<Code>` is the issue of one of the library's codes.
+/**
+ * An issue is data: the code, the path of keys from the root of the value, the
+ * message about the problem (without the location) and the params the message
+ * was rendered from. A validator's own issue carries the code and params it
+ * gave; `IssueOf<Code>` is the issue of one of the library's codes.
+ */
 export type ValidationIssue =
   | {
       [Code in IssueCode]: {
@@ -95,8 +103,10 @@ export type ValidationIssue =
 
 export type IssueOf<Code extends IssueCode> = Extract<ValidationIssue, { code: Code }>;
 
-// What a validator may return: an issue of its own needs only a message. Its
-// path is relative to the field the validator belongs to.
+/**
+ * What a validator may return: an issue of its own needs only a message. Its
+ * path is relative to the field the validator belongs to.
+ */
 export interface IssueInput {
   code?: string;
   path?: PropertyKey | PropertyKey[];
@@ -104,6 +114,11 @@ export interface IssueInput {
   params?: Record<string, unknown>;
 }
 
+/**
+ * What a validator or a custom `checkType` may return: `true`, `null` or `undefined` when the
+ * value is valid; `false` for a `custom` issue (a `type` issue from a `checkType`); a message;
+ * an issue; a list of those; or a `ValidationResult`, whose issues are relative to the field.
+ */
 export type ValidationReturn =
   | boolean
   | string
@@ -114,74 +129,96 @@ export type ValidationReturn =
   | undefined
   | void;
 
-// The messages of a locale: a renderer per issue code, from the params of the
-// issue to the text that follows the field, and `field` for the location
-// prefix of an error line. A partial table falls back to English.
+/**
+ * The messages of a locale: a renderer per issue code, from the params of the
+ * issue to the text that follows the field, and `field` for the location
+ * prefix of an error line. A partial table falls back to English.
+ */
 export type Locale = {
   [Code in IssueCode]?: (params: IssueParams[Code], issue?: ValidationIssue) => string;
 } & {
   field?: (path: string) => string;
 };
 
+/** The messages of a check: a locale, or a function that renders every issue. */
 export type Messages = Locale | ((issue: ValidationIssue) => string);
 
+/** The options of `check` and `checkAsync`, and of the check inside `parse`. */
 export interface CheckOptions {
-  // The label the error lines start with: the schema name by default, '' for
-  // none. Issue paths are relative to the value and do not include it.
+  /**
+   * The label the error lines start with: the schema name by default, '' for
+   * none. Issue paths are relative to the value and do not include it.
+   */
   root?: string;
-  // Stop collecting after this many issues (at least 1).
+  /** Stop collecting after this many issues (at least 1). */
   maxErrors?: number;
-  // How deep a value may nest through embedded references (an integer of at
-  // least 1, 128 by default): a record deeper than that is a `depth` issue.
+  /**
+   * How deep a value may nest through embedded references (an integer of at
+   * least 1, 128 by default): a record deeper than that is a `depth` issue.
+   */
   maxDepth?: number;
-  // What to do with keys the schema does not have: report them as one
-  // `unexpected` issue per struct, or ignore them. The default is the
-  // schema's own `unknown` metadata, 'reject' unless it says otherwise.
+  /**
+   * What to do with keys the schema does not have: report them as one
+   * `unexpected` issue per struct, or ignore them. The default is the
+   * schema's own `unknown` metadata, 'reject' unless it says otherwise.
+   */
   unknown?: 'reject' | 'ignore';
-  // How a reference is checked: as its target's kind says ('kind', the
-  // default: a stored kind as an id, a memory kind as the record), every
-  // reference as the record ('embed') or every reference as an id ('id').
+  /**
+   * How a reference is checked: as its target's kind says ('kind', the
+   * default: a stored kind as an id, a memory kind as the record), every
+   * reference as the record ('embed') or every reference as an id ('id').
+   */
   references?: 'kind' | 'embed' | 'id';
-  // The locale of the messages, or a function that renders every message.
+  /** The locale of the messages, or a function that renders every message. */
   messages?: Messages;
 }
 
-// The options of parse: those of check, and `strip` for the keys the schema
-// does not have, which the output then leaves out.
+/**
+ * The options of parse: those of check, and `strip` for the keys the schema
+ * does not have, which the output then leaves out.
+ */
 export interface ParseOptions extends Omit<CheckOptions, 'unknown'> {
   unknown?: 'reject' | 'ignore' | 'strip';
-  // Whether parse converts the input to the types of the fields before the
-  // check (`'42'` to a number, an ISO string to a Date): the schema's
-  // `coerce` metadata unless the call says otherwise, a field's own
-  // `coerce` key for its subtree. The converters are those `register()` of
-  // the `@alexify/metaschema/coerce` subpath installed; `check` never
-  // converts.
+  /**
+   * Whether parse converts the input to the types of the fields before the
+   * check (`'42'` to a number, an ISO string to a Date): the schema's
+   * `coerce` metadata unless the call says otherwise, a field's own
+   * `coerce` key for its subtree. The converters are those `register()` of
+   * the `@alexify/metaschema/coerce` subpath installed; `check` never
+   * converts.
+   */
   coerce?: boolean;
 }
 
-// The options of `coerce(schema, value)` of the `@alexify/metaschema/coerce`
-// subpath: how references are followed and how deep, and an array given the
-// path of every key the pass changed (a value converted, a default filled).
+/**
+ * The options of `coerce(schema, value)` of the `@alexify/metaschema/coerce`
+ * subpath: how references are followed and how deep, and an array given the
+ * path of every key the pass changed (a value converted, a default filled).
+ */
 export interface CoerceOptions {
   references?: CheckOptions['references'];
   maxDepth?: number;
   report?: PropertyKey[][];
 }
 
-// A converter of coercion: the value of a field of its type read from what
-// the input gave, or the value itself when it cannot be read (the check then
-// reports it as given). Registered process-wide by `register()` of the
-// `@alexify/metaschema/coerce` subpath, or given to a model for its own type
-// names (`ModelOptions.coercions`).
+/**
+ * A converter of coercion: the value of a field of its type read from what
+ * the input gave, or the value itself when it cannot be read (the check then
+ * reports it as given). Registered process-wide by `register()` of the
+ * `@alexify/metaschema/coerce` subpath, or given to a model for its own type
+ * names (`ModelOptions.coercions`).
+ */
 export type Coercion = (value: unknown, field: FieldType) => unknown;
 
-// What parse returns: the output only for a valid value, the issues always.
+/** What parse returns: the output only for a valid value, the issues always. */
 export type ParseResult<T> =
   | { valid: true; value: T; issues: [] }
   | { valid: false; value: undefined; issues: ValidationIssue[] };
 
-// The options of serialize: `check` validates the result with the other
-// options as the options of check.
+/**
+ * The options of serialize: `check` validates the result with the other
+ * options as the options of check.
+ */
 export interface SerializeOptions extends CheckOptions {
   check?: boolean;
 }
@@ -197,111 +234,146 @@ export interface SerializeChecked<T> {
 }
 
 export interface ResultOptions {
-  // The label the error lines start with (the schema name in a check).
+  /** The label the error lines start with (the schema name in a check). */
   root?: string;
   messages?: Messages;
 }
 
-// Messages by dotted path: `formErrors` for the value itself, `fieldErrors`
-// for its fields.
+/**
+ * Messages by dotted path: `formErrors` for the value itself, `fieldErrors`
+ * for its fields.
+ */
 export interface FlatIssues {
   formErrors: string[];
   fieldErrors: Record<string, string[]>;
 }
 
-// Messages as a tree that follows the value.
+/** Messages as a tree that follows the value. */
 export interface IssueTree {
   errors: string[];
   properties?: Record<string, IssueTree>;
   items?: IssueTree[];
 }
 
+/** What `check` returns: the issues as data and their messages, rendered once at the end. */
 export class ValidationResult {
+  /** The issues in the order the check met them; `path` is relative to the value. */
   issues: ValidationIssue[];
+  /** True when the check recorded no issue. */
   readonly valid: boolean;
-  // The messages with their location, rendered on first use.
+  /** The messages with their location, rendered on first use. */
   readonly errors: string[];
+  /** The lines of `errors` joined by newlines. */
   readonly summary: string;
   constructor(options?: ResultOptions);
+  /** Adds what a validator may return as issues (a validator that builds a result of its own). */
   add(error: ValidationReturn, code?: IssueCode): this;
+  /** The messages by dotted path, for a form. */
   flatten(): FlatIssues;
+  /** The messages as a tree that follows the value. */
   tree(): IssueTree;
-  // The result as data: what JSON.stringify(result) writes.
+  /** The result as data: what JSON.stringify(result) writes. */
   toJSON(): { valid: boolean; issues: ValidationIssue[] };
+  /** The issues of what a validator may return, under `path`. */
   static issuesOf(
     error: ValidationReturn,
     path?: PropertyKey[],
     code?: IssueCode,
   ): ValidationIssue[];
+  /**
+   * Whether a value is a ValidationResult of any copy of the package (by brand, not instanceof).
+   */
   static isInstance(error: unknown): boolean;
 }
 
-// The state of one check, threaded through the `check` of every field.
+/** The state of one check, threaded through the `check` of every field. */
 export interface CheckContext {
   issues: ValidationIssue[];
   count: number;
   limit: number;
-  // How many embedded records the check is inside, and how many it may be
-  // before a record is a `depth` issue (128 by default).
+  /**
+   * How many embedded records the check is inside, and how many it may be
+   * before a record is a `depth` issue (128 by default).
+   */
   depth: number;
   maxDepth: number;
   path: PropertyKey[];
   seen: Set<object> | null;
-  // The value the check started from, when the schema can reach it again
-  // through a reference; null otherwise.
+  /**
+   * The value the check started from, when the schema can reach it again
+   * through a reference; null otherwise.
+   */
   source: unknown;
-  // 'strip' in a parse, where the check behind it treats it as 'ignore'.
+  /** 'strip' in a parse, where the check behind it treats it as 'ignore'. */
   unknown: 'reject' | 'ignore' | 'strip';
   references: 'kind' | 'embed' | 'id';
   root: string;
   messages: Messages;
-  // The validators that returned a promise, settled after the walk by
-  // checkAsync and parseAsync; null in a synchronous check.
+  /**
+   * The validators that returned a promise, settled after the walk by
+   * checkAsync and parseAsync; null in a synchronous check.
+   */
   async: unknown[] | null;
-  // The context parse tries the branches of a plain union in; null in a check.
+  /** The context parse tries the branches of a plain union in; null in a check. */
   scratch: CheckContext | null;
-  // Whether the check read a field from one of its aliases: the pass after it
-  // renames only when it did.
+  /**
+   * Whether the check read a field from one of its aliases: the pass after it
+   * renames only when it did.
+   */
   renamed: boolean;
 }
 
-// A validator may return a promise of its result to checkAsync and parseAsync;
-// to check and parse a promise is a SchemaUsageError with the code ALX_ERR_ASYNC_VALIDATOR.
+/**
+ * A validator may return a promise of its result to checkAsync and parseAsync;
+ * to check and parse a promise is a SchemaUsageError with the code ALX_ERR_ASYNC_VALIDATOR.
+ */
 export type Validator = (value: any, path: string) => ValidationReturn | Promise<ValidationReturn>;
 
+/** A calculated field: a function of the struct, kept as it is and never validated. */
 export type CalculatedField = (value: any) => unknown;
 
-// A field of a struct: an instance of the type's class. Keys of the
-// definition the type does not use (`unique`, `default`, ...) are kept on it.
+/**
+ * A field of a struct: an instance of the type's class. Keys of the
+ * definition the type does not use (`unique`, `default`, ...) are kept on it.
+ */
 export interface FieldType {
   readonly type: string;
   required: boolean;
-  // The value may be null; the key is still required unless `required` is false.
+  /** The value may be null; the key is still required unless `required` is false. */
   nullable?: boolean;
-  // Whether parse converts the input of this field and what is under it,
-  // whatever the policy of the call or the schema.
+  /**
+   * Whether parse converts the input of this field and what is under it,
+   * whatever the policy of the call or the schema.
+   */
   coerce?: boolean;
-  // On a reference: check and render it as the record (true) or its id
-  // (false) whatever the kind of its target.
+  /**
+   * On a reference: check and render it as the record (true) or its id
+   * (false) whatever the kind of its target.
+   */
   embed?: boolean;
   validate?: Validator;
-  // The decoder parse runs on the validated value, and the serializer
-  // serialize runs on the value of the program, when the definition gave them.
+  /**
+   * The decoder parse runs on the validated value, and the serializer
+   * serialize runs on the value of the program, when the definition gave them.
+   */
   parse?: (value: any) => unknown;
   serialize?: (value: any) => unknown;
-  // What parse fills a missing key with: a value, or a function called for one.
+  /** What parse fills a missing key with: a value, or a function called for one. */
   default?: unknown;
-  // The keys the field is also read from, in a struct: check accepts a value
-  // under an alias in place of the field's key, parse renames it. The keys
-  // of the value the schema accepts (`Infer`) and the generated documents
-  // name the field's own key only.
+  /**
+   * The keys the field is also read from, in a struct: check accepts a value
+   * under an alias in place of the field's key, parse renames it. The keys
+   * of the value the schema accepts (`Infer`) and the generated documents
+   * name the field's own key only.
+   */
   aliases?: string[];
-  // Records the problems of a value into the context of the current check.
+  /** Records the problems of a value into the context of the current check. */
   check(value: unknown, context: CheckContext): void;
   toJSON(): object;
   [key: string]: unknown;
 }
 
+/** The fields of a struct by key. */
 export type Fields = Record<string, FieldType | CalculatedField>;
 
 export interface TypeConstructor {
@@ -313,59 +385,75 @@ export interface TypeConstructor {
 
 export type TypeTable = Record<string, TypeConstructor>;
 
-// What `sample` of the `@alexify/metaschema/model` subpath draws for a
-// custom type: the value `metadata.sample` holds, or what the function it
-// holds returns for the field and the seeded generator of the draw.
+/**
+ * What `sample` of the `@alexify/metaschema/model` subpath draws for a
+ * custom type: the value `metadata.sample` holds, or what the function it
+ * holds returns for the field and the seeded generator of the draw.
+ */
 export type SampleHook = (field: FieldType, random: () => number) => unknown;
 
-// The metadata of a type: anything, read by the programs built on the
-// model; `sample` is the one key the package reads (see `SampleHook`).
+/**
+ * The metadata of a type: anything, read by the programs built on the
+ * model; `sample` is the one key the package reads (see `SampleHook`).
+ */
 export interface TypeMetadata {
   sample?: SampleHook | {} | null;
   [key: string]: unknown;
 }
 
-// An entry of the table passed to Model: metadata for a built-in, an alias
-// (`js`), or a prototype with its own `construct` and `checkType`. A
-// prototype may bring a `compile` in place of `checkType` (it returns the
-// check, `(value, context, key) => void`): it runs on the first check of a
-// field, not when the schema is built, so it must not be where the
-// definition is checked (`construct` is); what it throws is
-// ALX_ERR_INVALID_CUSTOM_TYPE with the error as the cause.
+/**
+ * An entry of the table passed to Model: metadata for a built-in, an alias
+ * (`js`), or a prototype with its own `construct` and `checkType`. A
+ * prototype may bring a `compile` in place of `checkType` (it returns the
+ * check, `(value, context, key) => void`): it runs on the first check of a
+ * field, not when the schema is built, so it must not be where the
+ * definition is checked (`construct` is); what it throws is
+ * ALX_ERR_INVALID_CUSTOM_TYPE with the error as the cause.
+ */
 export interface TypeEntry {
   js?: string;
   metadata?: TypeMetadata;
   kind?: 'scalar' | 'struct';
-  // The rules the type accepts in a field definition (`length`, `min`, `max`).
+  /** The rules the type accepts in a field definition (`length`, `min`, `max`). */
   rules?: string[];
   construct?(def: object, preprocessor: object): void;
   checkType?(value: any, path: string): ValidationReturn | Promise<ValidationReturn>;
   [key: string]: unknown;
 }
 
+/** The options of `new Model`. */
 export interface ModelOptions {
-  // 'shared' (the default) registers the types into the process-wide registry;
-  // 'isolated' gives the model its own copy of the built-in types to register into.
+  /**
+   * 'shared' (the default) registers the types into the process-wide registry;
+   * 'isolated' gives the model its own copy of the built-in types to register into.
+   */
   registry?: 'shared' | 'isolated';
-  // The converters of coercion for the model's own type names, read before
-  // the process-wide table for the fields of its entities: what an isolated
-  // registry is to the types.
+  /**
+   * The converters of coercion for the model's own type names, read before
+   * the process-wide table for the fields of its entities: what an isolated
+   * registry is to the types.
+   */
   coercions?: Record<string, Coercion>;
 }
 
+/** The metadata of a kind key, with the defaults of its kind filled in. */
 export interface KindMetadata {
   kind: Kind;
   scope: Scope;
   store: Store;
   allow: Allow;
   parent?: string;
-  // The default of `check` for keys the schema does not have.
+  /** The default of `check` for keys the schema does not have. */
   unknown?: 'reject' | 'ignore';
-  // The default of `parse` (and so of `~standard.validate`) for coercion.
+  /** The default of `parse` (and so of `~standard.validate`) for coercion. */
   coerce?: boolean;
   [key: string]: unknown;
 }
 
+/**
+ * The functions of a schema itself: `validate` runs once its fields passed, `parse` and
+ * `serialize` are its codecs, and `format` is collected and never called.
+ */
 export interface SchemaOptions {
   validate: Validator | null;
   format: ((value: any) => unknown) | null;
@@ -373,6 +461,7 @@ export interface SchemaOptions {
   serialize: ((value: any) => unknown) | null;
 }
 
+/** The codes of a SchemaDefinitionError: the definition, not the call, is wrong. */
 export type DefinitionErrorCode =
   | 'ALX_ERR_INVALID_DEFINITION'
   | 'ALX_ERR_UNKNOWN_TYPE'
@@ -432,15 +521,23 @@ export type DefinitionErrorCode =
   // in the default mode.
   | 'ALX_ERR_JIT_BUILD';
 
+/**
+ * What a broken definition throws when the schema is built, never from a check: a TypeError
+ * with a code, located at the schema and the field.
+ */
 export class SchemaDefinitionError extends TypeError {
   readonly code: DefinitionErrorCode;
   schema: string;
   field: string;
   constructor(code: DefinitionErrorCode, reason: string, options?: { cause?: unknown });
+  /**
+   * Prefixes the location with a schema and the key of the struct that owns the field; a field
+   * of '' locates an error of the schema as a whole.
+   */
   locate(schema: string, field: string): this;
 }
 
-// The codes of a SchemaUsageError: the call, not the definition, is wrong.
+/** The codes of a SchemaUsageError: the call, not the definition, is wrong. */
 export type RuntimeErrorCode =
   // A validator, a custom checkType or a decoder returned a promise to a
   // synchronous check or parse.
@@ -466,9 +563,11 @@ export type RuntimeErrorCode =
   // file system to write to.
   | 'ALX_ERR_UNSUPPORTED_RUNTIME';
 
-// What a wrong call throws: a TypeError with a code. An invalid record of a
-// stream carries it, its position and its result; an ALX_ERR_NOT_REGISTERED of a
-// schema of the definition entry names the method that was called.
+/**
+ * What a wrong call throws: a TypeError with a code. An invalid record of a
+ * stream carries it, its position and its result; an ALX_ERR_NOT_REGISTERED of a
+ * schema of the definition entry names the method that was called.
+ */
 export class SchemaUsageError extends TypeError {
   readonly code: RuntimeErrorCode;
   index?: number;
@@ -499,20 +598,24 @@ export interface FunctionSnapshot {
   $function: true;
 }
 
-// A field of a snapshot: its type and whether it is required first, then
-// the other keys of its definition, sorted. The type decides what else it
-// holds (narrow on `type`): the rules of its type, the element of a
-// collection, the elements of a tuple, the nested struct, the branches of a
-// union, the entity of a reference (its name is the type, capitalized), or
-// the options of a custom type, whose names are those `CustomTypes` declares
-// (as `Infer` reads them). Any field may carry the keys of
-// `FieldSnapshotBase`; a key the definition gave beyond them is kept too.
+/**
+ * A field of a snapshot: its type and whether it is required first, then
+ * the other keys of its definition, sorted. The type decides what else it
+ * holds (narrow on `type`): the rules of its type, the element of a
+ * collection, the elements of a tuple, the nested struct, the branches of a
+ * union, the entity of a reference (its name is the type, capitalized), or
+ * the options of a custom type, whose names are those `CustomTypes` declares
+ * (as `Infer` reads them). Any field may carry the keys of
+ * `FieldSnapshotBase`; a key the definition gave beyond them is kept too.
+ */
 export interface FieldSnapshotBase {
   required: boolean;
   nullable?: boolean;
   coerce?: boolean;
-  // A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`,
-  // `{ $bytes }`, `{ $map }`, `{ $set }` for the values that have no JSON form.
+  /**
+   * A value, `{ $function: true }` for a factory, `{ $bigint }`, `{ $date }`,
+   * `{ $bytes }`, `{ $map }`, `{ $set }` for the values that have no JSON form.
+   */
   default?: unknown;
   aliases?: string[];
   deprecated?: boolean | string;
@@ -533,8 +636,10 @@ export interface DateSnapshot {
   $date: string;
 }
 
-// Bytes as base64 text, a Map as its entries and a Set as its values, each
-// value of them written as any value of a snapshot is.
+/**
+ * Bytes as base64 text, a Map as its entries and a Set as its values, each
+ * value of them written as any value of a snapshot is.
+ */
 export interface BytesSnapshot {
   $bytes: string;
 }
@@ -547,7 +652,7 @@ export interface SetSnapshot {
   $set: unknown[];
 }
 
-// A `length` rule: the bounds it has.
+/** A `length` rule: the bounds it has. */
 export interface LengthSnapshot {
   min?: number;
   max?: number;
@@ -557,7 +662,7 @@ export interface StringFieldSnapshot extends FieldSnapshotBase {
   type: 'string';
   length?: LengthSnapshot;
   unicode?: boolean;
-  // The source of a pattern of the `u` flag alone, else its source and flags.
+  /** The source of a pattern of the `u` flag alone, else its source and flags. */
   pattern?: string | { source: string; flags: string };
   format?: string;
 }
@@ -579,7 +684,7 @@ export interface ScalarFieldSnapshot extends FieldSnapshotBase {
   type: 'boolean' | 'date' | 'null' | 'any' | 'unknown' | 'json';
 }
 
-// Binary data, its `length` the number of bytes.
+/** Binary data, its `length` the number of bytes. */
 export interface BytesFieldSnapshot extends FieldSnapshotBase {
   type: 'bytes';
   length?: LengthSnapshot;
@@ -608,7 +713,7 @@ export interface KeyedFieldSnapshot extends FieldSnapshotBase {
   length?: LengthSnapshot;
 }
 
-// An element of a tuple, `name` the one a named element was given.
+/** An element of a tuple, `name` the one a named element was given. */
 export type TupleElementSnapshot = FieldSnapshot & { name?: string };
 
 export interface TupleFieldSnapshot extends FieldSnapshotBase {
@@ -616,7 +721,7 @@ export interface TupleFieldSnapshot extends FieldSnapshotBase {
   value: TupleElementSnapshot[];
 }
 
-// A nested struct, or a Schema of one type held as a field.
+/** A nested struct, or a Schema of one type held as a field. */
 export interface StructFieldSnapshot extends FieldSnapshotBase {
   type: 'schema';
   schema: FieldsSnapshot | FieldSnapshot;
@@ -656,7 +761,7 @@ type UpperLetter =
   | 'Y'
   | 'Z';
 
-// A reference: the type is the name of the entity, under `one` or `many`.
+/** A reference: the type is the name of the entity, under `one` or `many`. */
 export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
   type: `${UpperLetter}${string}`;
   one?: string;
@@ -664,10 +769,12 @@ export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
   embed?: boolean;
 }
 
-// A field of a custom type, by the names `CustomTypes` declares: a snapshot
-// of a model whose custom types are not declared there holds fields of type
-// names no member of `FieldSnapshot` has, which an exhaustive `switch` over
-// `type` does not see; give it a `default`.
+/**
+ * A field of a custom type, by the names `CustomTypes` declares: a snapshot
+ * of a model whose custom types are not declared there holds fields of type
+ * names no member of `FieldSnapshot` has, which an exhaustive `switch` over
+ * `type` does not see; give it a `default`.
+ */
 export interface CustomFieldSnapshot extends FieldSnapshotBase {
   type: keyof CustomTypes & string;
 }
@@ -688,8 +795,10 @@ export type FieldSnapshot =
   | ReferenceFieldSnapshot
   | CustomFieldSnapshot;
 
-// The fields of a struct in their order: a calculated field, the validate,
-// parse or serialize of the struct are `{ $function: true }`.
+/**
+ * The fields of a struct in their order: a calculated field, the validate,
+ * parse or serialize of the struct are `{ $function: true }`.
+ */
 export type FieldsSnapshot = Record<string, FieldSnapshot | FunctionSnapshot>;
 
 export interface EntitySnapshot {
@@ -697,22 +806,24 @@ export interface EntitySnapshot {
   scope: Scope;
   store: Store;
   allow: Allow;
-  // The parent of a projection, '' otherwise.
+  /** The parent of a projection, '' otherwise. */
   parent: string;
   unknown: 'reject' | 'ignore';
-  // The other keys of the kind metadata, as given.
+  /** The other keys of the kind metadata, as given. */
   custom: Record<string, unknown>;
-  // A struct's fields, with the schema-level functions among them, or
+  /** A struct's fields, with the schema-level functions among them, or */
   fields?: FieldsSnapshot;
-  // the type of a schema of one type.
+  /** the type of a schema of one type. */
   type?: FieldSnapshot;
-  // The index definitions (`index`, `primary`, `unique` lists), as given.
+  /** The index definitions (`index`, `primary`, `unique` lists), as given. */
   indexes: Record<string, object>;
   relations: Relation[];
 }
 
-// A type the entities use: an alias of a built-in (`js`), a type with a
-// check of its own (`check: true`, its kind), or a built-in with metadata.
+/**
+ * A type the entities use: an alias of a built-in (`js`), a type with a
+ * check of its own (`check: true`, its kind), or a built-in with metadata.
+ */
 export interface TypeSnapshot {
   js?: string;
   kind?: 'scalar' | 'struct';
@@ -722,38 +833,48 @@ export interface TypeSnapshot {
 
 export interface ModelSnapshot {
   format: 1;
-  // The entity a snapshot of one schema is about (`schema.toSnapshot()`);
-  // a model's snapshot has none.
+  /**
+   * The entity a snapshot of one schema is about (`schema.toSnapshot()`);
+   * a model's snapshot has none.
+   */
   root?: string;
   database: Record<string, unknown> | null;
   types: Record<string, TypeSnapshot>;
   entities: Record<string, EntitySnapshot>;
 }
 
-// `schema.toSnapshot()`: the schema (under its name, '' when anonymous)
-// and every entity it reaches through its references, in dependency order.
+/**
+ * `schema.toSnapshot()`: the schema (under its name, '' when anonymous)
+ * and every entity it reaches through its references, in dependency order.
+ */
 export interface SchemaSnapshot extends ModelSnapshot {
   root: string;
   database: null;
 }
 
-// The options of `fromJSON` of the `@alexify/metaschema/model` subpath.
+/** The options of `fromJSON` of the `@alexify/metaschema/model` subpath. */
 export interface RestoreOptions {
-  // Entries of the table Model takes, over the types of the snapshot: the
-  // real custom types, where the restored model should validate as the
-  // original did.
+  /**
+   * Entries of the table Model takes, over the types of the snapshot: the
+   * real custom types, where the restored model should validate as the
+   * original did.
+   */
   types?: Record<string, TypeEntry>;
-  // 'isolated' (the default) gives the restored model its own registry, so
-  // the placeholders of its custom types never reach the shared one; a
-  // 'shared' registry takes no placeholder type (`ALX_ERR_INVALID_SNAPSHOT`
-  // unless `types` brings the real one).
+  /**
+   * 'isolated' (the default) gives the restored model its own registry, so
+   * the placeholders of its custom types never reach the shared one; a
+   * 'shared' registry takes no placeholder type (`ALX_ERR_INVALID_SNAPSHOT`
+   * unless `types` brings the real one).
+   */
   registry?: 'shared' | 'isolated';
 }
 
-// A model restored by `fromJSON`: a Model that lists the paths of the
-// placeholders standing in for the functions of the snapshot (`Order.validate`,
-// `Order.total` for a calculated field, `Order.address.parse`, `Order.when.default`,
-// `types.hex.checkType`), invisibly to `toJSON`.
+/**
+ * A model restored by `fromJSON`: a Model that lists the paths of the
+ * placeholders standing in for the functions of the snapshot (`Order.validate`,
+ * `Order.total` for a calculated field, `Order.address.parse`, `Order.when.default`,
+ * `types.hex.checkType`), invisibly to `toJSON`.
+ */
 export interface RestoredModel extends Model {
   readonly placeholders: string[];
 }
@@ -767,13 +888,15 @@ export type ChangeKind = 'entity' | 'field' | 'index' | 'relation' | 'type';
 
 export type ChangeOp = 'added' | 'removed' | 'changed' | 'renamed';
 
-// One change between two versions of a model: what changed (`kind`), how
-// (`op`), in which entity ('' for a type), under which name (the entity, the
-// field, the index, the target of a relation, the type), what it was
-// (`from`) and is (`to`), and the detail: the keys that differ for a
-// `changed` entity, field, index or type; the old key (`renamed`) and the
-// keys that differ beyond `aliases` for a field renamed through an alias;
-// `deprecated: true` for a removed field that was marked so.
+/**
+ * One change between two versions of a model: what changed (`kind`), how
+ * (`op`), in which entity ('' for a type), under which name (the entity, the
+ * field, the index, the target of a relation, the type), what it was
+ * (`from`) and is (`to`), and the detail: the keys that differ for a
+ * `changed` entity, field, index or type; the old key (`renamed`) and the
+ * keys that differ beyond `aliases` for a field renamed through an alias;
+ * `deprecated: true` for a removed field that was marked so.
+ */
 export interface SchemaChange {
   kind: ChangeKind;
   op: ChangeOp;
@@ -784,132 +907,172 @@ export interface SchemaChange {
   detail?: { keys?: string[]; renamed?: string; deprecated?: true };
 }
 
-// 'backward': a reader with the new model reads data written with the old
-// one; 'forward': a reader with the old model reads data written with the
-// new one; 'full': both; 'none': neither.
+/**
+ * 'backward': a reader with the new model reads data written with the old
+ * one; 'forward': a reader with the old model reads data written with the
+ * new one; 'full': both; 'none': neither.
+ */
 export type Compatibility = 'full' | 'backward' | 'forward' | 'none';
 
-// The options of `merge` of the `@alexify/metaschema/model` subpath.
+/** The options of `merge` of the `@alexify/metaschema/model` subpath. */
 export interface MergeOptions {
-  // The name of the merged schema: the first schema's by default.
+  /** The name of the merged schema: the first schema's by default. */
   name?: string;
-  // The kind metadata of the merged schema, over the first schema's: `kind`,
-  // `scope`, `store`, `allow`, `unknown` and any other key.
+  /**
+   * The kind metadata of the merged schema, over the first schema's: `kind`,
+   * `scope`, `store`, `allow`, `unknown` and any other key.
+   */
   metadata?: Partial<KindMetadata>;
 }
 
-// The options of every function of the `@alexify/metaschema/derive` subpath.
+/** The options of every function of the `@alexify/metaschema/derive` subpath. */
 export interface DeriveOptions {
-  // The name of the derived schema: the source's by default.
+  /** The name of the derived schema: the source's by default. */
   name?: string;
-  // The kind metadata of the derived schema, over the source's (a stored
-  // kind or a projection is a struct, keeping its `unknown`).
+  /**
+   * The kind metadata of the derived schema, over the source's (a stored
+   * kind or a projection is a struct, keeping its `unknown`).
+   */
   metadata?: Partial<KindMetadata>;
 }
 
-// The options of `partial`: the fields to make optional (every one by
-// default), `deep` into nested structs, and `defaults` to keep the defaults
-// a patch would otherwise fill.
+/**
+ * The options of `partial`: the fields to make optional (every one by
+ * default), `deep` into nested structs, and `defaults` to keep the defaults
+ * a patch would otherwise fill.
+ */
 export interface PartialOptions<K extends string = string> extends DeriveOptions {
   keys?: readonly K[];
   deep?: boolean;
   defaults?: boolean;
 }
 
-// The options of `required`: the fields to make required (every one by
-// default) and `deep` into nested structs.
+/**
+ * The options of `required`: the fields to make required (every one by
+ * default) and `deep` into nested structs.
+ */
 export interface RequiredOptions<K extends string = string> extends DeriveOptions {
   keys?: readonly K[];
   deep?: boolean;
 }
 
-// The options of `infer` of the `@alexify/metaschema/model` subpath (the
-// name sits beside the type `Infer<D>`: the function reads samples, the type
-// reads a definition).
+/**
+ * The options of `infer` of the `@alexify/metaschema/model` subpath (the
+ * name sits beside the type `Infer<D>`: the function reads samples, the type
+ * reads a definition).
+ */
 export interface InferOptions {
-  // What comes back: the definition ('definition', the default), or a Schema
-  // built from it ('schema').
+  /**
+   * What comes back: the definition ('definition', the default), or a Schema
+   * built from it ('schema').
+   */
   as?: 'definition' | 'schema';
-  // The name of the Schema, and of the error locations ('').
+  /** The name of the Schema, and of the error locations (''). */
   name?: string;
-  // The kind of a root that is a struct ('struct'); a stored kind adds its
-  // id field, which wins over an inferred field of that name.
+  /**
+   * The kind of a root that is a struct ('struct'); a stored kind adds its
+   * id field, which wins over an inferred field of that name.
+   */
   kind?: string;
-  // The most distinct strings a place may hold to be an enum (8), each
-  // value seen twice on average over at least four samples; 0 or false never.
+  /**
+   * The most distinct strings a place may hold to be an enum (8), each
+   * value seen twice on average over at least four samples; 0 or false never.
+   */
   enum?: number | false;
-  // Whether whole numbers are `integer` (true) rather than `number`.
+  /** Whether whole numbers are `integer` (true) rather than `number`. */
   integer?: boolean;
-  // The distinct keys past which records of a place read as a dictionary
-  // (16) when every key is missing from some record and the values are of
-  // one kind; keys that are not names are a dictionary from one sample on;
-  // false keeps every record a struct.
+  /**
+   * The distinct keys past which records of a place read as a dictionary
+   * (16) when every key is missing from some record and the values are of
+   * one kind; keys that are not names are a dictionary from one sample on;
+   * false keeps every record a struct.
+   */
   map?: number | false;
-  // How deep a sample may nest (128, the most); past it `ALX_ERR_INFER_DEPTH`.
+  /** How deep a sample may nest (128, the most); past it `ALX_ERR_INFER_DEPTH`. */
   maxDepth?: number;
-  // Whether a place whose every string passes a registered format is that
-  // format (true); the formats subpath registers them, in the order `infer`
-  // tries them, and nothing is registered until its `register()` ran.
+  /**
+   * Whether a place whose every string passes a registered format is that
+   * format (true); the formats subpath registers them, in the order `infer`
+   * tries them, and nothing is registered until its `register()` ran.
+   */
   formats?: boolean;
 }
 
-// The options of `sample` of the `@alexify/metaschema/model` subpath.
+/** The options of `sample` of the `@alexify/metaschema/model` subpath. */
 export interface SampleOptions {
-  // The seed of the generator (1): the same seed gives the same value.
+  /** The seed of the generator (1): the same seed gives the same value. */
   seed?: number;
-  // The letters of free strings: 'en' (the default) or 'uk'.
+  /** The letters of free strings: 'en' (the default) or 'uk'. */
   locale?: 'en' | 'uk';
-  // How a reference is held, as in check: an id for a stored kind and the
-  // record for a memory kind ('kind', the default), always the record
-  // ('embed'), always an id ('id').
+  /**
+   * How a reference is held, as in check: an id for a stored kind and the
+   * record for a memory kind ('kind', the default), always the record
+   * ('embed'), always an id ('id').
+   */
   references?: 'kind' | 'embed' | 'id';
-  // How deep embedded records nest (3): an optional reference deeper than
-  // that is left out, a required one is an error.
+  /**
+   * How deep embedded records nest (3): an optional reference deeper than
+   * that is left out, a required one is an error.
+   */
   maxDepth?: number;
 }
 
-// The options of `checkEach` and `checkEachAsync` of the
-// `@alexify/metaschema/stream` subpath: those of `check`, and how many invalid
-// records end the iteration (no limit by default).
+/**
+ * The options of `checkEach` and `checkEachAsync` of the
+ * `@alexify/metaschema/stream` subpath: those of `check`, and how many invalid
+ * records end the iteration (no limit by default).
+ */
 export interface EachOptions extends CheckOptions {
   maxInvalid?: number;
 }
 
-// The options of `parseEach` and `parseEachAsync`: those of `parse`, and
-// `maxInvalid`.
+/**
+ * The options of `parseEach` and `parseEachAsync`: those of `parse`, and
+ * `maxInvalid`.
+ */
 export interface ParseEachOptions extends ParseOptions {
   maxInvalid?: number;
 }
 
-// The option of the async pair: how many records are in flight at once (1).
+/** The option of the async pair: how many records are in flight at once (1). */
 export interface EachAsyncOptions {
   concurrency?: number;
 }
 
-// The options of `transform`: those of `parse` (or of `check`, with
-// `mode: 'check'`), `maxInvalid`, and what the stream does with an invalid
-// record.
+/**
+ * The options of `transform`: those of `parse` (or of `check`, with
+ * `mode: 'check'`), `maxInvalid`, and what the stream does with an invalid
+ * record.
+ */
 export interface TransformOptions extends ParseOptions {
-  // What goes on down the stream: the parsed value ('parse', the default) or
-  // the record as it is ('check').
+  /**
+   * What goes on down the stream: the parsed value ('parse', the default) or
+   * the record as it is ('check').
+   */
   mode?: 'parse' | 'check';
-  // Whether the stream runs `parseAsync`/`checkAsync` (false).
+  /** Whether the stream runs `parseAsync`/`checkAsync` (false). */
   async?: boolean;
-  // Told of every invalid record, which is then dropped; without it the
-  // stream ends with the error at the first one.
+  /**
+   * Told of every invalid record, which is then dropped; without it the
+   * stream ends with the error at the first one.
+   */
   onInvalid?: (
     record: unknown,
     result: ValidationResult | ParseResult<unknown>,
     index: number,
   ) => void;
-  // After that many invalid records the stream ends with the error even with
-  // `onInvalid` (no limit by default).
+  /**
+   * After that many invalid records the stream ends with the error even with
+   * `onInvalid` (no limit by default).
+   */
   maxInvalid?: number;
 }
 
-// What `checkEach` and its kin yield for a record: its position in the
-// sequence, the record as the source gave it, and the result of `check` or
-// `parse`.
+/**
+ * What `checkEach` and its kin yield for a record: its position in the
+ * sequence, the record as the source gave it, and the result of `check` or
+ * `parse`.
+ */
 export interface RecordEntry<T, R> {
   index: number;
   record: T;
@@ -923,6 +1086,10 @@ export const SCOPE: Array<string>;
 export const STORE: Array<string>;
 export const ALLOW: Array<string>;
 
+/**
+ * The metadata of a kind key with the defaults of its kind, and the fields the kind adds (the
+ * id of a stored kind, the fields a projection copies).
+ */
 export function getKindMetadata(
   kind: Kind,
   meta?: Record<string, unknown>,
@@ -936,86 +1103,116 @@ export function getKindMetadata(
 // types are here so that the core and the subpath share them.
 // ---------------------------------------------------------------------------
 
-// The options of `toTypeScript`, `toInterface` and `saveTypes`.
+/** The options of `toTypeScript`, `toInterface` and `saveTypes`. */
 export interface InterfaceOptions {
-  // Give a nested struct and an enum a type of their own, named after the
-  // entity and the field (`interface AccountFullName`, `type IdentifierStorage`),
-  // rendered before the interface that uses them.
+  /**
+   * Give a nested struct and an enum a type of their own, named after the
+   * entity and the field (`interface AccountFullName`, `type IdentifierStorage`),
+   * rendered before the interface that uses them.
+   */
   named?: boolean;
 }
 
-// The JSON Schema export renders the rules of `check` as a document of a
-// target dialect; see the JSON Schema guide for the mapping.
+/**
+ * The JSON Schema export renders the rules of `check` as a document of a
+ * target dialect; see the JSON Schema guide for the mapping.
+ */
 export type JSONSchemaTarget = 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | 'mongodb';
 
 export type JSONSchema = Record<string, unknown>;
 
 export interface JSONSchemaOptions {
-  // The dialect of the document: JSON Schema draft 2020-12 (the default) or
-  // draft-07, an OpenAPI 3.0 schema object, or a MongoDB `$jsonSchema`
-  // (`bsonType`, no `$ref`, references inline).
+  /**
+   * The dialect of the document: JSON Schema draft 2020-12 (the default) or
+   * draft-07, an OpenAPI 3.0 schema object, or a MongoDB `$jsonSchema`
+   * (`bsonType`, no `$ref`, references inline).
+   */
   target?: JSONSchemaTarget;
-  // 'strict' renders the dialect of LLM structured outputs (OpenAI, Anthropic):
-  // an object at the root, every property listed as required (an optional one
-  // accepts null), `additionalProperties: false` on every object, and the
-  // structure only (no `length`, `pattern`, `min` or `max`). For the
-  // draft-2020-12 and draft-07 targets.
+  /**
+   * 'strict' renders the dialect of LLM structured outputs (OpenAI, Anthropic):
+   * an object at the root, every property listed as required (an optional one
+   * accepts null), `additionalProperties: false` on every object, and the
+   * structure only (no `length`, `pattern`, `min` or `max`). For the
+   * draft-2020-12 and draft-07 targets.
+   */
   profile?: 'strict';
-  // Which side of the wire the document describes: 'input' (the default) is
-  // the JSON a value is parsed from (a `date` is a date-time string), 'output'
-  // the value itself (a `date`, `set` or `map` has no JSON form).
+  /**
+   * Which side of the wire the document describes: 'input' (the default) is
+   * the JSON a value is parsed from (a `date` is a date-time string), 'output'
+   * the value itself (a `date`, `set` or `map` has no JSON form).
+   */
   io?: 'input' | 'output';
-  // What to do with a type that has no form in the target: throw
-  // `ALX_ERR_UNREPRESENTABLE` (the default), or render it as `{}`.
+  /**
+   * What to do with a type that has no form in the target: throw
+   * `ALX_ERR_UNREPRESENTABLE` (the default), or render it as `{}`.
+   */
   unrepresentable?: 'throw' | 'any';
-  // How a reference renders, as in `check`: by the kind of its target ('kind',
-  // the default: a stored kind as an id, a memory kind as a `$ref` to its
-  // definition), every reference as the record ('embed') or as an id ('id').
+  /**
+   * How a reference renders, as in `check`: by the kind of its target ('kind',
+   * the default: a stored kind as an id, a memory kind as a `$ref` to its
+   * definition), every reference as the record ('embed') or as an id ('id').
+   */
   references?: 'kind' | 'embed' | 'id';
-  // The mongodb target only: the ids of stored records as the database holds
-  // them ('objectId': `_id` an ObjectId, required at the root, and every
-  // reference an ObjectId, as `toDocument` of `@alexify/metaschema/mongodb`
-  // writes them), or as the program does ('string', the default).
+  /**
+   * The mongodb target only: the ids of stored records as the database holds
+   * them ('objectId': `_id` an ObjectId, required at the root, and every
+   * reference an ObjectId, as `toDocument` of `@alexify/metaschema/mongodb`
+   * writes them), or as the program does ('string', the default).
+   */
   ids?: 'string' | 'objectId';
-  // The pointer the `$ref` of a definition starts with, and where the
-  // definitions are placed in the document: '#/$defs/' for draft-2020-12,
-  // '#/definitions/' for draft-07, '#/components/schemas/' for openapi-3.0.
+  /**
+   * The pointer the `$ref` of a definition starts with, and where the
+   * definitions are placed in the document: '#/$defs/' for draft-2020-12,
+   * '#/definitions/' for draft-07, '#/components/schemas/' for openapi-3.0.
+   */
   definitions?: string;
 }
 
 export interface ModelJSONSchemaOptions extends JSONSchemaOptions {
-  // The entity at the root of the document, with the definitions it needs;
-  // without it the document holds every entity as a definition, in
-  // dependency order (one document per entity for the mongodb target).
+  /**
+   * The entity at the root of the document, with the definitions it needs;
+   * without it the document holds every entity as a definition, in
+   * dependency order (one document per entity for the mongodb target).
+   */
   root?: string;
 }
 
-// The options of `fromJSONSchema` of the generators subpath.
+/** The options of `fromJSONSchema` of the generators subpath. */
 export interface FromJSONSchemaOptions {
-  // The name of the schema: what `$ref: '#'` refers to, and the name of the
-  // Schema built with `as: 'schema'`.
+  /**
+   * The name of the schema: what `$ref: '#'` refers to, and the name of the
+   * Schema built with `as: 'schema'`.
+   */
   name?: string;
-  // What comes back: the definition (the default), or a Schema built from it.
+  /** What comes back: the definition (the default), or a Schema built from it. */
   as?: 'definition' | 'schema';
-  // A `$ref` into the definitions of the document: the definition in place
-  // ('inline', the default; a cycle has no form), or a reference to an
-  // entity of that name ('name'), to resolve through a Model.
+  /**
+   * A `$ref` into the definitions of the document: the definition in place
+   * ('inline', the default; a cycle has no form), or a reference to an
+   * entity of that name ('name'), to resolve through a Model.
+   */
   references?: 'inline' | 'name';
-  // A keyword the subset has no form for: `ALX_ERR_UNSUPPORTED_SCHEMA` with its
-  // place in the document ('throw', the default), or dropped ('ignore').
+  /**
+   * A keyword the subset has no form for: `ALX_ERR_UNSUPPORTED_SCHEMA` with its
+   * place in the document ('throw', the default), or dropped ('ignore').
+   */
   unsupported?: 'throw' | 'ignore';
-  // Told of every drop of `unsupported: 'ignore'`: what was dropped, as the
-  // error of the throw mode names it (`The keyword "multipleOf"`), and its
-  // place in the document as a JSON pointer. Not called in the throw mode,
-  // where the error carries both.
+  /**
+   * Told of every drop of `unsupported: 'ignore'`: what was dropped, as the
+   * error of the throw mode names it (`The keyword "multipleOf"`), and its
+   * place in the document as a JSON pointer. Not called in the throw mode,
+   * where the error carries both.
+   */
   onUnsupported?: (reason: string, pointer: string) => void;
 }
 
-// Standard JSON Schema (https://standardschema.dev/json-schema): the converter
-// `schema['~standard'].jsonSchema`, whose `input` and `output` take the
-// target and the other options of `toJSONSchema` as `libraryOptions`. The
-// mongodb target is not a JSON Schema and is refused here. Installed by
-// `register()` of the generators subpath.
+/**
+ * Standard JSON Schema (https://standardschema.dev/json-schema): the converter
+ * `schema['~standard'].jsonSchema`, whose `input` and `output` take the
+ * target and the other options of `toJSONSchema` as `libraryOptions`. The
+ * mongodb target is not a JSON Schema and is refused here. Installed by
+ * `register()` of the generators subpath.
+ */
 export interface StandardJSONSchemaOptions {
   readonly target: 'draft-2020-12' | 'draft-07' | 'openapi-3.0' | ({} & string);
   readonly libraryOptions?: Omit<JSONSchemaOptions, 'target' | 'io'> | undefined;
@@ -1044,9 +1241,11 @@ export interface StandardConverter {
 // which are fields.
 // ---------------------------------------------------------------------------
 
-// The value types of custom types, by type name, for module augmentation:
-//   declare module '@alexify/metaschema' { interface CustomTypes { datetime: string } }
-// A type name that is neither built in nor declared here infers as `unknown`.
+/**
+ * The value types of custom types, by type name, for module augmentation:
+ *   declare module '@alexify/metaschema' { interface CustomTypes { datetime: string } }
+ * A type name that is neither built in nor declared here infers as `unknown`.
+ */
 export interface CustomTypes {}
 
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -1494,27 +1693,33 @@ type Value<D, E, M extends Mode> =
             ? ObjectDef<D, E, M>
             : unknown;
 
-// The type of a value `check` and `parse` accept for the definition `D` (a
-// key with a `default` may be left out, parse fills it). `E` is an optional
-// map of entity definitions by name (the second argument of `Model` as an
-// object): with it a reference to a memory kind is the record and a
-// projection has its parent's fields; without it a memory reference is
-// `unknown` and a stored one is its id. A stored kind's own id field depends
-// on the entity's name, which a definition does not carry: `InferEntity`
-// adds it.
+/**
+ * The type of a value `check` and `parse` accept for the definition `D` (a
+ * key with a `default` may be left out, parse fills it). `E` is an optional
+ * map of entity definitions by name (the second argument of `Model` as an
+ * object): with it a reference to a memory kind is the record and a
+ * projection has its parent's fields; without it a memory reference is
+ * `unknown` and a stored one is its id. A stored kind's own id field depends
+ * on the entity's name, which a definition does not carry: `InferEntity`
+ * adds it.
+ */
 export type Infer<D, E = {}> = Value<D, E, 'input'>;
 
-// The type of the value `parse` gives for the definition `D`: `Infer<D, E>`
-// with the result of every `parse` function (a decoder of a field, the
-// schema's own) in place of the value it decodes, and every defaulted key
-// present.
+/**
+ * The type of the value `parse` gives for the definition `D`: `Infer<D, E>`
+ * with the result of every `parse` function (a decoder of a field, the
+ * schema's own) in place of the value it decodes, and every defaulted key
+ * present.
+ */
 export type InferOutput<D, E = {}> = Value<D, E, 'output'>;
 
-// The value type of a `Schema<D>` instance: `InferSchema<typeof schema>`.
+/** The value type of a `Schema<D>` instance: `InferSchema<typeof schema>`. */
 export type InferSchema<S> = S extends Schema<infer D> ? Infer<D> : never;
 
-// The value type of the entity `Name` of the entity map `E`, with the id
-// field its kind adds (`accountId?: string` for a stored `Account`).
+/**
+ * The value type of the entity `Name` of the entity map `E`, with the id
+ * field its kind adds (`accountId?: string` for a stored `Account`).
+ */
 export type InferEntity<E, Name extends keyof E & string> = Simplify<
   Infer<E[Name], E> & IdOf<Name, E[Name]>
 >;
@@ -1524,7 +1729,7 @@ export type InferEntity<E, Name extends keyof E & string> = Simplify<
 // as a definition `Infer` reads. A derived definition always has a kind as
 // its first key, so its fields read as a struct whatever their names.
 
-// The definition a schema type was built from.
+/** The definition a schema type was built from. */
 export type DefinitionOf<S> = S extends Schema<infer D> ? D : never;
 
 // A schema whose definition is not known (`Schema`, an entity of a model):
@@ -1564,7 +1769,7 @@ type IsStructDef<D> = D extends string
           : true
         : false;
 
-// What a derive function takes: a struct, or a schema of an unknown one.
+/** What a derive function takes: a struct, or a schema of an unknown one. */
 export type StructGuardOf<D> =
   IsWide<D> extends true ? unknown : IsStructDef<D> extends true ? unknown : never;
 
@@ -1580,9 +1785,11 @@ type CalculatedKeyOf<D> = {
   [K in keyof D]: D[K] extends Fn ? (K extends OptionKey ? never : K) : never;
 }[keyof D];
 
-// The names a derive function takes: the fields, the calculated fields and,
-// for a stored kind, its id (named after the entity, which the definition
-// does not carry).
+/**
+ * The names a derive function takes: the fields, the calculated fields and,
+ * for a stored kind, its id (named after the entity, which the definition
+ * does not carry).
+ */
 export type DeriveKeyOf<D> =
   IsWide<D> extends true
     ? string
@@ -1606,7 +1813,7 @@ type DerivedKind<D, O> = O extends { metadata: { kind: infer K extends string } 
       ? { Struct: {} }
       : { [P in KindName<D> & keyof D]: D[P] };
 
-// A derived schema: of an unknown definition when the source's is unknown.
+/** A derived schema: of an unknown definition when the source's is unknown. */
 export type DerivedSchema<D, R> = IsWide<D> extends true ? Schema : Schema<Simplify<R>>;
 
 type Keep<D, K> = {
@@ -1761,8 +1968,10 @@ export type RequiredDefinition<D, O = {}> = DerivedKind<D, O> & RequiredOf<D, O>
 // What an extension adds: its fields (a Schema's, without its kind).
 type ExtensionOf<X> = X extends Schema<infer S> ? Omit<S, KindKey<S>> : X;
 
-// An extension whose fields are not known (a `Schema`, an entity of a
-// model): what it extends is not known either.
+/**
+ * An extension whose fields are not known (a `Schema`, an entity of a
+ * model): what it extends is not known either.
+ */
 export type ExtendedSchema<D, X, R> =
   X extends Schema<infer S>
     ? IsWide<S> extends true
@@ -1782,7 +1991,7 @@ export type ExtendDefinition<D, X, O = {}> = DerivedKind<D, O> & {
   ]: D[P];
 } & ExtensionOf<X>;
 
-// The names of the fields of a struct definition, as a definition of an enum.
+/** The names of the fields of a struct definition, as a definition of an enum. */
 export type KeyofDefinition<D> = { enum: Array<FieldName<FieldKeyOf<D>>> };
 
 // Standard Schema v1 (https://standardschema.dev): the interface every schema
@@ -1792,15 +2001,17 @@ export type KeyofDefinition<D> = { enum: Array<FieldName<FieldKeyOf<D>>> };
 // devDependency); tests/types/standard.test-d.ts pins that a `Schema<D>` is a
 // `StandardSchemaV1<Infer<D>, InferOutput<D>>` of that package.
 
-// The vendor-specific options of a `validate` call are the options of `parse`.
+/** The vendor-specific options of a `validate` call are the options of `parse`. */
 export interface StandardOptions {
   readonly libraryOptions?: ParseOptions | undefined;
 }
 
-// The result of parse as the specification reads it: the value parse gives
-// (the value given, when there was nothing to apply), or the issues of an
-// invalid one, the result's own (`message` and `path`, as the specification
-// reads them, plus `code` and `params`).
+/**
+ * The result of parse as the specification reads it: the value parse gives
+ * (the value given, when there was nothing to apply), or the issues of an
+ * invalid one, the result's own (`message` and `path`, as the specification
+ * reads them, plus `code` and `params`).
+ */
 export type StandardResult<T> =
   | { readonly value: T; readonly issues?: undefined }
   | { readonly issues: ReadonlyArray<ValidationIssue> };
@@ -1808,34 +2019,46 @@ export type StandardResult<T> =
 export interface StandardProps<D = string | object> {
   readonly version: 1;
   readonly vendor: 'alexify.metaschema';
-  // `parse` with the policies of the schema; a promise of the result for a
-  // schema with an async validator, decoder or custom type.
+  /**
+   * `parse` with the policies of the schema; a promise of the result for a
+   * schema with an async validator, decoder or custom type.
+   */
   readonly validate: (
     value: unknown,
     options?: StandardOptions,
   ) => StandardResult<InferOutput<D>> | Promise<StandardResult<InferOutput<D>>>;
-  // Standard JSON Schema: `input(options)` and `output(options)` by target.
-  // Present once `register()` of the generators subpath has run.
+  /**
+   * Standard JSON Schema: `input(options)` and `output(options)` by target.
+   * Present once `register()` of the generators subpath has run.
+   */
   readonly jsonSchema: StandardConverter;
-  // What parse accepts and what it gives. Type-level only: no property of
-  // the object holds it.
+  /**
+   * What parse accepts and what it gives. Type-level only: no property of
+   * the object holds it.
+   */
   readonly types?: { readonly input: Infer<D>; readonly output: InferOutput<D> } | undefined;
 }
 
-// `D` is the definition the schema was built from, kept as a type only (no
-// instance property holds it): `Schema.from({ name: 'string' })` is a
-// `Schema<{ readonly name: 'string' }>`, and `InferSchema` reads `D` from it.
-// The const type parameter keeps the literal types of an inline definition.
+/**
+ * `D` is the definition the schema was built from, kept as a type only (no
+ * instance property holds it): `Schema.from({ name: 'string' })` is a
+ * `Schema<{ readonly name: 'string' }>`, and `InferSchema` reads `D` from it.
+ * The const type parameter keeps the literal types of an inline definition.
+ */
 export class Schema<const D extends string | object = string | object> {
   readonly '~definition'?: D;
-  // Standard Schema v1, built on first use; see `StandardProps`.
+  /** Standard Schema v1, built on first use; see `StandardProps`. */
   readonly '~standard': StandardProps<D>;
 
+  /** A schema without a name: `new Schema('', raw, namespaces)`. */
   static from<const D extends string | object>(raw: D, namespaces?: Array<Model>): Schema<D>;
+  /** The Schema a definition is or holds under `schema`, else null. */
   static extractSchema(def: object): Schema | null;
-  // A definition (or a Schema) from a JSON Schema document: exists once
-  // `register()` of the generators subpath has run; its `fromJSONSchema` is
-  // the same without it.
+  /**
+   * A definition (or a Schema) from a JSON Schema document: exists once
+   * `register()` of the generators subpath has run; its `fromJSONSchema` is
+   * the same without it.
+   */
   static fromJSONSchema(
     document: JSONSchema | true,
     options: FromJSONSchemaOptions & { as: 'schema' },
@@ -1844,13 +2067,17 @@ export class Schema<const D extends string | object = string | object> {
     document: JSONSchema | true,
     options?: FromJSONSchemaOptions,
   ): object | string;
-  // The schema two schemas describe, by unification: exists once `register()`
-  // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
-  // the same without it.
+  /**
+   * The schema two schemas describe, by unification: exists once `register()`
+   * of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
+   * the same without it.
+   */
   static merge(a: Schema, b: Schema, options?: MergeOptions): Schema;
-  // A definition (or a Schema) that accepts every sample: exists once
-  // `register()` of the `@alexify/metaschema/model` subpath has run; its
-  // `infer(samples, options)` is the same without it.
+  /**
+   * A definition (or a Schema) that accepts every sample: exists once
+   * `register()` of the `@alexify/metaschema/model` subpath has run; its
+   * `infer(samples, options)` is the same without it.
+   */
   static infer(samples: Iterable<unknown>, options: InferOptions & { as: 'schema' }): Schema;
   static infer(samples: Iterable<unknown>, options?: InferOptions): object | string;
 
@@ -1859,54 +2086,86 @@ export class Schema<const D extends string | object = string | object> {
   store: Store;
   allow: Allow;
   parent: string;
-  // What `check` does with keys the schema does not have unless the call says
-  // otherwise: `{ Struct: { unknown: 'ignore' } }` sets it.
+  /**
+   * What `check` does with keys the schema does not have unless the call says
+   * otherwise: `{ Struct: { unknown: 'ignore' } }` sets it.
+   */
   unknown: 'reject' | 'ignore';
   indexes: Record<string, object>;
   options: SchemaOptions;
   custom: Record<string, unknown>;
-  // For a schema whose definition is a single type (`Schema.from('string')`,
-  // `Schema.from({ array: 'number' })`) this is that FieldType itself.
+  /**
+   * For a schema whose definition is a single type (`Schema.from('string')`,
+   * `Schema.from({ array: 'number' })`) this is that FieldType itself.
+   */
   fields: Fields;
   name: string;
   namespaces: Set<Model>;
   references: Set<string>;
   relations: Set<Relation>;
-  // Lint warnings of the definition, `Warning [code]: text`: unknown field
-  // options, a pattern without length.max, an index over a missing field.
-  // Computed on first use.
+  /**
+   * Lint warnings of the definition, `Warning [code]: text`: unknown field
+   * options, a pattern without length.max, an index over a missing field.
+   * Computed on first use.
+   */
   readonly warnings: Array<string>;
 
+  /**
+   * Builds the schema of a definition, read by its first key; a definition that can never
+   * validate throws SchemaDefinitionError here. A Schema given as the definition is reused and
+   * the namespaces attached to it; `namespaces` are the models its references resolve in.
+   */
   constructor(name: string, raw: D, namespaces?: Array<Model>);
+  /** The type tables of the attached models, merged; rebuilt when they change. */
   get types(): TypeTable;
+  /** The references and types the fields use that nothing attached resolves, as warning lines. */
   checkConsistency(): Array<string>;
+  /**
+   * The schema a reference resolves to: an entity of the attached models, else this schema when
+   * the name is its own, else null.
+   */
   findReference(name: string): Schema | null;
+  /**
+   * Validates a value and returns its issues; never throws because of the value. A validator
+   * that returns a promise throws ALX_ERR_ASYNC_VALIDATOR: use `checkAsync`.
+   */
   check(value: unknown, options?: CheckOptions): ValidationResult;
-  // The same check, with the validators that return a promise settled after
-  // the walk, in field order.
+  /**
+   * The same check, with the validators that return a promise settled after
+   * the walk, in field order.
+   */
   checkAsync(value: unknown, options?: CheckOptions): Promise<ValidationResult>;
-  // Validates a value and builds the value of the program from it: defaults,
-  // the check, `unknown: 'strip'`, the decoders of the fields (parts before
-  // the whole) and the schema's own `parse`. The value given is never
-  // written to; it is the output itself when there was nothing to apply.
+  /**
+   * Validates a value and builds the value of the program from it: defaults,
+   * the check, `unknown: 'strip'`, the decoders of the fields (parts before
+   * the whole) and the schema's own `parse`. The value given is never
+   * written to; it is the output itself when there was nothing to apply.
+   */
   parse(value: unknown, options?: ParseOptions): ParseResult<InferOutput<D>>;
+  /** `parse` with the validators and decoders that return a promise awaited. */
   parseAsync(value: unknown, options?: ParseOptions): Promise<ParseResult<InferOutput<D>>>;
-  // The other direction: the schema's own `serialize`, then the serializers
-  // of the fields, from the value down to its parts; with `check` the
-  // verdict of check over the result as well.
+  /**
+   * The other direction: the schema's own `serialize`, then the serializers
+   * of the fields, from the value down to its parts; with `check` the
+   * verdict of check over the result as well.
+   */
   serialize(
     value: InferOutput<D>,
     options: SerializeOptions & { check: true },
   ): SerializeChecked<Infer<D>>;
   serialize(value: InferOutput<D>, options?: SerializeOptions): Serialized<Infer<D>>;
-  // A value the schema accepts, the same for a seed: exists once `register()`
-  // of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
-  // options)` is the same without it.
+  /**
+   * A value the schema accepts, the same for a seed: exists once `register()`
+   * of the `@alexify/metaschema/model` subpath has run; its `sample(schema,
+   * options)` is the same without it.
+   */
   sample(options?: SampleOptions): Infer<D>;
-  // The value with the conversions of the schema and its defaults applied,
-  // nothing checked: exists once `register()` of the
-  // `@alexify/metaschema/coerce` subpath has run; its `coerce(schema,
-  // value)` is the same without it.
+  /**
+   * The value with the conversions of the schema and its defaults applied,
+   * nothing checked: exists once `register()` of the
+   * `@alexify/metaschema/coerce` subpath has run; its `coerce(schema,
+   * value)` is the same without it.
+   */
   coerce(value: unknown, options?: CoerceOptions): unknown;
   // The six members below exist once `register()` of the
   // `@alexify/metaschema/derive` subpath has run; its `pick(schema, keys)`
@@ -1974,28 +2233,45 @@ export class Schema<const D extends string | object = string | object> {
   // are the same without it.
   // The schema as a JSON Schema document of the target dialect.
   toJSONSchema(options?: JSONSchemaOptions): JSONSchema;
-  // The schema as a TypeScript interface, the description of a field as JSDoc.
+  /** The schema as a TypeScript interface, the description of a field as JSDoc. */
   toInterface(options?: InterfaceOptions): string;
+  /** Adds models the references of the schema resolve in. */
   attach(...namespaces: Array<Model>): void;
+  /** Removes models the references of the schema resolved in. */
   detach(...namespaces: Array<Model>): void;
+  /** The schema as JSON text. */
   toString(): string;
+  /** The fields of the schema as plain data (a single type: its definition). */
   toJSON(): object;
-  // The schema as plain JSON: see `SchemaSnapshot`.
+  /** The schema as plain JSON: see `SchemaSnapshot`. */
   toSnapshot(): SchemaSnapshot;
+  /** Runs the schema's own `validate` alone: a result of what it returned, or null without one. */
   validate(value: unknown, path?: string): ValidationResult | null;
 }
 
+/**
+ * A domain model: the entities built as Schemas with the model as their namespace, ordered
+ * dependencies first, and the custom types they use.
+ */
 export class Model {
+  /** The type table of the entities: the process-wide one, or the model's own when isolated. */
   types: TypeTable;
-  // The converters of coercion the model was given (`ModelOptions.coercions`),
-  // frozen, or null.
+  /**
+   * The converters of coercion the model was given (`ModelOptions.coercions`),
+   * frozen, or null.
+   */
   readonly coercions: Readonly<Record<string, Coercion>> | null;
+  /** The entities by name. */
   entities: Map<string, Schema>;
+  /** The database metadata the model was given. */
   database: Record<string, unknown> | null;
+  /** The names of the entities, `Identifier` first, each after the entities it references. */
   order: Set<string>;
-  // The warnings of every entity, plus references that do not resolve
-  // (missing-reference) and recursive dependencies (recursive-reference).
-  // Computed on first use.
+  /**
+   * The warnings of every entity, plus references that do not resolve
+   * (missing-reference) and recursive dependencies (recursive-reference).
+   * Computed on first use.
+   */
   readonly warnings: Array<string>;
 
   constructor(
@@ -2004,8 +2280,10 @@ export class Model {
     database?: Record<string, unknown> | null,
     options?: ModelOptions,
   );
-  // The model as plain JSON, what JSON.stringify(model) writes; see
-  // `ModelSnapshot`.
+  /**
+   * The model as plain JSON, what JSON.stringify(model) writes; see
+   * `ModelSnapshot`.
+   */
   toJSON(): ModelSnapshot;
   // The four statics below exist once `register()` of the
   // `@alexify/metaschema/model` subpath has run; its `fromJSON`, `diff`,
@@ -2020,8 +2298,10 @@ export class Model {
   // Every entity as a JSON Schema definition (`$defs`, `definitions` or
   // `components.schemas` by target), or the document of `options.root`.
   toJSONSchema(options?: ModelJSONSchemaOptions): JSONSchema;
-  // The interfaces of every entity in dependency order; `dts` is the same
-  // without options.
+  /**
+   * The interfaces of every entity in dependency order; `dts` is the same
+   * without options.
+   */
   toTypeScript(options?: InterfaceOptions): string;
   get dts(): string;
 }
