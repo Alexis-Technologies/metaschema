@@ -95,7 +95,7 @@ still read as the [custom kind](/guide/kinds-and-metadata#custom-kinds) `address
 `{ Struct: {}, Address: { street: 'string' }, name: 'string' }`.
 
 An object that cannot be what its first key says is a `SchemaDefinitionError`
-(`ERR_INVALID_DEFINITION`): `{ required: false, type: 'string' }` is read as a struct, and `false`
+(`ALX_ERR_INVALID_DEFINITION`): `{ required: false, type: 'string' }` is read as a struct, and `false`
 is not a field definition.
 
 ## The long form
@@ -210,7 +210,7 @@ contact.fields.phone.required; // true: required in one is required
 contact.check({ name: 'Ann', email: 'ann@example.com' }).errors; // [ 'Field "Contact.phone" is required' ]
 
 merge(base, Schema.from({ email: 'number' }));
-// throws SchemaDefinitionError [ERR_MERGE_CONFLICT]: The type is string in one schema and number in the other in "Contact.email"
+// throws SchemaDefinitionError [ALX_ERR_MERGE_CONFLICT]: The type is string in one schema and number in the other in "Contact.email"
 ```
 
 A conflict is located like a definition error: `error.schema` is the name of the merged

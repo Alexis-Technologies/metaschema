@@ -61,7 +61,7 @@ export interface DocumentOptions {
 // The document of a value: its serializers run, the id field of a stored
 // record moved to `_id` (left out when there is none, so that the database
 // gives one), ids made ObjectIds, undefined values and calculated fields left
-// out. Needs `register()`: `ERR_NOT_REGISTERED` otherwise.
+// out. Needs `register()`: `ALX_ERR_NOT_REGISTERED` otherwise.
 export function toDocument(
   target: Schema,
   value: unknown,

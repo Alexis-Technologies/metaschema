@@ -52,16 +52,16 @@ describe('Parse', () => {
   it('should take the options of check, with strip for unknown keys', () => {
     const user = new Schema('User', { name: 'string' });
     assert.throws(() => user.parse({}, { unknown: 'drop' }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'unknown must be "reject", "ignore" or "strip", got "drop"',
     });
     assert.throws(() => user.check({}, { unknown: 'strip' }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'unknown must be "reject" or "ignore", got "strip"',
     });
-    assert.throws(() => user.parse({}, 'body'), { name: 'TypeError' });
-    assert.throws(() => user.parse({}, { maxErrors: 0 }), { name: 'TypeError' });
-    assert.throws(() => user.parse({}, { references: 'all' }), { name: 'TypeError' });
+    assert.throws(() => user.parse({}, 'body'), { name: 'SchemaUsageError' });
+    assert.throws(() => user.parse({}, { maxErrors: 0 }), { name: 'SchemaUsageError' });
+    assert.throws(() => user.parse({}, { references: 'all' }), { name: 'SchemaUsageError' });
     assert.equal(user.parse({ name: 'x' }, { root: 'body' }).valid, true);
   });
 
@@ -586,7 +586,7 @@ describe('Parse', () => {
     for (const key of ['parse', 'serialize']) {
       assert.throws(() => new Schema('Doc', { a: { type: 'string', [key]: 'yes' } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: `Option "${key}" needs a function in "Doc.a"`,
       });
     }
@@ -707,7 +707,7 @@ describe('Parse', () => {
       },
     });
     assert.throws(() => async.parse({ u: { n: 1 } }), {
-      code: 'ERR_ASYNC_VALIDATOR',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
       message: 'The validator of "Pick.u.n" returned a promise; use checkAsync or parseAsync',
     });
   });

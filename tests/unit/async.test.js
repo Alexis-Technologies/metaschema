@@ -14,23 +14,23 @@ describe('Async', () => {
       name: { type: 'string', validate: async (value) => value !== 'bad' || 'is bad' },
     });
     assert.throws(() => schema.check({ name: 'ok' }), {
-      name: 'TypeError',
-      code: 'ERR_ASYNC_VALIDATOR',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
       message: 'The validator of "User.name" returned a promise; use checkAsync or parseAsync',
     });
-    assert.throws(() => schema.parse({ name: 'ok' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => schema.parse({ name: 'ok' }), { code: 'ALX_ERR_ASYNC_VALIDATOR' });
     assert.throws(() => schema['~standard'].validate !== undefined && schema.check({ name: 'x' }), {
-      code: 'ERR_ASYNC_VALIDATOR',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
     });
     const root = Schema.from({ name: 'string', validate: () => Promise.resolve(true) });
     assert.throws(() => root.check({ name: 'x' }), {
-      code: 'ERR_ASYNC_VALIDATOR',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
       message: 'The validator of "" returned a promise; use checkAsync or parseAsync',
     });
     const decoded = new Schema('Doc', { when: { type: 'string', parse: async (text) => text } });
     assert.throws(() => decoded.parse({ when: 'x' }), {
-      name: 'TypeError',
-      code: 'ERR_ASYNC_VALIDATOR',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
       message: 'The decoder of "Doc.when" returned a promise; use parseAsync',
     });
     // Only when the function returns one: a sync validator works as before.
@@ -322,7 +322,9 @@ describe('Async', () => {
       [['Signup', { Struct: {}, login: 'taken', nick: { type: 'slow', length: 3 } }]],
     );
     const signup = model.entities.get('Signup');
-    assert.throws(() => signup.check({ login: 'x', nick: 'abc' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => signup.check({ login: 'x', nick: 'abc' }), {
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
+    });
     assert.equal((await signup.checkAsync({ login: 'x', nick: 'abc' })).valid, true);
     assert.deepEqual((await signup.checkAsync({ login: 'admin', nick: 1 })).errors, [
       'Field "Signup.login" is taken',
@@ -554,7 +556,7 @@ describe('Async', () => {
       'Field "Person.either.n" not positive',
     ]);
     assert.throws(() => person.check({ name: 'x', employer: { name: 'ok' }, either: 's' }), {
-      code: 'ERR_ASYNC_VALIDATOR',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
     });
   });
 
@@ -651,11 +653,11 @@ describe('Async', () => {
       const checked = Schema.from({
         a: { type: 'string', validate: () => Promise.reject(new Error('a')) },
       });
-      assert.throws(() => checked.check({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+      assert.throws(() => checked.check({ a: 'x' }), { code: 'ALX_ERR_ASYNC_VALIDATOR' });
       const decoded = Schema.from({
         a: { type: 'string', parse: () => Promise.reject(new Error('d')) },
       });
-      assert.throws(() => decoded.parse({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+      assert.throws(() => decoded.parse({ a: 'x' }), { code: 'ALX_ERR_ASYNC_VALIDATOR' });
       // The error limit stops settle before the promise it holds.
       const limited = Schema.from({
         a: {

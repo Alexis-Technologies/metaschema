@@ -371,7 +371,7 @@ describe('fromJSONSchema', () => {
       properties: { x: { $ref: '#/$defs/a~1b~0c' } },
     };
     assert.deepEqual(fromJSONSchema(escaped), { Struct: { unknown: 'ignore' }, x: '?number' });
-    const code = 'ERR_UNSUPPORTED_SCHEMA';
+    const code = 'ALX_ERR_UNSUPPORTED_SCHEMA';
     const cycle = {
       $defs: { N: { type: 'object', properties: { n: { $ref: '#/$defs/N' } } } },
       type: 'object',
@@ -453,7 +453,7 @@ describe('fromJSONSchema', () => {
   };
 
   it('should read a pointer in full through own keys', () => {
-    const code = 'ERR_UNSUPPORTED_SCHEMA';
+    const code = 'ALX_ERR_UNSUPPORTED_SCHEMA';
     // Two pointers that end alike are two targets, not a cycle.
     const alike = {
       $defs: {
@@ -545,7 +545,7 @@ describe('fromJSONSchema', () => {
     for (const options of [{}, lenient]) {
       assert.throws(() => fromJSONSchema(nested(129), options), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_UNSUPPORTED_SCHEMA',
+        code: 'ALX_ERR_UNSUPPORTED_SCHEMA',
         message,
       });
     }
@@ -584,13 +584,13 @@ describe('fromJSONSchema', () => {
     // Not in the throw mode: the error carries the place.
     const calls = [];
     assert.throws(() => fromJSONSchema(document, { onUnsupported: () => calls.push(1) }), {
-      code: 'ERR_UNSUPPORTED_SCHEMA',
+      code: 'ALX_ERR_UNSUPPORTED_SCHEMA',
     });
     assert.deepEqual(calls, []);
   });
 
   it('should throw for a keyword outside the subset with its place, or drop it', () => {
-    const code = 'ERR_UNSUPPORTED_SCHEMA';
+    const code = 'ALX_ERR_UNSUPPORTED_SCHEMA';
     const cases = [
       [{ type: 'number', exclusiveMinimum: 0 }, 'The keyword "exclusiveMinimum"', '/properties/x'],
       [{ type: 'number', multipleOf: 2 }, 'The keyword "multipleOf"', '/properties/x'],
@@ -699,7 +699,7 @@ describe('fromJSONSchema', () => {
     assert.equal(fieldOf({ type: ['string', 'Foo'] }, true, lenient), 'any');
     assert.equal(fieldOf({ $ref: '#/__proto__' }, true, lenient), 'any');
     // A pattern the u flag rejects is reported here with its place, not as
-    // ERR_INVALID_RULE by the Schema built from the definition.
+    // ALX_ERR_INVALID_RULE by the Schema built from the definition.
     assert.throws(() => fromJSONSchema({ type: 'string', pattern: '\\:' }, { as: 'schema' }), {
       code,
       message: `The pattern ${JSON.stringify('\\:')} (not a valid pattern under the u flag) is not supported in a JSON Schema at ""`,
@@ -720,13 +720,13 @@ describe('fromJSONSchema', () => {
       [{ onUnsupported: 'log' }, 'Option "onUnsupported" must be a function'],
     ]) {
       assert.throws(() => fromJSONSchema({ type: 'string' }, options), {
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message,
       });
     }
     assert.throws(() => fromJSONSchema('string'), {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'A JSON Schema document (an object) is expected',
     });
   });
@@ -928,7 +928,7 @@ describe('fromJSONSchema', () => {
     const long = 'p'.repeat(150);
     const document = { type: 'object', properties: { [long]: { type: 'string', not: {} } } };
     assert.throws(() => fromJSONSchema(document), {
-      code: 'ERR_UNSUPPORTED_SCHEMA',
+      code: 'ALX_ERR_UNSUPPORTED_SCHEMA',
       message: `The keyword "not" is not supported in a JSON Schema at "/properties/${'p'.repeat(100)}..."`,
     });
   });
@@ -956,7 +956,7 @@ describe('fromJSONSchema', () => {
       true,
     );
     assert.throws(() => fromJSONSchema(document(['x']), { as: 'schema' }), {
-      code: 'ERR_INVALID_UNION',
+      code: 'ALX_ERR_INVALID_UNION',
       message: 'Union discriminator "k" of branch 0 must be required and not nullable in "u"',
     });
   });

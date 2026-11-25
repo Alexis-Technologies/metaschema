@@ -103,7 +103,7 @@ dictionaries, maps, tuples, discriminated unions and embedded records (which get
 the ids strings (and needs no driver). The value given is never written to. An `_id` beside the
 id field (a body checked with `unknown: 'ignore'`, or not checked, cannot choose the `_id` of
 the document) is left out; a value of a class at the root (a model instance) is
-`ERR_INVALID_TARGET` rather than a document with its id a string. The `ids` of this subpath
+`ALX_ERR_INVALID_TARGET` rather than a document with its id a string. The `ids` of this subpath
 default to `'objectId'`, the way the documents are stored; `toJSONSchema` of the generators
 defaults to `'string'`, the way a program's JSON is, and names `'objectId'` for the collection
 validator. The walk counts the records it embeds as `check` does and stops at `maxDepth` (128

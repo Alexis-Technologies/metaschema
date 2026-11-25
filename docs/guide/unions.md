@@ -54,7 +54,7 @@ branch whose only objection would come from an async validator is taken, the val
 after the walk and may still fail the value, and the next branch is not tried. Branches with
 async validators want a [discriminator](#discriminated-unions); the details are in
 [Parse and serialize](/guide/parse#async-validators-in-a-plain-union). A `default` on the
-discriminator field is `ERR_INVALID_UNION`: the branch is picked before any default applies.
+discriminator field is `ALX_ERR_INVALID_UNION`: the branch is picked before any default applies.
 So is a discriminator field that is optional or nullable (`'kind?'`, `required: false`,
 `nullable: true`): a value without the tag or with `null` is in no branch, so such a branch
 could never be picked.
@@ -92,15 +92,15 @@ canvas.check({ shape: 'circle' }).errors;
 ```
 
 A reference cannot be a discriminated branch (its fields are not known when the schema is
-built). A definition that cannot discriminate throws `ERR_INVALID_UNION` when the schema is
+built). A definition that cannot discriminate throws `ALX_ERR_INVALID_UNION` when the schema is
 built: an empty branch list, a branch that is a function, a branch without the discriminator
 field or with a non-enum one, or a discriminator value shared by two branches:
 
 ```js
 Schema.from({ s: { union: [{ r: 'number' }], discriminator: 'kind' } });
-// SchemaDefinitionError [ERR_INVALID_UNION]: Union branch 0 needs an enum field "kind" to discriminate on in "s"
+// SchemaDefinitionError [ALX_ERR_INVALID_UNION]: Union branch 0 needs an enum field "kind" to discriminate on in "s"
 Schema.from({ s: { union: [{ k: { enum: ['a'] } }, { k: { enum: ['a'] } }], discriminator: 'k' } });
-// SchemaDefinitionError [ERR_INVALID_UNION]: Union discriminator value "a" is in two branches in "s"
+// SchemaDefinitionError [ALX_ERR_INVALID_UNION]: Union discriminator value "a" is in two branches in "s"
 ```
 
 ### Optional and nullable unions

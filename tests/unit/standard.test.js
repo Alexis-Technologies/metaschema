@@ -118,7 +118,9 @@ describe('Standard', () => {
     // A validator that returns a promise without being an async function is
     // what it is to parse: an error of a synchronous call.
     const sneaky = Schema.from({ a: { type: 'string', validate: () => Promise.resolve(true) } });
-    assert.throws(() => sneaky['~standard'].validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => sneaky['~standard'].validate({ a: 'x' }), {
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
+    });
   });
 
   it('should report the issues of an invalid value with a message and a path of keys', () => {
@@ -193,7 +195,7 @@ describe('Standard', () => {
     assert.equal(validate(value).issues.length, 1);
     assert.equal(validate(value, { libraryOptions: { unknown: 'ignore' } }).value, value);
     assert.throws(() => validate({}, { libraryOptions: { maxErrors: 0 } }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'maxErrors must be an integer of at least 1, got 0',
     });
   });

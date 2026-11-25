@@ -197,7 +197,7 @@ describe('Aliases', () => {
     for (const aliases of ['old', [], [1], [''], {}, null]) {
       assert.throws(() => Schema.from({ a: { type: 'string', aliases } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: `${needs} in "a"`,
       });
     }
@@ -213,7 +213,7 @@ describe('Aliases', () => {
       [{ half: (value) => value.a, a: { type: 'string', aliases: ['half'] } }, 'half', 'a'],
     ]) {
       assert.throws(() => new Schema('S', defs), {
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: `Key "${key}" is a field or an alias already in "S.${field}"`,
       });
     }

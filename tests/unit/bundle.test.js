@@ -87,7 +87,7 @@ const checkBundle = async (
   // converters the subpath's, and a parse that coerces before register()
   // says so.
   const query = new Schema('Query', { Form: { coerce: true }, page: 'integer', all: 'boolean' });
-  assert.throws(() => query.parse({ page: '2' }), { code: 'ERR_NOT_REGISTERED' });
+  assert.throws(() => query.parse({ page: '2' }), { code: 'ALX_ERR_NOT_REGISTERED' });
   coerce.register();
   assert.deepEqual({ ...query.parse({ page: '2', all: '1' }).value }, { page: 2, all: true });
   assert.deepEqual(
@@ -117,7 +117,7 @@ const checkBundle = async (
     ['Shop', { Entity: {}, name: { type: 'string', unique: true } }],
   ]);
   const shop = stores.entities.get('Shop');
-  assert.throws(() => mongodb.toDocument(shop, {}), { code: 'ERR_NOT_REGISTERED' });
+  assert.throws(() => mongodb.toDocument(shop, {}), { code: 'ALX_ERR_NOT_REGISTERED' });
   mongodb.register({ bson: { ObjectId } });
   const id = 'c'.repeat(24);
   const stored = mongodb.toDocument(shop, { shopId: id, name: 'x' });
@@ -166,7 +166,7 @@ const checkBundle = async (
   // The formats subpath through the bundle: the rule is the core's, the
   // table the subpath's, and a check reads the registered test.
   assert.throws(() => Schema.from({ email: { type: 'string', format: 'email' } }), {
-    code: 'ERR_INVALID_RULE',
+    code: 'ALX_ERR_INVALID_RULE',
   });
   formats.register();
   const formatted = Schema.from({ email: { type: 'string', format: 'email' } });
@@ -328,7 +328,7 @@ const checkBundle = async (
   const checked = await event.checkAsync({ name: 'x', when: 'w', note: 'ok' });
   assert.equal(checked.valid, true);
   assert.throws(() => event.check({ name: 'x', when: 'w', note: 'ok' }), {
-    code: 'ERR_ASYNC_VALIDATOR',
+    code: 'ALX_ERR_ASYNC_VALIDATOR',
   });
   assert.equal(
     event.serialize({ name: 'x', when: 1000, level: 1 }).value.when,
@@ -446,7 +446,7 @@ describe('Bundle', () => {
       assert.equal(snapshot.entities.Item.fields.perms.type, 'flags');
       assert.equal('~standard' in item, false);
       for (const fn of [() => item.check({}), () => item.parse({}), () => model.warnings]) {
-        assert.equal(codeOf(fn), 'ERR_NOT_REGISTERED');
+        assert.equal(codeOf(fn), 'ALX_ERR_NOT_REGISTERED');
       }
     });
 

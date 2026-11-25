@@ -102,8 +102,8 @@ unhandled.
 [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) (a global
 in Node.js since 18 and in every browser): the records go in, and the parsed value of every
 valid record comes out. An invalid record is handed to `onInvalid(record, result, index)` and
-dropped; without `onInvalid` the stream ends at the first invalid record with a `TypeError`
-whose `code` is `ERR_INVALID_RECORD` and which carries the `index`, the `record` and the
+dropped; without `onInvalid` the stream ends at the first invalid record with a `SchemaUsageError`
+whose `code` is `ALX_ERR_INVALID_RECORD` and which carries the `index`, the `record` and the
 `result`. With `maxInvalid`, the n-th invalid record is reported and the stream ends with that
 error all the same: a stream that ends looks complete to what reads it, so it cannot stop
 quietly as a generator does.

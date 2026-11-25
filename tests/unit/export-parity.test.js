@@ -310,11 +310,13 @@ describe('Exports', () => {
       'Schema',
       'Model',
       'SchemaDefinitionError',
+      'SchemaUsageError',
     ]);
-    // The core's own classes: one Schema, one Model.
+    // The core's own classes: one Schema, one Model, one class of each error.
     const core = require('@alexify/metaschema');
     assert.equal(definition.Schema, core.Schema);
     assert.equal(definition.Model, core.Model);
+    assert.equal(definition.SchemaUsageError, core.SchemaUsageError);
     // A process that imports the definition alone builds and reads, and does
     // not validate.
     const source = [
@@ -327,6 +329,6 @@ describe('Exports', () => {
     ].join('\n');
     const args = ['--input-type=module', '-e', source];
     const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
-    assert.deepEqual(JSON.parse(output), ['Tag', 'ERR_NOT_REGISTERED', false]);
+    assert.deepEqual(JSON.parse(output), ['Tag', 'ALX_ERR_NOT_REGISTERED', false]);
   });
 });

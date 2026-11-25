@@ -247,7 +247,7 @@ const members = {
       if (isThenable(output)) throw asyncReturn('validator', path, 'checkAsync');
       return result.add(output);
     } catch (error) {
-      if (error?.code === 'ERR_ASYNC_VALIDATOR') throw error;
+      if (error?.code === 'ALX_ERR_ASYNC_VALIDATOR') throw error;
       return result.add({
         code: 'exception',
         message: `validation failed ${safeString(error)}`,

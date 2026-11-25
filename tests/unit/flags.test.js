@@ -92,12 +92,12 @@ describe('Flags', () => {
     for (const names of [[], ['a', 'a'], [''], ['__proto__'], 'a', [1], undefined, null]) {
       assert.throws(() => Schema.from({ perms: { flags: names } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: `Type "flags" needs a list of distinct names: { flags: ['read', 'write'] } in "perms"`,
       });
     }
     assert.throws(() => Schema.from({ perms: { flags: ['a'], length: 1 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
     });
     // An alias of flags is flags (a name no struct of this file starts with:
     // the registry is process-wide).

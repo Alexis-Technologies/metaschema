@@ -53,11 +53,11 @@ sample(order, { seed: 1, locale: 'uk' });
 ```
 
 An option outside these (a locale the sampler has no letters for, a `references` the check does
-not know, a `maxDepth` over 32) is `ERR_INVALID_OPTIONS`:
+not know, a `maxDepth` over 32) is `ALX_ERR_INVALID_OPTIONS`:
 
 ```js
 sample(order, { references: 'graph' });
-// throws SchemaDefinitionError [ERR_INVALID_OPTIONS]: Sample option "references" must be "kind", "embed" or "id", got "graph"
+// throws SchemaDefinitionError [ALX_ERR_INVALID_OPTIONS]: Sample option "references" must be "kind", "embed" or "id", got "graph"
 ```
 
 ## What is drawn
@@ -84,7 +84,7 @@ the time.
 | `{ union: [...] }` | one branch, from a random one on: a branch no value satisfies is passed over for the next, and the union is unsatisfiable only when every branch is; a `discriminator` takes the value of its branch |
 | a nested struct, a `Schema` instance | a value per field |
 | a reference | an id (`'company-3f2a'`) for a stored kind, the record for a memory kind, by `references` and the field's `embed` |
-| a custom type | what `metadata.sample` gives: a function of the field and the random source, or a value; a type without it is `ERR_SAMPLE_TYPE`, an alias (`{ js: 'string' }`) draws as the type it aliases |
+| a custom type | what `metadata.sample` gives: a function of the field and the random source, or a value; a type without it is `ALX_ERR_SAMPLE_TYPE`, an alias (`{ js: 'string' }`) draws as the type it aliases |
 
 ```js
 const types = {
@@ -108,27 +108,27 @@ quantifier repeats as many times as the field's `length.min` asks for, a few oth
 `\p{L}` draw the letters of the locale of the call, so the same schema samples Cyrillic in `'uk'`
 after Latin in `'en'`; `\P{L}` and `[^\p{L}]` draw no letter at all. A pattern outside that subset
 (a lookaround, a back reference, a word boundary, another Unicode property), a repetition over
-10000 (`a{20000}`) and groups nested deeper than 64 are `ERR_SAMPLE_PATTERN`:
+10000 (`a{20000}`) and groups nested deeper than 64 are `ALX_ERR_SAMPLE_PATTERN`:
 
 ```js
 sample(Schema.from({ code: { type: 'string', pattern: '^(?=a)a$', length: 3 } }));
-// throws SchemaDefinitionError [ERR_SAMPLE_PATTERN]: Pattern /^(?=a)a$/ cannot be sampled: a lookaround
+// throws SchemaDefinitionError [ALX_ERR_SAMPLE_PATTERN]: Pattern /^(?=a)a$/ cannot be sampled: a lookaround
 
 sample(Schema.from({ code: { type: 'string', pattern: '^a{20000}$', length: 20000 } }));
-// throws SchemaDefinitionError [ERR_SAMPLE_PATTERN]: Pattern /^a{20000}$/ cannot be sampled: a repetition over 10000
+// throws SchemaDefinitionError [ALX_ERR_SAMPLE_PATTERN]: Pattern /^a{20000}$/ cannot be sampled: a repetition over 10000
 ```
 
-A pattern whose shortest string is longer than the field's `length.max` is `ERR_UNSATISFIABLE`
+A pattern whose shortest string is longer than the field's `length.max` is `ALX_ERR_UNSATISFIABLE`
 before any string is built, whatever the repetitions would allocate:
 
 ```js
 sample(Schema.from({ code: { type: 'string', pattern: '^[a-z]{12}$', length: 8 } }));
-// throws SchemaDefinitionError [ERR_UNSATISFIABLE]: No value satisfies "code" (seed 1): the pattern needs at least 12 characters, over the maximum 8
+// throws SchemaDefinitionError [ALX_ERR_UNSATISFIABLE]: No value satisfies "code" (seed 1): the pattern needs at least 12 characters, over the maximum 8
 ```
 
 ## A definition no value satisfies
 
-A field whose draws all fail its check is `ERR_UNSATISFIABLE`, with the path of the field, the
+A field whose draws all fail its check is `ALX_ERR_UNSATISFIABLE`, with the path of the field, the
 seed the draws were made with (the error's `seed` too, so the call that failed is the one to
 repeat) and the reason the last draw failed. A `length` above a `max`, an empty `enum` or a
 `min` above a `max` are rejected when the schema is built; what the sampler finds is a
@@ -136,7 +136,7 @@ contradiction between rules that are fine on their own:
 
 ```js
 sample(Schema.from({ code: { type: 'string', pattern: '^a$', length: { min: 2 } } }));
-// throws SchemaDefinitionError [ERR_UNSATISFIABLE]: No value satisfies "code" (seed 1): value is too short
+// throws SchemaDefinitionError [ALX_ERR_UNSATISFIABLE]: No value satisfies "code" (seed 1): value is too short
 
 sample(Schema.from({ byId: { object: { number: 'string' } } }));
 // throws: No value satisfies "byId" (seed 1): keys must be of type number (the keys of an object are strings)
@@ -178,7 +178,7 @@ is refused before the first draw.
 
 - **A sample is one value, not a test suite.** It shows the schema accepts something and what
   that looks like; it does not explore the edges of the rules.
-- **A reference needs a model.** A reference the schema cannot resolve is `ERR_UNSATISFIABLE`,
+- **A reference needs a model.** A reference the schema cannot resolve is `ALX_ERR_UNSATISFIABLE`,
   since no value passes a check that reports it.
 - **`maxDepth` bounds embedded records.** A required reference to the schema itself (a linked
   list through `next: 'Node'`) ends at the depth with an error; an optional one stops there. The

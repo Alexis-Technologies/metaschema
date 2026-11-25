@@ -20,7 +20,7 @@ describe('Options', () => {
       'Field "arg" not of expected type: string',
     ]);
     assert.throws(() => user.check({}, { root: 5 }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'root must be a string, got 5',
     });
     assert.equal(user.check({ name: 'x' }, { maxErrors: undefined, root: undefined }).valid, true);
@@ -29,13 +29,13 @@ describe('Options', () => {
   it('should refuse the 1.x positional path with a hint', () => {
     const user = new Schema('User', { name: 'string' });
     assert.throws(() => user.check({}, 'body'), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'check options must be an object (the path is options.root now), got "body"',
     });
-    assert.throws(() => user.check({}, 'body', { maxErrors: 1 }), { name: 'TypeError' });
+    assert.throws(() => user.check({}, 'body', { maxErrors: 1 }), { name: 'SchemaUsageError' });
     for (const options of [null, 42, true]) {
       assert.throws(() => user.check({}, options), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `check options must be an object, got ${options}`,
       });
     }
@@ -82,7 +82,7 @@ describe('Options', () => {
     ]);
     for (const unknown of ['strip', null, true, 'Reject']) {
       assert.throws(() => doc.check(value, { unknown }), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `unknown must be "reject" or "ignore", got ${JSON.stringify(unknown)}`,
       });
     }
@@ -133,7 +133,7 @@ describe('Options', () => {
     for (const unknown of ['strip', null, true, 'Ignore']) {
       assert.throws(() => Schema.from({ Struct: { unknown }, a: 'string' }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: `Schema metadata "unknown" must be "reject" or "ignore", got ${JSON.stringify(unknown)}`,
       });
     }

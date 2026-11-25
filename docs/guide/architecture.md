@@ -51,7 +51,7 @@ flowchart LR
     MDB["./mongodb · 3.6 KB<br/>BSON types · documents<br/>indexes · updates"] --> COE
     LOC["./locales/uk"] -.-> CORE
     CORE["@alexify/metaschema · 21.8 KB<br/>check · parse · serialize · async<br/>~standard · warnings"] --> DEFN
-    DEFN["./definition · 10.5 KB<br/>Schema · Model<br/>toJSON · toSnapshot"]
+    DEFN["./definition · 10.6 KB<br/>Schema · Model<br/>toJSON · toSnapshot"]
 ```
 
 The sizes are min+gzip, a subpath measured as what it adds to the core (`./mongodb` to the core
@@ -93,8 +93,8 @@ flowchart TB
 
 A broken definition throws a `SchemaDefinitionError` with a code here, at construction, never
 inside `check`. Every field is then built: the type's class copies the rules (a rule the type
-does not accept throws `ERR_INVALID_RULE`, bounds that leave nothing between them
-`ERR_INVALID_RULE` too), and a struct records a frozen **plan** entry per field (`{ key, type,
+does not accept throws `ALX_ERR_INVALID_RULE`, bounds that leave nothing between them
+`ALX_ERR_INVALID_RULE` too), and a struct records a frozen **plan** entry per field (`{ key, type,
 required, own, aliases }`). On the first use of a field's `check`, the `compile()` of its type
 (`checks.js`, installed on the prototype by `validation.js`) returns the type check as a
 closure, wrapped in the rules and the `validate` only when the field has them and in the
@@ -111,7 +111,7 @@ and `checkConsistency` on `Schema`, `warnings` on `Model`, the `compile` of ever
 on the prototype object the classes of that type inherit from (so a registry built before has
 it too), and the builders the lazy checks call. Until then, a schema of
 `@alexify/metaschema/definition` builds, renders and writes its snapshot, and a call that
-validates is `ERR_NOT_REGISTERED`. The state the validation half keeps on a schema (whether its
+validates is `ALX_ERR_NOT_REGISTERED`. The state the validation half keeps on a schema (whether its
 root joins the cycle detection, its default coercion, the caches of parse and `~standard`) is
 held under symbols the definition half sets; a test of the module graph pins that the
 definition half reaches no module of the validation half.
@@ -245,11 +245,11 @@ slot the core reads once per construction.
 flowchart TD
     A["compile(schema, { jit })"] --> E{"new Function allowed?"}
     E -->|"no, jit: 'auto'"| KEEP["keep the closures"]
-    E -->|"no, jit: true"| ERR["throw ERR_NO_EVAL"]
+    E -->|"no, jit: true"| ERR["throw ALX_ERR_NO_EVAL"]
     E -->|"yes"| G["emit.js<br/>an emitter per prototype"]
     G --> B{"generated?"}
     B -->|"yes"| R["schema[RUN] = jit"]
-    B -->|"no"| FB["ERR_JIT_BUILD<br/>returned or thrown"]
+    B -->|"no"| FB["ALX_ERR_JIT_BUILD<br/>returned or thrown"]
 ```
 
 Built-in types are inlined; a reference, a custom type and a `validate` function stay calls into

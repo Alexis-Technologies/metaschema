@@ -14,7 +14,7 @@ const STRUCT = Symbol.for('alexify.metaschema.struct');
 // fields, where a calculated field lives, but a value has no key by that name.
 const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 
-const invalidAliases = (reason) => new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+const invalidAliases = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
 
 const ALIASES = 'Option "aliases" needs a list of key names';
 

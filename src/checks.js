@@ -222,7 +222,7 @@ const withRules = (type, inner, rules) => {
 // field without rules is its type check alone, and check is the hot path.
 // The type check of a field. A custom type with a `compile` of its own runs
 // it here, on the first check, not when the schema is built: what it throws
-// is the type's (ERR_INVALID_CUSTOM_TYPE, located at the schema, with the
+// is the type's (ALX_ERR_INVALID_CUSTOM_TYPE, located at the schema, with the
 // error as the cause), never a bare error out of a check.
 const compiledOf = (type) => {
   try {
@@ -231,7 +231,7 @@ const compiledOf = (type) => {
     if (error instanceof SchemaDefinitionError) throw error;
     const { root } = type;
     const reason = `Custom type "${type.type}" could not compile its check: ${error?.message}`;
-    const failed = new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', reason);
+    const failed = new SchemaDefinitionError('ALX_ERR_INVALID_CUSTOM_TYPE', reason);
     failed.schema = root.name;
     failed.message = `${reason} in "${root.name}"`;
     failed.cause = error;

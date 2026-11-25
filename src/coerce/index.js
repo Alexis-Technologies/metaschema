@@ -221,7 +221,7 @@ const BUILT_IN = {
 // The table: a converter by type name, `(value, field) => value`.
 const COERCIONS = Object.create(null);
 
-const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERCION', reason);
+const invalidCoercion = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_COERCION', reason);
 
 // The converter of a field: its type's, or the one of the type it is an
 // alias of (`{ money: { js: 'number' } }` converts as a number); an alias
@@ -285,7 +285,7 @@ const check = (name, converter) => {
   const known = COERCIONS[name] ?? BUILT_IN[name];
   if (known !== undefined && known !== converter) {
     const reason = `Converter "${name}" is registered already with another function`;
-    throw new SchemaDefinitionError('ERR_COERCION_REGISTERED', reason);
+    throw new SchemaDefinitionError('ALX_ERR_COERCION_REGISTERED', reason);
   }
 };
 
@@ -352,7 +352,7 @@ let installed = false;
 
 // Fills the table with the built-in converters and the program's own, once
 // per name, process-wide (another function under a registered name is
-// ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
+// ALX_ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
 // type differently), and adds `schema.coerce(value, options)`. Every entry
 // is checked before any is written, so a call that throws leaves the table
 // as it was. `options.onError` is told of a converter that threw.

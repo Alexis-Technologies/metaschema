@@ -8,7 +8,7 @@ const { snapshotOf, orderOf } = require('./snapshot.js');
 
 const invalidOption = (name, expected, value) => {
   const reason = `Model option "${name}" must be ${expected}, got ${JSON.stringify(value)}`;
-  return new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+  return new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
 };
 
 const registryFor = (options) => {

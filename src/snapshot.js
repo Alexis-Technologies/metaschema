@@ -140,7 +140,7 @@ const typeOf = (Type) => {
 
 const typeClash = (name) =>
   new SchemaDefinitionError(
-    'ERR_UNREPRESENTABLE',
+    'ALX_ERR_UNREPRESENTABLE',
     `Two types named "${name}" cannot be represented in one snapshot`,
   );
 
@@ -205,7 +205,7 @@ const snapshotOf = (model) => {
 
 const clash = (name) =>
   new SchemaDefinitionError(
-    'ERR_UNREPRESENTABLE',
+    'ALX_ERR_UNREPRESENTABLE',
     `Two schemas named "${name}" cannot be represented in one snapshot`,
   );
 

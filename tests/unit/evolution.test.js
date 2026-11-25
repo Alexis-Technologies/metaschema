@@ -226,7 +226,7 @@ describe('Evolution', () => {
   const struct = (fields, extra = {}) => ({ kind: 'struct', fields, ...extra });
 
   it('should refuse what is not a snapshot in fromJSON and diff', () => {
-    const code = 'ERR_INVALID_SNAPSHOT';
+    const code = 'ALX_ERR_INVALID_SNAPSHOT';
     const snapshots = [null, 1, 'x', {}, { format: 2, entities: {} }, { format: 1 }, []];
     for (const value of [...snapshots, broken({}, 'types')]) {
       assert.throws(() => fromJSON(value), { name: 'SchemaDefinitionError', code });
@@ -253,18 +253,21 @@ describe('Evolution', () => {
     // The options, and a target that is not a list of changes.
     for (const options of [null, 'shared', 1]) {
       assert.throws(() => fromJSON(committed, options), {
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: 'Restore options must be an object',
       });
     }
-    assert.throws(() => compatibility({}), { name: 'TypeError', code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => compatibility({}), {
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
+    });
   });
 
-  // S1, S5: a snapshot is input. What it cannot say is ERR_INVALID_SNAPSHOT
+  // S1, S5: a snapshot is input. What it cannot say is ALX_ERR_INVALID_SNAPSHOT
   // located in the entity, never a bare SyntaxError or TypeError, and what it
   // says does not loosen the model.
   it('should locate what a snapshot cannot say in fromJSON', () => {
-    const code = 'ERR_INVALID_SNAPSHOT';
+    const code = 'ALX_ERR_INVALID_SNAPSHOT';
     const fails = (entities, expected, types) =>
       assert.throws(() => fromJSON(broken(entities, types)), {
         name: 'SchemaDefinitionError',
@@ -323,7 +326,7 @@ describe('Evolution', () => {
     );
     fails(
       { A: struct({ tags: field('array', { value: field('string', { length: 'x' }) }) }) },
-      { code: 'ERR_INVALID_LENGTH', message: /in "A\.tags"$/ },
+      { code: 'ALX_ERR_INVALID_LENGTH', message: /in "A\.tags"$/ },
     );
     // A schema of one type, and the sections of an entity.
     fails(
@@ -370,7 +373,7 @@ describe('Evolution', () => {
     fails(
       { A: struct({ a: field('string', { root: 'x' }) }) },
       {
-        code: 'ERR_RESERVED_KEY',
+        code: 'ALX_ERR_RESERVED_KEY',
         message: 'Key "root" is reserved in a field definition in "A.a"',
       },
     );
@@ -398,7 +401,7 @@ describe('Evolution', () => {
 
   // S2: the walks over a snapshot stop at 128 levels.
   it('should refuse a snapshot nested deeper than 128 levels', () => {
-    const code = 'ERR_INVALID_SNAPSHOT';
+    const code = 'ALX_ERR_INVALID_SNAPSHOT';
     const message = 'A snapshot nested deeper than 128 levels';
     const nested = (count) => {
       let def = field('string');
@@ -468,7 +471,7 @@ describe('Evolution', () => {
     // reserves it), not the prototype of the field.
     const proto = '{"type":"string","required":true,"__proto__":{"required":false}}';
     assert.throws(() => fromJSON(broken({ A: struct({ a: JSON.parse(proto) }) })), {
-      code: 'ERR_RESERVED_KEY',
+      code: 'ALX_ERR_RESERVED_KEY',
       message: /in "A\.a"$/,
     });
     // A type or a nested field named `constructor` is added, not compared
@@ -526,7 +529,7 @@ describe('Evolution', () => {
       { hexa: { kind: 'scalar', check: true, metadata: {} }, string: { metadata: { pg: 'text' } } },
     );
     assert.throws(() => fromJSON(snapshot, { registry: 'shared' }), {
-      code: 'ERR_INVALID_SNAPSHOT',
+      code: 'ALX_ERR_INVALID_SNAPSHOT',
       message:
         'Type "hexa" of the snapshot needs options.types or an isolated registry in "types.hexa"',
     });
@@ -589,8 +592,8 @@ describe('Evolution', () => {
   // R4, S1: `compatibility` reads a list of changes as `diff` writes them.
   it('should refuse what is not a change in compatibility and locate a bad definition', () => {
     const target = {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'A list of changes is expected',
     };
     for (const entry of [null, 1, 'x', [], {}, { kind: 'field' }, { kind: 1, op: 'added' }]) {
@@ -606,7 +609,7 @@ describe('Evolution', () => {
       broken({ A: struct({ a: field('bigint', { min: { $bigint: text } }) }) });
     assert.throws(() => compatibility(diff(bound('x'), bound('1'))), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_SNAPSHOT',
+      code: 'ALX_ERR_INVALID_SNAPSHOT',
       message: 'Cannot convert x to a BigInt in "A.a"',
       schema: 'A',
       field: 'a',
@@ -615,14 +618,14 @@ describe('Evolution', () => {
     // What `diff` does not read of a change it does not check: a definition
     // that is not one is an error of the snapshot, located at the change.
     assert.throws(() => compatibilityOf({ kind: 'field', op: 'added', entity: 'A', name: 'a' }), {
-      code: 'ERR_INVALID_SNAPSHOT',
+      code: 'ALX_ERR_INVALID_SNAPSHOT',
       message: /in "A\.a"$/,
     });
   });
 
   // S1: `diff` checks an entity before it reads it.
   it('should refuse an entity diff cannot read', () => {
-    const code = 'ERR_INVALID_SNAPSHOT';
+    const code = 'ALX_ERR_INVALID_SNAPSHOT';
     const A = struct({ a: field('string') });
     const fails = (entity, message) => {
       assert.throws(() => diff(broken({ A: entity }), broken({ A })), {
@@ -1257,7 +1260,7 @@ describe('Evolution', () => {
     for (const kind of ['dATABASE_URL', 'dTO', 'api_config', 'x']) {
       assert.throws(() => fromJSON(broken({ Env: struct(fields, { kind }) })), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_SNAPSHOT',
+        code: 'ALX_ERR_INVALID_SNAPSHOT',
         message: `The kind "${kind}" of an entity is not the name of a kind in "Env"`,
         schema: 'Env',
       });

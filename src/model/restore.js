@@ -8,7 +8,7 @@
 // validate as the original did, and `model.placeholders` lists the paths
 // the placeholders stand at. The snapshot is input: whatever fails while it
 // is read (a tag that does not read, a nesting deeper than DEPTH, an index
-// named like a field) is ERR_INVALID_SNAPSHOT located where the walk was,
+// named like a field) is ALX_ERR_INVALID_SNAPSHOT located where the walk was,
 // and the kind metadata it declares is never loosened by its `custom` keys.
 const { define, shorten } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
@@ -237,7 +237,7 @@ const fromJSON = (snapshot, options = {}) => {
   }
   checkRoot(snapshot);
   if (!isObject(options)) {
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Restore options must be an object');
+    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', 'Restore options must be an object');
   }
   const { registry = 'isolated', types: given = {} } = options;
   const context = { name: 'types', at: 'types', given, shared: registry === 'shared' };

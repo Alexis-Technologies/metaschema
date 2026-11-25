@@ -59,7 +59,7 @@ class Schema extends SchemaMetadata {
     if (hasBrand(raw, 'Schema')) {
       if (name && raw.name && raw.name !== name) {
         const reason = `Schema "${raw.name}" cannot be used as "${name}"`;
-        throw new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+        throw new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
       }
       raw.attach(...namespaces);
       return raw;

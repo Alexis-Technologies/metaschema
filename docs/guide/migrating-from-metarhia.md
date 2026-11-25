@@ -104,13 +104,13 @@ metaschema used are copied into the package.
 
   | Definition | Now |
   | --- | --- |
-  | `{ type: 'enum' }` without values, `enum: []` | `ERR_INVALID_ENUM` |
-  | `length: 'abc'`, `length: { min: 'a' }` | `ERR_INVALID_LENGTH` (and `length: { max: 0 }` works) |
-  | `{ many: 5 }`, `{ one: '' }` | `ERR_INVALID_REFERENCE` |
-  | a projection naming a field its parent does not have | `ERR_PROJECTION` |
-  | a field definition key named like a method of the field (`check`, `constructor`, ...) or `__proto__` | `ERR_RESERVED_KEY` |
-  | a type table entry that redefines a registered name, such as `json: { js: 'schema' }` from a metasql-style system table (`json` is a built-in) | `ERR_TYPE_REGISTERED`; write `json: { metadata: { pg: 'jsonb' } }` |
-  | `{ js: 'strng' }` | `ERR_UNKNOWN_JS_TYPE` (`js` may name a custom type registered earlier) |
+  | `{ type: 'enum' }` without values, `enum: []` | `ALX_ERR_INVALID_ENUM` |
+  | `length: 'abc'`, `length: { min: 'a' }` | `ALX_ERR_INVALID_LENGTH` (and `length: { max: 0 }` works) |
+  | `{ many: 5 }`, `{ one: '' }` | `ALX_ERR_INVALID_REFERENCE` |
+  | a projection naming a field its parent does not have | `ALX_ERR_PROJECTION` |
+  | a field definition key named like a method of the field (`check`, `constructor`, ...) or `__proto__` | `ALX_ERR_RESERVED_KEY` |
+  | a type table entry that redefines a registered name, such as `json: { js: 'schema' }` from a metasql-style system table (`json` is a built-in) | `ALX_ERR_TYPE_REGISTERED`; write `json: { metadata: { pg: 'jsonb' } }` |
+  | `{ js: 'strng' }` | `ALX_ERR_UNKNOWN_JS_TYPE` (`js` may name a custom type registered earlier) |
 
 - **Tuples in the short form are required.** `point: ['number', 'number']` was never required
   upstream; it is now, like every other field, and `'point?': [...]` makes it optional.

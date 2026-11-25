@@ -443,7 +443,7 @@ describe('Collections', () => {
   });
 
   it('should settle the key type as "string" or "number" when the field is built', () => {
-    const invalid = { name: 'SchemaDefinitionError', code: 'ERR_INVALID_DEFINITION' };
+    const invalid = { name: 'SchemaDefinitionError', code: 'ALX_ERR_INVALID_DEFINITION' };
     assert.throws(() => Schema.from({ f: { type: 'map', value: 'string' } }), {
       ...invalid,
       message: /Type "map" needs a key type of "string" or "number".* in "f"$/,

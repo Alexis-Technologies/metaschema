@@ -180,7 +180,7 @@ a decoder, a custom type's `checkType`, in it or in an entity it references) val
 specification allows, and the consumers of the specification await it. Any other schema returns
 the result itself. The detection reads the functions of the schema the first time `~standard` is
 used; a validator that returns a promise without being an `async function` is to `validate` what
-it is to `parse`: a `TypeError` with the code `ERR_ASYNC_VALIDATOR`.
+it is to `parse`: a `SchemaUsageError` with the code `ALX_ERR_ASYNC_VALIDATOR`.
 
 ## What it is not
 

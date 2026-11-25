@@ -15,7 +15,7 @@ import type {
 // `{ index, record, result }` in the order of the records; the options are
 // those of `check`, plus `maxInvalid`, the number of invalid records after
 // which the iteration ends. A target that is not a Schema, or a source that
-// is not iterable, is a `TypeError` with the code `ERR_INVALID_TARGET`.
+// is not iterable, is a `SchemaUsageError` with the code `ALX_ERR_INVALID_TARGET`.
 export function checkEach<T>(
   schema: Schema,
   records: Iterable<T>,
@@ -50,7 +50,7 @@ export function parseEachAsync<T, D extends string | object>(
 // A TransformStream over the records of a stream: a valid record goes on as
 // its parsed value (`mode: 'parse'`, the default) or as it is
 // (`mode: 'check'`); an invalid one is handed to `onInvalid` and dropped, or
-// ends the stream with a `TypeError` of the code `ERR_INVALID_RECORD` (with
+// ends the stream with a `SchemaUsageError` of the code `ALX_ERR_INVALID_RECORD` (with
 // `index`, `record` and `result` on it) when there is no `onInvalid` or
 // `maxInvalid` is reached. `async: true` runs the async methods.
 export function transform<D extends string | object>(

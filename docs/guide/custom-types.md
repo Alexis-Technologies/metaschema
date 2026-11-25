@@ -69,12 +69,12 @@ const entities = new Map([
 
 Writing the field as just `delivery: 'address'` throws
 `SchemaDefinitionError: Type "address" needs a schema definition: { type: 'address', schema: { ... } } in "Order.delivery"`
-(code `ERR_MISSING_SCHEMA`). The same error is thrown for the built-in `'schema'` type without a
+(code `ALX_ERR_MISSING_SCHEMA`). The same error is thrown for the built-in `'schema'` type without a
 definition.
 
 A prototype for a new type must have `construct(def, preprocessor)` and
 `checkType(value, path)` methods, or `Model` throws `SchemaDefinitionError` (code
-`ERR_INVALID_CUSTOM_TYPE`). `checkType` gets the value and the dotted path of the field and
+`ALX_ERR_INVALID_CUSTOM_TYPE`). `checkType` gets the value and the dotted path of the field and
 returns `null` (or `true`) when the value is valid, `false` for a `type` issue
 (`not of expected type: <name>`), or a message string, a `{ code, message }` object or an array of
 them, like a [`validate` function](/guide/validation#on-a-field); an exception becomes an
@@ -123,7 +123,7 @@ Passing the same table to several models is fine: an entry that repeats the defi
 created from (the same `js`, the same `construct` and `checkType` functions) or only adds
 `metadata` is accepted. A different definition for a name that is already registered, including a
 built-in (`{ string: { js: 'number' } }`), throws `SchemaDefinitionError` with code
-`ERR_TYPE_REGISTERED`, and a `js` that names no registered type throws `ERR_UNKNOWN_JS_TYPE`.
+`ALX_ERR_TYPE_REGISTERED`, and a `js` that names no registered type throws `ALX_ERR_UNKNOWN_JS_TYPE`.
 
 ## An isolated registry
 

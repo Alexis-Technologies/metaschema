@@ -3,7 +3,7 @@ const { hasBrand } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
 const projectionError = (name, reason) =>
-  new SchemaDefinitionError('ERR_PROJECTION', `Projection "${name}" ${reason}`);
+  new SchemaDefinitionError('ALX_ERR_PROJECTION', `Projection "${name}" ${reason}`);
 
 const KIND_ENT = ['entity', 'registry', 'dictionary'];
 const KIND_AUX = ['journal', 'details', 'relation', 'view'];

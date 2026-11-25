@@ -299,7 +299,7 @@ describe('Infer', () => {
     // the self-check says so.
     assert.throws(() => infer([{ orderId: 1 }], { kind: 'entity', name: 'Order' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INFER_MISMATCH',
+      code: 'ALX_ERR_INFER_MISMATCH',
       index: 0,
       message:
         'The inferred definition rejects sample 0 at "Order.orderId": not of expected type: string',
@@ -423,21 +423,21 @@ describe('Infer', () => {
     for (let level = 0; level < 130; level += 1) deep = { k: deep };
     assert.throws(() => infer([deep]), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INFER_DEPTH',
+      code: 'ALX_ERR_INFER_DEPTH',
       message: /^Sample 0 nests deeper than 128 levels at "(k\.){127}k" \(a cycle\?\)$/,
     });
     assert.throws(() => infer([{}, deep]), { message: /^Sample 1 nests/ });
     const cycle = { name: 'loop' };
     cycle.self = cycle;
     assert.throws(() => infer([cycle]), {
-      code: 'ERR_INFER_DEPTH',
+      code: 'ALX_ERR_INFER_DEPTH',
       message: /at "(self\.){127}self"/,
     });
     assert.throws(() => infer([{ items: [cycle] }], { maxDepth: 4 }), {
       message: 'Sample 0 nests deeper than 4 levels at "items[].self.self" (a cycle?)',
     });
     assert.throws(() => infer([{ a: { b: { c: { d: 1 } } } }], { maxDepth: 3 }), {
-      code: 'ERR_INFER_DEPTH',
+      code: 'ALX_ERR_INFER_DEPTH',
       message: 'Sample 0 nests deeper than 3 levels at "a.b.c" (a cycle?)',
     });
     assert.deepEqual(infer([{ a: { b: { c: 1 } } }], { maxDepth: 3 }), {
@@ -449,24 +449,24 @@ describe('Infer', () => {
     });
   });
 
-  it('should throw a TypeError for a wrong argument, ERR_INVALID_OPTIONS for a wrong option', () => {
+  it('should throw a TypeError for a wrong argument, ALX_ERR_INVALID_OPTIONS for a wrong option', () => {
     for (const bad of [undefined, null, 1, {}, 'samples', { next: () => ({}) }]) {
       assert.throws(() => infer(bad), {
-        name: 'TypeError',
-        code: 'ERR_INVALID_TARGET',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_TARGET',
         message: 'An iterable of samples is expected',
       });
     }
     for (const empty of [[], new Set(), (function* () {})()]) {
       assert.throws(() => infer(empty), {
-        code: 'ERR_INVALID_TARGET',
+        code: 'ALX_ERR_INVALID_TARGET',
         message: 'At least one sample is expected',
       });
     }
     const invalid = (options, message) =>
       assert.throws(() => infer([1], options), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message,
       });
     invalid(null, 'Infer options must be an object');
@@ -572,7 +572,7 @@ describe('Infer', () => {
     const cycle = {};
     cycle[long] = cycle;
     assert.throws(() => infer([cycle], { maxDepth: 2 }), {
-      code: 'ERR_INFER_DEPTH',
+      code: 'ALX_ERR_INFER_DEPTH',
       message: `Sample 0 nests deeper than 2 levels at "${'k'.repeat(100)}....${'k'.repeat(100)}..." (a cycle?)`,
     });
     const odd = {};

@@ -21,7 +21,7 @@ feature in one table, rather than a few convenient libraries in a few convenient
 - **An async validator can let bad data through.** In ArkType, myzod, Valita and TypeBox a
   validator that returns a promise passes, because a promise is truthy; Joi's `custom()`,
   Valibot's synchronous `safeParse` of an async schema and class-validator's `validateSync`
-  do the same. metaschema throws `ERR_ASYNC_VALIDATOR` from the synchronous methods.
+  do the same. metaschema throws `ALX_ERR_ASYNC_VALIDATOR` from the synchronous methods.
 - **Cyclic or very deep input overflows the stack in twelve of them.** metaschema tracks cycles
   where a record is embedded and stops at `maxDepth`; Joi and myzod turn the overflow into an
   issue, and protobuf.js has a depth limit.

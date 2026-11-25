@@ -261,7 +261,7 @@ describe('Locales', () => {
     ]);
     for (const messages of [null, 42, 'uk']) {
       assert.throws(() => doc.check({}, { root: 'Doc', messages }), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `messages must be a locale table or a function, got ${JSON.stringify(messages)}`,
       });
     }

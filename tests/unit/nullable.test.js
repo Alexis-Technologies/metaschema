@@ -38,7 +38,7 @@ describe('Nullable', () => {
     for (const nullable of ['yes', 1, null, {}]) {
       assert.throws(() => Schema.from({ a: { type: 'string', nullable } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: 'Option "nullable" needs a boolean in "a"',
       });
     }

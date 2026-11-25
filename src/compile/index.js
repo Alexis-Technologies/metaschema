@@ -12,7 +12,7 @@ const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
 
 // The options of compile and register: the mode, and the function told of
 // every schema the default mode could not compile.
@@ -50,7 +50,7 @@ const noEval = () => {
   const reason =
     'Code generation from strings is not allowed in this environment; ' +
     'jit: "auto" keeps the closure backend instead';
-  return new SchemaDefinitionError('ERR_NO_EVAL', reason);
+  return new SchemaDefinitionError('ALX_ERR_NO_EVAL', reason);
 };
 
 // Whether a mode generates code here: never for false, where it can for
@@ -66,7 +66,7 @@ const accelerates = (mode) => {
 // error of the emitter or of `new Function` as the cause, under one code.
 const failure = (target, error) => {
   const reason = `The check of "${target.name}" could not be generated: ${error.message}`;
-  const wrapped = new SchemaDefinitionError('ERR_JIT_BUILD', reason);
+  const wrapped = new SchemaDefinitionError('ALX_ERR_JIT_BUILD', reason);
   wrapped.cause = error;
   return wrapped;
 };
@@ -85,7 +85,7 @@ const build = (target) => {
   return run;
 };
 
-// The generated check, or ERR_JIT_BUILD: the JIT was demanded.
+// The generated check, or ALX_ERR_JIT_BUILD: the JIT was demanded.
 const generate = (target) => {
   try {
     return build(target);

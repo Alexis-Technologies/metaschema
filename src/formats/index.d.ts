@@ -23,8 +23,8 @@ export const FORMATS: { readonly [name: string]: Readonly<FormatDefinition> | un
 // `base64`, `base64url`, `hex`, `emoji`, `semver`, `slug`, `credit-card`)
 // and the program's own, once per name and process-wide, like the type
 // registry: a name registered again with the same test is nothing, with
-// another test `ERR_FORMAT_REGISTERED`, and an entry that is not a format
-// `ERR_INVALID_FORMAT`. The program's own format under the name of a
+// another test `ALX_ERR_FORMAT_REGISTERED`, and an entry that is not a format
+// `ALX_ERR_INVALID_FORMAT`. The program's own format under the name of a
 // built-in one takes its place, and the call returns the names of the
 // built-in formats it replaced (an empty list otherwise); the schemas built
 // before keep the built-in test.

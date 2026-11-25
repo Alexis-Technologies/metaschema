@@ -67,13 +67,13 @@ describe('Types', () => {
     const message = 'Type "money" is already registered; only { metadata } may be added';
     assert.throws(() => new Model({ money: { js: 'number' } }, []), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_TYPE_REGISTERED',
+      code: 'ALX_ERR_TYPE_REGISTERED',
       message,
     });
     const other = { kind: 'scalar', construct() {}, checkType: () => null };
-    assert.throws(() => new Model({ hex: other }, []), { code: 'ERR_TYPE_REGISTERED' });
+    assert.throws(() => new Model({ hex: other }, []), { code: 'ALX_ERR_TYPE_REGISTERED' });
     assert.throws(() => new Model({ string: { js: 'number' } }, []), {
-      code: 'ERR_TYPE_REGISTERED',
+      code: 'ALX_ERR_TYPE_REGISTERED',
     });
 
     const updated = new Model({ money: { metadata: { pg: 'numeric' } } }, []);
@@ -88,7 +88,7 @@ describe('Types', () => {
     };
     for (const name of ['bytes', 'flags']) {
       assert.throws(() => new Model({ [name]: table[name] }, []), {
-        code: 'ERR_TYPE_REGISTERED',
+        code: 'ALX_ERR_TYPE_REGISTERED',
         message: `Type "${name}" is already registered; only { metadata } may be added`,
       });
     }
@@ -101,7 +101,7 @@ describe('Types', () => {
   it('should require js to name a registered type, built-in or custom', () => {
     assert.throws(() => new Model({ bad: { js: 'strng' } }, []), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_UNKNOWN_JS_TYPE',
+      code: 'ALX_ERR_UNKNOWN_JS_TYPE',
       message: 'Unknown js type "strng" for custom type "bad"',
     });
     const table = {
@@ -163,11 +163,11 @@ describe('Types', () => {
     assert.equal(strings.types.coin.metadata.pg, 'text');
     assert.equal(numbers.types.coin.metadata.pg, 'integer');
     assert.equal(TYPES.coin, undefined);
-    assert.throws(() => Schema.from({ amount: 'coin' }), { code: 'ERR_UNKNOWN_TYPE' });
+    assert.throws(() => Schema.from({ amount: 'coin' }), { code: 'ALX_ERR_UNKNOWN_TYPE' });
     assert.equal(Schema.from({ amount: 'coin' }, [numbers]).check({ amount: 2 }).valid, true);
     assert.equal(strings.types.string.metadata.pg, undefined);
     assert.throws(() => new Model({}, [], null, { registry: 'private' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Model option "registry" must be "shared" or "isolated", got "private"',
     });
   });
@@ -187,8 +187,8 @@ describe('Types', () => {
     const build = () => new Model(table, [['Broken', { Struct: {}, code: 'brokenType' }]]);
     if (process.env.METASCHEMA_BACKEND === 'jit') {
       assert.throws(build, (error) => {
-        assert.equal(error.code, 'ERR_JIT_BUILD');
-        assert.equal(error.cause.code, 'ERR_INVALID_CUSTOM_TYPE');
+        assert.equal(error.code, 'ALX_ERR_JIT_BUILD');
+        assert.equal(error.cause.code, 'ALX_ERR_INVALID_CUSTOM_TYPE');
         assert.equal(error.cause.cause, cause);
         return true;
       });
@@ -198,7 +198,7 @@ describe('Types', () => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       assert.throws(() => broken.check({ code: 'x' }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_CUSTOM_TYPE',
+        code: 'ALX_ERR_INVALID_CUSTOM_TYPE',
         message: 'Custom type "brokenType" could not compile its check: boom in "Broken"',
         schema: 'Broken',
         cause,

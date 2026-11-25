@@ -258,7 +258,7 @@ export interface CheckContext {
 }
 
 // A validator may return a promise of its result to checkAsync and parseAsync;
-// to check and parse a promise is a TypeError with the code ERR_ASYNC_VALIDATOR.
+// to check and parse a promise is a SchemaUsageError with the code ALX_ERR_ASYNC_VALIDATOR.
 export type Validator = (value: any, path: string) => ValidationReturn | Promise<ValidationReturn>;
 
 export type CalculatedField = (value: any) => unknown;
@@ -323,7 +323,7 @@ export interface TypeMetadata {
 // check, `(value, context, key) => void`): it runs on the first check of a
 // field, not when the schema is built, so it must not be where the
 // definition is checked (`construct` is); what it throws is
-// ERR_INVALID_CUSTOM_TYPE with the error as the cause.
+// ALX_ERR_INVALID_CUSTOM_TYPE with the error as the cause.
 export interface TypeEntry {
   js?: string;
   metadata?: TypeMetadata;
@@ -366,60 +366,60 @@ export interface SchemaOptions {
 }
 
 export type DefinitionErrorCode =
-  | 'ERR_INVALID_DEFINITION'
-  | 'ERR_UNKNOWN_TYPE'
-  | 'ERR_MISSING_SCHEMA'
-  | 'ERR_INVALID_TUPLE'
-  | 'ERR_INVALID_UNION'
-  | 'ERR_PROJECTION'
-  | 'ERR_INVALID_CUSTOM_TYPE'
-  | 'ERR_INVALID_ENUM'
-  | 'ERR_INVALID_LENGTH'
-  | 'ERR_INVALID_RULE'
-  | 'ERR_INVALID_REFERENCE'
-  | 'ERR_RESERVED_KEY'
-  | 'ERR_TYPE_REGISTERED'
-  | 'ERR_UNKNOWN_JS_TYPE'
-  | 'ERR_INVALID_OPTIONS'
-  | 'ERR_UNREPRESENTABLE'
+  | 'ALX_ERR_INVALID_DEFINITION'
+  | 'ALX_ERR_UNKNOWN_TYPE'
+  | 'ALX_ERR_MISSING_SCHEMA'
+  | 'ALX_ERR_INVALID_TUPLE'
+  | 'ALX_ERR_INVALID_UNION'
+  | 'ALX_ERR_PROJECTION'
+  | 'ALX_ERR_INVALID_CUSTOM_TYPE'
+  | 'ALX_ERR_INVALID_ENUM'
+  | 'ALX_ERR_INVALID_LENGTH'
+  | 'ALX_ERR_INVALID_RULE'
+  | 'ALX_ERR_INVALID_REFERENCE'
+  | 'ALX_ERR_RESERVED_KEY'
+  | 'ALX_ERR_TYPE_REGISTERED'
+  | 'ALX_ERR_UNKNOWN_JS_TYPE'
+  | 'ALX_ERR_INVALID_OPTIONS'
+  | 'ALX_ERR_UNREPRESENTABLE'
   // Thrown by `fromJSONSchema` of the generators subpath for a keyword the
   // subset has no form for.
-  | 'ERR_UNSUPPORTED_SCHEMA'
+  | 'ALX_ERR_UNSUPPORTED_SCHEMA'
   // Thrown by `fromJSON` and `diff` of the `@alexify/metaschema/model`
   // subpath for a value that is not a snapshot of a model.
-  | 'ERR_INVALID_SNAPSHOT'
+  | 'ALX_ERR_INVALID_SNAPSHOT'
   // Thrown by `sample` of the same subpath: a field no value satisfies, a
   // pattern it cannot read, a custom type without `metadata.sample`.
-  | 'ERR_UNSATISFIABLE'
-  | 'ERR_SAMPLE_PATTERN'
-  | 'ERR_SAMPLE_TYPE'
+  | 'ALX_ERR_UNSATISFIABLE'
+  | 'ALX_ERR_SAMPLE_PATTERN'
+  | 'ALX_ERR_SAMPLE_TYPE'
   // Thrown by `merge` of the same subpath for what no value can satisfy.
-  | 'ERR_MERGE_CONFLICT'
+  | 'ALX_ERR_MERGE_CONFLICT'
   // Thrown by `infer` of the same subpath: a sample nested deeper than
   // `maxDepth`, and a definition that rejects a sample it was inferred from
   // (a bug of the inference, to report).
-  | 'ERR_INFER_DEPTH'
-  | 'ERR_INFER_MISMATCH'
+  | 'ALX_ERR_INFER_DEPTH'
+  | 'ALX_ERR_INFER_MISMATCH'
   // Thrown by `register` of the `@alexify/metaschema/formats` subpath: an
   // entry that is not a format, and a name registered again with another
   // test.
-  | 'ERR_INVALID_FORMAT'
-  | 'ERR_FORMAT_REGISTERED'
+  | 'ALX_ERR_INVALID_FORMAT'
+  | 'ALX_ERR_FORMAT_REGISTERED'
   // Thrown by the functions of the `@alexify/metaschema/derive` subpath for
   // a key the schema has no field of, located in the schema.
-  | 'ERR_UNKNOWN_FIELD'
+  | 'ALX_ERR_UNKNOWN_FIELD'
   // Thrown by `register` of the `@alexify/metaschema/coerce` subpath: an
   // entry that is not a converter of a type, and a name registered again
   // with another function.
-  | 'ERR_INVALID_COERCION'
-  | 'ERR_COERCION_REGISTERED'
+  | 'ALX_ERR_INVALID_COERCION'
+  | 'ALX_ERR_COERCION_REGISTERED'
   // Thrown by `compile` and `register` of the `@alexify/metaschema/compile`
   // subpath with `jit: true` where code generation from strings is not allowed.
-  | 'ERR_NO_EVAL'
+  | 'ALX_ERR_NO_EVAL'
   // The check of a schema could not be generated (the generator's error is the
   // `cause`): thrown with `jit: true`, reported as `error` and to `onFallback`
   // in the default mode.
-  | 'ERR_JIT_BUILD';
+  | 'ALX_ERR_JIT_BUILD';
 
 export class SchemaDefinitionError extends TypeError {
   code: DefinitionErrorCode;
@@ -429,24 +429,42 @@ export class SchemaDefinitionError extends TypeError {
   locate(schema: string, field: string): this;
 }
 
-// The code of the TypeError a synchronous check or parse throws when a
-// validator, a custom checkType or a decoder returns a promise: the call,
-// not the definition, is wrong, so it is a plain TypeError with `code`.
-// `ERR_INVALID_TARGET` is the same kind of error from a function of a subpath
-// given something other than what it takes (a Schema, a Model, a snapshot, a
-// list of changes).
+// The codes of a SchemaUsageError: the call, not the definition, is wrong.
 export type RuntimeErrorCode =
-  | 'ERR_ASYNC_VALIDATOR'
-  | 'ERR_INVALID_TARGET'
+  // A validator, a custom checkType or a decoder returned a promise to a
+  // synchronous check or parse.
+  | 'ALX_ERR_ASYNC_VALIDATOR'
+  // A function of a subpath was given something other than what it takes (a
+  // Schema, a Model, a snapshot, a list of changes, a sequence of records).
+  | 'ALX_ERR_INVALID_TARGET'
   // An option of a call that is not what it must be (`maxErrors`, the
   // `coerce` of a parse, the options of the stream, derive and mongodb
-  // subpaths): the call is wrong, not the definition.
-  | 'ERR_INVALID_OPTION'
-  | 'ERR_INVALID_RECORD'
+  // subpaths).
+  | 'ALX_ERR_INVALID_OPTION'
+  // An invalid record a `transform` of the stream subpath was not told to
+  // drop; the error carries `index`, `record` and `result`.
+  | 'ALX_ERR_INVALID_RECORD'
   // A parse that coerces before `register()` of the `@alexify/metaschema/coerce`
-  // subpath ran (there is no converter to run), and a document written with
-  // ObjectIds before `register({ bson })` of `@alexify/metaschema/mongodb`.
-  | 'ERR_NOT_REGISTERED';
+  // subpath ran (there is no converter to run), a document written with
+  // ObjectIds before `register({ bson })` of `@alexify/metaschema/mongodb`,
+  // and a schema of `@alexify/metaschema/definition` asked to validate before
+  // the core entry was loaded (the error carries `method`).
+  | 'ALX_ERR_NOT_REGISTERED'
+  // `saveTypes` of the generators subpath in a browser, where there is no
+  // file system to write to.
+  | 'ALX_ERR_UNSUPPORTED_RUNTIME';
+
+// What a wrong call throws: a TypeError with a code. An invalid record of a
+// stream carries it, its position and its result; an ALX_ERR_NOT_REGISTERED of a
+// schema of the definition entry names the method that was called.
+export class SchemaUsageError extends TypeError {
+  code: RuntimeErrorCode;
+  index?: number;
+  record?: unknown;
+  result?: ValidationResult;
+  method?: string;
+  constructor(code: RuntimeErrorCode, message: string);
+}
 
 // ---------------------------------------------------------------------------
 // The snapshot: `model.toJSON()`, what JSON.stringify(model) writes, and
@@ -691,7 +709,7 @@ export interface RestoreOptions {
   types?: Record<string, TypeEntry>;
   // 'isolated' (the default) gives the restored model its own registry, so
   // the placeholders of its custom types never reach the shared one; a
-  // 'shared' registry takes no placeholder type (`ERR_INVALID_SNAPSHOT`
+  // 'shared' registry takes no placeholder type (`ALX_ERR_INVALID_SNAPSHOT`
   // unless `types` brings the real one).
   registry?: 'shared' | 'isolated';
 }
@@ -791,7 +809,7 @@ export interface InferOptions {
   // one kind; keys that are not names are a dictionary from one sample on;
   // false keeps every record a struct.
   map?: number | false;
-  // How deep a sample may nest (128, the most); past it `ERR_INFER_DEPTH`.
+  // How deep a sample may nest (128, the most); past it `ALX_ERR_INFER_DEPTH`.
   maxDepth?: number;
   // Whether a place whose every string passes a registered format is that
   // format (true); the formats subpath registers them, in the order `infer`
@@ -908,7 +926,7 @@ export interface JSONSchemaOptions {
   // the value itself (a `date`, `set` or `map` has no JSON form).
   io?: 'input' | 'output';
   // What to do with a type that has no form in the target: throw
-  // `ERR_UNREPRESENTABLE` (the default), or render it as `{}`.
+  // `ALX_ERR_UNREPRESENTABLE` (the default), or render it as `{}`.
   unrepresentable?: 'throw' | 'any';
   // How a reference renders, as in `check`: by the kind of its target ('kind',
   // the default: a stored kind as an id, a memory kind as a `$ref` to its
@@ -943,7 +961,7 @@ export interface FromJSONSchemaOptions {
   // ('inline', the default; a cycle has no form), or a reference to an
   // entity of that name ('name'), to resolve through a Model.
   references?: 'inline' | 'name';
-  // A keyword the subset has no form for: `ERR_UNSUPPORTED_SCHEMA` with its
+  // A keyword the subset has no form for: `ALX_ERR_UNSUPPORTED_SCHEMA` with its
   // place in the document ('throw', the default), or dropped ('ignore').
   unsupported?: 'throw' | 'ignore';
   // Told of every drop of `unsupported: 'ignore'`: what was dropped, as the

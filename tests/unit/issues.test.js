@@ -219,7 +219,7 @@ describe('Issues', () => {
     assert.equal(cart.check({ items: bad }, { root: 'Cart', maxErrors: 5 }).errors.length, 5);
 
     for (const maxErrors of [0, -1, '3', NaN, null]) {
-      assert.throws(() => schema.check({}, { maxErrors }), { name: 'TypeError' });
+      assert.throws(() => schema.check({}, { maxErrors }), { name: 'SchemaUsageError' });
     }
   });
 

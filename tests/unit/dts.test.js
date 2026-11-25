@@ -239,13 +239,13 @@ interface User {
     const broken = new Model({}, [['A/b', { Struct: {}, x: 'string' }]]);
     assert.throws(() => broken.toTypeScript(), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Entity name "A/b" (not an identifier) cannot be represented in TypeScript',
     });
     // An unresolved reference is an id unless it embeds, where it is the name.
     assert.equal(Schema.from({ r: 'A/b' }).toInterface(), 'interface  {\n  rId: string;\n}');
     assert.throws(() => Schema.from({ r: { type: 'A/b', embed: true } }).toInterface(), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
     });
   });
 });

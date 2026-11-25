@@ -121,13 +121,13 @@ type), and is raised when the schema is built, not when data is checked. It is a
 ```js
 new Schema('Order', { total: 'strng' });
 // SchemaDefinitionError: Unknown type "strng" in "Order.total"
-//   code: 'ERR_UNKNOWN_TYPE', schema: 'Order', field: 'total'
+//   code: 'ALX_ERR_UNKNOWN_TYPE', schema: 'Order', field: 'total'
 ```
 
-An option with a value it does not accept also throws a `TypeError`, as does a string in place of
+An option with a value it does not accept also throws a `SchemaUsageError`, as does a string in place of
 the options (the second argument of `check` was the root path in 1.x), and so does a `validate`
 function or a custom type's `checkType` that returns a promise: the code of that error is
-`ERR_ASYNC_VALIDATOR`, and [`checkAsync`](/guide/parse#async) is the call that awaits them.
+`ALX_ERR_ASYNC_VALIDATOR`, and [`checkAsync`](/guide/parse#async) is the call that awaits them.
 
 ## Messages and locales
 

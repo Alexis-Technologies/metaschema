@@ -3,7 +3,7 @@ const { constants, getKindMetadata } = require('./kinds.js');
 // half installed into them (validation.js).
 const { Schema, ValidationResult } = require('./validation.js');
 const { Model } = require('./model.js');
-const { SchemaDefinitionError } = require('./errors.js');
+const { SchemaDefinitionError, SchemaUsageError } = require('./errors.js');
 
 const { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW } = constants;
 
@@ -18,5 +18,6 @@ module.exports = {
   Schema,
   Model,
   SchemaDefinitionError,
+  SchemaUsageError,
   ValidationResult,
 };

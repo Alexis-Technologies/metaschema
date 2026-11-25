@@ -17,17 +17,20 @@ const RESERVED = new Set([
 ]);
 
 const reservedKey = (key) =>
-  new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
+  new SchemaDefinitionError(
+    'ALX_ERR_RESERVED_KEY',
+    `Key "${key}" is reserved in a field definition`,
+  );
 
 // The options of a field that are flags: `nullable` (null in place of a
 // value) and `coerce` (whether parse converts the input of its subtree).
 const FLAGS = ['nullable', 'coerce'];
 
 const invalidFlag = (key) =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a boolean`);
+  new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', `Option "${key}" needs a boolean`);
 
 const invalidCodec = (key) =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
+  new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
 
 // `parse` (the decoder) and `serialize` are read by parse and serialize, on
 // any type; a definition that gave them anything else can never work.

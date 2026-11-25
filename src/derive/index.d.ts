@@ -20,8 +20,8 @@ import type {
 // stored kind or a projection becomes a struct (without the id of the kind,
 // unless the call names it), a memory kind keeps its metadata, the name is
 // the source's unless `options.name`. A key the schema has no field of is
-// `ERR_UNKNOWN_FIELD`, located in the schema; anything but a Schema of a
-// struct is `ERR_INVALID_TARGET`.
+// `ALX_ERR_UNKNOWN_FIELD`, located in the schema; anything but a Schema of a
+// struct is `ALX_ERR_INVALID_TARGET`.
 
 // The fields named, in the order of the schema. The schema's own functions
 // do not come along.

@@ -19,7 +19,7 @@ const { DEPTH, kindKeyOf } = require('./data.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
-const invalidOptions = (reason) => invalid('ERR_INVALID_OPTIONS', reason);
+const invalidOptions = (reason) => invalid('ALX_ERR_INVALID_OPTIONS', reason);
 
 // The kinds a place may hold, a bit each: a place that held values of
 // several kinds is a union of them, and null and undefined decide presence.
@@ -91,7 +91,7 @@ const where = (state) => {
 
 const tooDeep = (state) =>
   invalid(
-    'ERR_INFER_DEPTH',
+    'ALX_ERR_INFER_DEPTH',
     `Sample ${state.index} nests deeper than ${state.maxDepth} levels at "${where(state)}" (a cycle?)`,
   );
 
@@ -403,7 +403,7 @@ const mismatch = (state, index, issue) => {
   finalize([issue], en);
   const at = toDotPath(issue.path, state.name);
   const error = invalid(
-    'ERR_INFER_MISMATCH',
+    'ALX_ERR_INFER_MISMATCH',
     `The inferred definition rejects sample ${index} at "${at}": ${issue.message}`,
   );
   error.index = index;

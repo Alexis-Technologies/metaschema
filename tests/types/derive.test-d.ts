@@ -150,7 +150,7 @@ expectError(Schema.from('string').partial());
 const assigned: Schema = account.pick(['login']).required();
 expectAssignable<Schema>(assigned);
 
-expectAssignable<DefinitionErrorCode>('ERR_UNKNOWN_FIELD');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_UNKNOWN_FIELD');
 
 // A struct of upper-case keys derives by its keys: until 3.4.1 they were
 // kind keys for the types, and naming one was an error.

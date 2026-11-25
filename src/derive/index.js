@@ -30,7 +30,7 @@ const sourceOf = (schema) => {
   return schema;
 };
 
-// The options of a call are the call's (ERR_INVALID_OPTION); the metadata
+// The options of a call are the call's (ALX_ERR_INVALID_OPTION); the metadata
 // among them is a definition, and a wrong one is a definition error.
 const optionsOf = (options = {}) => {
   if (options === null || typeof options !== 'object') {
@@ -38,7 +38,10 @@ const optionsOf = (options = {}) => {
   }
   const { metadata } = options;
   if (metadata !== undefined && (metadata === null || typeof metadata !== 'object')) {
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Option "metadata" must be an object');
+    throw new SchemaDefinitionError(
+      'ALX_ERR_INVALID_OPTIONS',
+      'Option "metadata" must be an object',
+    );
   }
   return options;
 };
@@ -57,7 +60,7 @@ const namesOf = (schema, keys) => {
   for (const key of keys) {
     if (typeof key !== 'string') throw invalidOption('keys', 'a list of field names', keys);
     if (!(key in schema.fields)) {
-      throw new SchemaDefinitionError('ERR_UNKNOWN_FIELD', 'No such field').locate(
+      throw new SchemaDefinitionError('ALX_ERR_UNKNOWN_FIELD', 'No such field').locate(
         schema.name,
         key,
       );
@@ -192,7 +195,7 @@ const extend = (schema, extension, options) => {
     const first = firstKey(extension);
     if (isKindKey(first, extension[first])) {
       const reason = 'An extension has fields only; the kind is options.metadata';
-      throw atSchema(new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason), schema.name);
+      throw atSchema(new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason), schema.name);
     }
   }
   const keys = new Map();
@@ -221,7 +224,7 @@ const keyof = (schema, options) => {
   const { name = schema.name, metadata } = optionsOf(options);
   if (metadata !== undefined) {
     const reason = 'keyof takes a name only: a schema of an enum has no kind';
-    throw atSchema(new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason), schema.name);
+    throw atSchema(new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason), schema.name);
   }
   const id = idOf(schema);
   const names = [];

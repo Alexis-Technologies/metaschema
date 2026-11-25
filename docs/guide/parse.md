@@ -257,13 +257,13 @@ longest of theirs, not the sum; a validator over them waits for them, and such v
 one after the other: the rule that a validator runs only when nothing under it failed needs
 that much order.
 
-The synchronous `check` and `parse` throw a `TypeError` with the code `ERR_ASYNC_VALIDATOR` when
+The synchronous `check` and `parse` throw a `SchemaUsageError` with the code `ALX_ERR_ASYNC_VALIDATOR` when
 a validator, a `checkType` or a decoder returns a promise:
 
 ```js
 signup.check({ login: 'marcus', password: 'secret' });
-// TypeError: The validator of "Signup.login" returned a promise; use checkAsync or parseAsync
-//   code: 'ERR_ASYNC_VALIDATOR'
+// SchemaUsageError: The validator of "Signup.login" returned a promise; use checkAsync or parseAsync
+//   code: 'ALX_ERR_ASYNC_VALIDATOR'
 ```
 
 `serialize` is synchronous; its `check` option runs the synchronous `check`.
@@ -303,7 +303,7 @@ and `serialize` takes an `InferOutput<D>` and gives an `Infer<D>`.
 | decoders, the schema's `parse` | not called | called on a valid value | called |
 | `unknown` | `reject` or `ignore`; the schema's own metadata by default | `reject`, `ignore` or `strip` | the schema's own metadata, or `libraryOptions` |
 | the value | never touched | never touched; the output shares what did not change | the output of `parse` |
-| a validator's promise | `ERR_ASYNC_VALIDATOR`; `checkAsync` | `ERR_ASYNC_VALIDATOR`; `parseAsync` | a promise when the schema has an async function |
+| a validator's promise | `ALX_ERR_ASYNC_VALIDATOR`; `checkAsync` | `ALX_ERR_ASYNC_VALIDATOR`; `parseAsync` | a promise when the schema has an async function |
 
 ## Boundaries
 

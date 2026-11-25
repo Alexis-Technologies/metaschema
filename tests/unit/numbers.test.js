@@ -91,38 +91,38 @@ describe('Numbers', () => {
     for (const type of ['number', 'bigint', 'integer']) {
       assert.throws(() => Schema.from({ n: { type, length: 3 } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_RULE',
+        code: 'ALX_ERR_INVALID_RULE',
         message: `Rule "length" does not apply to type "${type}"; use min and max in "n"`,
       });
     }
     assert.throws(() => Schema.from({ s: { type: 'string', min: 1 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "min" does not apply to type "string" in "s"',
     });
     assert.throws(() => Schema.from({ b: { type: 'boolean', length: 1 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "length" does not apply to type "boolean" in "b"',
     });
     assert.throws(() => Schema.from({ tags: { array: 'string', max: 2 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "max" does not apply to type "array" in "tags"',
     });
     for (const min of ['1', null, true, {}, false]) {
       assert.throws(() => Schema.from({ n: { type: 'number', min } }), {
-        code: 'ERR_INVALID_RULE',
+        code: 'ALX_ERR_INVALID_RULE',
         message: 'Rule "min" needs a number or a bigint in "n"',
       });
     }
     assert.throws(() => Schema.from({ n: { type: 'number', min: 5, max: 1 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "max" is below "min" in "n"',
     });
     assert.throws(() => Schema.from({ n: { type: 'bigint', min: 5, max: 1n } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
     });
     for (const length of [{ min: 5, max: 1 }, [5, 1]]) {
       assert.throws(() => Schema.from({ s: { type: 'string', length } }), {
-        code: 'ERR_INVALID_LENGTH',
+        code: 'ALX_ERR_INVALID_LENGTH',
         message: 'Rule "length" has min above max in "s"',
       });
     }
@@ -159,11 +159,11 @@ describe('Numbers', () => {
     ]);
     assert.equal(price.check({ value: 0, code: 'ab' }).valid, true);
     assert.throws(() => Schema.from({ h: { type: 'hex', length: 2 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "length" does not apply to type "hex" in "h"',
     });
     assert.throws(() => Schema.from({ v: { type: 'amount', length: 2 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "length" does not apply to type "amount"; use min and max in "v"',
     });
   });
@@ -265,13 +265,13 @@ describe('Numbers', () => {
     assert.equal(schema.fields.price.decimals, 2);
     for (const decimals of [-1, 16, 1.5, '2', null, true]) {
       assert.throws(() => Schema.from({ n: { type: 'number', decimals } }), {
-        code: 'ERR_INVALID_RULE',
+        code: 'ALX_ERR_INVALID_RULE',
         message: 'Rule "decimals" needs an integer from 0 to 15 in "n"',
       });
     }
     for (const type of ['integer', 'bigint', 'string']) {
       assert.throws(() => Schema.from({ n: { type, decimals: 2 } }), {
-        code: 'ERR_INVALID_RULE',
+        code: 'ALX_ERR_INVALID_RULE',
         message: `Rule "decimals" does not apply to type "${type}" in "n"`,
       });
     }

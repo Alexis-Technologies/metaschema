@@ -148,7 +148,7 @@ describe('Values', () => {
       'Field "data" value is too short',
     ]);
     assert.throws(() => Schema.from({ data: { type: 'bytes', pattern: /x/ } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "pattern" does not apply to type "bytes" in "data"',
     });
   });

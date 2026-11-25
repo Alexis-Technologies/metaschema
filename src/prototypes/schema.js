@@ -4,7 +4,7 @@ const { SchemaDefinitionError } = require('../errors.js');
 
 const missingSchema = (type) => {
   const hint = `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
-  return new SchemaDefinitionError('ERR_MISSING_SCHEMA', hint);
+  return new SchemaDefinitionError('ALX_ERR_MISSING_SCHEMA', hint);
 };
 
 const isDefinition = (value) =>

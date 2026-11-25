@@ -76,25 +76,25 @@ describe('Pattern', () => {
   it('should throw a definition error for an invalid pattern, or one on another type', () => {
     assert.throws(() => Schema.from({ s: { type: 'string', pattern: '(' } }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: /^Rule "pattern" is not a valid regular expression: .+ in "s"$/,
     });
     // `\-` is a syntax error under the u flag.
     assert.throws(() => Schema.from({ s: { type: 'string', pattern: '\\-' } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
     });
     for (const pattern of [5, null, {}, ['a']]) {
       assert.throws(() => Schema.from({ s: { type: 'string', pattern } }), {
-        code: 'ERR_INVALID_RULE',
+        code: 'ALX_ERR_INVALID_RULE',
         message: 'Rule "pattern" needs a string or a RegExp in "s"',
       });
     }
     assert.throws(() => Schema.from({ n: { type: 'number', pattern: '1' } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "pattern" does not apply to type "number" in "n"',
     });
     assert.throws(() => Schema.from({ tags: { array: 'string', pattern: 'a' } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "pattern" does not apply to type "array" in "tags"',
     });
   });

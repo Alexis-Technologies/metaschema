@@ -14,7 +14,7 @@ Key facts:
   7.7 KB, the compile subpath 4.3 KB, the model subpath 12.8 KB, the stream subpath 1.0 KB, the
   formats subpath 3.8 KB, the derive subpath 2.2 KB, the coerce subpath 1.9 KB, the mongodb
   subpath 3.6 KB on top of coerce; the definition subpath, the half of the core that builds and
-  reads schemas without validating, is 10.5 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
+  reads schemas without validating, is 10.6 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
   struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
@@ -49,11 +49,11 @@ Key facts:
   `compiled(target)` (whether a schema runs generated code now); and the definition entry
   `@alexify/metaschema/definition`: the core's own `Schema`, `Model`, `getKindMetadata`,
   `SchemaDefinitionError` and constants without the validation half (checks, parse, the lint:
-  `ERR_NOT_REGISTERED` until the core entry is loaded, which installs them into the same
+  `ALX_ERR_NOT_REGISTERED` until the core entry is loaded, which installs them into the same
   classes)
 - `{ type: 'string', format: 'email' }` is a rule of strings beside `length` and `pattern`: a
   failed test is a `format` issue (`params.format`), a name the table lacks is
-  `ERR_INVALID_RULE` when the schema is built (nothing is registered until `register()` of the
+  `ALX_ERR_INVALID_RULE` when the schema is built (nothing is registered until `register()` of the
   formats subpath ran); `toJSONSchema` writes `format` (and the shape of a format JSON Schema
   does not name as `pattern`), `fromJSONSchema` reads a registered one back, `sample` draws
   the format's examples, `infer` writes the first registered format every string of a place
@@ -63,12 +63,12 @@ Key facts:
 - Coercion is a policy of parse, never of check: `parse(value, { coerce: true })`, the kind
   metadata `{ Form: { coerce: true } }` (so `~standard.validate` too) or a field's `coerce`
   key converts the input before the check with the converters `register()` of
-  `@alexify/metaschema/coerce` installed (`ERR_NOT_REGISTERED` without them); the converters
+  `@alexify/metaschema/coerce` installed (`ALX_ERR_NOT_REGISTERED` without them); the converters
   are strict: decimal strings, `true`/`false`/`1`/`0`, ISO dates with a zone, never `''`; a
   value a union branch accepts as it is is not converted; `Infer` does not change
 - `pick`/`omit`/`partial` of `./derive` make a struct of a stored kind without its id field,
   `partial` drops defaults (a patch keeps what is stored), `extend` replaces where `merge`
-  unifies; a key the schema has no field of is `ERR_UNKNOWN_FIELD`
+  unifies; a key the schema has no field of is `ALX_ERR_UNKNOWN_FIELD`
 - `./mongodb` does no I/O and has no driver dependency: the program registers the module of its
   driver; the program keeps ids as strings, `toDocument` writes `_id` and references as
   ObjectIds, `toJSONSchema(model, { target: 'mongodb', ids: 'objectId' })` is the matching
@@ -84,7 +84,7 @@ Key facts:
   iteration after the n-th invalid record; the async pair takes a sync or async iterable and
   keeps `concurrency` records in flight, in order; `transform(schema, { onInvalid, mode, async,
   maxInvalid })` is a `TransformStream` that passes the parsed values of valid records on and
-  ends with `ERR_INVALID_RECORD` for an invalid one it was not told to drop
+  ends with `ALX_ERR_INVALID_RECORD` for an invalid one it was not told to drop
 - `model.toJSON()` (what `JSON.stringify(model)` writes) is the model as data, format 1: the
   entities in dependency order with kind, scope, store, allow, parent, unknown, custom, fields
   (each `{ type, required, ...sorted keys }`), indexes and relations, and the types the entities
@@ -109,13 +109,13 @@ Key facts:
   same for a seed, drawn from the definition (lengths, bounds, enums, unions, nested structs,
   collections, references by kind, a pattern from the subset alternatives/groups/classes/
   escapes/quantifiers, a custom type through `metadata.sample`); a field no draw satisfies is
-  `ERR_UNSATISFIABLE`
+  `ALX_ERR_UNSATISFIABLE`
 - `fromJSONSchema(document, { name, as, references, unsupported })` reads the subset of JSON
   Schema a validation schema is made of (types, properties/required, enum/const, items and
   tuples, anyOf/oneOf, `$ref` into the definitions, the rules, null, the annotations) into a
-  definition or a Schema; a keyword outside it is `ERR_UNSUPPORTED_SCHEMA` with a JSON pointer
+  definition or a Schema; a keyword outside it is `ALX_ERR_UNSUPPORTED_SCHEMA` with a JSON pointer
 - `merge(a, b)` unifies two schemas CUE-style: the constraints of both per field, a conflict is
-  `ERR_MERGE_CONFLICT`
+  `ALX_ERR_MERGE_CONFLICT`
 - `infer(samples, { as, name, kind, enum, integer, map, maxDepth, formats })` is the reverse of `sample`:
   a definition (or a Schema) every sample passes, from one pass over the values: the kinds of
   every place (a union when several), records fused into one struct with optional keys (absent
@@ -123,13 +123,13 @@ Key facts:
   for a string of at most 8 values each seen twice on average, `{ object: { string: T } }` for
   records whose keys are not names or many sparse keys of one kind; no bounds, patterns,
   references or tuples; the definition is checked against every sample before it is returned
-  (`ERR_INFER_MISMATCH` is a bug), a sample nested past `maxDepth` is `ERR_INFER_DEPTH`
+  (`ALX_ERR_INFER_MISMATCH` is a bug), a sample nested past `maxDepth` is `ALX_ERR_INFER_DEPTH`
 - `compile(schema)` or `compile(model)` replaces the check with a function generated from the
   schema and built with `new Function` (the same issues, about three times faster on a flat
   struct, six on a nested one) and returns `{ accelerated }`; `register()` does it for every
   schema built afterwards; where code generation from strings is not allowed (CSP, Cloudflare
   Workers, `--disallow-code-generation-from-strings`) the closures stay (`jit: 'auto'`), or
-  `jit: true` throws `ERR_NO_EVAL`; the generated source holds no value of the schema, only
+  `jit: true` throws `ALX_ERR_NO_EVAL`; the generated source holds no value of the schema, only
   identifiers, numbers and JSON strings (the rest goes through a scope)
 - `schema.check(value, options)` returns a `ValidationResult`: `valid`, `issues` (one
   `{ code, path, message, params }` per problem, `path` an array of keys), `errors` (the lines
@@ -145,7 +145,7 @@ Key facts:
   way back through the `serialize` functions, top down. `checkAsync` and `parseAsync` await
   validators, custom `checkType`s and decoders that return promises (independent validators in
   flight together, settled after the walk in field order, a validator over a promise waiting
-  for it); the synchronous calls throw `ERR_ASYNC_VALIDATOR` for a promise
+  for it); the synchronous calls throw `ALX_ERR_ASYNC_VALIDATOR` for a promise
 - Every schema is a Standard Schema v1 (`schema['~standard']`, whose `validate` is `parse` with
   the schema's policies, a promise for a schema with async functions; the Standard JSON Schema
   converter `jsonSchema` joins it after `register()` of the generators); `InferSchema<typeof
@@ -158,7 +158,9 @@ Key facts:
   `additionalProperties: false`, no value constraints); a stored reference is an id, a memory
   reference a `$ref`; `validate` functions are not exported
 - A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
-  `field`, when the schema is built, never during `check`
+  `field`, when the schema is built, never during `check`; a wrong call (a target or an option
+  it does not take, a method before its `register()`, a promise where the call is synchronous)
+  throws `SchemaUsageError` (a `TypeError`) with `code`. Every code is `ALX_ERR_*` since 4.0
 - Safe to bundle and minify: identity checks use a global symbol brand, not class names
 - Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }` (`type`
   first), `{ type, nullable: true }`, `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`,
@@ -198,6 +200,7 @@ Docs:
 - Deriving schemas: https://metaschema.vercel.app/guide/derive
 - MongoDB: https://metaschema.vercel.app/guide/mongodb
 - The definition entry: https://metaschema.vercel.app/guide/definition
+- Migrating from 3.x: https://metaschema.vercel.app/guide/migrating-from-3
 - Migrating from 2.x: https://metaschema.vercel.app/guide/migrating-from-2
 - Migrating from 1.x: https://metaschema.vercel.app/guide/migrating-from-1
 - Domain models: https://metaschema.vercel.app/guide/model

@@ -9,7 +9,7 @@
 const { constants, getKindMetadata } = require('../kinds.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError } = require('../errors.js');
 
 const { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW } = constants;
 
@@ -24,4 +24,5 @@ module.exports = {
   Schema,
   Model,
   SchemaDefinitionError,
+  SchemaUsageError,
 };

@@ -509,7 +509,7 @@ describe('Schema', () => {
     assert.equal(new Schema('Company', company), company);
     assert.equal(Schema.from(company), company);
     assert.throws(() => new Schema('Firm', company), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Schema "Company" cannot be used as "Firm"',
     });
     const model = new Model({}, [
@@ -588,7 +588,7 @@ describe('Schema', () => {
     assert.equal(schema.validate({ a: 'x' }, 'body').valid, true);
     assert.equal(schema.check({ a: 'x' }).valid, false);
     const async = Schema.from({ a: 'string', validate: async () => true });
-    assert.throws(() => async.validate({ a: 'x' }), { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => async.validate({ a: 'x' }), { code: 'ALX_ERR_ASYNC_VALIDATOR' });
   });
 
   it('should report a thrown null or symbol as an exception in the validate method', () => {

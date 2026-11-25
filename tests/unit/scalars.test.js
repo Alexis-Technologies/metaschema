@@ -136,7 +136,7 @@ describe('Scalars', () => {
     for (const definition of [{ e: 'enum' }, { e: { type: 'enum' } }, { e: { enum: [] } }]) {
       assert.throws(() => Schema.from(definition), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_ENUM',
+        code: 'ALX_ERR_INVALID_ENUM',
         message,
       });
     }
@@ -149,7 +149,7 @@ describe('Scalars', () => {
     assert.throws(
       () => new Model({ status }, [['Job', { Struct: {}, state: { type: 'status' } }]]),
       {
-        code: 'ERR_INVALID_ENUM',
+        code: 'ALX_ERR_INVALID_ENUM',
         message: `Type "status" needs a list of values: { type: 'status', enum: [...] } in "Job.state"`,
       },
     );

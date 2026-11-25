@@ -8,6 +8,7 @@ import {
   Model,
   Schema,
   SchemaDefinitionError,
+  SchemaUsageError,
   SCOPE,
   STORE,
   ValidationResult,
@@ -16,6 +17,7 @@ import type {
   Cardinality,
   CheckContext,
   DefinitionErrorCode,
+  RuntimeErrorCode,
   EntitySnapshot,
   FieldSnapshot,
   FieldType,
@@ -198,14 +200,23 @@ expectType<boolean>(result.valid);
 expectError((result.valid = true));
 expectType<boolean>(ValidationResult.isInstance(result));
 
-const error = new SchemaDefinitionError('ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
+const error = new SchemaDefinitionError('ALX_ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
 expectAssignable<TypeError>(error);
 expectType<DefinitionErrorCode>(error.code);
 expectType<string>(error.schema);
 expectType<string>(error.field);
 expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
 expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
-expectType<SchemaDefinitionError>(new SchemaDefinitionError('ERR_INVALID_RULE', 'x'));
+expectType<SchemaDefinitionError>(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x'));
+
+const usage = new SchemaUsageError('ALX_ERR_INVALID_TARGET', 'not a Schema');
+expectAssignable<TypeError>(usage);
+expectType<RuntimeErrorCode>(usage.code);
+expectType<number | undefined>(usage.index);
+expectType<string | undefined>(usage.method);
+expectError(new SchemaUsageError('ALX_ERR_UNKNOWN_TYPE', 'x'));
+expectError(new SchemaUsageError('ERR_INVALID_TARGET', 'x'));
+expectAssignable<RuntimeErrorCode>('ALX_ERR_UNSUPPORTED_RUNTIME');
 
 // The snapshot of a model and the aliases of a field.
 declare const snapshotModel: Model;

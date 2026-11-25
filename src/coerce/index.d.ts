@@ -14,8 +14,8 @@ export const COERCIONS: { readonly [name: string]: Coercion | undefined };
 // The value with the conversions of the schema applied, and its defaults:
 // the pass parse runs before its check with coercion on, nothing checked.
 // The value given is never written to, and comes back itself when nothing
-// changed. Needs `register()`: without it a conversion is a TypeError with
-// `code: 'ERR_NOT_REGISTERED'`.
+// changed. Needs `register()`: without it a conversion is a SchemaUsageError with
+// `code: 'ALX_ERR_NOT_REGISTERED'`.
 export function coerce(schema: Schema, value: unknown, options?: CoerceOptions): unknown;
 
 // The options of `register`: `onError` is told of a converter that threw
@@ -27,8 +27,8 @@ export interface RegisterOptions {
 
 // Fills the table with the built-in converters and the program's own, by
 // type name, once per name and process-wide (another function under a
-// registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a
-// type or an entry that is not a function `ERR_INVALID_COERCION`; every
+// registered name is `ALX_ERR_COERCION_REGISTERED`, a name that is not one of a
+// type or an entry that is not a function `ALX_ERR_INVALID_COERCION`; every
 // entry is checked before any is written), and adds
 // `schema.coerce(value, options)`. Importing the subpath registers nothing.
 export function register(custom?: Record<string, Coercion>, options?: RegisterOptions): void;

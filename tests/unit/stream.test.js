@@ -176,7 +176,7 @@ describe('Stream', () => {
       ['negative'],
     );
     // The sync pair runs the sync methods, which such a schema refuses.
-    assert.throws(() => [...checkEach(slow, items)], { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => [...checkEach(slow, items)], { code: 'ALX_ERR_ASYNC_VALIDATOR' });
     // maxInvalid in the async pair.
     assert.deepEqual(await collect(checkEachAsync(slow, items, { maxInvalid: 1 })), [
       [0, items[0], true],
@@ -317,8 +317,9 @@ describe('Stream', () => {
 
   it('should end the stream with the error without onInvalid, or past maxInvalid', async () => {
     await assert.rejects(drain(readable(rows).pipeThrough(transform(user))), (error) => {
-      assert.equal(error.name, 'TypeError');
-      assert.equal(error.code, 'ERR_INVALID_RECORD');
+      assert.equal(error.name, 'SchemaUsageError');
+      assert.ok(error instanceof TypeError);
+      assert.equal(error.code, 'ALX_ERR_INVALID_RECORD');
       assert.equal(error.message, 'Record 1 is invalid');
       assert.equal(error.index, 1);
       assert.equal(error.record, rows[1]);
@@ -335,33 +336,33 @@ describe('Stream', () => {
           transform(user, { maxInvalid: 2, onInvalid }),
         ),
       ),
-      { code: 'ERR_INVALID_RECORD', index: 2 },
+      { code: 'ALX_ERR_INVALID_RECORD', index: 2 },
     );
     assert.deepEqual(reported, [0, 2]);
     // The same in async mode.
     await assert.rejects(drain(readable(items).pipeThrough(transform(slow, { async: true }))), {
-      code: 'ERR_INVALID_RECORD',
+      code: 'ALX_ERR_INVALID_RECORD',
       index: 1,
     });
   });
 
   it('should throw an error of the call for a wrong target, source or option', () => {
     assert.throws(() => checkEach({}, rows), {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'A Schema is expected',
     });
-    assert.throws(() => transform(Schema, {}), { code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => transform(Schema, {}), { code: 'ALX_ERR_INVALID_TARGET' });
     for (const bad of [null, undefined, 1, 'rows', {}, { next: () => ({}) }]) {
       assert.throws(() => checkEach(user, bad), {
-        code: 'ERR_INVALID_TARGET',
+        code: 'ALX_ERR_INVALID_TARGET',
         message: 'An iterable of records is expected',
       });
-      assert.throws(() => parseEachAsync(user, bad), { code: 'ERR_INVALID_TARGET' });
+      assert.throws(() => parseEachAsync(user, bad), { code: 'ALX_ERR_INVALID_TARGET' });
     }
     // The options of the subpath are checked as the options of check are.
     assert.throws(() => checkEach(user, rows, { maxInvalid: 0 }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'maxInvalid must be an integer of at least 1, got 0',
     });
     assert.throws(() => parseEach(user, rows, { maxInvalid: 1.5 }), {

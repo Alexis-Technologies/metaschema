@@ -186,7 +186,7 @@ describe('JSON Schema', () => {
     });
     assert.throws(() => fieldOf('date', { io: 'output' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Type "date" (output) cannot be represented in JSON Schema target "draft-2020-12" in "x"',
       schema: '',
@@ -196,7 +196,7 @@ describe('JSON Schema', () => {
     assert.deepEqual(fieldOf('bigint', { target: 'mongodb' }), { bsonType: 'long' });
     for (const target of ['draft-2020-12', 'draft-07', 'openapi-3.0']) {
       assert.throws(() => fieldOf('bigint', { target }), {
-        code: 'ERR_UNREPRESENTABLE',
+        code: 'ALX_ERR_UNREPRESENTABLE',
         message: `Type "bigint" cannot be represented in JSON Schema target "${target}" in "x"`,
       });
       assert.deepEqual(fieldOf('bigint', { target, unrepresentable: 'any' }), {});
@@ -263,7 +263,7 @@ describe('JSON Schema', () => {
     // The strict profile keeps the type only, as for every other value rule.
     assert.deepEqual(fieldOf(def, { ...input, profile: 'strict' }), { type: 'string' });
     assert.deepEqual(fieldOf(def, { target: 'mongodb' }), { bsonType: 'binData' });
-    assert.throws(() => fieldOf(def, { io: 'output' }), { code: 'ERR_UNREPRESENTABLE' });
+    assert.throws(() => fieldOf(def, { io: 'output' }), { code: 'ALX_ERR_UNREPRESENTABLE' });
   });
 
   it('should render enum', () => {
@@ -294,10 +294,10 @@ describe('JSON Schema', () => {
     json.properties.x.enum.push('b');
     assert.deepEqual(schema.fields.x.enum, ['a']);
     assert.throws(() => fieldOf({ enum: [1n] }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Enum value 1 cannot be represented in JSON Schema target "draft-2020-12" in "x"',
     });
-    assert.throws(() => fieldOf({ enum: ['a', { b: 1 }] }), { code: 'ERR_UNREPRESENTABLE' });
+    assert.throws(() => fieldOf({ enum: ['a', { b: 1 }] }), { code: 'ALX_ERR_UNREPRESENTABLE' });
   });
 
   it('should accept null in optional and nullable fields', () => {
@@ -409,11 +409,11 @@ describe('JSON Schema', () => {
       uniqueItems: true,
     });
     assert.throws(() => fieldOf({ set: 'string' }, { io: 'output' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Type "set" cannot be represented in JSON Schema target "draft-2020-12" in "x"',
     });
     assert.throws(() => fieldOf({ set: 'string' }, { target: 'mongodb' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
     });
     // An object of free keys: a required one must not be empty, as in check.
     forEveryTarget(
@@ -487,7 +487,7 @@ describe('JSON Schema', () => {
       },
     );
     assert.throws(() => fieldOf({ map: { string: 'boolean' } }, { io: 'output' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Type "map" (output) cannot be represented in JSON Schema target "draft-2020-12" in "x"',
     });
@@ -521,7 +521,7 @@ describe('JSON Schema', () => {
       },
     );
     assert.throws(() => fieldOf(point, { target: 'openapi-3.0' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Type "tuple" cannot be represented in JSON Schema target "openapi-3.0" in "x"',
     });
     // The elements up to the last required one must be there.
@@ -773,7 +773,7 @@ describe('JSON Schema', () => {
     // Without `bson` the mongodb target does not read `jsonSchema`.
     assert.deepEqual(mongo.properties.amount, { description: 'In cents' });
     assert.throws(() => payment.toJSONSchema({ target: 'mongodb' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Type "money" (without metadata.bson) cannot be represented in JSON Schema target "mongodb" in "Payment.amount"',
       schema: 'Payment',
@@ -781,7 +781,7 @@ describe('JSON Schema', () => {
     });
     const raw = new Model({ ratio: types.ratio }, [['Raw', { Struct: {}, n: 'ratio' }]]);
     assert.throws(() => raw.entities.get('Raw').toJSONSchema(), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Type "ratio" (without metadata.jsonSchema) cannot be represented in JSON Schema target "draft-2020-12" in "Raw.n"',
     });
@@ -857,7 +857,7 @@ describe('JSON Schema', () => {
       type: 'string',
     });
     assert.throws(() => Schema.from({ owner: { type: 'Nothing', embed: true } }).toJSONSchema(), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Reference "Nothing" (embed) cannot be represented in JSON Schema target "draft-2020-12" in "owner"',
     });
@@ -928,7 +928,7 @@ describe('JSON Schema', () => {
       additionalProperties: false,
     });
     assert.throws(() => model.entities.get('Tag').toJSONSchema({ target: 'mongodb' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Recursive reference "Tag" cannot be represented in JSON Schema target "mongodb" in "Tag.parent.parent"',
       schema: 'Tag',
@@ -1020,7 +1020,7 @@ describe('JSON Schema', () => {
       { map: { string: 'number' } },
     ]) {
       assert.throws(() => fieldOf(def, { profile: 'strict' }), {
-        code: 'ERR_UNREPRESENTABLE',
+        code: 'ALX_ERR_UNREPRESENTABLE',
         message:
           /\(profile strict\) cannot be represented in JSON Schema target "draft-2020-12" in "x"$/,
       });
@@ -1029,12 +1029,12 @@ describe('JSON Schema', () => {
     for (const target of ['openapi-3.0', 'mongodb']) {
       assert.throws(() => schema.toJSONSchema({ profile: 'strict', target }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: `Profile "strict" needs target "draft-2020-12" or "draft-07", got "${target}"`,
       });
     }
     assert.throws(() => Schema.from({ array: 'string' }).toJSONSchema({ profile: 'strict' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Profile "strict" needs a struct at the root, got "array"',
     });
     // The shape a tool definition takes.
@@ -1098,13 +1098,13 @@ describe('JSON Schema', () => {
     for (const pair of cases) {
       assert.throws(() => schema.toJSONSchema(pair[0]), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: pair[1],
       });
     }
     // The mongodb target has no definitions and ignores the pointer.
     assert.equal(schema.toJSONSchema({ target: 'mongodb', definitions: 'x' }).bsonType, 'object');
-    assert.ok(new SchemaDefinitionError('ERR_UNREPRESENTABLE', 'x') instanceof TypeError);
+    assert.ok(new SchemaDefinitionError('ALX_ERR_UNREPRESENTABLE', 'x') instanceof TypeError);
   });
 
   it('should locate an error in the schema and the field', () => {
@@ -1114,7 +1114,7 @@ describe('JSON Schema', () => {
     ]);
     // The field of the entity that holds the type, not of the one that refers to it.
     assert.throws(() => model.entities.get('Outer').toJSONSchema(), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message:
         'Type "bigint" cannot be represented in JSON Schema target "draft-2020-12" in "Inner.deep.value"',
       schema: 'Inner',
@@ -1173,11 +1173,11 @@ describe('JSON Schema', () => {
       additionalProperties: false,
     });
     assert.throws(() => model.toJSONSchema({ root: 'Nothing' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Entity "Nothing" is not in the model',
     });
     assert.throws(() => model.toJSONSchema({ profile: 'strict' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Profile "strict" needs a root entity',
     });
     assert.equal(model.toJSONSchema({ profile: 'strict', root: 'Person' }).type, 'object');
@@ -1245,7 +1245,7 @@ describe('JSON Schema', () => {
     assert.deepEqual(jsonSchema.input({ target: 'draft-07' }).$schema, DRAFT_07);
     assert.equal(jsonSchema.input({ target: 'openapi-3.0' }).$schema, undefined);
     assert.throws(() => jsonSchema.output({ target: 'draft-2020-12' }), {
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
     });
     assert.deepEqual(
       jsonSchema.output({ target: 'draft-2020-12', libraryOptions: { unrepresentable: 'any' } })
@@ -1273,7 +1273,7 @@ describe('JSON Schema', () => {
     ]) {
       assert.throws(() => jsonSchema.input(options), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: /^JSON Schema target .* is not supported$/,
       });
     }

@@ -1,7 +1,7 @@
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidEmbed = () =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', 'Option "embed" needs a boolean');
+  new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', 'Option "embed" needs a boolean');
 
 // Whether a referenced value is the record itself (the graph view) or its
 // id (the storage view): the mode of the check when it says so, otherwise
@@ -22,7 +22,7 @@ const reference = {
     const target = def[key];
     if (typeof target !== 'string' || target === '') {
       const reason = `Reference "${key}" needs an entity name, got ${JSON.stringify(target)}`;
-      throw new SchemaDefinitionError('ERR_INVALID_REFERENCE', reason);
+      throw new SchemaDefinitionError('ALX_ERR_INVALID_REFERENCE', reason);
     }
     if (this.embed !== undefined && typeof this.embed !== 'boolean') throw invalidEmbed();
     // Read from the referencing side: a `many` field holds the many end of

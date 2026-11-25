@@ -9,7 +9,7 @@
 // installs the methods on Schema for the programs that want them.
 const { hasBrand } = require('../util.js');
 const { abandon } = require('../issues.js');
-const { invalidTarget, invalidOption: invalid } = require('../errors.js');
+const { SchemaUsageError, invalidTarget, invalidOption: invalid } = require('../errors.js');
 const { Schema } = require('../validation.js');
 
 const optionsOf = (options) => {
@@ -165,8 +165,7 @@ const parseEachAsync = (schema, records, options) => {
 // The error a stream ends with: the record, its position and its result
 // travel on it, since the stream carries them no further.
 const invalidRecord = (index, record, result) => {
-  const error = new TypeError(`Record ${index} is invalid`);
-  error.code = 'ERR_INVALID_RECORD';
+  const error = new SchemaUsageError('ALX_ERR_INVALID_RECORD', `Record ${index} is invalid`);
   error.index = index;
   error.record = record;
   error.result = result;

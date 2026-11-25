@@ -23,7 +23,7 @@ const valueOf = (schema, value, options = { coerce: true }) => {
   return result.value;
 };
 
-const notRegistered = { name: 'TypeError', code: 'ERR_NOT_REGISTERED' };
+const notRegistered = { name: 'SchemaUsageError', code: 'ALX_ERR_NOT_REGISTERED' };
 
 describe('Coerce', () => {
   it('should convert nothing before register(), and say so in a parse that would', () => {
@@ -59,15 +59,15 @@ describe('Coerce', () => {
     assert.equal(form.parse({ age: 1 }, { coerce: false }).valid, true);
     // The options are what they must be.
     assert.throws(() => plain.parse({ age: 1 }, { coerce: 'yes' }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'coerce must be a boolean, got "yes"',
     });
     assert.throws(() => Schema.from({ age: { type: 'integer', coerce: 1 } }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Option "coerce" needs a boolean in "age"',
     });
     assert.throws(() => new Schema('Bad', { Form: { coerce: 'on' }, a: 'string' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Schema metadata "coerce" must be a boolean, got "on"',
     });
     assert.equal(form.coerce, undefined);
@@ -95,7 +95,7 @@ describe('Coerce', () => {
     assert.equal(descriptor.enumerable, false);
     assert.throws(() => register({ number: Number }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_COERCION_REGISTERED',
+      code: 'ALX_ERR_COERCION_REGISTERED',
       message: 'Converter "number" is registered already with another function',
     });
     for (const [custom, message] of [
@@ -105,7 +105,7 @@ describe('Coerce', () => {
       [JSON.parse('{"__proto__": 1}'), 'Converter "__proto__" needs the name of a type'],
       [{ money: 'number' }, 'Converter "money" must be a function'],
     ]) {
-      assert.throws(() => register(custom), { code: 'ERR_INVALID_COERCION', message });
+      assert.throws(() => register(custom), { code: 'ALX_ERR_INVALID_COERCION', message });
     }
     const own = (value) => value;
     register({ ownType: own });
@@ -113,10 +113,10 @@ describe('Coerce', () => {
     assert.equal(COERCIONS.ownType, own);
     // A call with a bad entry registers nothing, whatever came before it.
     assert.throws(() => register({ firstType: own, Second: own }), {
-      code: 'ERR_INVALID_COERCION',
+      code: 'ALX_ERR_INVALID_COERCION',
     });
     assert.throws(() => register({ thirdType: own, number: own }), {
-      code: 'ERR_COERCION_REGISTERED',
+      code: 'ALX_ERR_COERCION_REGISTERED',
     });
     assert.equal(COERCIONS.firstType, undefined);
     assert.equal(COERCIONS.thirdType, undefined);
@@ -603,8 +603,8 @@ describe('Coerce', () => {
     assert.equal(schema.check(converted).valid, true);
     assert.deepEqual(schema.coerce({ age: 'x' }), { age: 'x', role: 'user' });
     assert.deepEqual(Schema.from('integer').coerce('5'), 5);
-    assert.throws(() => coerce({ age: 'integer' }, {}), { code: 'ERR_INVALID_TARGET' });
-    assert.throws(() => coerce(schema, {}, { maxDepth: 0 }), { name: 'TypeError' });
+    assert.throws(() => coerce({ age: 'integer' }, {}), { code: 'ALX_ERR_INVALID_TARGET' });
+    assert.throws(() => coerce(schema, {}, { maxDepth: 0 }), { name: 'SchemaUsageError' });
     // The method is not a key of the schema.
     assert.equal(Object.keys(schema).includes('coerce'), false);
     assert.equal(util.inspect(schema).includes('coerce'), false);
@@ -658,7 +658,7 @@ describe('Coerce', () => {
     assert.equal(odd.parse({ s: 1 }, { coerce: true }).valid, false);
     assert.equal(seen.length, 2);
     for (const options of [null, 'log', { onError: true }]) {
-      assert.throws(() => register({}, options), { code: 'ERR_INVALID_COERCION' });
+      assert.throws(() => register({}, options), { code: 'ALX_ERR_INVALID_COERCION' });
     }
   });
 
@@ -717,7 +717,7 @@ describe('Coerce', () => {
     assert.equal(coerce(Schema.from('number'), '1', { report: root }), 1);
     assert.deepEqual(root, [[]]);
     assert.throws(() => coerce(schema, value, { report: 'yes' }), {
-      code: 'ERR_INVALID_OPTION',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'report must be an array, got "yes"',
     });
     // parse reports nothing: the option is coerce()'s.
@@ -757,7 +757,7 @@ describe('Coerce', () => {
     assert.equal(plain.coercions, null);
     for (const coercions of ['money', [], { Money: () => 1 }, { money: 'number' }]) {
       assert.throws(() => new Model({}, [], null, { coercions }), {
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: /^Model option "coercions" must be an object of functions by type name/,
       });
     }

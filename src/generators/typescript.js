@@ -21,7 +21,10 @@ const TS_SCALARS = Object.assign(Object.create(null), {
 });
 
 const unrepresentable = (what) =>
-  new SchemaDefinitionError('ERR_UNREPRESENTABLE', `${what} cannot be represented in TypeScript`);
+  new SchemaDefinitionError(
+    'ALX_ERR_UNREPRESENTABLE',
+    `${what} cannot be represented in TypeScript`,
+  );
 
 // The name of an interface or a type is an identifier; a declaration has no
 // place for anything else.

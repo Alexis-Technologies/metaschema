@@ -35,7 +35,7 @@ const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidFormat = (name, reason) =>
-  new SchemaDefinitionError('ERR_INVALID_FORMAT', `Format "${name}" ${reason}`);
+  new SchemaDefinitionError('ALX_ERR_INVALID_FORMAT', `Format "${name}" ${reason}`);
 
 // ajv-formats' fast email: a local part of its characters, an `@`, and
 // labels of at most 63 characters joined by dots.
@@ -508,7 +508,7 @@ const entryOf = (name, entry) => {
 
 const registered = (name) =>
   new SchemaDefinitionError(
-    'ERR_FORMAT_REGISTERED',
+    'ALX_ERR_FORMAT_REGISTERED',
     `Format "${name}" is already registered with another test`,
   );
 
@@ -541,7 +541,10 @@ const add = (name, entry, own) => {
 // what it overrode; an empty list otherwise.
 const register = (custom = {}) => {
   if (custom === null || typeof custom !== 'object') {
-    throw new SchemaDefinitionError('ERR_INVALID_FORMAT', 'Formats must be an object of entries');
+    throw new SchemaDefinitionError(
+      'ALX_ERR_INVALID_FORMAT',
+      'Formats must be an object of entries',
+    );
   }
   const replaced = [];
   for (const name of Object.keys(BUILT_IN)) {

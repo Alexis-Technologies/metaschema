@@ -18,7 +18,7 @@ const { FORMATS } = require('../rules.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
-const invalidOptions = (reason) => invalid('ERR_INVALID_OPTIONS', reason);
+const invalidOptions = (reason) => invalid('ALX_ERR_INVALID_OPTIONS', reason);
 
 // mulberry32: a 32-bit generator, the same numbers for a seed everywhere.
 const prng = (seed) => {
@@ -185,7 +185,7 @@ const tupleOf = (state, field) => {
 // The errors of a branch that another branch may not have: a union tries
 // every branch from a random one on and fails with the last error only when
 // every branch failed.
-const RETRIED = new Set(['ERR_UNSATISFIABLE', 'ERR_SAMPLE_PATTERN', 'ERR_SAMPLE_TYPE']);
+const RETRIED = new Set(['ALX_ERR_UNSATISFIABLE', 'ALX_ERR_SAMPLE_PATTERN', 'ALX_ERR_SAMPLE_TYPE']);
 
 const unionOf = (state, field, key) => {
   const branches = field.union;
@@ -252,7 +252,7 @@ const customOf = (state, field, key) => {
   if (given === undefined) {
     const hint = `Type "${field.type}" needs metadata.sample to be sampled`;
     throw invalid(
-      'ERR_SAMPLE_TYPE',
+      'ALX_ERR_SAMPLE_TYPE',
       `${hint} in "${toDotPath(pathOf(state, key), state.root.name)}"`,
     );
   }
@@ -267,7 +267,7 @@ const unsatisfiable = (state, key, reason) => {
   const where = toDotPath(pathOf(state, key), state.root.name);
   const { seed } = state;
   const error = invalid(
-    'ERR_UNSATISFIABLE',
+    'ALX_ERR_UNSATISFIABLE',
     `No value satisfies "${where}" (seed ${seed}): ${reason}`,
   );
   error.seed = seed;

@@ -8,7 +8,7 @@ the locales are subpaths (see [Architecture](/guide/architecture#the-packages)).
 ```js
 const {
   KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW,
-  getKindMetadata, Schema, Model, SchemaDefinitionError, ValidationResult,
+  getKindMetadata, Schema, Model, SchemaDefinitionError, SchemaUsageError, ValidationResult,
 } = require('@alexify/metaschema');
 
 const { toJSONSchema, toTypeScript, saveTypes, fromJSONSchema, register } = require('@alexify/metaschema/generators');
@@ -19,7 +19,7 @@ const formats = require('@alexify/metaschema/formats'); // register, FORMATS
 const derive = require('@alexify/metaschema/derive'); // pick, omit, partial, required, extend, keyof, register
 const coercion = require('@alexify/metaschema/coerce'); // COERCIONS, coerce, register
 const bson = require('@alexify/metaschema/mongodb'); // types, register, toDocument, fromDocument, fromDocumentAsync, indexesOf, checkUpdate, toUpdate
-const definition = require('@alexify/metaschema/definition'); // KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW, getKindMetadata, Schema, Model, SchemaDefinitionError
+const definition = require('@alexify/metaschema/definition'); // KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW, getKindMetadata, Schema, Model, SchemaDefinitionError, SchemaUsageError
 ```
 
 ## Constants
@@ -53,7 +53,7 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `Schema.fromJSONSchema(document, options?)` | after `register()` of the generators subpath: `fromJSONSchema(document, options)`, a definition or a `Schema` from a [JSON Schema document](/guide/json-schema#importing-a-document) |
 | `Schema.merge(a, b, options?)` | after `register()` of the model subpath: `merge(a, b, options)`, the [schema both schemas describe](/guide/schema-syntax#merging-schemas) |
 | `Schema.infer(samples, options?)` | after `register()` of the model subpath: `infer(samples, options)`, a [definition the samples pass](/guide/infer), or a `Schema` with `as: 'schema'` |
-| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors` (a whole number), `maxDepth` (embedded records, 128 by default), `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `TypeError` with the code `ERR_ASYNC_VALIDATOR` |
+| `schema.check(value, options?)` | validates a value; returns `ValidationResult`. `options`: `root` (the label of the error lines, the schema name by default), `maxErrors` (a whole number), `maxDepth` (embedded records, 128 by default), `unknown` (`'reject'` or `'ignore'`), `references` (`'kind'`, `'embed'` or `'id'`), `messages` (a locale or a function); see [Validation](/guide/validation#options). A validator that returns a promise is a `SchemaUsageError` with the code `ALX_ERR_ASYNC_VALIDATOR` |
 | `schema.checkAsync(value, options?)` | the same check as a promise, with the validators and custom `checkType`s that return a promise in flight together and settled after the walk, in field order, a validator over a promise waiting for it; see [Async](/guide/parse#async) |
 | `schema.parse(value, options?)` | validates a value and returns `{ valid, value, issues }`: the `default` of every missing key filled in, the check, `unknown: 'strip'`, the `parse` function of every field (the parts of a value before the value) and the schema's own `parse`; `value` is `undefined` when invalid and the value given when there was nothing to apply. `options`: those of `check`, with `unknown` also `'strip'`, and `coerce` (a boolean: convert the input to the types of the fields first, the schema's `coerce` metadata by default; see [Coercion](/guide/coercion)); see [Parse and serialize](/guide/parse) |
 | `schema.parseAsync(value, options?)` | the same as a promise; validators and decoders may return promises |
@@ -69,7 +69,7 @@ definition starts with a kind; see [Kinds and Metadata](/guide/kinds-and-metadat
 | `schema.parseEach(records, options?)` | after `register()`: `parseEach(schema, records, options)`, the same with `parse` |
 | `schema.checkEachAsync(records, options?)` | after `register()`: `checkEachAsync(schema, records, options)`, an async generator over a sync or async iterable, `checkAsync` on each record, up to `options.concurrency` in flight |
 | `schema.parseEachAsync(records, options?)` | after `register()`: `parseEachAsync(schema, records, options)`, the same with `parseAsync` |
-| `schema.transform(options?)` | after `register()`: `transform(schema, options)`, a `TransformStream` that passes the valid records on as their parsed values (or as they are with `mode: 'check'`) and hands the others to `options.onInvalid`, or ends with `ERR_INVALID_RECORD` |
+| `schema.transform(options?)` | after `register()`: `transform(schema, options)`, a `TransformStream` that passes the valid records on as their parsed values (or as they are with `mode: 'check'`) and hands the others to `options.onInvalid`, or ends with `ALX_ERR_INVALID_RECORD` |
 | `schema.checkConsistency()` | `Warning [missing-reference]`/`[missing-type]` strings for references and types that cannot be resolved through the attached models |
 | `schema.warnings` | lint warnings of the definition, `Warning [code]: text`; see [Domain Models](/guide/model#warnings) |
 | `schema.findReference(name)` | the entity `name` from the attached models, else the schema itself when `name` is its own, else `null` |
@@ -100,12 +100,13 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/definition`
 
-The half of the core that builds schemas and models and reads them, on its own (10.5 KB
+The half of the core that builds schemas and models and reads them, on its own (10.6 KB
 min+gzip); see [The definition entry](/guide/definition). Its exports are the core's own:
-`Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError` and the six constants. Until the
+`Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `SchemaUsageError` and the six
+constants. Until the
 core entry is loaded too, `check`, `checkAsync`, `parse`, `parseAsync`, `serialize`,
 `validate`, `checkConsistency`, `warnings`, the `check` of a field and `model.warnings` are a
-`TypeError` with `code: 'ERR_NOT_REGISTERED'` (the async pair rejects with it), and a schema has
+`SchemaUsageError` with `code: 'ALX_ERR_NOT_REGISTERED'` (the async pair rejects with it), and a schema has
 no `~standard`.
 
 ## `@alexify/metaschema/generators`
@@ -122,7 +123,7 @@ subpath so that the core entry (21.8 KB min+gzip) does not carry them (7.7 KB mo
 | `fromJSONSchema(document, options?)` | a definition (or a `Schema` with `as: 'schema'`) from a [JSON Schema document](/guide/json-schema#importing-a-document); `options`: `name`, `as` (`'definition'`, `'schema'`), `references` (`'inline'`, `'name'`), `unsupported` (`'throw'`, `'ignore'`), `onUnsupported(reason, pointer)` (told of every drop in the ignore mode) |
 | `register()` | installs `schema.toJSONSchema`, `schema.toInterface`, `model.toJSONSchema`, `model.toTypeScript`, `model.dts`, `Schema.fromJSONSchema` and `schema['~standard'].jsonSchema` on the classes, once per process |
 
-A target that is neither a `Schema` nor a `Model` is a `TypeError`.
+A target that is neither a `Schema` nor a `Model` is a `SchemaUsageError`.
 
 ## `@alexify/metaschema/model`
 
@@ -132,17 +133,17 @@ core); see [Model evolution](/guide/evolution), [Sample values](/guide/samples) 
 
 | Export | Description |
 | --- | --- |
-| `fromJSON(snapshot, options?)` | a `Model` from the snapshot `model.toJSON()` gave, with placeholders for the functions; `options.types` brings the real custom types, `options.registry` is `'isolated'` unless `'shared'`; a value that is not a snapshot is `ERR_INVALID_SNAPSHOT` |
+| `fromJSON(snapshot, options?)` | a `Model` from the snapshot `model.toJSON()` gave, with placeholders for the functions; `options.types` brings the real custom types, `options.registry` is `'isolated'` unless `'shared'`; a value that is not a snapshot is `ALX_ERR_INVALID_SNAPSHOT` |
 | `diff(prev, next)` | the changes from one `Model` or snapshot to another, as `{ kind, op, entity, name, from?, to?, detail? }` in the order of the new model; a field renamed through its `aliases` is `renamed`, a removed `deprecated` field carries `detail.deprecated` |
 | `compatibility(changes)` | `'full'`, `'backward'`, `'forward'` or `'none'` by the [rules](/guide/evolution#compatibility) of the Confluent Schema Registry |
 | `compatibilityOf(change)` | the class of one change of `diff`, by the same rules |
-| `sample(schema, options?)` | a value the schema accepts, the same for `options.seed`; `options`: `seed`, `locale` (`'en'`, `'uk'`), `references`, `maxDepth`; a field no value satisfies is `ERR_UNSATISFIABLE`, a pattern it cannot read `ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample` `ERR_SAMPLE_TYPE` |
-| `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ERR_MERGE_CONFLICT` |
-| `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`, a registered [format](/guide/formats) every string passes; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`; a sample nested past `maxDepth` is `ERR_INFER_DEPTH`, a definition that rejects a sample `ERR_INFER_MISMATCH` |
+| `sample(schema, options?)` | a value the schema accepts, the same for `options.seed`; `options`: `seed`, `locale` (`'en'`, `'uk'`), `references`, `maxDepth`; a field no value satisfies is `ALX_ERR_UNSATISFIABLE`, a pattern it cannot read `ALX_ERR_SAMPLE_PATTERN`, a custom type without `metadata.sample` `ALX_ERR_SAMPLE_TYPE` |
+| `merge(a, b, options?)` | the schema both schemas describe, by unification; `options`: `name`, `metadata`; what no value can satisfy is `ALX_ERR_MERGE_CONFLICT` |
+| `infer(samples, options?)` | a definition (or a `Schema` with `as: 'schema'`) that accepts every sample of an iterable: the kinds of every place, records fused into one struct with optional keys, `enum`, dictionaries, `integer`, a registered [format](/guide/formats) every string passes; `options`: `as`, `name`, `kind`, `enum`, `integer`, `map`, `maxDepth`, `formats`; a sample nested past `maxDepth` is `ALX_ERR_INFER_DEPTH`, a definition that rejects a sample `ALX_ERR_INFER_MISMATCH` |
 | `register()` | installs `Model.fromJSON`, `Model.diff`, `Model.compatibility`, `Model.compatibilityOf`, `Schema.merge`, `Schema.infer` and `schema.sample` on the classes, once per process |
 
-A `sample` or `merge` target that is not a `Schema` is a `TypeError` with `code:
-'ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list and an `infer`
+A `sample` or `merge` target that is not a `Schema` is a `SchemaUsageError` with `code:
+'ALX_ERR_INVALID_TARGET'`, as is a `compatibility` argument that is not a list and an `infer`
 argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
@@ -152,13 +153,13 @@ The JIT backend, in a subpath of its own (4.3 KB min+gzip on top of the core); s
 
 | Export | Description |
 | --- | --- |
-| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated, error }`: `accelerated` is `false` where code generation from strings is not allowed (the closures stay, no `error`) and where a check could not be generated (`error` is the `ERR_JIT_BUILD` error with the generator's error as `cause`); `options.jit`: `'auto'` (the default: fall back), `true` (throw `ERR_NO_EVAL` or `ERR_JIT_BUILD` instead; a model all or nothing), `false` (never generate code; restores the closures of a compiled schema) |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with one function generated from the schema and built with `new Function`; the issues are the ones the closures record; returns `{ accelerated, error }`: `accelerated` is `false` where code generation from strings is not allowed (the closures stay, no `error`) and where a check could not be generated (`error` is the `ALX_ERR_JIT_BUILD` error with the generator's error as `cause`); `options.jit`: `'auto'` (the default: fall back), `true` (throw `ALX_ERR_NO_EVAL` or `ALX_ERR_JIT_BUILD` instead; a model all or nothing), `false` (never generate code; restores the closures of a compiled schema) |
 | `register(options?)` | compiles every schema built from then on with these options; a later call replaces them, `{ jit: false }` stops it; a schema built before the call is not touched; `options.onFallback(schema, error)` is told of every schema whose check could not be generated |
 | `canEval()` | whether this environment allows code generation from strings, probed once |
 | `compiled(target)` | whether the check of a `Schema` (of every entity of a `Model`) runs generated code now: `false` for a schema built before `register()` and after `{ jit: false }` |
 
-A target that is neither a `Schema` nor a `Model` is a `TypeError`; an option with a value it
-does not accept is `ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
+A target that is neither a `Schema` nor a `Model` is a `SchemaUsageError`; an option with a value it
+does not accept is `ALX_ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
 (`{ jit?: 'auto' | boolean; onFallback?: (schema, error) => void }`) and `Compiled`
 (`{ accelerated: boolean; error?: SchemaDefinitionError }`).
 
@@ -173,12 +174,12 @@ core); see [Records and streams](/guide/streaming).
 | `parseEach(schema, records, options?)` | the same with `parse`; `result` is `{ valid, value, issues }`; `options`: those of `parse`, and `maxInvalid` |
 | `checkEachAsync(schema, records, options?)` | an async generator over a sync or async iterable: `checkAsync` on each record, up to `options.concurrency` records in flight (1), the entries in the order of the records; the promises in flight when the iteration ends early are observed, never awaited |
 | `parseEachAsync(schema, records, options?)` | the same with `parseAsync` |
-| `transform(schema, options?)` | a `TransformStream` (a global since Node.js 18, and in browsers) that passes every valid record on as its parsed value (`mode: 'parse'`) or as it is (`mode: 'check'`), hands an invalid one to `options.onInvalid(record, result, index)` and drops it, or ends the stream with a `TypeError` of `code: 'ERR_INVALID_RECORD'` (carrying `index`, `record` and `result`) when there is no `onInvalid` or `maxInvalid` is reached; `async: true` runs the async methods, one record at a time |
+| `transform(schema, options?)` | a `TransformStream` (a global since Node.js 18, and in browsers) that passes every valid record on as its parsed value (`mode: 'parse'`) or as it is (`mode: 'check'`), hands an invalid one to `options.onInvalid(record, result, index)` and drops it, or ends the stream with a `SchemaUsageError` of `code: 'ALX_ERR_INVALID_RECORD'` (carrying `index`, `record` and `result`) when there is no `onInvalid` or `maxInvalid` is reached; `async: true` runs the async methods, one record at a time |
 | `register()` | installs `schema.checkEach`, `schema.parseEach`, `schema.checkEachAsync`, `schema.parseEachAsync` and `schema.transform` on the class, once per process |
 
 A target that is not a `Schema`, or a source that is not iterable (a string included), is a
-`TypeError` with `code: 'ERR_INVALID_TARGET'`; a wrong option of the subpath is a `TypeError`
-with `code: 'ERR_INVALID_OPTION'`, like a wrong option of `check` (`maxInvalid must be an
+`SchemaUsageError` with `code: 'ALX_ERR_INVALID_TARGET'`; a wrong option of the subpath is a `SchemaUsageError`
+with `code: 'ALX_ERR_INVALID_OPTION'`, like a wrong option of `check` (`maxInvalid must be an
 integer of at least 1, got 0`).
 
 ## `@alexify/metaschema/formats`
@@ -189,10 +190,10 @@ subpath's, empty until `register()` ran.
 
 | Export | Description |
 | --- | --- |
-| `register(custom?)` | registers the 35 [built-in formats](/guide/formats#the-built-in-formats) and the program's own (`{ phone: { test, examples, infer?, pattern? } }`), once per name, process-wide; the same `test` again is nothing, another under a name the program registered `ERR_FORMAT_REGISTERED`, the program's own under the name of a built-in takes its place, an entry that is not a format `ERR_INVALID_FORMAT`; returns the names of the built-in formats the call replaced (`[]` otherwise) |
+| `register(custom?)` | registers the 35 [built-in formats](/guide/formats#the-built-in-formats) and the program's own (`{ phone: { test, examples, infer?, pattern? } }`), once per name, process-wide; the same `test` again is nothing, another under a name the program registered `ALX_ERR_FORMAT_REGISTERED`, the program's own under the name of a built-in takes its place, an entry that is not a format `ALX_ERR_INVALID_FORMAT`; returns the names of the built-in formats the call replaced (`[]` otherwise) |
 | `FORMATS` | the table of the registered formats by name, `{ test, examples, infer, pattern? }` each, to read |
 
-A schema that names a format the table lacks is `ERR_INVALID_RULE` when it is built. The type
+A schema that names a format the table lacks is `ALX_ERR_INVALID_RULE` when it is built. The type
 of an entry is `FormatDefinition`.
 
 ## `@alexify/metaschema/derive`
@@ -209,14 +210,14 @@ source was built from, with `options.name` (the source's by default) and `option
 | `partial(schema, options?)` | every field (or `options.keys`) optional, without its `default` unless `options.defaults`; `options.deep` goes into nested structs, not into collections, tuples, unions or references; the schema's own functions are left out |
 | `required(schema, options?)` | every field (or `options.keys`) required, the defaults kept; `options.deep` |
 | `extend(schema, extension, options?)` | the fields of `extension` (an object of fields or a Schema of a struct) over the schema's: one of the same name in its place, the others after |
-| `keyof(schema, options?)` | a schema of an `enum` of the names of the fields a value carries; `options.name` only (a schema of an enum has no kind: a `metadata` is `ERR_INVALID_OPTIONS`) |
+| `keyof(schema, options?)` | a schema of an `enum` of the names of the fields a value carries; `options.name` only (a schema of an enum has no kind: a `metadata` is `ALX_ERR_INVALID_OPTIONS`) |
 | `register()` | installs the six as methods of `Schema`, once per process |
 
-A key the schema has no field of is `ERR_UNKNOWN_FIELD`, located in the schema; keys that are
-not a list of names and options that are not an object are a `TypeError` with
-`code: 'ERR_INVALID_OPTION'` (the call is wrong), a `metadata` that is not an object
-`ERR_INVALID_OPTIONS` (a definition is); a target that is not a Schema of a struct is a
-`TypeError` with `code: 'ERR_INVALID_TARGET'`.
+A key the schema has no field of is `ALX_ERR_UNKNOWN_FIELD`, located in the schema; keys that are
+not a list of names and options that are not an object are a `SchemaUsageError` with
+`code: 'ALX_ERR_INVALID_OPTION'` (the call is wrong), a `metadata` that is not an object
+`ALX_ERR_INVALID_OPTIONS` (a definition is); a target that is not a Schema of a struct is a
+`SchemaUsageError` with `code: 'ALX_ERR_INVALID_TARGET'`.
 
 ## `@alexify/metaschema/coerce`
 
@@ -226,12 +227,12 @@ step in the pass before the check are the core's.
 
 | Export | Description |
 | --- | --- |
-| `register(custom?, options?)` | installs the built-in converters (`string`, `number`, `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and the program's own by type name (`{ point: (value, field) => value }`), once per name, process-wide, every entry checked before any is written; another function under a registered name is `ERR_COERCION_REGISTERED`, a name that is not one of a type or an entry that is not a function `ERR_INVALID_COERCION`; `options.onError(error, field)` is told of a converter that threw; adds `schema.coerce` |
+| `register(custom?, options?)` | installs the built-in converters (`string`, `number`, `integer`, `bigint`, `boolean`, `date`, `enum`, `array`, `set`, `map`) and the program's own by type name (`{ point: (value, field) => value }`), once per name, process-wide, every entry checked before any is written; another function under a registered name is `ALX_ERR_COERCION_REGISTERED`, a name that is not one of a type or an entry that is not a function `ALX_ERR_INVALID_COERCION`; `options.onError(error, field)` is told of a converter that threw; adds `schema.coerce` |
 | `coerce(schema, value, options?)` | the pass parse runs before its check with coercion on: the value converted and its defaults filled, nothing checked; `options`: `references`, `maxDepth`, `report` (an array given the path of every key the pass changed) |
 | `COERCIONS` | the table of the converters by type name, to read |
 
 A parse that coerces (by the call, the kind metadata or a field's own `coerce: true`) before
-`register()` ran is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`, thrown as the pass
+`register()` ran is a `SchemaUsageError` with `code: 'ALX_ERR_NOT_REGISTERED'`, thrown as the pass
 enters the schema, whatever the value holds. The type of a converter is `Coercion`.
 
 ## `@alexify/metaschema/mongodb`
@@ -243,33 +244,41 @@ see [MongoDB](/guide/mongodb).
 | Export | Description |
 | --- | --- |
 | `types` | the BSON types `objectId`, `decimal128`, `binary` to give a model (`new Model({ ...types }, entities)`); a value is one by its `_bsontype` and a method, never by `instanceof` |
-| `register({ bson })` | keeps the module of the driver (or of bson) and installs the converters of the BSON types the module can build (`Decimal128`, `Binary` when it has them) into `./coerce`; another module after the first is a `TypeError` |
-| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id` (an `_id` beside it in the value is left out), ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references`, `maxDepth` (128: a record deeper is left as it is for the check); a value of a class at the root is `ERR_INVALID_TARGET` |
+| `register({ bson })` | keeps the module of the driver (or of bson) and installs the converters of the BSON types the module can build (`Decimal128`, `Binary` when it has them) into `./coerce`; another module after the first is a `SchemaUsageError` |
+| `toDocument(target, value, options?)` | the document of a value: serializers run, the id of a stored record as `_id` (an `_id` beside it in the value is left out), ids of references as ObjectIds; `options`: `ids` (`'objectId'`, `'string'`), `references`, `maxDepth` (128: a record deeper is left as it is for the check); a value of a class at the root is `ALX_ERR_INVALID_TARGET` |
 | `fromDocument(target, document, options?)`, `fromDocumentAsync(…)` | `_id` back to the id field, ObjectIds to hex strings, then `parse` (`parseAsync`) with `coerce: true` unless the options say otherwise; `null` (what `findOne` gives for nothing) is a `type` issue |
 | `indexesOf(target)` | the indexes of a schema for `createIndexes`, or of every stored entity of a model by name |
 | `checkUpdate(target, update, options?)` | the issues of an update of the driver (`$set`, `$unset`, `$inc`, `$push`, …) against the schema, as a `ValidationResult`; `options`: those of `check` (`unknown` decides a key a struct does not have; a path with an empty segment, into a part a field cannot have, or to the `_id` of the document is `unexpected` whatever it says, one through more records than `maxDepth` a `depth` issue) |
 | `toUpdate(target, update, options?)` | the update as the database takes it: values serialized, ids as ObjectIds, the id as `_id` |
 
 `toDocument` and `toUpdate` with `ids: 'objectId'` (the default) before `register()` are a
-`TypeError` with `code: 'ERR_NOT_REGISTERED'`: an ObjectId is built by the driver. Reading a
+`SchemaUsageError` with `code: 'ALX_ERR_NOT_REGISTERED'`: an ObjectId is built by the driver. Reading a
 document needs no driver (`fromDocument` parses with `coerce: true`, which needs `register()`
 of `./coerce`, the one `register({ bson })` runs too). A target that is not a Schema of a
 struct (or a Model, for `indexesOf`) and an update that is not an object of operators are
-`ERR_INVALID_TARGET`.
+`ALX_ERR_INVALID_TARGET`.
 
-## Runtime errors
+## `SchemaUsageError`
 
-Validation of data never throws because of the value, and a broken definition is a
-[`SchemaDefinitionError`](#schemadefinitionerror). A call that is wrong throws a `TypeError`
-with one of these codes (the async methods reject with it); their type is `RuntimeErrorCode`.
+Thrown, as a `TypeError` subclass, when a call is wrong: validation of data never throws
+because of the value, and a broken definition is a
+[`SchemaDefinitionError`](#schemadefinitionerror). The async methods reject with it.
 
-| Code | Thrown when |
+| Property | Contents |
 | --- | --- |
-| `ERR_ASYNC_VALIDATOR` | a synchronous `check` or `parse` met a promise from a `validate` function, a custom type's `checkType` or a field's `parse` function; `checkAsync` and `parseAsync` await them |
-| `ERR_INVALID_TARGET` | a function of a subpath was given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a JSON Schema document, a sequence of records) |
-| `ERR_INVALID_OPTION` | an option of a call is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the stream, derive and mongodb subpaths); the kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is `ERR_INVALID_OPTIONS` |
-| `ERR_INVALID_RECORD` | a `transform` of the stream subpath met an invalid record it was not told to drop; the error carries `index`, `record` and `result` |
-| `ERR_NOT_REGISTERED` | a parse that coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value holds), a document or an update written with ObjectIds before `register({ bson })` of the mongodb subpath, or a schema of the [definition entry](/guide/definition) asked to validate before the core entry was loaded |
+| `message` | the problem, naming the option, the target or the method to use |
+| `code` | one of the codes below; their type is `RuntimeErrorCode` |
+| `index`, `record`, `result` | on `ALX_ERR_INVALID_RECORD`: the position of the record, the record and its `ValidationResult` |
+| `method` | on the `ALX_ERR_NOT_REGISTERED` of a schema of the definition entry: the method that was called |
+
+| Code | Raised for |
+| --- | --- |
+| `ALX_ERR_ASYNC_VALIDATOR` | a synchronous `check` or `parse` met a promise from a `validate` function, a custom type's `checkType` or a field's `parse` function; `checkAsync` and `parseAsync` await them |
+| `ALX_ERR_INVALID_TARGET` | a function of a subpath was given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a JSON Schema document, a sequence of records) |
+| `ALX_ERR_INVALID_OPTION` | an option of a call is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the stream, derive and mongodb subpaths); the kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is `ALX_ERR_INVALID_OPTIONS` |
+| `ALX_ERR_INVALID_RECORD` | a `transform` of the stream subpath met an invalid record it was not told to drop |
+| `ALX_ERR_NOT_REGISTERED` | a parse that coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value holds), a document or an update written with ObjectIds before `register({ bson })` of the mongodb subpath, or a schema of the [definition entry](/guide/definition) asked to validate before the core entry was loaded |
+| `ALX_ERR_UNSUPPORTED_RUNTIME` | `saveTypes` of the generators subpath in a browser, where there is no file system to write to (the promise rejects) |
 
 ## `ValidationResult`
 
@@ -310,37 +319,37 @@ it; see [Validation](/guide/validation#the-result).
 
 | Code | Raised for |
 | --- | --- |
-| `ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function, or `flags` without a list of distinct names |
-| `ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
-| `ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
-| `ERR_INVALID_TUPLE` | a tuple whose definition is not an array, or an element that is a function |
-| `ERR_INVALID_UNION` | a `union` without branches, a branch that is a function, or a `discriminator` that is not a field name, that a branch lacks or does not hold as an `enum`, or whose value two branches share |
-| `ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
-| `ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
-| `ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
-| `ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
-| `ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string, `decimals` on anything but a number), a `min`/`max` that is not a number or a bigint, a `max` below `min`, `decimals` that is not an integer from 0 to 15, or a `pattern` that is not a string or `RegExp` or does not compile, a `format` the table does not have (the [formats subpath](/guide/formats) registers them) or on a type other than `string` |
-| `ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
-| `ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
-| `ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` or `coerce` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have, `ids` with a target other than mongodb), an option of `sample` or `infer`, the keys or options of a derive function, or the `jit` option of `compile`/`register` with a value it does not accept |
-| `ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
-| `ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
-| `ERR_UNREPRESENTABLE` | two schemas of one name in what `schema.toSnapshot()` reaches; a type with no form in the JSON Schema target (a `bigint`, a `date`, `bytes`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
-| `ERR_UNSUPPORTED_SCHEMA` | a keyword of a JSON Schema document outside the subset `fromJSONSchema` reads, with its place as a JSON pointer, when `unsupported` is `'throw'`; see [Importing a document](/guide/json-schema#importing-a-document) |
-| `ERR_INVALID_SNAPSHOT` | `fromJSON` or `diff` of the model subpath given a value that is not a snapshot of format 1, a snapshot with a broken entity, field or type, or a `root` that names none of its entities |
-| `ERR_UNSATISFIABLE` | `sample` found a field no draw satisfies (an object with number keys, a pattern a length contradicts, a `validate` that rejects everything, a reference the model does not have, a required reference nested deeper than `maxDepth`); the message names the field and the reason |
-| `ERR_SAMPLE_PATTERN` | a `pattern` outside the subset `sample` reads (a lookaround, a back reference, a word boundary, another Unicode property) |
-| `ERR_SAMPLE_TYPE` | a custom type with a check of its own and no `metadata.sample` |
-| `ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, two formats, a calculated field or an index that differs; the message names the field |
-| `ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
-| `ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
-| `ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings, an `infer` that is not a boolean, a `pattern` that is not a string or does not compile under the `u` flag) |
-| `ERR_FORMAT_REGISTERED` | a format name the program registered, registered again with another `test` |
-| `ERR_UNKNOWN_FIELD` | a function of the derive subpath was given a key the schema has no field of; the message names the schema and the key |
-| `ERR_INVALID_COERCION` | an entry given to `register` of the coerce subpath is not a converter of a type (a name not led by a lowercase letter, a value that is not a function) |
-| `ERR_COERCION_REGISTERED` | a converter name registered again with another function |
-| `ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
+| `ALX_ERR_INVALID_DEFINITION` | a field definition that is not a string, object, array or function, or `flags` without a list of distinct names |
+| `ALX_ERR_UNKNOWN_TYPE` | a lowercase type name that is not registered |
+| `ALX_ERR_MISSING_SCHEMA` | the `schema` type, or an alias of it, without `{ schema: { ... } }` |
+| `ALX_ERR_INVALID_TUPLE` | a tuple whose definition is not an array, or an element that is a function |
+| `ALX_ERR_INVALID_UNION` | a `union` without branches, a branch that is a function, or a `discriminator` that is not a field name, that a branch lacks or does not hold as an `enum`, or whose value two branches share |
+| `ALX_ERR_PROJECTION` | a projection without `schema`/`fields`, with an unknown parent, or naming a field the parent does not have |
+| `ALX_ERR_INVALID_CUSTOM_TYPE` | a custom type entry without `construct` and `checkType` functions |
+| `ALX_ERR_INVALID_ENUM` | the `enum` type without a non-empty `enum` list |
+| `ALX_ERR_INVALID_LENGTH` | a `length` rule that is not a number, `[min, max]` or `{ min, max }`, or whose `min` is above its `max` |
+| `ALX_ERR_INVALID_RULE` | a rule on a type that does not accept it (`length` on a number, `min` on a string, `decimals` on anything but a number), a `min`/`max` that is not a number or a bigint, a `max` below `min`, `decimals` that is not an integer from 0 to 15, or a `pattern` that is not a string or `RegExp` or does not compile, a `format` the table does not have (the [formats subpath](/guide/formats) registers them) or on a type other than `string` |
+| `ALX_ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
+| `ALX_ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
+| `ALX_ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
+| `ALX_ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` or `coerce` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have, `ids` with a target other than mongodb), an option of `sample` or `infer`, the keys or options of a derive function, or the `jit` option of `compile`/`register` with a value it does not accept |
+| `ALX_ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
+| `ALX_ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
+| `ALX_ERR_UNREPRESENTABLE` | two schemas of one name in what `schema.toSnapshot()` reaches; a type with no form in the JSON Schema target (a `bigint`, a `date`, `bytes`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |
+| `ALX_ERR_UNSUPPORTED_SCHEMA` | a keyword of a JSON Schema document outside the subset `fromJSONSchema` reads, with its place as a JSON pointer, when `unsupported` is `'throw'`; see [Importing a document](/guide/json-schema#importing-a-document) |
+| `ALX_ERR_INVALID_SNAPSHOT` | `fromJSON` or `diff` of the model subpath given a value that is not a snapshot of format 1, a snapshot with a broken entity, field or type, or a `root` that names none of its entities |
+| `ALX_ERR_UNSATISFIABLE` | `sample` found a field no draw satisfies (an object with number keys, a pattern a length contradicts, a `validate` that rejects everything, a reference the model does not have, a required reference nested deeper than `maxDepth`); the message names the field and the reason |
+| `ALX_ERR_SAMPLE_PATTERN` | a `pattern` outside the subset `sample` reads (a lookaround, a back reference, a word boundary, another Unicode property) |
+| `ALX_ERR_SAMPLE_TYPE` | a custom type with a check of its own and no `metadata.sample` |
+| `ALX_ERR_MERGE_CONFLICT` | `merge` met what no value can satisfy: two types, two patterns, bounds or enums with nothing in common, two defaults, two decoders, two unions, two formats, a calculated field or an index that differs; the message names the field |
+| `ALX_ERR_INFER_DEPTH` | `infer` met a sample nested deeper than `maxDepth` (a cycle, most likely); the message names the sample and the place |
+| `ALX_ERR_INFER_MISMATCH` | the definition `infer` built rejects one of its samples (the id field of a stored kind, or a bug of the inference); `error.index` is the sample |
+| `ALX_ERR_INVALID_FORMAT` | an entry given to `register` of the formats subpath is not a format (no `test` function, no example strings, an `infer` that is not a boolean, a `pattern` that is not a string or does not compile under the `u` flag) |
+| `ALX_ERR_FORMAT_REGISTERED` | a format name the program registered, registered again with another `test` |
+| `ALX_ERR_UNKNOWN_FIELD` | a function of the derive subpath was given a key the schema has no field of; the message names the schema and the key |
+| `ALX_ERR_INVALID_COERCION` | an entry given to `register` of the coerce subpath is not a converter of a type (a name not led by a lowercase letter, a value that is not a function) |
+| `ALX_ERR_COERCION_REGISTERED` | a converter name registered again with another function |
+| `ALX_ERR_RESERVED_KEY` | a field definition key that names a method of the field (`check`, `construct`, `constructor`, …) or `__proto__`/`prototype` |
 
 ## Types
 
@@ -355,7 +364,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ParseOptions` | the options of `parse`: `CheckOptions` with `unknown` also `'strip'`, and `coerce` (whether the input is converted before the check; the kind metadata's default) |
 | `CoerceOptions` | the options of `coerce` of the coerce subpath: `references`, `maxDepth` |
 | `SerializeOptions`, `Serialized<T>`, `SerializeChecked<T>` | the options of `serialize` (`CheckOptions` and `check`) and its two results |
-| `RuntimeErrorCode` | `'ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ERR_INVALID_OPTION'` (an option of a call is not what it must be), `'ERR_INVALID_RECORD'` (a stream met an invalid record), `'ERR_NOT_REGISTERED'` (a converter or a driver that was not registered, or a schema of the definition entry asked to validate without the core) |
+| `RuntimeErrorCode` | `'ALX_ERR_ASYNC_VALIDATOR'` (a synchronous call met a promise), `'ALX_ERR_INVALID_TARGET'` (a function of a subpath was given something other than what it takes), `'ALX_ERR_INVALID_OPTION'` (an option of a call is not what it must be), `'ALX_ERR_INVALID_RECORD'` (a stream met an invalid record), `'ALX_ERR_NOT_REGISTERED'` (a converter or a driver that was not registered, or a schema of the definition entry asked to validate without the core) |
 | `InferSchema<S>` | `Infer<D>` of a `Schema<D>` instance type: `InferSchema<typeof schema>` |
 | `InferEntity<E, Name>` | the entity `Name` of the map `E`, with the id field a stored kind adds (`personId?: string`) |
 | `CustomTypes` | an empty interface to augment with the value type of each custom type (`interface CustomTypes { datetime: string }`); an unknown name infers as `unknown` |

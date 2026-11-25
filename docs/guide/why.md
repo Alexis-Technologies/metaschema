@@ -57,7 +57,7 @@ description of its data:
   (12.8 KB), the record tools (1.0 KB), the string formats (3.8 KB), the derive tools (2.2 KB),
   the converters of coercion (1.9 KB) and the MongoDB tools (3.6 KB on top of the converters)
   are subpaths a program pays for only when it imports them; a program that only reads
-  schemas imports the definition half alone (10.5 KB). CommonJS with ESM named imports, no build step,
+  schemas imports the definition half alone (10.6 KB). CommonJS with ESM named imports, no build step,
   hand-written typings, Node.js 18+ and browsers, and nothing that needs `eval` unless you ask
   for the JIT.
 

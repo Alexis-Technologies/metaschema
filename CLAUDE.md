@@ -151,7 +151,7 @@ subpath (Alex's decision, 2026-10-11) and the core did not grow for it; it requi
 **A string format is a rule of the core with a table the `./formats` subpath fills (3.2).**
 `{ type: 'string', format: 'email' }` is a rule beside `length` and `pattern`: `rules.js`
 holds the rule and an empty null-prototype table `FORMATS`, read when a field is built (a name
-the table lacks is `ERR_INVALID_RULE` with the hint), and `register(custom)` of
+the table lacks is `ALX_ERR_INVALID_RULE` with the hint), and `register(custom)` of
 `@alexify/metaschema/formats` fills it with nine built-in formats (the expressions of
 ajv-formats' fast mode, copied with attribution; the date and time ranges checked) and the
 program's own `{ test, examples, infer }`, once per name, process-wide like `TYPES`. A format
@@ -170,7 +170,7 @@ program's own format under the name of a built-in takes its place (Alex's decisi
 read once into `schema[COERCES]`: an own property would shadow the `coerce` method) and
 a field's `coerce: true|false` (its subtree) decide; `check` never converts. The core has the
 `COERCE` bit of the pass before the check and the `COERCION` slot in `codec.js` (its `convert`
-throws `ERR_NOT_REGISTERED` until `register()` of `@alexify/metaschema/coerce` installs the
+throws `ALX_ERR_NOT_REGISTERED` until `register()` of `@alexify/metaschema/coerce` installs the
 dispatcher); the converters by type name, the program's own included, are the subpath's
 `COERCIONS` (Alex's decision, 2026-10-13, like the formats). The converters are strict (Alex's
 decision): decimal strings, `'true'`/`'false'`/`'1'`/`'0'` and 1/0, ISO dates with a zone or
@@ -205,7 +205,7 @@ the core entry requires `validation.js`: `check`, `checkAsync`, `parse`, `parseA
 `warnings` on `Model.prototype`, the `compile` of every built-in on its prototype object (from
 `COMPILE` of `checks.js`), the generic `compile` of a custom type on `AbstractType.prototype`,
 and the builders the lazy checks call (`BUILD.field`, `BUILD.schema` of
-`prototypes/abstract.js`). Until then the definition half's stubs throw `ERR_NOT_REGISTERED`
+`prototypes/abstract.js`). Until then the definition half's stubs throw `ALX_ERR_NOT_REGISTERED`
 (`noValidation` of `errors.js`) and a schema has no `~standard`. The lint is the validation
 half's (Alex's decision, 2026-10-15: it is about 700 bytes the definition entry does without).
 The plan asked for 8 KB for `./definition` and at most 100 bytes of growth of the core; the
@@ -237,7 +237,7 @@ src/
   metadata.js       SchemaMetadata (kind, scope, indexes, options, …)
   schema.js         Schema (extends SchemaMetadata), the definition half: construction, the lazy stub of
                     Schema[RUN], types, findReference, attach/detach, toJSON, toSnapshot; the stubs of the
-                    validation methods (ERR_NOT_REGISTERED until validation.js installs them)
+                    validation methods (ALX_ERR_NOT_REGISTERED until validation.js installs them)
   struct.js         createStruct: null-prototype field dictionary with its plan and known keys
   context.js        createContext: the state of one check ({ issues, count, limit, depth, maxDepth, path, seen, source, unknown, references, root, messages, async, scratch })
   issues.js         issue constructors by code, toDotPath, absorb (the validator contract), runValidate/runCheckType, settle (the async drain)
@@ -261,7 +261,7 @@ src/
   util.js           BRAND/hasBrand identity brand, RUN, HOOK, the state symbols of a schema (TRACKED,
                     COERCES, CODEC, STANDARD, KINDS) and of a model (CYCLES), isMap/isSet/isDate/isBytes, typeOf,
                     shorten, formatters (type '?x', key 'x?', length)
-  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ERR_ASYNC_VALIDATOR),
+  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ALX_ERR_ASYNC_VALIDATOR),
                     invalidTarget, notRegistered, noValidation (the definition half without the other), invalidOption
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       the definition half of the types (what a definition gives a field; their checks are in
@@ -281,9 +281,9 @@ src/
                     diff.js (diff, compatibility: the Confluent rules as bits),
                     sample.js (the seeded witness: mulberry32, per-field verification), pattern.js (the regex
                     subset: a parser into nodes once per RegExp, a string drawn from the nodes),
-                    merge.js (unification of two schemas, ERR_MERGE_CONFLICT),
+                    merge.js (unification of two schemas, ALX_ERR_MERGE_CONFLICT),
                     infer.js (a definition from samples: the summary of every place, fused records,
-                    the dictionary and enum heuristics, the self-check, ERR_INFER_DEPTH/ERR_INFER_MISMATCH)
+                    the dictionary and enum heuristics, the self-check, ALX_ERR_INFER_DEPTH/ALX_ERR_INFER_MISMATCH)
   stream/           the ./stream subpath: index.js (checkEach, parseEach, checkEachAsync, parseEachAsync,
                     transform, register), index.d.ts
   formats/          the ./formats subpath: index.js (the 35 built-in formats, register, FORMATS of the
@@ -429,35 +429,36 @@ with a letter) and handing it to the parsers:
 It returns `{ Type, defs, kindMeta }`. Unknown lowercase type names **throw**, because a broken
 definition is a programming error. Capitalized names become `reference` fields. `{ name:
 'string', type: 'string' }` is a struct; `{ required: false, type: 'string' }` is
-`ERR_INVALID_DEFINITION`; a struct whose first field is called `type` or named like a type needs a
+`ALX_ERR_INVALID_DEFINITION`; a struct whose first field is called `type` or named like a type needs a
 kind or the `schema` shorthand. **A capitalized first key that is no kind key is a field**
 (3.4.1; until then every capitalized first key was a kind, and `{ DATABASE_URL: 'string', PORT:
 'number' }` was the kind `dATABASE_URL` over a struct of `PORT`): a name in upper case or with a
 character that is no letter or digit (`PORT`, `DTO`, `Api_key`), and a kind name that holds
 anything but a plain object (`Name: 'string'`, a list, a function, a Schema, a built field or
 struct). What writes a kind as the first key of a definition holds its name to the same rule
-(`kindKeyOf` of `model/data.js`): `structDefinition` (derive, merge: `ERR_INVALID_OPTIONS`),
-`entityDef` of `restore.js` (`ERR_INVALID_SNAPSHOT`) and `infer`.
+(`kindKeyOf` of `model/data.js`): `structDefinition` (derive, merge: `ALX_ERR_INVALID_OPTIONS`),
+`entityDef` of `restore.js` (`ALX_ERR_INVALID_SNAPSHOT`) and `infer`.
 
 **Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
-(`ERR_UNKNOWN_TYPE`, `ERR_INVALID_DEFINITION`, `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`,
-`ERR_PROJECTION`, `ERR_INVALID_CUSTOM_TYPE`, `ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`,
-`ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`, `ERR_UNKNOWN_JS_TYPE`,
-`ERR_INVALID_OPTIONS`, `ERR_INVALID_RULE`, `ERR_INVALID_UNION`, `ERR_UNREPRESENTABLE` and
-`ERR_UNSUPPORTED_SCHEMA` of the generators, `ERR_NO_EVAL` and `ERR_JIT_BUILD` of the compile
-subpath, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`, `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`,
-`ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH` and `ERR_INFER_MISMATCH` of the model subpath,
-`ERR_INVALID_FORMAT` and `ERR_FORMAT_REGISTERED` of the formats subpath, `ERR_UNKNOWN_FIELD` of
-the derive subpath, `ERR_INVALID_COERCION` and `ERR_COERCION_REGISTERED` of the coerce
-subpath), `schema` and `field`. A function of a subpath
-given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a
-JSON Schema document) throws a plain `TypeError` with `code: 'ERR_INVALID_TARGET'`
-(`invalidTarget` in `errors.js`, a `RuntimeErrorCode` like `ERR_ASYNC_VALIDATOR`): the call is
-wrong, not a definition. `ERR_INVALID_OPTION` (`invalidOption` in `errors.js`) is the same
+(`ALX_ERR_UNKNOWN_TYPE`, `ALX_ERR_INVALID_DEFINITION`, `ALX_ERR_MISSING_SCHEMA`, `ALX_ERR_INVALID_TUPLE`,
+`ALX_ERR_PROJECTION`, `ALX_ERR_INVALID_CUSTOM_TYPE`, `ALX_ERR_INVALID_ENUM`, `ALX_ERR_INVALID_LENGTH`,
+`ALX_ERR_INVALID_REFERENCE`, `ALX_ERR_RESERVED_KEY`, `ALX_ERR_TYPE_REGISTERED`, `ALX_ERR_UNKNOWN_JS_TYPE`,
+`ALX_ERR_INVALID_OPTIONS`, `ALX_ERR_INVALID_RULE`, `ALX_ERR_INVALID_UNION`, `ALX_ERR_UNREPRESENTABLE` and
+`ALX_ERR_UNSUPPORTED_SCHEMA` of the generators, `ALX_ERR_NO_EVAL` and `ALX_ERR_JIT_BUILD` of the compile
+subpath, `ALX_ERR_INVALID_SNAPSHOT`, `ALX_ERR_UNSATISFIABLE`, `ALX_ERR_SAMPLE_PATTERN`, `ALX_ERR_SAMPLE_TYPE`,
+`ALX_ERR_MERGE_CONFLICT`, `ALX_ERR_INFER_DEPTH` and `ALX_ERR_INFER_MISMATCH` of the model subpath,
+`ALX_ERR_INVALID_FORMAT` and `ALX_ERR_FORMAT_REGISTERED` of the formats subpath, `ALX_ERR_UNKNOWN_FIELD` of
+the derive subpath, `ALX_ERR_INVALID_COERCION` and `ALX_ERR_COERCION_REGISTERED` of the coerce
+subpath), `schema` and `field`. A wrong call is a `SchemaUsageError` (`src/errors.js`, a
+`TypeError` with a `code` of `RuntimeErrorCode`, since 4.0; a plain `TypeError` until then): a
+function of a subpath given something other than what it takes (a Schema, a Model, a snapshot,
+a list of changes, a JSON Schema document) throws `ALX_ERR_INVALID_TARGET` (`invalidTarget` in
+`errors.js`, like `asyncReturn` for `ALX_ERR_ASYNC_VALIDATOR`): the call is wrong, not a
+definition. `ALX_ERR_INVALID_OPTION` (`invalidOption` in `errors.js`) is the same
 kind of error for an option of a call that is not what it must be (`maxErrors`, `references`,
 the `coerce` of a parse, the options of the stream, derive and mongodb subpaths): the kind
 metadata and the `metadata` of `merge` and `derive` are definitions, so a wrong one is
-`ERR_INVALID_OPTIONS`, a `SchemaDefinitionError`. `ERR_NOT_REGISTERED` (`notRegistered` in
+`ALX_ERR_INVALID_OPTIONS`, a `SchemaDefinitionError`. `ALX_ERR_NOT_REGISTERED` (`notRegistered` in
 `errors.js`) is the same kind of error for a call that needs what `register()` of a subpath
 installs before it ran: a
 parse that coerces without `./coerce` (thrown as the pass enters the schema, whatever the
@@ -488,7 +489,7 @@ from a copy of its entry, `parentOf`), so the `compile` the validation half inst
 prototype object later reaches every class made from it, in every registry. The `AbstractType`
 constructor copies the definition keys (a rule key goes through its `FORMAT` in `rules.js`,
 given the field: the `format` formatter records the entry the name had, `formatOf`; a rule the
-type does not accept throws `ERR_INVALID_RULE`), checks the bounds (`checkBounds`), calls
+type does not accept throws `ALX_ERR_INVALID_RULE`), checks the bounds (`checkBounds`), calls
 `construct`, and compiles nothing: a field's `check` is **compiled on its first read**
 (`BUILD.field`, `compileField` of `checks.js`): `compile()` returns the type check as a closure
 over the field (`(value, context, key) => void`), `withRules` wraps it only when the field has
@@ -511,7 +512,7 @@ metadata to built-ins, aliases (`{ js: 'string' }`) or new prototypes with
 (`'?string'`, `required: false`) *before* building the field (the closure captures it), then
 records a frozen **plan** entry `{ key, type, required, own, aliases }` per validated
 field (`aliases` the list of the field's `aliases`, `[]` without; an alias is a known key, and
-one that is a field, a calculated field or another alias is `ERR_INVALID_DEFINITION`) and the
+one that is a field, a calculated field or another alias is `ALX_ERR_INVALID_DEFINITION`) and the
 key in a null-prototype `known` dictionary; `fields[STRUCT]` (a global symbol) holds the frozen
 `{ plan, known, calculated }` (`calculated`: the keys of the calculated fields, read by the
 strip pass; a nested struct's `validate`, `parse` and `serialize` functions stay in `fields` but
@@ -614,8 +615,8 @@ path, awaiting a promise and calling a deferred entry unless an issue recorded s
 its path (`failedUnder`, through `under`), and stops at `maxErrors` with `release` over the
 rest (the promises are observed, never awaited; `release` is also what a failed union branch
 and the trial of parse drop their entries with, on both backends). Under a low `maxErrors` a
-validator may be called whose result is dropped: the limit decides what is recorded. The sync `check`/`parse` throw a `TypeError`
-with `code: 'ERR_ASYNC_VALIDATOR'` (`asyncReturn` in `errors.js`) for a promise. Decoders that
+validator may be called whose result is dropped: the limit decides what is recorded. The sync `check`/`parse` throw a `SchemaUsageError`
+with `code: 'ALX_ERR_ASYNC_VALIDATOR'` (`asyncReturn` in `errors.js`) for a promise. Decoders that
 return promises are awaited by `parseAsync` inside the `finish` pass (`Promise.all` over the
 parts of a container, then the container's own decoder). `hasAsync(schema)` (an `AsyncFunction`
 among the validators, decoders and `checkType`s, the referenced entities included) decides, on
@@ -654,9 +655,9 @@ plain union truncates what a failed branch recorded and tries the next, so a bra
 of its own). Generated code holds identifiers, numbers, booleans and JSON strings only
 (`code.js`: `quote` escapes U+2028/2029, `prop` picks `.key` or `["key"]`, `literal` leaves
 NaN, -0, Infinity and objects to the scope). `canEval()` probes `new Function('')` once;
-`jit: 'auto'` falls back silently (`compile()` returns the `ERR_JIT_BUILD` error of the first
+`jit: 'auto'` falls back silently (`compile()` returns the `ALX_ERR_JIT_BUILD` error of the first
 check it could not generate as `error`, `register({ onFallback })` is told of every one),
-`true` throws `ERR_NO_EVAL` (from `register` at the call) or `ERR_JIT_BUILD` (a model all or
+`true` throws `ALX_ERR_NO_EVAL` (from `register` at the call) or `ALX_ERR_JIT_BUILD` (a model all or
 nothing),
 `false` never generates code.
 
@@ -689,13 +690,27 @@ cannot import a devDependency; `tests/types/standard.test-d.ts` pins the assigna
 `model.toJSON()` and `schema.toSnapshot()` share the walk of `snapshot.js`: `entitiesOf` writes
 the entities by name, `typesOf(entities, tableOf)` the types they use (and the custom types an
 alias names down the chain), and `gather` collects what a schema reaches through `references`
-and `parent`, after its references, one entity per name (`ERR_UNREPRESENTABLE` otherwise), with
+and `parent`, after its references, one entity per name (`ALX_ERR_UNREPRESENTABLE` otherwise), with
 `Identifier` moved first, as a model orders them.
 
 `toTypeScript(model)` of the generators subpath (`model.dts` once its `register()` ran) joins the
 interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
+
+**The errors of 4.0 (2026-11-25, unreleased) left the gates where they were**: the `ALX_` prefix
+of the 37 codes and `SchemaUsageError` cost the core 29 bytes (22348 / 22361 bytes, 21.8 KB,
+180 bytes under the 22 KB gate). The prefix is about 8 of them, since gzip takes the repeated
+`ALX_` almost whole (measured on a copy of the tree with the codes renamed and nothing else);
+the class with the name on its prototype is the rest, which the helpers of `errors.js`, now
+one expression each, gave back in part. `./definition` measures 10814 (+21; it carries
+`errors.js`), which turned its rounded figure in the docs from 10.5 to 10.6 KB; the model
+subpath 13150, the generators 7914, the compile subpath 4404, the stream subpath 976, the
+formats subpath 3905, the derive subpath 2296, the coerce subpath 1975 and the mongodb subpath
+3719. The errors are off the hot path, and three alternating runs of the `check`, `parse` and
+moltar rows against `efd1160` (the tree before) put the median row at −0.5%, two rows apart
+(`check — flat struct, valid` +2.3%, `assertLoose — moltar flat` −1.8%) and the rest within
+the band of a machine with a load average of 6 to 8. The paragraph that follows is alexiskills 1.1's.
 
 **alexiskills 1.1 (2026-11-25, unreleased) left the gates where they were**: bringing `src/` to
 it cost the core 21 bytes (22319 / 22336 bytes, 21.8 KB, 209 bytes under the 22 KB gate):
@@ -1020,7 +1035,9 @@ comparison on a quiet machine, never beside other work.
 `src/runtime/node.js` is the **only** file allowed to require a Node builtin
 (`tests/unit/platform.test.js` enforces this). `src/runtime/browser.js` exports the identical
 interface. Today that is just `writeFile`, behind `saveTypes` of the generators subpath, which
-rejects in the browser; the core entry requires no runtime at all. The swap happens through the
+rejects in the browser with the `ALX_ERR_UNSUPPORTED_RUNTIME` of a `SchemaUsageError` (so
+`browser.js` requires `errors.js`, and `node.js` nothing of `src/`); the core entry requires no
+runtime at all. The swap happens through the
 `package.json` `browser` field (`./index.js → ./browser.js`,
 `./src/runtime/node.js → ./src/runtime/browser.js`) plus the `browser` condition in `exports`;
 the `browser` map applies to the subpath too, since bundlers resolve it for every file of the
@@ -1055,40 +1072,20 @@ wins.
     shape per kind of object (context, issue, plan entry), `try/catch` only around user code,
     and functions chosen at build time instead of lookups in the definition;
   - validators return messages, and validation never throws because of the value: a broken
-    definition is a `SchemaDefinitionError` with a code, a wrong call a `TypeError` with one.
+    definition is a `SchemaDefinitionError` with a code, a wrong call a `SchemaUsageError` with
+    one. Both are `TypeError`s, and every code is `ALX_ERR_*` (since 4.0: the `ERR_*` of 3.x
+    were renamed with the prefix and nothing else). Every code is a member of
+    `DefinitionErrorCode` or `RuntimeErrorCode` of `index.d.ts` and a row of the table of its
+    class in `docs/api/exports.md`, and `tests/unit/error-codes.test.js` holds them to the
+    source. Issue codes (`required`, `type`, `unexpected`, `format`, …) are data of a result,
+    not error codes.
 - Where metaschema keeps a way of its own, on purpose:
   - `for...in` with `Object.hasOwn` counts the keys of a value in the struct check, measured
     (see "Structs"); `for...of` over arrays, Maps, Sets and iterators is how the rest of `src/`
     is written, where the skill asks for an index loop over an array in library code, and
     `for...in` walks plain objects outside the check;
   - the generated code of `./compile` is text, not source: it keeps `!= null` (the one
-    comparison the closures' check stands for) and `void 0`;
-  - **a wrong call is a plain `TypeError` with a code** (`invalidTarget`, `invalidOption`,
-    `notRegistered`, `asyncReturn` of `errors.js`, and `ERR_INVALID_RECORD` of the stream
-    subpath), where alexiskills asks for a class of the library. A class would change the
-    `name` of the error a consumer may read, and the core is about 200 bytes under its gate; it is
-    a question for 4.0, with the codes;
-  - **the error codes keep the `ERR_` prefix of 3.x**, where alexiskills asks for `ALX_ERR_*`.
-    They are public: a consumer matches on `error.code`, so a rename is breaking, and it is
-    4.0's. A code added before then is `ALX_ERR_*`. Every code is a member of
-    `DefinitionErrorCode` or `RuntimeErrorCode` of `index.d.ts` and a row of the tables of
-    `docs/api/exports.md` (`SchemaDefinitionError`, "Runtime errors"), and
-    `tests/unit/error-codes.test.js` holds the source, the unions, the tables and this list,
-    the codes to rename in 4.0, to one set. Issue codes (`required`, `type`, `unexpected`,
-    `format`, …) are data of a result, not error codes, and stay as they are.
-    <!-- codes:4.0:start -->
-    - `SchemaDefinitionError` (31): `ERR_INVALID_DEFINITION`, `ERR_UNKNOWN_TYPE`,
-      `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`, `ERR_INVALID_UNION`, `ERR_PROJECTION`,
-      `ERR_INVALID_CUSTOM_TYPE`, `ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`, `ERR_INVALID_RULE`,
-      `ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`,
-      `ERR_UNKNOWN_JS_TYPE`, `ERR_INVALID_OPTIONS`, `ERR_UNREPRESENTABLE`,
-      `ERR_UNSUPPORTED_SCHEMA`, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`,
-      `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`, `ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH`,
-      `ERR_INFER_MISMATCH`, `ERR_INVALID_FORMAT`, `ERR_FORMAT_REGISTERED`, `ERR_UNKNOWN_FIELD`,
-      `ERR_INVALID_COERCION`, `ERR_COERCION_REGISTERED`, `ERR_NO_EVAL`, `ERR_JIT_BUILD`;
-    - `TypeError` (5): `ERR_ASYNC_VALIDATOR`, `ERR_INVALID_TARGET`, `ERR_INVALID_OPTION`,
-      `ERR_INVALID_RECORD`, `ERR_NOT_REGISTERED`.
-    <!-- codes:4.0:end -->
+    comparison the closures' check stands for) and `void 0`.
 
 ## Skills
 
@@ -1127,9 +1124,10 @@ place of the bans this file used to list as its own).
   statements between the tests (a `register()`, a fixture) stay inside the `describe` in their
   place: the callback runs at load time, before any test, as the top level did.
 - `tests/unit/error-codes.test.js` holds the codes of `src/`, the unions `DefinitionErrorCode` and
-  `RuntimeErrorCode` of `index.d.ts`, the two tables of `docs/api/exports.md` and the 4.0 list of
-  "Conventions" to one set (a code set on a plain `TypeError` is a runtime code). A new code is
-  `ALX_ERR_*` and goes into its union and its table in the same change.
+  `RuntimeErrorCode` of `index.d.ts` and the tables of the two classes in `docs/api/exports.md`
+  to one set (a code a `SchemaUsageError` is built with, `new SchemaUsageError('ALX_ERR_…'`, is
+  a runtime code), fails on a code of `src/` without the `ALX_` prefix, and throws every runtime
+  code once to see its class. A new code goes into its union and its table in the same change.
 - `pnpm test` passes the glob unquoted (`tests/unit/*.test.js`) so the shell expands it on Node
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
 - `tests/fixtures/schemas/` are plain CJS modules. `index.js` exports
@@ -1145,7 +1143,7 @@ place of the bans this file used to list as its own).
   `register()` and the methods, through the bundles, and `saveTypes` (rejects in the browser
   build, writes into a temp directory in the node build).
 - `tests/unit/generators.test.js` covers the subpath: the functions on a Schema and a Model, the
-  `TypeError` for anything else, the core without `register()` (no methods, `~standard` with
+  `SchemaUsageError` for anything else, the core without `register()` (no methods, `~standard` with
   three keys, no `saveTypes` export) and `register()` (idempotent, non-enumerable members, the
   converter joining props built before the call). The other suites that use the methods
   (`model`, `schema`, `references`, `dts`, `jsonschema`, ... ) call `register()` at the top;
@@ -1194,7 +1192,7 @@ place of the bans this file used to list as its own).
   container and embedded references, decoder exceptions and their paths, keys named like
   `Object.prototype` members, `maxErrors`, the input never written to), `serialize.test.js`
   (top down, the round trip, `check: true`, a looping program value, `format` never called),
-  `async.test.js` (`ERR_ASYNC_VALIDATOR` from the sync calls, the settle order, the "nothing
+  `async.test.js` (`ALX_ERR_ASYNC_VALIDATOR` from the sync calls, the settle order, the "nothing
   under it failed" rule across promises, `maxErrors`, exceptions, async `checkType`, decoders
   in every container, references and unions), the compile suite's parse/async/serialize
   equivalence on both backends, the bundle test through the minified bundles and
@@ -1220,7 +1218,7 @@ place of the bans this file used to list as its own).
   `patternOf` of `pattern.js` directly (the `\u{` guard, the group depth, the repetition cap,
   the minimal length against `length.max` with a timing), a union with a branch that cannot
   be satisfied over many seeds, a field named `__proto__`, custom types, every
-  `ERR_UNSATISFIABLE` case with the seed, the options), `fromjsonschema.test.js` (every
+  `ALX_ERR_UNSATISFIABLE` case with the seed, the options), `fromjsonschema.test.js` (every
   keyword of the subset, the root forms, `$ref` inline and by name, a diamond of definitions
   in linear time with the converted target shared and nothing leaking between the places that
   inline it, hostile pointers (`#/__proto__`, `#foo`, a bad escape, two pointers with one last
@@ -1236,7 +1234,7 @@ place of the bans this file used to list as its own).
   compatibility table is a row of `RULES` in `evolution.test.js`; add the row with the docs.
 - 3.4 suites: `definition.test.js` (the definition entry in a child process that requires
   nothing else, since every suite and the JIT helper load the core: building, reading,
-  snapshots, the `ERR_NOT_REGISTERED` of every way to validate, the core loaded later
+  snapshots, the `ALX_ERR_NOT_REGISTERED` of every way to validate, the core loaded later
   validating the schemas built before it, the same snapshot and field tree in both processes
   over `tests/fixtures/forms.js` and the fixture model), `flags.test.js`, bytes in
   `values.test.js`, `decimals` in `numbers.test.js` (and the tolerance), the snapshot of one
@@ -1283,7 +1281,7 @@ place of the bans this file used to list as its own).
   `unenforceable-decimals` in `lint.test.js`; a method taken before the core loaded and a
   schema of another copy in `definition.test.js` (child processes); the error of a custom
   `compile` in `types.test.js` (backend-aware: under the JIT it is the cause of
-  `ERR_JIT_BUILD` at construction).
+  `ALX_ERR_JIT_BUILD` at construction).
 - Review of 3.3 suites: `mongodb-bson.test.js` (the subpath against the real `bson`, a
   devDependency: the tag and the methods of its values, the strict converters of
   `decimal128`/`binary`/`objectId`, a document round-tripped through `bson.serialize`; a file
@@ -1340,7 +1338,7 @@ place of the bans this file used to list as its own).
   with defaults/strip/decoders/aliases, `maxInvalid`, the async pair over sync and async
   sources with `concurrency` 1/3/100 and the count in flight observed, an iteration that ends
   early with promises in flight (no unhandled rejection, a parse that throws), `transform` in
-  both modes and async, the stream that errors with `ERR_INVALID_RECORD`, the call errors,
+  both modes and async, the stream that errors with `ALX_ERR_INVALID_RECORD`, the call errors,
   `register()`); `export-parity.test.js`, `bundle.test.js` (the subpath through both bundles,
   the browser context given `TransformStream`) and `scripts.test.js` cover the subpath export,
   the bundles and the size row; `tests/types/stream.test-d.ts` the typings.
@@ -1403,7 +1401,7 @@ place of the bans this file used to list as its own).
   kind name in an accumulator because a union built on the way back (`C | CharsOf<R>`) is no
   tail call and 62 levels of it are "excessively deep", which made every `Infer` of a struct
   with a capitalized key `{}`; `IsWord` runs for capitalized keys only.
-- **A schema of `./definition` throws `ERR_NOT_REGISTERED` from `check`, and validates once
+- **A schema of `./definition` throws `ALX_ERR_NOT_REGISTERED` from `check`, and validates once
   the core is loaded anywhere in the process.** The halves share the classes: `validation.js`
   installs the methods on `Schema.prototype` and the `compile` of the types on the prototype
   objects the classes inherit from, so a schema (and an isolated registry) built before the
@@ -1420,12 +1418,12 @@ place of the bans this file used to list as its own).
 - **`findReference` falls back to the schema itself after the models.** A name that no
   attached model resolves is the schema's own when it is its name, so a standalone
   self-reference works and a derived schema (which keeps the name of its entity) still reaches
-  the entity of the model. A projection of its own name has no parent (`ERR_PROJECTION`). A
+  the entity of the model. A projection of its own name has no parent (`ALX_ERR_PROJECTION`). A
   schema derived or merged from one that names itself without a model gets a namespace holding
   the source (`namespacesOf` of `model/data.js`, an object with `entities` and `types`), so its
   reference reaches the source as the source's did, under any name.
 - **`schema.toSnapshot()` of a schema that shares the name of an entity it references is
-  `ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
+  `ALX_ERR_UNREPRESENTABLE`.** A snapshot holds one entity per name; a derived schema whose
   reference reaches the original entity is such a case.
 - **`decimals` accepts the error of a sum and rejects a decimal too many below 2⁴³ units.**
   The tolerance is 256 ulps of the scaled value (`ULPS` and `decimalsOff` of `checks.js`, the
@@ -1450,7 +1448,7 @@ place of the bans this file used to list as its own).
   is no JSON. `fromJSONSchema` reads `contentEncoding: 'base64'` back as a string (of the
   `base64` format when the formats are registered), never as `bytes`.
 - **`bytes` and `flags` as the first key of a struct read as those types**, and a custom type
-  of the program under either name is `ERR_TYPE_REGISTERED` (protoarray 1.2 gave a model both);
+  of the program under either name is `ALX_ERR_TYPE_REGISTERED` (protoarray 1.2 gave a model both);
   the CHANGELOG says so.
 
 - **`default` is applied by `parse` only.** `check` reports a missing required key as `required`
@@ -1468,9 +1466,9 @@ place of the bans this file used to list as its own).
   `{ a: 'string', parse: fn }` as a nested definition makes `fn` the decoder of the struct value
   (as a nested `validate` is its validate); it is also a calculated field in `fields`, as
   `validate` always was. A struct whose *field* is named `parse` (`{ parse: 'string' }`) is a
-  struct. A non-function `parse`/`serialize` on a field is `ERR_INVALID_DEFINITION`.
+  struct. A non-function `parse`/`serialize` on a field is `ALX_ERR_INVALID_DEFINITION`.
 - **A validator's promise throws from the synchronous calls.** `check`/`parse` throw a
-  `TypeError` with `code: 'ERR_ASYNC_VALIDATOR'` (not a `SchemaDefinitionError`: the call is
+  `SchemaUsageError` with `code: 'ALX_ERR_ASYNC_VALIDATOR'` (not a `SchemaDefinitionError`: the call is
   wrong, not the definition) for a promise from a `validate`, a `checkType` or a decoder;
   `checkAsync`/`parseAsync` settle them after the walk, in field order, and `~standard.validate`
   returns a promise only for a schema with an `async function` among them (detected on first
@@ -1521,8 +1519,8 @@ place of the bans this file used to list as its own).
   `schema[RUN]` at check time. `register()` compiles every schema built *after* it through the
   `Schema[HOOK]` slot, not the ones built before, and `Schema.from` in a hot path pays the code
   generation per construction once it is registered. Without eval, `'auto'` keeps the closures
-  silently (`canEval()` says so) and `jit: true` throws `ERR_NO_EVAL`. A check the generator
-  cannot build is `ERR_JIT_BUILD` (the cause attached): returned as `compile().error` and told
+  silently (`canEval()` says so) and `jit: true` throws `ALX_ERR_NO_EVAL`. A check the generator
+  cannot build is `ALX_ERR_JIT_BUILD` (the cause attached): returned as `compile().error` and told
   to `register({ onFallback })` in `'auto'`, thrown with `true`. `compile(target, { jit: false })`
   restores the closure a schema was built with (kept in a `WeakMap` of the subpath). The
   generated source is strict and ends with `//# sourceURL=alexify-metaschema-jit/<name>`;
@@ -1550,10 +1548,10 @@ place of the bans this file used to list as its own).
 - **The first key of an object decides what it is, and `type` must come first for the long
   form.** `{ name: 'string', type: 'string' }` is a struct with two fields; `{ type: 'string',
   name: 'string' }` is a string with a `name` option; `{ required: false, type: 'string' }`
-  throws `ERR_INVALID_DEFINITION` (`false` is not a field definition). `Infer` cannot see key
+  throws `ALX_ERR_INVALID_DEFINITION` (`false` is not a field definition). `Infer` cannot see key
   order and reads the keys that are there (see below); a kind settles both.
 - **A string as the second argument of `check` throws.** `check(value, 'body')` was the 1.x
-  signature; `context.js` turns it into a `TypeError` naming `options.root` on purpose, so a
+  signature; `context.js` turns it into a `SchemaUsageError` naming `options.root` on purpose, so a
   caller that was not migrated fails loudly instead of validating with the wrong options.
 - **`field.check` is a getter over a private field.** The compiled closure is set on the first
   read (`BUILD.field`); assigning it as an own property would show up in `toJSON` and
@@ -1636,7 +1634,7 @@ place of the bans this file used to list as its own).
   upstream's design; do not "fix" it by cloning per model without discussing it first.
   Re-registering a name is accepted only for the same definition (`Type.source`: same `js`, same
   `construct`/`checkType` functions) or a metadata-only entry; anything else throws
-  `ERR_TYPE_REGISTERED`, because the old silent no-op hid conflicting tables. A model that needs
+  `ALX_ERR_TYPE_REGISTERED`, because the old silent no-op hid conflicting tables. A model that needs
   its own table passes `{ registry: 'isolated' }`: `createRegistry()` builds a fresh copy of the
   built-ins and `typeFactory(types, registry)` registers into it instead of `TYPES`.
 - **Identity checks use a brand symbol, not `instanceof` or `constructor.name`.** `util.js`
@@ -1734,8 +1732,8 @@ place of the bans this file used to list as its own).
 - **A pattern the regex engine cannot run is the engine's error.** `check` on a field with
   `pattern: /^(a{10000}){10000}$/u` throws the RangeError V8 throws for it (`rules.js`): a
   pattern is the programmer's, and the engine's limits are the engine's. `sample` caps a
-  repetition it draws at 10000 (`ERR_SAMPLE_PATTERN`) and a pattern whose minimal length
-  exceeds `length.max` at once (`ERR_UNSATISFIABLE`).
+  repetition it draws at 10000 (`ALX_ERR_SAMPLE_PATTERN`) and a pattern whose minimal length
+  exceeds `length.max` at once (`ALX_ERR_UNSATISFIABLE`).
 - **The snapshot has no functions, and the keys of a field are sorted.** `model.toJSON()`
   writes `{ $function: true }` for a `validate`, a `parse`, a `serialize`, a `default` factory,
   a calculated field and the functions of the schema itself (written among its fields, as a
@@ -1753,14 +1751,14 @@ place of the bans this file used to list as its own).
   so the snapshot of the restored model is the snapshot given) lists the paths of the
   functions that are placeholders. The registry is isolated by default so that a placeholder
   never reaches the shared registry where the real type may be (or come later:
-  `ERR_TYPE_REGISTERED`), and `registry: 'shared'` refuses a placeholder type that
+  `ALX_ERR_TYPE_REGISTERED`), and `registry: 'shared'` refuses a placeholder type that
   `options.types` does not provide. A snapshot is untrusted input (Alex's decision,
-  2026-10-11): what does not read is `ERR_INVALID_SNAPSHOT` located at the entity and the
+  2026-10-11): what does not read is `ALX_ERR_INVALID_SNAPSHOT` located at the entity and the
   field, the walks have a depth limit of 128 (`DEPTH` in `model/data.js`), its keys are
   written with `define` and read with `Object.hasOwn`, the kind metadata wins over `custom`
   and an index named like a field is an error, so a snapshot cannot loosen what the model
   checks without saying so. The same holds for a JSON Schema document given to
-  `fromJSONSchema` (`ERR_UNSUPPORTED_SCHEMA` with the pointer, the depth limit, own keys only
+  `fromJSONSchema` (`ALX_ERR_UNSUPPORTED_SCHEMA` with the pointer, the depth limit, own keys only
   in a `$ref`).
 - **`compatibility` assumes a reader that ignores unknown keys** (the Confluent model;
   `unknown: 'ignore'` or `parse` with `strip`), so a field removed is backward compatible even
@@ -1799,7 +1797,7 @@ place of the bans this file used to list as its own).
 - **The id field of a stored kind wins over a field of the same name in a definition.**
   `new Schema('Order', { Entity: {}, orderId: 'integer' })` has `orderId: '?string'`
   (`schema.js` spreads the kind's fields over the definition's). `infer` therefore defaults to
-  `kind: 'struct'`, and its self-check names such a field (`ERR_INFER_MISMATCH`). Not changed
+  `kind: 'struct'`, and its self-check names such a field (`ALX_ERR_INFER_MISMATCH`). Not changed
   in 3.2 (it is the kinds' semantics); documented in the inference guide.
 - **The entries of `checkEach` carry the record and its index; the error lines carry the
   schema name.** `{ index, record, result }` is one shape for every entry: an iterator has no
@@ -1808,7 +1806,7 @@ place of the bans this file used to list as its own).
   `result.errors` says `Field "Order.qty" ...` for every record and the index is in the entry.
 - **`maxInvalid` ends a generator and errors a stream.** A generator that ends is read to its
   end; a stream that ends looks complete to `pipeTo`, so `transform` ends with
-  `ERR_INVALID_RECORD` instead, after `onInvalid` was told of the n-th invalid record.
+  `ALX_ERR_INVALID_RECORD` instead, after `onInvalid` was told of the n-th invalid record.
 - **The async pair keeps the order of the records whatever `concurrency` is**, so a slow record
   holds the ones after it; the window overlaps the waits, it does not reorder. The queue is as
   long as `concurrency` (an array with `shift`), which is small by design.
@@ -1844,13 +1842,13 @@ place of the bans this file used to list as its own).
   `$inc`): the collection validator is the last check. A deep partial is not the shape of an
   update (`$set` replaces what a path names whole).
 - **A string is not a sequence of records.** It is iterable, over its characters, and
-  `checkEach(schema, 'rows')` is `ERR_INVALID_TARGET`.
+  `checkEach(schema, 'rows')` is `ALX_ERR_INVALID_TARGET`.
 - **`toDocument` leaves out an `_id` beside the id field of a record.** The `_id` of a
   document is the id field (`accountId`) and nothing else: a body checked with `unknown:
   'ignore'` (or not checked) that carries `_id: { $gt: '' }` must not write it. A schema with
   an `_id` field of its own keeps it. `fromDocument(schema, null)` (what `findOne` gives for
   nothing) is a `type` issue, not a throw; a value of a class at the root (a model instance, a
-  value of bson) is `ERR_INVALID_TARGET` rather than passed through with its id a string.
+  value of bson) is `ALX_ERR_INVALID_TARGET` rather than passed through with its id a string.
   Reading a document and `ids: 'string'` need no driver.
 - **A `regex` longer than 4096 characters is not a regex** (`REGEX_MAX` in
   `formats/index.js`): compiling one costs memory in proportion to its text (a property
@@ -1929,7 +1927,7 @@ six functions, the kind and the id, the schema's functions, indexes, names and m
 `guide/mongodb.md` (the comparison with Mongoose, setup, collections, writing, reading,
 updates, the BSON types, when Mongoose still fits); `guide/formats.md` has the five tables of
 the 35 formats. The 3.4 page is `guide/definition.md` (the definition entry: what works, what is
-`ERR_NOT_REGISTERED`, with the core, the boundaries); `guide/model.md` has the snapshot of one
+`ALX_ERR_NOT_REGISTERED`, with the core, the boundaries); `guide/model.md` has the snapshot of one
 schema and what format 1 guarantees, `guide/types.md` `bytes`, `flags` and `decimals`, and
 `guide/architecture.md` the two halves of the core. The 3.2 pages are `guide/streaming.md`
 (the stream subpath: the entries, `parseEach`, `maxInvalid`, the async pair and `concurrency`,

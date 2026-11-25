@@ -112,7 +112,7 @@ expectAssignable<FromJSONSchemaOptions>({
 expectError(fromJSONSchema({ type: 'string' }, { as: 'model' }));
 expectError(fromJSONSchema({ type: 'string' }, { onUnsupported: 'log' }));
 expectError(fromJSONSchema('string'));
-expectAssignable<DefinitionErrorCode>('ERR_UNSUPPORTED_SCHEMA');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_UNSUPPORTED_SCHEMA');
 
 // The dts options.
 expectType<string>(user.toInterface());
@@ -123,4 +123,4 @@ expectType<string>(model.toTypeScript({ named: true }));
 expectType<string>(model.dts);
 expectType<Promise<void>>(saveTypes('./model.d.ts', model, { named: true }));
 expectAssignable<InterfaceOptions>({});
-expectAssignable<DefinitionErrorCode>('ERR_UNREPRESENTABLE');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_UNREPRESENTABLE');

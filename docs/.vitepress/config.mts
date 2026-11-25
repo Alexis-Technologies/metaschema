@@ -164,6 +164,7 @@ export default withMermaid(
             items: [
               { text: 'Performance', link: '/guide/performance' },
               { text: 'Benchmarks', link: '/guide/benchmarks' },
+              { text: 'Migrating from 3.x', link: '/guide/migrating-from-3' },
               { text: 'Migrating from 2.x', link: '/guide/migrating-from-2' },
               { text: 'Migrating from 1.x', link: '/guide/migrating-from-1' },
               { text: 'Migrating from metarhia', link: '/guide/migrating-from-metarhia' },

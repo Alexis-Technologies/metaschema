@@ -222,7 +222,7 @@ describe('Serialize', () => {
       [[['next', 'next'], 'is a circular reference']],
     );
     assert.throws(() => schema.serialize({}, { check: true, unknown: 'strip' }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
     });
     // A serializer that throws is a programming error of the program's value.
     const thrower = Schema.from({

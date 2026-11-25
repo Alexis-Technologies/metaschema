@@ -31,7 +31,7 @@ that passes everything:
 
 ```js
 Schema.from({ email: { type: 'string', format: 'email' } }); // before register()
-// throws SchemaDefinitionError [ERR_INVALID_RULE]: Rule "format" names a format that is not registered: "email" (register() of @alexify/metaschema/formats) in "email"
+// throws SchemaDefinitionError [ALX_ERR_INVALID_RULE]: Rule "format" names a format that is not registered: "email" (register() of @alexify/metaschema/formats) in "email"
 ```
 
 ## The rule
@@ -47,7 +47,7 @@ flowchart TB
 ```
 
 `format` applies to `string` fields only (`{ type: 'number', format: 'email' }` is
-`ERR_INVALID_RULE`, as any rule on a type that does not accept it). It runs after the type,
+`ALX_ERR_INVALID_RULE`, as any rule on a type that does not accept it). It runs after the type,
 `length` and `pattern`, before `validate`, and a failed test is a `format` issue with the name in
 `params`; the [locales](/guide/validation#messages-and-locales) render it (`is not a valid
 email`, `не є коректним email`). Like a pattern, a format is never run over a string longer
@@ -171,9 +171,9 @@ Schema.from({ phone: { type: 'string', format: 'phone', length: { max: 16 } } })
 
 A name is registered once, process-wide, like a [custom type](/guide/custom-types#types-are-registered-globally):
 the same `test` again does nothing, another `test` under a name the program registered is
-`ERR_FORMAT_REGISTERED` (the schemas built so far hold the first one), and an entry that is not
+`ALX_ERR_FORMAT_REGISTERED` (the schemas built so far hold the first one), and an entry that is not
 a format (no `test` function, no example strings, a pattern that does not compile) is
-`ERR_INVALID_FORMAT`. Importing the subpath registers nothing; an isolated type registry does
+`ALX_ERR_INVALID_FORMAT`. Importing the subpath registers nothing; an isolated type registry does
 not isolate the formats, which are pure functions. `FORMATS`, the table itself, is exported to
 read (`FORMATS.email.examples`), never to write.
 
@@ -223,7 +223,7 @@ for (const name in FORMATS) if (!ajv.formats[name]) ajv.addFormat(name, FORMATS[
 
 [`sample`](/guide/samples) draws one of the format's `examples` for a formatted field, then
 verifies the draw with the field's own check, so a field whose other rules reject every example
-(`format: 'email', length: { max: 5 }`) is `ERR_UNSATISFIABLE`.
+(`format: 'email', length: { max: 5 }`) is `ALX_ERR_UNSATISFIABLE`.
 
 [`infer`](/guide/infer) writes `{ type: 'string', format }` for a place whose every string
 passes a registered format, the first in the order of registration (the order of the tables
@@ -242,7 +242,7 @@ infer([{ e: 'ann@example.com', at: '2026-10-11T12:00:00Z' }, { e: 'bob@example.o
 
 In [`diff` and `compatibility`](/guide/evolution#compatibility) a format is read as a pattern:
 added, the change is `forward`; removed, `backward`; changed, `none`. `merge` keeps one format
-and throws `ERR_MERGE_CONFLICT` for two.
+and throws `ALX_ERR_MERGE_CONFLICT` for two.
 
 ## Boundaries
 
@@ -253,7 +253,7 @@ and throws `ERR_MERGE_CONFLICT` for two.
   fetched, a hostname is not resolved. A `validate` function does what a form cannot.
 - **The table is process-wide and read when a schema is built.** A model restored with
   [`fromJSON`](/guide/model#restoring-a-model) needs the formats registered first, or its
-  `format` is `ERR_INVALID_RULE` at the field; a format registered after a schema was built
+  `format` is `ALX_ERR_INVALID_RULE` at the field; a format registered after a schema was built
   does not reach that schema.
 - **The subpath is 3.8 KB min+gzip on top of the core**, gated at 5 KB; the rule itself is in
   the core. The expressions are written out in one file, so a program that registers the

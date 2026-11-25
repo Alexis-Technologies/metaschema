@@ -17,7 +17,7 @@ const both = (make) => {
 };
 
 const unknownField = (fn, message) =>
-  assert.throws(fn, { name: 'SchemaDefinitionError', code: 'ERR_UNKNOWN_FIELD', message });
+  assert.throws(fn, { name: 'SchemaDefinitionError', code: 'ALX_ERR_UNKNOWN_FIELD', message });
 
 const model = new Model({}, [
   ['Company', { Entity: {}, name: 'string' }],
@@ -361,11 +361,11 @@ describe('Derive', () => {
     const typed = extend(Schema.from({ a: 'string' }), { type: 'string', b: 'number' });
     assert.deepEqual(Object.keys(typed.fields), ['a', 'type', 'b']);
     assert.throws(() => extend(Account, { age: 'number', 'age?': 'number' }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Key "age" is a field or an alias already in "Account.age"',
     });
     assert.throws(() => extend(Account, { nickname: 'string' }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Key "nickname" is a field or an alias already in "Account.nickname"',
     });
   });
@@ -392,10 +392,10 @@ describe('Derive', () => {
     });
     assert.equal(query.check({ sort: 'role', fields: ['login', 'nick'] }).valid, true);
     assert.equal(query.check({ sort: 'password', fields: [] }).valid, false);
-    assert.throws(() => keyof(Schema.from({})), { code: 'ERR_INVALID_ENUM' });
+    assert.throws(() => keyof(Schema.from({})), { code: 'ALX_ERR_INVALID_ENUM' });
     // A schema of an enum has no kind: the metadata option names nothing.
     assert.throws(() => keyof(Account, { metadata: { kind: 'struct' } }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'keyof takes a name only: a schema of an enum has no kind in "Account"',
     });
   });
@@ -412,7 +412,7 @@ describe('Derive', () => {
     assert.equal(api.entities.get('CreateAccount'), named);
     assert.equal(api.toJSON().entities.CreateAccount.kind, 'struct');
     assert.throws(() => new Model({}, [['CreateAccount', create]]), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Schema "Account" cannot be used as "CreateAccount"',
     });
     // An isolated registry of the source resolves the custom types.
@@ -506,35 +506,35 @@ describe('Derive', () => {
         () => extend(target, {}),
         () => keyof(target),
       ]) {
-        assert.throws(call, { name: 'TypeError', code: 'ERR_INVALID_TARGET' });
+        assert.throws(call, { name: 'SchemaUsageError', code: 'ALX_ERR_INVALID_TARGET' });
       }
     }
     // The options of a call are the call's; the metadata among them is a
     // definition.
     for (const keys of ['login', [1], undefined]) {
       assert.throws(() => pick(Account, keys), {
-        name: 'TypeError',
-        code: 'ERR_INVALID_OPTION',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: /^keys must be a list of field names, got /,
       });
     }
     assert.throws(() => partial(Account, 'deep'), {
-      code: 'ERR_INVALID_OPTION',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'options must be an object, got "deep"',
     });
     assert.throws(() => partial(Account, { metadata: 'entity' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
     });
-    assert.throws(() => partial(Account, { keys: 'login' }), { code: 'ERR_INVALID_OPTION' });
+    assert.throws(() => partial(Account, { keys: 'login' }), { code: 'ALX_ERR_INVALID_OPTION' });
     unknownField(() => omit(Account, ['nmae']), 'No such field in "Account.nmae"');
     for (const extension of [null, 'string', ['a']]) {
-      assert.throws(() => extend(Account, extension), { code: 'ERR_INVALID_TARGET' });
+      assert.throws(() => extend(Account, extension), { code: 'ALX_ERR_INVALID_TARGET' });
     }
-    assert.throws(() => extend(Account, Schema.from('string')), { code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => extend(Account, Schema.from('string')), { code: 'ALX_ERR_INVALID_TARGET' });
     assert.throws(() => extend(Account, { Entity: {}, a: 'string' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'An extension has fields only; the kind is options.metadata in "Account"',
     });
   });
@@ -601,7 +601,7 @@ describe('Derive', () => {
     // A kind is still no field of an extension, whichever kind.
     for (const extension of [{ Settings: { theme: 'dark' }, a: 'string' }, { Struct: {} }]) {
       assert.throws(() => extend(env, extension), {
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: 'An extension has fields only; the kind is options.metadata in "Env"',
       });
     }
@@ -614,7 +614,7 @@ describe('Derive', () => {
     for (const kind of ['dTO', 'DTO', 'api_config', 'x', '', 7, null]) {
       assert.throws(() => pick(env, ['PORT'], { metadata: { kind } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`,
       });
     }

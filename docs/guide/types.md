@@ -92,7 +92,7 @@ access.parse({ perms: { read: true, owner: true } }, { unknown: 'strip' }).value
 ```
 
 The list is a non-empty list of distinct names (`__proto__` is none), or the definition is
-`ERR_INVALID_DEFINITION`. It renders as `{ read?: boolean; write?: boolean; admin?: boolean }` in
+`ALX_ERR_INVALID_DEFINITION`. It renders as `{ read?: boolean; write?: boolean; admin?: boolean }` in
 TypeScript and as an object of boolean properties in JSON Schema.
 
 ## Tuples
@@ -167,7 +167,7 @@ and a collection element (`{ array: { type: 'string', nullable: true } }`). The 
 optional fields, the `null` type and `any` is in [Unions, nullable and null](/guide/unions#optional-nullable-and-null).
 
 Every type lists the rules it accepts, and a rule on a type that does not accept it is a
-`SchemaDefinitionError` (`ERR_INVALID_RULE`) when the schema is built: `{ type: 'number', length:
+`SchemaDefinitionError` (`ALX_ERR_INVALID_RULE`) when the schema is built: `{ type: 'number', length:
 3 }` throws with the hint to use `min` and `max`, and so does `{ type: 'string', min: 1 }`. A
 [custom type](/guide/custom-types) names its rules in `rules: [...]`; an alias (`{ js: 'number' }`)
 accepts the rules of the type it aliases.
@@ -203,7 +203,7 @@ Schema.from({ s: { type: 'string', length: { max: 2 } } }).check({ s: '😀😀'
 Schema.from({ s: { type: 'string', length: { max: 2 }, unicode: true } }).check({ s: '😀😀' }).valid; // true
 ```
 
-A `length` whose `min` is above its `max` can never pass and throws `ERR_INVALID_LENGTH`.
+A `length` whose `min` is above its `max` can never pass and throws `ALX_ERR_INVALID_LENGTH`.
 
 ### `min` and `max`
 
@@ -222,7 +222,7 @@ schema.check({ age: 150 }).issues[0];
 // { code: 'range', path: ['age'], message: 'is greater than 120', params: { min: 18, max: 120, actual: 150 } }
 ```
 
-A `max` below `min` throws `ERR_INVALID_RULE`.
+A `max` below `min` throws `ALX_ERR_INVALID_RULE`.
 
 ### `decimals`
 
@@ -246,7 +246,7 @@ decimals, 8.8 at twelve, 0.0088 at fifteen), where a bound of 1e-9 of the value 
 reach it (`max`, `min`, or 1 for a side without one) is an `unenforceable-decimals` warning in
 `schema.warnings`: thirteen decimals or more without bounds, two with `max: 1e12`. The JSON Schema
 export writes `multipleOf: 0.01` (a validator that divides disagrees with the last bit of a
-sum: ajv needs `multipleOfPrecision`, see [JSON Schema](/guide/json-schema#the-mapping)), and an `integer`, a `bigint` or a `string` with `decimals` is `ERR_INVALID_RULE`.
+sum: ajv needs `multipleOfPrecision`, see [JSON Schema](/guide/json-schema#the-mapping)), and an `integer`, a `bigint` or a `string` with `decimals` is `ALX_ERR_INVALID_RULE`.
 
 ### `pattern`
 
@@ -265,7 +265,7 @@ schema.check({ slug: 'Hello World', name: 'Марк' }).issues;
 // [ { code: 'pattern', path: ['slug'], message: 'does not match the pattern ^[a-z0-9-]+$', params: { pattern: '^[a-z0-9-]+$' } } ]
 ```
 
-A pattern that does not compile throws `ERR_INVALID_RULE` when the schema is built. Pair every
+A pattern that does not compile throws `ALX_ERR_INVALID_RULE` when the schema is built. Pair every
 `pattern` with a `length.max`: a string past the bound is reported for its length and the pattern
 is never run over it; see [Patterns and ReDoS](/guide/validation#patterns-and-redos).
 
@@ -283,7 +283,7 @@ schema.check({ email: 'ann@' }).issues;
 // [ { code: 'format', path: ['email'], message: 'is not a valid email', params: { format: 'email' } } ]
 ```
 
-A format the subpath did not register is `ERR_INVALID_RULE` when the schema is built. See
+A format the subpath did not register is `ALX_ERR_INVALID_RULE` when the schema is built. See
 [String formats](/guide/formats).
 
 ### `validate`

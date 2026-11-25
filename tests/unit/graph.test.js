@@ -74,7 +74,6 @@ describe('Graph', () => {
       'errors.js',
       'metautil.js',
       'prototypes/json.js',
-      'runtime/browser.js',
       'runtime/node.js',
       'util.js',
     ]);

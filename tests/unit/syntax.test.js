@@ -57,15 +57,15 @@ describe('Syntax', () => {
   it('should throw for a definition that cannot be the long form, not guess', () => {
     assert.throws(() => Schema.from({ a: { required: false, type: 'string' } }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Invalid definition: "false" of type boolean in "a.required"',
     });
     assert.throws(() => Schema.from({ a: { type: 5 } }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Invalid definition: "5" of type number in "a"',
     });
     assert.throws(() => Schema.from({ a: { type: { enum: ['x'] } } }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       message: 'Invalid definition: "[object Object]" of type object in "a"',
     });
   });
@@ -104,7 +104,7 @@ describe('Syntax', () => {
     }
     assert.equal(calls.length, forms.length * 2);
     assert.throws(() => Schema.from({ span: { required: false, schema: range } }), {
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
     });
     assert.equal(Schema.extractSchema(range), range);
     assert.equal(Schema.extractSchema({ schema: range }), range);
@@ -204,7 +204,7 @@ describe('Syntax', () => {
     // What is no definition is an error where it stands, not kind metadata.
     assert.throws(() => new Schema('Env', { Nothing: null, host: 'string' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_DEFINITION',
+      code: 'ALX_ERR_INVALID_DEFINITION',
       field: 'Nothing',
     });
 

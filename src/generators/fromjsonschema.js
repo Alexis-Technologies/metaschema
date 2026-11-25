@@ -4,7 +4,7 @@
 // anyOf/oneOf as a union, `$ref` into the definitions, the rules (`minLength`,
 // `maximum`, `minItems`, ...), null as nullable or optional, and the
 // annotations. A keyword outside it (`allOf` with several schemas, `not`,
-// `if`, `patternProperties`, `exclusiveMinimum`, ...) is ERR_UNSUPPORTED_SCHEMA
+// `if`, `patternProperties`, `exclusiveMinimum`, ...) is ALX_ERR_UNSUPPORTED_SCHEMA
 // with its place in the document, or dropped with `unsupported: 'ignore'`.
 // The document is untrusted input: a pointer reads own keys only, a `$ref` is
 // converted once per pointer, and the nesting is bounded.
@@ -15,7 +15,7 @@ const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
 
 // The keys of a JSON object are strings, so a number key is this pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
@@ -123,7 +123,7 @@ const unsupported = (context, what) => {
     return;
   }
   const reason = `${what} is not supported in a JSON Schema at "${where}"`;
-  throw new SchemaDefinitionError('ERR_UNSUPPORTED_SCHEMA', reason);
+  throw new SchemaDefinitionError('ALX_ERR_UNSUPPORTED_SCHEMA', reason);
 };
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -492,7 +492,7 @@ const longOf = (context, node) => {
   if (context.depth > MAX_DEPTH) {
     const where = pointerOf(context.path);
     const reason = `Nesting deeper than ${MAX_DEPTH} levels at "${where}"`;
-    throw new SchemaDefinitionError('ERR_UNSUPPORTED_SCHEMA', reason);
+    throw new SchemaDefinitionError('ALX_ERR_UNSUPPORTED_SCHEMA', reason);
   }
   if (node === true || (isObject(node) && Object.keys(node).length === 0)) return { type: 'any' };
   if (node === false) {

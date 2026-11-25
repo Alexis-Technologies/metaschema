@@ -215,7 +215,7 @@ describe('Model', () => {
       const entities = new Map([['Order', { Struct: {}, delivery: field }]]);
       assert.throws(() => new Model(aliases, entities), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_MISSING_SCHEMA',
+        code: 'ALX_ERR_MISSING_SCHEMA',
         schema: 'Order',
         field: 'delivery',
         message: `${message} in "Order.delivery"`,
@@ -294,7 +294,7 @@ describe('Model', () => {
         ]),
       {
         name: 'SchemaDefinitionError',
-        code: 'ERR_PROJECTION',
+        code: 'ALX_ERR_PROJECTION',
         message: 'Projection "Signin" field "nope" is not in "Account"',
       },
     );
@@ -305,7 +305,7 @@ describe('Model', () => {
       { schema: 1, fields: [] },
     ]) {
       assert.throws(() => new Model({}, [account, ['Signin', { Projection: meta }]]), {
-        code: 'ERR_PROJECTION',
+        code: 'ALX_ERR_PROJECTION',
         message: 'Projection "Signin" needs { schema, fields }',
       });
     }
@@ -324,7 +324,7 @@ describe('Model', () => {
     ]) {
       assert.throws(() => Schema.from({ ref: field }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_REFERENCE',
+        code: 'ALX_ERR_INVALID_REFERENCE',
         message: `Reference "${key}" needs an entity name, got ${got} in "ref"`,
       });
     }

@@ -232,7 +232,7 @@ describe('Sample', () => {
       const schema = Schema.from({ s: { type: 'string', pattern, length: 8 } });
       assert.throws(() => sample(schema), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_SAMPLE_PATTERN',
+        code: 'ALX_ERR_SAMPLE_PATTERN',
         message: `Pattern /${pattern}/ cannot be sampled: ${what}`,
       });
     }
@@ -273,13 +273,13 @@ describe('Sample', () => {
     assert.equal(value.tag, 'fixed');
     assert.equal(value.total >= 1 && value.total <= 2, true);
     assert.throws(() => sample(model.entities.get('Blob')), {
-      code: 'ERR_SAMPLE_TYPE',
+      code: 'ALX_ERR_SAMPLE_TYPE',
       message: 'Type "opaque" needs metadata.sample to be sampled in "Blob.data"',
     });
   });
 
   it('should throw an error with the field and the reason for a definition no value satisfies', () => {
-    const code = 'ERR_UNSATISFIABLE';
+    const code = 'ALX_ERR_UNSATISFIABLE';
     // An object with number keys has no key the check accepts.
     assert.throws(() => sample(Schema.from({ o: { object: { number: 'string' } } })), {
       name: 'SchemaDefinitionError',
@@ -334,11 +334,11 @@ describe('Sample', () => {
       [{ maxDepth: 33 }, 'Sample option "maxDepth" must be an integer from 0 to 32'],
       [{ maxDepth: 1e9 }, 'Sample option "maxDepth" must be an integer from 0 to 32'],
     ]) {
-      assert.throws(() => sample(schema, options), { code: 'ERR_INVALID_OPTIONS', message });
+      assert.throws(() => sample(schema, options), { code: 'ALX_ERR_INVALID_OPTIONS', message });
     }
     assert.throws(() => sample({ a: 'string' }), {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'A Schema is expected',
     });
     assert.equal(schema.sample, undefined);
@@ -378,7 +378,7 @@ describe('Sample', () => {
       assert.equal(sample(Schema.from({ shape: shapes }), { seed }).shape.kind, 'square');
     }
     // Every branch impossible: the last error, with the path of its own branch.
-    const code = 'ERR_UNSATISFIABLE';
+    const code = 'ALX_ERR_UNSATISFIABLE';
     assert.throws(() => sample(Schema.from({ v: { union: [never, never] } })), {
       code,
       message: 'No value satisfies "v" (seed 1): never',
@@ -451,7 +451,7 @@ describe('Sample', () => {
     for (const pattern of ['^a{1000000}$', '^a{10001}$', '^a{0,10001}$', '^a{10001,}$']) {
       const started = performance.now();
       assert.throws(() => sample(field(pattern, { max: 10 })), {
-        code: 'ERR_SAMPLE_PATTERN',
+        code: 'ALX_ERR_SAMPLE_PATTERN',
         message: `Pattern /${pattern}/ cannot be sampled: a repetition over 10000`,
       });
       assert.equal(performance.now() - started < 50, true);
@@ -460,14 +460,14 @@ describe('Sample', () => {
     // A pattern whose shortest string is over length.max: no string is built.
     const started = performance.now();
     assert.throws(() => sample(field('^(a{2000}){2000}$', { max: 10 }), { seed: 3 }), {
-      code: 'ERR_UNSATISFIABLE',
+      code: 'ALX_ERR_UNSATISFIABLE',
       message:
         'No value satisfies "s" (seed 3): the pattern needs at least 4000000 characters, ' +
         'over the maximum 10',
     });
     assert.equal(performance.now() - started < 50, true);
     assert.throws(() => sample(field('^abc$', 2)), {
-      code: 'ERR_UNSATISFIABLE',
+      code: 'ALX_ERR_UNSATISFIABLE',
       message:
         'No value satisfies "s" (seed 1): the pattern needs at least 3 characters, over the maximum 2',
     });
@@ -495,11 +495,11 @@ describe('Sample', () => {
     // Without the u flag `\u{41` is a RegExp of its own; the parser stops at
     // the end of the source instead of reading past it.
     assert.throws(() => patternOf(/\u{41/), {
-      code: 'ERR_SAMPLE_PATTERN',
+      code: 'ALX_ERR_SAMPLE_PATTERN',
       message: 'Pattern /\\u{41/ cannot be sampled: a code point escape',
     });
     assert.throws(() => patternOf(/\cé/), {
-      code: 'ERR_SAMPLE_PATTERN',
+      code: 'ALX_ERR_SAMPLE_PATTERN',
       message: 'Pattern /\\cé/ cannot be sampled: a control escape',
     });
     // Groups nest up to 64 deep.
@@ -507,7 +507,7 @@ describe('Sample', () => {
     assert.equal(sample(field(nested(64), 1)).s, 'a');
     for (const depth of [65, 5000]) {
       assert.throws(() => sample(field(nested(depth), 1)), {
-        code: 'ERR_SAMPLE_PATTERN',
+        code: 'ALX_ERR_SAMPLE_PATTERN',
         message: `Pattern /${nested(depth)}/ cannot be sampled: groups nested deeper than 64`,
       });
     }
@@ -517,7 +517,7 @@ describe('Sample', () => {
     const schema = Schema.from({ v: { type: 'string', validate: () => 'never' } });
     for (const seed of [7, 42]) {
       assert.throws(() => sample(schema, { seed }), {
-        code: 'ERR_UNSATISFIABLE',
+        code: 'ALX_ERR_UNSATISFIABLE',
         message: `No value satisfies "v" (seed ${seed}): never`,
         seed,
       });

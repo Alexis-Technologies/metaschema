@@ -717,7 +717,7 @@ describe('Compile', () => {
       Schema.from({ a: 'string' }).parse({ a: 1 }).issues,
     );
     assert.throws(() => doc.check({ title: 'x', when: 'w', tags: [], rows: [], either: 's' }), {
-      code: 'ERR_ASYNC_VALIDATOR',
+      code: 'ALX_ERR_ASYNC_VALIDATOR',
     });
   });
 
@@ -902,21 +902,21 @@ describe('Compile', () => {
     for (const jit of ['always', 1, null, 'true']) {
       assert.throws(() => compile(schema, { jit }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: `Compile option "jit" must be "auto", true or false, got ${JSON.stringify(jit)}`,
       });
     }
     for (const options of [null, 'auto', true]) {
       assert.throws(() => compile(schema, options), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: `Compile options must be an object, got ${JSON.stringify(options)}`,
       });
     }
     for (const target of [{}, null, 'User', { entities: new Map() }, Schema, undefined]) {
       assert.throws(() => compile(target), {
-        name: 'TypeError',
-        code: 'ERR_INVALID_TARGET',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_TARGET',
         message: 'A Schema or a Model is expected',
       });
     }
@@ -959,13 +959,13 @@ describe('Compile', () => {
         const fallen = compile(schema);
         assert.equal(fallen.accelerated, false);
         assert.equal(fallen.error.name, 'SchemaDefinitionError');
-        assert.equal(fallen.error.code, 'ERR_JIT_BUILD');
+        assert.equal(fallen.error.code, 'ALX_ERR_JIT_BUILD');
         assert.equal(fallen.error.message, 'The check of "" could not be generated: blocked');
         assert.equal(fallen.error.cause.message, 'blocked');
         assert.equal(schema[RUN], run);
         assert.throws(() => compile(schema, { jit: true }), {
           name: 'SchemaDefinitionError',
-          code: 'ERR_JIT_BUILD',
+          code: 'ALX_ERR_JIT_BUILD',
           message: 'The check of "" could not be generated: blocked',
         });
         assert.equal(schema[RUN], run);
@@ -974,7 +974,7 @@ describe('Compile', () => {
         register({ onFallback: (built, error) => calls.push([built.name, error.code]) });
         const later = new Schema('Later', { a: 'string' });
         register({ jit: false });
-        assert.deepEqual(calls, [['Later', 'ERR_JIT_BUILD']]);
+        assert.deepEqual(calls, [['Later', 'ALX_ERR_JIT_BUILD']]);
         assert.notEqual(later[RUN].name, 'jit');
       } finally {
         globalThis.Function = Original;
@@ -982,7 +982,7 @@ describe('Compile', () => {
       assert.deepEqual(compile(schema), { accelerated: true });
       assert.equal(schema[RUN].name, 'jit');
       assert.throws(() => register({ onFallback: 1 }), {
-        code: 'ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTIONS',
         message: 'Compile option "onFallback" must be a function',
       });
       // A model is compiled all or nothing when the JIT is demanded: an error
@@ -999,7 +999,7 @@ describe('Compile', () => {
       };
       try {
         assert.throws(() => compile(model, { jit: true }), {
-          code: 'ERR_JIT_BUILD',
+          code: 'ALX_ERR_JIT_BUILD',
           message: 'The check of "B" could not be generated: second',
         });
       } finally {
@@ -1025,9 +1025,9 @@ describe('Compile', () => {
     assert.notEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
     assert.throws(() => register({ jit: 'x' }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
     });
-    assert.throws(() => register(null), { code: 'ERR_INVALID_OPTIONS' });
+    assert.throws(() => register(null), { code: 'ALX_ERR_INVALID_OPTIONS' });
     assert.notEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
   });
 
@@ -1048,7 +1048,7 @@ describe('Compile', () => {
     const output = execFileSync(process.execPath, args, { cwd: ROOT, encoding: 'utf8' });
     const error = [
       'SchemaDefinitionError',
-      'ERR_NO_EVAL',
+      'ALX_ERR_NO_EVAL',
       'Code generation from strings is not allowed in this environment; ' +
         'jit: "auto" keeps the closure backend instead',
     ];
@@ -1395,7 +1395,7 @@ describe('Compile', () => {
       register({ jit: false });
     }
     assert.equal(isCompiled(Schema.from({ x: 'number' })), false);
-    assert.throws(() => isCompiled({ name: 'string' }), { code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => isCompiled({ name: 'string' }), { code: 'ALX_ERR_INVALID_TARGET' });
   });
 
   it('should check a struct of upper-case keys alike on both backends', () => {

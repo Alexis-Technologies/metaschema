@@ -5,7 +5,7 @@ const { isMap, isSet } = require('../util.js');
 // never match a key, and the JIT quotes the key type into its source.
 const invalidKey = (type) => {
   const reason = `Type "${type}" needs a key type of "string" or "number"`;
-  return new SchemaDefinitionError('ERR_INVALID_DEFINITION', reason);
+  return new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
 };
 
 // The collections: a dictionary (`object`, `map`) of a key type and a value

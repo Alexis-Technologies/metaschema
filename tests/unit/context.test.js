@@ -36,7 +36,7 @@ describe('Context', () => {
     assert.equal(createContext({ maxErrors: Infinity }).limit, UNLIMITED);
     for (const maxErrors of [0, -1, '3', NaN, null]) {
       assert.throws(() => createContext({ maxErrors }), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `maxErrors must be an integer of at least 1, got ${JSON.stringify(maxErrors) ?? maxErrors}`,
       });
     }

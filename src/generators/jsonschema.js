@@ -71,7 +71,7 @@ const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
 // The key every stored MongoDB document has.
 const ID = '_id';
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
 
 const option = (options, name, allowed) => {
   const value = options[name];
@@ -151,7 +151,7 @@ const createContext = (options, unknown) => {
 const unrepresentable = (context, what) => {
   if (context.any) return {};
   const reason = `${what} cannot be represented in JSON Schema target "${context.name}"`;
-  throw new SchemaDefinitionError('ERR_UNREPRESENTABLE', reason);
+  throw new SchemaDefinitionError('ALX_ERR_UNREPRESENTABLE', reason);
 };
 
 const typed = (name, context) =>

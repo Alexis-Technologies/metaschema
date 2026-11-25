@@ -2,7 +2,7 @@
 // constraints of both (the length and the bounds that satisfy both, the
 // values both enums hold, the validate functions of both), a field in one
 // comes as it is, and what no value can satisfy (two types, two patterns,
-// bounds with nothing in common, two defaults) is ERR_MERGE_CONFLICT with
+// bounds with nothing in common, two defaults) is ALX_ERR_MERGE_CONFLICT with
 // the field. CUE composes definitions this way, instead of inheritance.
 const { hasBrand, define } = require('../util.js');
 const { Schema } = require('../schema.js');
@@ -26,7 +26,7 @@ const BOOLEANS = new Set(['unique', 'index', 'primary', 'deprecated']);
 // A conflict carries the path of the field it is at; `merge` locates it in
 // the schema on the way out, as a struct does with a definition error.
 const conflict = (reason, path = '') => {
-  const error = new SchemaDefinitionError('ERR_MERGE_CONFLICT', reason);
+  const error = new SchemaDefinitionError('ALX_ERR_MERGE_CONFLICT', reason);
   error.field = path;
   return error;
 };
@@ -222,7 +222,7 @@ const merge = (a, b, options = {}) => {
     throw invalidTarget('Two Schemas are expected');
   }
   if (options === null || typeof options !== 'object') {
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Merge options must be an object');
+    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', 'Merge options must be an object');
   }
   const { name = a.name, metadata = {} } = options;
   const namespaces = namespacesOf([a, b]);
@@ -259,7 +259,7 @@ const merge = (a, b, options = {}) => {
     }
     return new Schema(name, definition, namespaces);
   } catch (error) {
-    if (error instanceof SchemaDefinitionError && error.code === 'ERR_MERGE_CONFLICT') {
+    if (error instanceof SchemaDefinitionError && error.code === 'ALX_ERR_MERGE_CONFLICT') {
       const { field } = error;
       error.field = '';
       if (field) error.locate(name, field);

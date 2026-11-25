@@ -16,7 +16,7 @@ const both = (a, b, options) => {
 const conflicts = (a, b, message, options) =>
   assert.throws(() => merge(a, b, options), {
     name: 'SchemaDefinitionError',
-    code: 'ERR_MERGE_CONFLICT',
+    code: 'ALX_ERR_MERGE_CONFLICT',
     message,
   });
 
@@ -101,7 +101,7 @@ describe('Merge', () => {
       n: { type: 'number', validate: (value) => value % 2 === 0 || 'is odd' },
     });
     const merged = merge(slow, fast);
-    assert.throws(() => merged.check({ n: 1 }), { code: 'ERR_ASYNC_VALIDATOR' });
+    assert.throws(() => merged.check({ n: 1 }), { code: 'ALX_ERR_ASYNC_VALIDATOR' });
     assert.deepEqual((await merged.checkAsync({ n: -1 })).errors, [
       'Field "n" is negative',
       'Field "n" is odd',
@@ -340,12 +340,12 @@ describe('Merge', () => {
       { name: 'M' },
     );
     assert.throws(() => merge(s({ a: 'string' }), { a: 'string' }), {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'Two Schemas are expected',
     });
     assert.throws(() => merge(s({ a: 'string' }), s({ a: 'string' }), null), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
     });
   });
 
@@ -368,7 +368,7 @@ describe('Merge', () => {
     assert.throws(
       () =>
         merge(Schema.from({ perms: { flags: ['a'] } }), Schema.from({ perms: { flags: ['b'] } })),
-      { code: 'ERR_MERGE_CONFLICT', message: 'The flags have no value in common in "perms"' },
+      { code: 'ALX_ERR_MERGE_CONFLICT', message: 'The flags have no value in common in "perms"' },
     );
   });
 
@@ -403,7 +403,12 @@ describe('Merge', () => {
   it('should locate a conflict at its field, aliases and bounds included', () => {
     const s = (def) => new Schema('S', def);
     const located = (a, b, message, field) =>
-      assert.throws(() => merge(a, b), { code: 'ERR_MERGE_CONFLICT', message, schema: 'S', field });
+      assert.throws(() => merge(a, b), {
+        code: 'ALX_ERR_MERGE_CONFLICT',
+        message,
+        schema: 'S',
+        field,
+      });
     located(
       s({ a: { b: { c: 'string' } } }),
       s({ a: { b: { c: 'number' } } }),
@@ -498,7 +503,7 @@ describe('Merge', () => {
       '__proto__',
     ]);
     assert.throws(() => merge(proto('string'), proto('number')), {
-      code: 'ERR_MERGE_CONFLICT',
+      code: 'ALX_ERR_MERGE_CONFLICT',
       message: 'The type is string in one schema and number in the other in "__proto__"',
       field: '__proto__',
     });
@@ -528,7 +533,7 @@ describe('Merge', () => {
       ]);
     }
     assert.throws(() => merge(base, more, { metadata: { kind: 'dTO' } }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Metadata "kind" must be the name of a kind, got "dTO"',
     });
   });

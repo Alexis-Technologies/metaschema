@@ -143,14 +143,14 @@ describe('References', () => {
     );
     for (const references of ['inline', null, true, 'Embed']) {
       assert.throws(() => person.check(byKind, { references }), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `references must be "kind", "embed" or "id", got ${JSON.stringify(references)}`,
       });
     }
     for (const embed of ['yes', 1, null]) {
       assert.throws(() => Schema.from({ c: { type: 'Company', embed } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_DEFINITION',
+        code: 'ALX_ERR_INVALID_DEFINITION',
         message: 'Option "embed" needs a boolean in "c"',
       });
     }
@@ -283,7 +283,7 @@ describe('References', () => {
     assert.deepEqual(node.parse(three, { maxDepth: 2 }).value, three);
     for (const maxDepth of [0, -1, 1.5, '2', null]) {
       assert.throws(() => node.check(chain, { maxDepth }), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: `maxDepth must be an integer of at least 1, got ${JSON.stringify(maxDepth)}`,
       });
     }
@@ -357,7 +357,7 @@ describe('References', () => {
     ]);
     // A projection of its own name has no parent.
     assert.throws(() => new Schema('P', { Projection: { schema: 'P', fields: ['a'] } }), {
-      code: 'ERR_PROJECTION',
+      code: 'ALX_ERR_PROJECTION',
       message: 'Projection "P" parent "P" is not found',
     });
   });

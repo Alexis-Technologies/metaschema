@@ -46,18 +46,18 @@ describe('Formats', () => {
     });
     // Over the program's own, another test is still an error.
     assert.throws(() => register({ email: { test: () => true, examples: ['x'] } }), {
-      code: 'ERR_FORMAT_REGISTERED',
+      code: 'ALX_ERR_FORMAT_REGISTERED',
       message: 'Format "email" is already registered with another test',
     });
     assert.throws(() => register({ slug: { test: () => true, examples: ['x'], pattern: '(' } }), {
-      code: 'ERR_FORMAT_REGISTERED',
+      code: 'ALX_ERR_FORMAT_REGISTERED',
     });
   });
 
   it('should require the pattern of an entry to be a string that compiles in unicode mode', () => {
     for (const pattern of [/x/, '(', '\\a']) {
       assert.throws(() => register({ code: { test: () => true, examples: ['x'], pattern } }), {
-        code: 'ERR_INVALID_FORMAT',
+        code: 'ALX_ERR_INVALID_FORMAT',
         message: 'Format "code" needs a pattern string that compiles under the u flag',
       });
     }

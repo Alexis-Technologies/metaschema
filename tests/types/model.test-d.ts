@@ -51,7 +51,7 @@ expectType<true | undefined>(change.detail?.deprecated);
 expectType<Compatibility>(compatibilityOf(change));
 expectError(compatibilityOf([change]));
 expectAssignable<Compatibility>('backward');
-expectAssignable<DefinitionErrorCode>('ERR_INVALID_SNAPSHOT');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_INVALID_SNAPSHOT');
 
 // The statics register() installs.
 expectType<RestoredModel>(Model.fromJSON(snapshot, { types: {} }));
@@ -70,8 +70,8 @@ expectType<{ name: string; age?: number | null | undefined }>(user.sample({ seed
 expectAssignable<SampleOptions>({ seed: 1, locale: 'uk', references: 'embed', maxDepth: 2 });
 expectError(sample(user, { locale: 'fr' }));
 expectError(sample({ name: 'string' }));
-expectAssignable<DefinitionErrorCode>('ERR_UNSATISFIABLE');
-expectAssignable<DefinitionErrorCode>('ERR_SAMPLE_PATTERN');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_UNSATISFIABLE');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_SAMPLE_PATTERN');
 
 // The `metadata.sample` hook of a custom type: a value, or a function of
 // the field and the seeded generator, typed where it is written.
@@ -101,7 +101,7 @@ expectType<Schema>(Schema.merge(user, user));
 expectAssignable<MergeOptions>({});
 expectError(merge(user, { name: 'string' }));
 expectError(merge(user, user, { name: 1 }));
-expectAssignable<DefinitionErrorCode>('ERR_MERGE_CONFLICT');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_MERGE_CONFLICT');
 
 // infer: a definition from samples, or a Schema, with the options.
 import { infer } from '../../src/model/index.js';
@@ -122,5 +122,5 @@ expectError(infer(1));
 expectError(infer([1], { formats: 'no' }));
 expectError(infer([1], { as: 'json' }));
 expectError(infer([1], { enum: 'many' }));
-expectAssignable<DefinitionErrorCode>('ERR_INFER_DEPTH');
-expectAssignable<DefinitionErrorCode>('ERR_INFER_MISMATCH');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_INFER_DEPTH');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_INFER_MISMATCH');

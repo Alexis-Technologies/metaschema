@@ -126,10 +126,10 @@ describe('Definition', () => {
     assert.deepEqual(result.reached, ['Tag', 'Item']);
     assert.deepEqual(result.types, ['money']);
     // A definition error is the builder's, with or without validation.
-    assert.deepEqual(result.invalid, [true, 'ERR_INVALID_RULE']);
+    assert.deepEqual(result.invalid, [true, 'ALX_ERR_INVALID_RULE']);
     assert.equal(result.standard, false);
-    assert.deepEqual(result.codes, Array(9).fill('ERR_NOT_REGISTERED'));
-    assert.deepEqual(result.rejected, ['ERR_NOT_REGISTERED', 'ERR_NOT_REGISTERED']);
+    assert.deepEqual(result.codes, Array(9).fill('ALX_ERR_NOT_REGISTERED'));
+    assert.deepEqual(result.rejected, ['ALX_ERR_NOT_REGISTERED', 'ALX_ERR_NOT_REGISTERED']);
     assert.deepEqual(result.message, [
       'check needs the core entry @alexify/metaschema: ./definition alone does not validate',
       'check',
@@ -150,13 +150,13 @@ describe('Definition', () => {
     );
   `);
     assert.deepEqual(result, {
-      before: 'ERR_NOT_REGISTERED',
+      before: 'ALX_ERR_NOT_REGISTERED',
       errors: ['Field "Doc.label" not of expected type: string'],
       parsed: true,
     });
   });
 
-  it('should name another copy of the package in the ERR_NOT_REGISTERED of its schema', () => {
+  it('should name another copy of the package in the ALX_ERR_NOT_REGISTERED of its schema', () => {
     // Two copies in one process: a library that builds with the definition
     // entry of its own copy, and the program's core.
     const result = alone(`
@@ -171,7 +171,7 @@ describe('Definition', () => {
   `);
     assert.deepEqual(result, [
       false,
-      'ERR_NOT_REGISTERED',
+      'ALX_ERR_NOT_REGISTERED',
       'check',
       'check needs the core entry @alexify/metaschema: the core entry loaded is another copy of the package than the one that built the schema (deduplicate @alexify/metaschema)',
     ]);

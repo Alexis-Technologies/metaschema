@@ -3,12 +3,12 @@
 // random source of the sample. The subset is what a validation pattern is
 // made of: alternatives, groups, classes, escapes and quantifiers; what
 // generates no string (a lookaround, a back reference, a word boundary) is
-// ERR_SAMPLE_PATTERN. Nothing here reads a schema: `sample.js` hands over
+// ALX_ERR_SAMPLE_PATTERN. Nothing here reads a schema: `sample.js` hands over
 // the RegExp and the random source, and the letters of the locale are read
 // at draw time, so the nodes serve every locale.
 const { SchemaDefinitionError } = require('../errors.js');
 
-const invalid = (reason) => new SchemaDefinitionError('ERR_SAMPLE_PATTERN', reason);
+const invalid = (reason) => new SchemaDefinitionError('ALX_ERR_SAMPLE_PATTERN', reason);
 
 // A whole number in [0, max], and an element of a list, from the random
 // source of a sample.

@@ -4,7 +4,7 @@
 them, without the half that validates them. It is for a program that needs the definitions and
 their [snapshots](/guide/model#the-snapshot-of-one-schema) but never checks a value against them:
 the browser client of a codec built from a snapshot, a form builder that renders fields, a tool
-that writes the model down. It is 10.5 KB min+gzip on its own, where the core entry is 21.8 KB.
+that writes the model down. It is 10.6 KB min+gzip on its own, where the core entry is 21.8 KB.
 
 ```js
 import { Schema, Model } from '@alexify/metaschema/definition';
@@ -25,10 +25,10 @@ of `Schema` and `Model` (a broken definition is the same `SchemaDefinitionError`
 when the schema is built), the fields, the metadata, the indexes and the relations, references
 (through a model, or a schema's own name), `toJSON`, `toSnapshot`, `model.toJSON()`,
 `model.order`, `util.inspect`. The exports are those of the core's that build: `Schema`,
-`Model`, `getKindMetadata`, `SchemaDefinitionError` and the constants `KIND`, `KIND_STORED`,
-`KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`.
+`Model`, `getKindMetadata`, `SchemaDefinitionError`, `SchemaUsageError` and the constants
+`KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`.
 
-What validates says that it cannot, with a `TypeError` of the code `ERR_NOT_REGISTERED`: `check`,
+What validates says that it cannot, with a `SchemaUsageError` of the code `ALX_ERR_NOT_REGISTERED`: `check`,
 `parse`, `serialize`, `validate` (and `checkAsync`, `parseAsync`, which reject), the `check` of a
 field, the warnings of the lint (`schema.warnings`, `schema.checkConsistency()`,
 `model.warnings`). A schema has no `~standard`, so a consumer of Standard Schema does not take it
@@ -37,7 +37,7 @@ for a validator.
 ```js
 const product = model.entities.get('Product');
 product.check({ name: 'Lamp' });
-// TypeError: check needs the core entry @alexify/metaschema: ./definition alone does not validate
+// SchemaUsageError: check needs the core entry @alexify/metaschema: ./definition alone does not validate
 '~standard' in product; // false
 ```
 
@@ -67,7 +67,7 @@ The halves meet within one copy of the package. A schema built by the definition
 another, and says so:
 
 ```js
-// TypeError: check needs the core entry @alexify/metaschema: the core entry loaded is another
+// SchemaUsageError: check needs the core entry @alexify/metaschema: the core entry loaded is another
 //   copy of the package than the one that built the schema (deduplicate @alexify/metaschema)
 ```
 

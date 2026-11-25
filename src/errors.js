@@ -25,32 +25,41 @@ class SchemaDefinitionError extends TypeError {
 
 SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
 
+// A call that is wrong, where a definition is not: a target or an option
+// it does not take, a method that needs what a `register()` installs, a
+// promise where the call is synchronous, an invalid record a stream was
+// not told to drop. A TypeError, as it was a plain one until 4.0.
+class SchemaUsageError extends TypeError {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
+
+SchemaUsageError.prototype.name = 'SchemaUsageError';
+
 // A validator, a custom checkType or a decoder returned a promise to a
 // synchronous check or parse: a programming error of the call, not of the
 // value, so it throws with a code of its own and names the method to use.
-const asyncReturn = (what, where, method) => {
-  const error = new TypeError(`The ${what} of "${where}" returned a promise; use ${method}`);
-  error.code = 'ERR_ASYNC_VALIDATOR';
-  return error;
-};
+const asyncReturn = (what, where, method) =>
+  new SchemaUsageError(
+    'ALX_ERR_ASYNC_VALIDATOR',
+    `The ${what} of "${where}" returned a promise; use ${method}`,
+  );
 
 // A function of a subpath was given something other than what it takes (a
 // Schema, a Model, a snapshot, a list of changes): the call is wrong, not a
-// definition, so a plain TypeError with a code of its own, like asyncReturn.
-const invalidTarget = (message) => {
-  const error = new TypeError(message);
-  error.code = 'ERR_INVALID_TARGET';
-  return error;
-};
+// definition.
+const invalidTarget = (message) => new SchemaUsageError('ALX_ERR_INVALID_TARGET', message);
 
 // A call that needs what `register()` of a subpath installs (the converters
 // of coercion, the module of the mongodb driver) before that ran: the
 // program is wired wrong, not a value or a definition.
-const notRegistered = (what, where) => {
-  const error = new TypeError(`${what} needs register() of @alexify/metaschema/${where} first`);
-  error.code = 'ERR_NOT_REGISTERED';
-  return error;
-};
+const notRegistered = (what, where) =>
+  new SchemaUsageError(
+    'ALX_ERR_NOT_REGISTERED',
+    `${what} needs register() of @alexify/metaschema/${where} first`,
+  );
 
 // The mark the validation half leaves on the process when it is installed
 // (`validation.js`): a schema whose classes have no validation where the
@@ -67,8 +76,8 @@ const noValidation = (what) => {
     ? 'the core entry loaded is another copy of the package than the one that built the ' +
       'schema (deduplicate @alexify/metaschema)'
     : './definition alone does not validate';
-  const error = new TypeError(`${what} needs the core entry @alexify/metaschema: ${reason}`);
-  error.code = 'ERR_NOT_REGISTERED';
+  const message = `${what} needs the core entry @alexify/metaschema: ${reason}`;
+  const error = new SchemaUsageError('ALX_ERR_NOT_REGISTERED', message);
   error.method = what;
   return error;
 };
@@ -78,16 +87,16 @@ const shown = (value) =>
   typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 
 // An option of a call that is not what it must be (`maxErrors`, the options
-// of the stream subpath): a TypeError naming it, with a code of its own, as
-// invalidTarget is.
-const invalidOption = (name, expected, value) => {
-  const error = new TypeError(`${name} must be ${expected}, got ${shown(value)}`);
-  error.code = 'ERR_INVALID_OPTION';
-  return error;
-};
+// of the stream subpath): an error naming it, with a code of its own.
+const invalidOption = (name, expected, value) =>
+  new SchemaUsageError(
+    'ALX_ERR_INVALID_OPTION',
+    `${name} must be ${expected}, got ${shown(value)}`,
+  );
 
 module.exports = {
   SchemaDefinitionError,
+  SchemaUsageError,
   asyncReturn,
   invalidTarget,
   notRegistered,

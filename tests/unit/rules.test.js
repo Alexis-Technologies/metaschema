@@ -94,12 +94,12 @@ describe('Rules', () => {
     for (const length of invalid) {
       assert.throws(() => Schema.from({ s: { type: 'string', length } }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_LENGTH',
+        code: 'ALX_ERR_INVALID_LENGTH',
         message,
       });
     }
     assert.throws(() => Schema.from({ tags: { array: { type: 'string', length: 'x' } } }), {
-      code: 'ERR_INVALID_LENGTH',
+      code: 'ALX_ERR_INVALID_LENGTH',
       field: 'tags',
     });
     for (const length of [3, [1, 3], { min: 1, max: 3 }, { max: 3 }, { min: 1 }, [1]]) {

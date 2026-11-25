@@ -36,8 +36,8 @@ describe('saveTypes', () => {
 
   it('should reject on an error of the rendering, never throw', async () => {
     await assert.rejects(saveTypes(path.join(os.tmpdir(), 'never.d.ts'), {}), {
-      name: 'TypeError',
-      code: 'ERR_INVALID_TARGET',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'A Schema or a Model is expected',
     });
   });

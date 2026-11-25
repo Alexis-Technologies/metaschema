@@ -7,14 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+4.0 brings the errors of the package to the rules of the Alexis libraries (alexiskills 1.1).
+Every error code carries the `ALX_` prefix, and a wrong call throws a class of the package,
+`SchemaUsageError`, where it threw a plain `TypeError`. A program that matches on
+`error.code`, or on the `name` of the error of a call, changes; one that checks
+`instanceof TypeError` does not. The schema language, `check`, `parse`, the results and their
+issue codes are what they were.
+
+### Upgrading from 3.x
+
+The same guide with before-and-after examples is
+[Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3).
+
+- **Every code has the `ALX_` prefix**, and what follows it is the name it had:
+  `ERR_INVALID_RULE` is `ALX_ERR_INVALID_RULE`, `ERR_NOT_REGISTERED` is
+  `ALX_ERR_NOT_REGISTERED`, and so for the 31 codes of `SchemaDefinitionError` and the 5 of a
+  wrong call. A search for `'ERR_` finds every comparison to change; `DefinitionErrorCode` and
+  `RuntimeErrorCode` hold the new names.
+- **A wrong call throws `SchemaUsageError`** (`ALX_ERR_ASYNC_VALIDATOR`,
+  `ALX_ERR_INVALID_TARGET`, `ALX_ERR_INVALID_OPTION`, `ALX_ERR_INVALID_RECORD`,
+  `ALX_ERR_NOT_REGISTERED`): `error.name` is `'SchemaUsageError'` where it was `'TypeError'`,
+  and `instanceof TypeError` holds as before.
+- **`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME`**, a
+  `SchemaUsageError`, where it rejected with a bare `Error`.
+
+### Changed (breaking)
+
+- **Every error code is `ALX_ERR_*`**, as alexiskills 1.1 asks of the Alexis libraries (Fastify's
+  are `FST_ERR_*`): the codes of other packages and of Node pass through a program, and the
+  prefix tells the package's own apart. The names after it did not change.
+- **`SchemaUsageError`, a `TypeError`, is the error of a wrong call**, beside
+  `SchemaDefinitionError` for a broken definition. The core entry and
+  `@alexify/metaschema/definition` export it, `index.d.ts` declares it with `code:
+  RuntimeErrorCode` and the fields the errors carried in 3.x (`index`, `record` and `result` on
+  `ALX_ERR_INVALID_RECORD`, `method` on the `ALX_ERR_NOT_REGISTERED` of the definition entry).
+- **`saveTypes` of the browser build rejects with a code**, `ALX_ERR_UNSUPPORTED_RUNTIME`, new in
+  `RuntimeErrorCode`.
+
 ### Documentation
 
-- **The runtime error codes have a table.** "Runtime errors" of the API reference lists the five
-  codes of a wrong call (`ERR_ASYNC_VALIDATOR`, `ERR_INVALID_TARGET`, `ERR_INVALID_OPTION`,
-  `ERR_INVALID_RECORD`, `ERR_NOT_REGISTERED`) as the table of `SchemaDefinitionError` lists its
-  31, and a test holds the source, the two unions of `index.d.ts` and the two tables to one set
-  of codes. The codes keep their names: the `ALX_ERR_*` of alexiskills 1.1 would break every
-  program that matches on them.
+- **Each error class has its table.** The API reference has a section for `SchemaUsageError`
+  beside the one of `SchemaDefinitionError`, with the fields and the six codes, and a test holds
+  the source, the two unions of `index.d.ts` and the two tables to one set of codes, throws every
+  code of a wrong call once to see its class, and fails on a code without the prefix.
+- **Migrating from 3.x**, a page of the guide, and "From 3.x" in the README.
 
 ### Tooling
 
@@ -39,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     values that cannot be symbols are template literals (four stay, where a key or a value may
     be one), and the last `Object.values` and array destructuring are gone.
   - The 55 suites are `describe` and `it('should …')` with `node:assert/strict`: 590 tests,
-    the same as before, under new titles, and four more for the error codes.
+    the same as before, under new titles, and six more for the error codes.
   - No behaviour changed. The core measures 22319 bytes (+21), and the bench is at parity.
 
 ## [3.4.1] - 2026-11-24

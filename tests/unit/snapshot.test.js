@@ -474,7 +474,7 @@ describe('Snapshot', () => {
     const copy = new Schema('Person', { Struct: {}, name: 'string', boss: 'Person' }, [model]);
     assert.throws(() => copy.toSnapshot(), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Two schemas named "Person" cannot be represented in one snapshot',
     });
     // Identifier comes first, as in a model.
@@ -583,10 +583,10 @@ describe('Snapshot', () => {
     for (const root of [5, null, 'Ghost', 'toString', '__proto__']) {
       const broken = { ...snapshot, root };
       assert.throws(() => fromJSON(broken), {
-        code: 'ERR_INVALID_SNAPSHOT',
+        code: 'ALX_ERR_INVALID_SNAPSHOT',
         message: 'The root of a snapshot must name one of its entities',
       });
-      assert.throws(() => diff(broken, broken), { code: 'ERR_INVALID_SNAPSHOT' });
+      assert.throws(() => diff(broken, broken), { code: 'ALX_ERR_INVALID_SNAPSHOT' });
     }
     // A key format 1 does not have is no instruction: it changes nothing.
     const extra = JSON.parse(
@@ -732,7 +732,7 @@ describe('Snapshot', () => {
     const both = new Schema('R', { a: 'A', b: 'B' }, [a, b]);
     assert.throws(() => both.toSnapshot(), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_UNREPRESENTABLE',
+      code: 'ALX_ERR_UNREPRESENTABLE',
       message: 'Two types named "amount" cannot be represented in one snapshot',
     });
     // The same definition in two registries is one type.

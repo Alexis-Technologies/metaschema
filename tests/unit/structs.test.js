@@ -293,7 +293,7 @@ describe('Structs', () => {
     for (const definition of invalid) {
       assert.throws(() => Schema.from(definition), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_MISSING_SCHEMA',
+        code: 'ALX_ERR_MISSING_SCHEMA',
         message: `${message('schema')} in "data"`,
       });
     }
@@ -438,7 +438,7 @@ describe('Structs', () => {
     assert.equal(compiled, 3);
     // A definition error is still found when the schema is built.
     assert.throws(() => Schema.from({ n: { type: 'number', min: 5, max: 1 } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "max" is below "min" in "n"',
     });
   });

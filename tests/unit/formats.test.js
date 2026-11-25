@@ -372,12 +372,12 @@ describe('Formats', () => {
     assert.deepEqual(Object.keys(FORMATS), []);
     assert.throws(() => Schema.from({ s: { type: 'string', format: 'email' } }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message:
         'Rule "format" names a format that is not registered: "email" (register() of @alexify/metaschema/formats) in "s"',
     });
     assert.throws(() => Schema.from({ s: { type: 'string', format: /email/ } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "format" needs the name of a format in "s"',
     });
     // The call names the built-in formats it replaced: none here.
@@ -409,11 +409,11 @@ describe('Formats', () => {
     );
     // A format is a rule of strings only, and a known option (no lint warning).
     assert.throws(() => Schema.from({ n: { type: 'number', format: 'email' } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
       message: 'Rule "format" does not apply to type "number" in "n"',
     });
     assert.throws(() => Schema.from({ s: { type: 'string', format: 'phone' } }), {
-      code: 'ERR_INVALID_RULE',
+      code: 'ALX_ERR_INVALID_RULE',
     });
     assert.deepEqual(Schema.from({ s: { type: 'string', format: 'email' } }).warnings, []);
     assert.equal(Schema.from({ s: { type: 'string', format: 'email' } }).fields.s.format, 'email');
@@ -562,7 +562,7 @@ describe('Formats', () => {
     // registered is an error (a built-in name is formats-override.test.js's).
     register({ phone });
     assert.throws(() => register({ phone: { test: () => true, examples: ['x'] } }), {
-      code: 'ERR_FORMAT_REGISTERED',
+      code: 'ALX_ERR_FORMAT_REGISTERED',
       message: 'Format "phone" is already registered with another test',
     });
     assert.equal(schema.check({ s: '050' }).valid, false);
@@ -591,13 +591,13 @@ describe('Formats', () => {
     for (const [name, entry, message] of bad) {
       assert.throws(() => register({ [name]: entry }), {
         name: 'SchemaDefinitionError',
-        code: 'ERR_INVALID_FORMAT',
+        code: 'ALX_ERR_INVALID_FORMAT',
         message,
       });
       assert.equal(FORMATS.phone2, undefined);
     }
-    assert.throws(() => register(null), { code: 'ERR_INVALID_FORMAT' });
-    assert.throws(() => register('phone'), { code: 'ERR_INVALID_FORMAT' });
+    assert.throws(() => register(null), { code: 'ALX_ERR_INVALID_FORMAT' });
+    assert.throws(() => register('phone'), { code: 'ALX_ERR_INVALID_FORMAT' });
     // A name is a key of a table without a prototype.
     const odd = Object.defineProperty({}, '__proto__', {
       value: { test: (value) => value === 'p', examples: ['p'] },
@@ -734,7 +734,7 @@ describe('Formats', () => {
     }
     // The other rules of the field decide whether an example is a value.
     const [tight] = pair('email', { length: { max: 5 } });
-    assert.throws(() => sample(tight), { code: 'ERR_UNSATISFIABLE' });
+    assert.throws(() => sample(tight), { code: 'ALX_ERR_UNSATISFIABLE' });
     const [patterned] = pair('email', { pattern: /example\.com$/, length: 64 });
     assert.equal(sample(patterned).s, 'ann@example.com');
     // infer: a place whose every string passes a format is that format, the
@@ -800,7 +800,7 @@ describe('Formats', () => {
     assert.equal(compile(inferred, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
     for (const value of emails) assert.equal(inferred.check(value).valid, true);
     assert.throws(() => infer(emails, { formats: 'no' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'Infer option "formats" must be a boolean',
     });
     // A custom format infers unless it says not to.
@@ -827,7 +827,7 @@ describe('Formats', () => {
     });
     const c = new Schema('S', { a: { type: 'string', format: 'uri' } });
     assert.throws(() => merge(a, c), {
-      code: 'ERR_MERGE_CONFLICT',
+      code: 'ALX_ERR_MERGE_CONFLICT',
       message: 'The format differs between the schemas in "S.a"',
     });
     const model = (def) => new Model({}, [['A', { Struct: {}, ...def }]]);

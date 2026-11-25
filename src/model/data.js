@@ -1,7 +1,7 @@
 // What the functions of the `./model` subpath share: a snapshot from a Model
 // or as given, and equality of the JSON values a snapshot is made of. A
 // snapshot is input (a file, a registry, another program), so what it says
-// is checked before it is read, and every error is ERR_INVALID_SNAPSHOT
+// is checked before it is read, and every error is ALX_ERR_INVALID_SNAPSHOT
 // located in the entity, never a bare SyntaxError or TypeError.
 const { hasBrand, define, isDate, isRegExp } = require('../util.js');
 const { FORMAT } = require('../snapshot.js');
@@ -13,7 +13,7 @@ const { isKindKey } = require('../kinds.js');
 // one a program wrote.
 const DEPTH = 128;
 
-const invalidSnapshot = (reason) => new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', reason);
+const invalidSnapshot = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_SNAPSHOT', reason);
 
 const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${DEPTH} levels`);
 
@@ -142,7 +142,7 @@ const structDefinition = (base, metadata, fields) => {
   const kindKey = kindKeyOf(kind);
   if (kindKey === null) {
     const reason = `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`;
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
   }
   const definition = { [kindKey]: rest };
   for (const key of Object.keys(fields)) define(definition, key, fields[key]);

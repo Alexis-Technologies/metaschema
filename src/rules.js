@@ -7,10 +7,10 @@
 // check.
 const { SchemaDefinitionError } = require('./errors.js');
 
-const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);
+const invalidRule = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_RULE', reason);
 
 const invalidLength = (reason = 'needs a number, [min, max] or { min, max }') =>
-  new SchemaDefinitionError('ERR_INVALID_LENGTH', `Rule "length" ${reason}`);
+  new SchemaDefinitionError('ALX_ERR_INVALID_LENGTH', `Rule "length" ${reason}`);
 
 const isBound = (value) => value === undefined || typeof value === 'number';
 

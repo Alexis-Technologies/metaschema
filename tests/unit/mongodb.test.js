@@ -135,17 +135,17 @@ const account = {
 describe('Mongodb', () => {
   it('should make no document before register() and keep the types as data', () => {
     assert.throws(() => toDocument(Account, account), {
-      name: 'TypeError',
-      code: 'ERR_NOT_REGISTERED',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_NOT_REGISTERED',
       message: 'An ObjectId needs register() of @alexify/metaschema/mongodb first',
     });
     // Reading needs no driver (an ObjectId is read by its method); the parse
     // that follows coerces, which is the other table nothing registered yet.
     assert.throws(() => fromDocument(Account, {}), {
-      code: 'ERR_NOT_REGISTERED',
+      code: 'ALX_ERR_NOT_REGISTERED',
       message: 'coerce needs register() of @alexify/metaschema/coerce first',
     });
-    assert.throws(() => toUpdate(Account, { $set: {} }), { code: 'ERR_NOT_REGISTERED' });
+    assert.throws(() => toUpdate(Account, { $set: {} }), { code: 'ALX_ERR_NOT_REGISTERED' });
     // Ids kept as strings need no driver either.
     const strings = toDocument(Account, account, { ids: 'string' });
     assert.equal(strings[ID], A);
@@ -167,7 +167,7 @@ describe('Mongodb', () => {
       { bson: 'mongodb' },
     ]) {
       assert.throws(() => register(options), {
-        name: 'TypeError',
+        name: 'SchemaUsageError',
         message: /^bson must be the module of the mongodb driver or of bson/,
       });
     }
@@ -239,7 +239,7 @@ describe('Mongodb', () => {
     assert.ok(new Model({ ...types }, []));
     assert.ok(new Model({ ...types }, [], null, { registry: 'isolated' }));
     assert.throws(() => new Model({ objectId: { js: 'string' } }, []), {
-      code: 'ERR_TYPE_REGISTERED',
+      code: 'ALX_ERR_TYPE_REGISTERED',
     });
   });
 
@@ -360,7 +360,7 @@ describe('Mongodb', () => {
     assert.equal(fromDocument(Account, stored, { unknown: 'strip', coerce: false }).valid, false);
     const promised = await fromDocumentAsync(Account, document);
     assert.equal(promised.valid, true);
-    await assert.rejects(() => fromDocumentAsync(null, {}), { code: 'ERR_INVALID_TARGET' });
+    await assert.rejects(() => fromDocumentAsync(null, {}), { code: 'ALX_ERR_INVALID_TARGET' });
     // A number where an id is: coerced to the string of the id field, or
     // reported without coercion.
     assert.equal(fromDocument(Account, { ...document, _id: 5 }).value.accountId, '5');
@@ -380,29 +380,31 @@ describe('Mongodb', () => {
   it('should throw for what is not a schema of a struct, or options that are not', () => {
     register({ bson });
     for (const target of [null, {}, Schema.from('string')]) {
-      assert.throws(() => toDocument(target, {}), { code: 'ERR_INVALID_TARGET' });
-      assert.throws(() => checkUpdate(target, {}), { code: 'ERR_INVALID_TARGET' });
-      assert.throws(() => toUpdate(target, {}), { code: 'ERR_INVALID_TARGET' });
+      assert.throws(() => toDocument(target, {}), { code: 'ALX_ERR_INVALID_TARGET' });
+      assert.throws(() => checkUpdate(target, {}), { code: 'ALX_ERR_INVALID_TARGET' });
+      assert.throws(() => toUpdate(target, {}), { code: 'ALX_ERR_INVALID_TARGET' });
     }
-    assert.throws(() => indexesOf(Schema.from('string')), { code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => indexesOf(Schema.from('string')), { code: 'ALX_ERR_INVALID_TARGET' });
     assert.throws(() => checkUpdate(Account, [{ $set: {} }]), {
-      code: 'ERR_INVALID_TARGET',
+      code: 'ALX_ERR_INVALID_TARGET',
       message: 'An update is an object of operators',
     });
     assert.throws(() => toDocument(Account, account, { ids: 'uuid' }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'ids must be "objectId" or "string", got "uuid"',
     });
-    assert.throws(() => toDocument(Account, account, { references: 'all' }), { name: 'TypeError' });
+    assert.throws(() => toDocument(Account, account, { references: 'all' }), {
+      name: 'SchemaUsageError',
+    });
     // A value of a class has no document: it is not passed through with its
     // id left a string and no `_id`.
     class Row {}
     for (const root of [new Row(), new Map(), new ObjectId(A)]) {
       assert.throws(() => toDocument(Account, root), {
-        code: 'ERR_INVALID_TARGET',
+        code: 'ALX_ERR_INVALID_TARGET',
         message: 'A plain object is expected',
       });
-      assert.throws(() => fromDocument(Account, root), { code: 'ERR_INVALID_TARGET' });
+      assert.throws(() => fromDocument(Account, root), { code: 'ALX_ERR_INVALID_TARGET' });
     }
     assert.equal(toDocument(Account, Object.create(null)) !== null, true);
   });
@@ -440,7 +442,7 @@ describe('Mongodb', () => {
       ['Signin', { Projection: { schema: 'User', fields: ['login'] } }],
     ]);
     assert.deepEqual(Object.keys(indexesOf(kinds)), ['User']);
-    assert.throws(() => indexesOf({}), { code: 'ERR_INVALID_TARGET' });
+    assert.throws(() => indexesOf({}), { code: 'ALX_ERR_INVALID_TARGET' });
   });
 
   it('should check with checkUpdate what each operator does to the field of each path', () => {
@@ -629,7 +631,7 @@ describe('Mongodb', () => {
       true,
     );
     assert.throws(() => toDocument(Node, shallow, { maxDepth: 0 }), {
-      name: 'TypeError',
+      name: 'SchemaUsageError',
       message: 'maxDepth must be a positive integer, got 0',
     });
   });
@@ -694,11 +696,11 @@ describe('Mongodb', () => {
     const document = toDocument(Account, account);
     for (const key of Object.keys(document)) assert.ok(key in validator.properties, key);
     assert.throws(() => toJSONSchema(Account, { ids: 'objectId' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
       message: 'JSON Schema option "ids" "objectId" needs target "mongodb", got "draft-2020-12"',
     });
     assert.throws(() => toJSONSchema(Account, { target: 'mongodb', ids: 'uuid' }), {
-      code: 'ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTIONS',
     });
     // Without the option the target describes the program's values, as in 3.2.
     const plain = toJSONSchema(model, { target: 'mongodb' }).Account;

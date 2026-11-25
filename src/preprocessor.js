@@ -25,7 +25,7 @@ const PARSERS = Object.assign(Object.create(null), {
 
 const invalid = (source, srcType = typeOf(source)) =>
   new SchemaDefinitionError(
-    'ERR_INVALID_DEFINITION',
+    'ALX_ERR_INVALID_DEFINITION',
     `Invalid definition: "${source}" of type ${srcType}`,
   );
 
@@ -86,7 +86,7 @@ class Preprocessor {
       return { Type: types.reference, defs };
     }
     if (!types[type]) {
-      throw new SchemaDefinitionError('ERR_UNKNOWN_TYPE', `Unknown type "${type}"`);
+      throw new SchemaDefinitionError('ALX_ERR_UNKNOWN_TYPE', `Unknown type "${type}"`);
     }
     const defs = { required, ...source };
     return { Type: types[type], defs };
