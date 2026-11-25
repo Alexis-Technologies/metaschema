@@ -54,7 +54,7 @@ const issues = {
     record(
       context,
       'decimals',
-      Number.isFinite(value) ? { decimals } : { decimals, received: String(value) },
+      Number.isFinite(value) ? { decimals } : { decimals, received: `${value}` },
       key,
     ),
   union: (context, expected, discriminator, key) =>
@@ -100,14 +100,8 @@ const isIssue = (output) =>
 // issues already.
 const absorb = (context, output, code, fallback) => {
   if (output === true || output === null || output === undefined) return;
-  if (output === false) {
-    record(context, code, fallback);
-    return;
-  }
-  if (typeof output === 'string') {
-    record(context, code, EMPTY, undefined, output);
-    return;
-  }
+  if (output === false) return void record(context, code, fallback);
+  if (typeof output === 'string') return void record(context, code, EMPTY, undefined, output);
   if (Array.isArray(output)) {
     // One by one: a validator may legitimately return more messages than a
     // spread call accepts.
@@ -128,8 +122,7 @@ const absorb = (context, output, code, fallback) => {
   if (isIssue(output)) {
     const path = relative(context, output.path);
     const params = output.params === undefined ? EMPTY : output.params;
-    push(context, { code: output.code || code, path, message: output.message, params });
-    return;
+    return void push(context, { code: output.code || code, path, message: output.message, params });
   }
   record(context, code, EMPTY, undefined, safeString(output));
 };
@@ -224,23 +217,21 @@ const guarded = (context, code, owner, fn, value) => {
   const pending = context.async;
   const { path, count } = context;
   if (pending !== null && pending.length > 0 && under(path, pending[pending.length - 1].path)) {
-    pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
-    return;
+    return void pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
   }
   let output = undefined;
   try {
     output = fn.call(owner, value, toDotPath(path, context.root));
   } catch (error) {
-    issues.exception(context, error);
-    return;
+    return void issues.exception(context, error);
   }
   if (isThenable(output)) {
     if (pending === null) {
       abandon(output);
       throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
     }
-    pending.push({ owner, fn: null, value, promise: output, path: path.slice(), code, count });
-    return;
+    const entry = { owner, fn: null, value, promise: output, path: path.slice(), code, count };
+    return void pending.push(entry);
   }
   conclude(context, output, code, owner, value);
 };

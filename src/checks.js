@@ -329,8 +329,7 @@ const compileStruct = (entries, known) => {
   Object.freeze(plan);
   return (value, context, key) => {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-      issues.type(context, 'object', value, key);
-      return;
+      return void issues.type(context, 'object', value, key);
     }
     const nested = key !== undefined;
     if (nested) context.path.push(key);
@@ -391,8 +390,7 @@ const compileList = (type, isList) => {
   return (value, context, key) => {
     if (!isList(value)) {
       if (!required && (value === undefined || value === null)) return;
-      issues.type(context, name, value, key);
-      return;
+      return void issues.type(context, name, value, key);
     }
     const nested = key !== undefined;
     if (nested) context.path.push(key);
@@ -412,14 +410,8 @@ const compileList = (type, isList) => {
 // nested deeper than the check allows is reported instead of overflowing the
 // stack.
 const runReferenced = (schema, value, context, key) => {
-  if (value === null || typeof value !== 'object') {
-    schema[RUN](value, context, key);
-    return;
-  }
-  if (context.depth >= context.maxDepth) {
-    issues.depth(context, context.maxDepth, key);
-    return;
-  }
+  if (value === null || typeof value !== 'object') return void schema[RUN](value, context, key);
+  if (context.depth >= context.maxDepth) return void issues.depth(context, context.maxDepth, key);
   let { seen } = context;
   if (seen === null) {
     // The first embedded record creates the set, and the value the check
@@ -428,10 +420,7 @@ const runReferenced = (schema, value, context, key) => {
     if (context.source !== null) seen.add(context.source);
     context.seen = seen;
   }
-  if (seen.has(value)) {
-    issues.circular(context, key);
-    return;
-  }
+  if (seen.has(value)) return void issues.circular(context, key);
   seen.add(value);
   context.depth += 1;
   schema[RUN](value, context, key);
@@ -566,8 +555,7 @@ const COMPILE = {
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
         if (!required && (value === undefined || value === null)) return;
-        issues.type(context, type, value, key);
-        return;
+        return void issues.type(context, type, value, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);
@@ -593,8 +581,7 @@ const COMPILE = {
     return (value, context, key) => {
       if (!isMap(value)) {
         if (!required && (value === undefined || value === null)) return;
-        issues.type(context, type, value, key);
-        return;
+        return void issues.type(context, type, value, key);
       }
       if (value.size === 0) {
         if (required) issues.required(context, key);
@@ -626,10 +613,7 @@ const COMPILE = {
       return (value, context, key) => {
         if (!required && (value === undefined || value === null)) return;
         const schema = root.findReference(one);
-        if (!schema) {
-          issues.reference(context, one, key);
-          return;
-        }
+        if (!schema) return void issues.reference(context, one, key);
         if (embeds(schema, embed, context.references)) runReferenced(schema, value, context, key);
         else if (typeof value !== 'string') issues.type(context, 'string', value, key);
       };
@@ -638,14 +622,8 @@ const COMPILE = {
     return (value, context, key) => {
       if (!required && (value === undefined || value === null)) return;
       const schema = root.findReference(many);
-      if (!schema) {
-        issues.reference(context, many, key);
-        return;
-      }
-      if (!Array.isArray(value)) {
-        issues.type(context, expected, value, key);
-        return;
-      }
+      if (!schema) return void issues.reference(context, many, key);
+      if (!Array.isArray(value)) return void issues.type(context, expected, value, key);
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       const embedded = embeds(schema, embed, context.references);
@@ -677,12 +655,10 @@ const COMPILE = {
     return (value, context, key) => {
       if (!Array.isArray(value)) {
         if (!required && (value === undefined || value === null)) return;
-        issues.type(context, type, value, key);
-        return;
+        return void issues.type(context, type, value, key);
       }
       if (value.length > length) {
-        issues.length(context, undefined, length, value.length, key);
-        return;
+        return void issues.length(context, undefined, length, value.length, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);
@@ -706,14 +682,10 @@ const COMPILE = {
     return (value, context, key) => {
       if (value === null || typeof value !== 'object') {
         if (!required && (value === undefined || value === null)) return;
-        issues.type(context, 'object', value, key);
-        return;
+        return void issues.type(context, 'object', value, key);
       }
       const index = table.get(value[discriminator]);
-      if (index !== undefined) {
-        checks[index](value, context, key);
-        return;
-      }
+      if (index !== undefined) return void checks[index](value, context, key);
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       issues.union(context, expected, discriminator, discriminator);
@@ -739,8 +711,7 @@ const COMPILE = {
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
         if (!required && (value === undefined || value === null)) return;
-        issues.type(context, type, value, key);
-        return;
+        return void issues.type(context, type, value, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);

@@ -73,6 +73,7 @@ const noValidation = (what) => {
   return error;
 };
 
+// A symbol has no JSON, and a template literal throws on it.
 const shown = (value) =>
   typeof value === 'bigint' ? `${value}n` : (JSON.stringify(value) ?? String(value));
 

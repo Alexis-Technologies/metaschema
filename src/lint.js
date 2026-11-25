@@ -110,10 +110,7 @@ const lintField = (field, path, warnings, element = false, member = false) => {
 };
 
 const lintStruct = (fields, prefix, warnings) => {
-  if (!hasBrand(fields, 'Struct')) {
-    lintField(fields, prefix, warnings);
-    return;
-  }
+  if (!hasBrand(fields, 'Struct')) return void lintField(fields, prefix, warnings);
   for (const key of Object.keys(fields)) {
     const field = fields[key];
     if (!hasBrand(field, 'Type')) continue;

@@ -161,7 +161,9 @@ const mergeFields = (x, y, path) => {
   const b = typeof y === 'string' ? { type: y } : y;
   const type = mergeType(a.type, b.type, path);
   // The side whose type the result has sets the keys of its type.
-  const [first, second] = type === b.type && type !== a.type ? [b, a] : [a, b];
+  const swapped = type === b.type && type !== a.type;
+  const first = swapped ? b : a;
+  const second = swapped ? a : b;
   const def = { type };
   const keys = new Set(Object.keys(first));
   for (const key of Object.keys(second)) keys.add(key);

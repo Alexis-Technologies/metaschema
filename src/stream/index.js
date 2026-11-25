@@ -193,10 +193,7 @@ const transform = (schema, options) => {
   const settle = (record, result, controller) => {
     const at = index;
     index += 1;
-    if (result.valid) {
-      controller.enqueue(parse ? result.value : record);
-      return;
-    }
+    if (result.valid) return void controller.enqueue(parse ? result.value : record);
     failed += 1;
     if (onInvalid !== undefined) onInvalid(record, result, at);
     if (onInvalid === undefined || failed >= limit) {

@@ -173,10 +173,7 @@ const typed = (type, x, key, state, fails, failure, body) => {
   record(state, failure);
   const rules = type === null ? [] : rulesOf(type);
   const tail = type !== null && (rules.length > 0 || type.validate);
-  if (body === undefined && !tail) {
-    code.push('}');
-    return;
-  }
+  if (body === undefined && !tail) return void code.push('}');
   code.push('} else {');
   const before = body !== undefined && tail ? code.name('b') : '';
   if (before) code.push(`const ${before} = c.count;`);
@@ -371,7 +368,7 @@ const emitTuple = (type, x, key, state) => {
     for (let index = 0; index < length; index += 1) {
       const item = code.name('x');
       code.push(`const ${item} = ${x}[${index}];`);
-      emitField(elements[index], item, String(index), children);
+      emitField(elements[index], item, `${index}`, children);
     }
     code.push('}');
   });
@@ -464,10 +461,7 @@ const emitStruct = (fields, x, key, state) => {
 // any, is the field's own: a schema of one type has no schema-level one).
 const emitSchema = (type, x, key, state) => {
   const fields = type.schema;
-  if (!isStruct(fields)) {
-    emitField(fields, x, key, state);
-    return;
-  }
+  if (!isStruct(fields)) return void emitField(fields, x, key, state);
   const body = () => emitStruct(fields, x, key, state);
   typed(type, x, key, state, notObject(x), typeIssue(state, 'object', x, key), body);
 };
@@ -504,8 +498,7 @@ const emitUnion = (type, x, key, state) => {
     if (!type.validate) return;
     code.push(`if (c.count === ${before}) {`);
     emitTail(type, x, key, state, []);
-    code.push('}');
-    return;
+    return void code.push('}');
   }
   const fails = `${x} === null || typeof ${x} !== "object"`;
   typed(type, x, key, state, fails, typeIssue(state, 'object', x, key), () => {
@@ -574,8 +567,7 @@ const EMITTERS = new Map([
 const emitField = (type, x, key, state) => {
   const emitter = EMITTERS.get(type.compile);
   if (emitter === undefined) {
-    record(state, `${state.code.ref(type.check)}(${x}, c, ${keyOf(key)});`);
-    return;
+    return void record(state, `${state.code.ref(type.check)}(${x}, c, ${keyOf(key)});`);
   }
   const { code } = state;
   const { required } = type;

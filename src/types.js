@@ -27,8 +27,11 @@ const PROTOTYPES = {
 // that a class made from one inherits from it (below), and what the
 // validation half of the core installs on them (their `compile`) reaches
 // every class made from them, in every registry, whenever it is installed.
-for (const prototype of new Set(Object.values(PROTOTYPES))) {
-  Object.setPrototypeOf(prototype, AbstractType.prototype);
+// `one` and `many` meet the object of `reference` again: setting a prototype an
+// object already has changes nothing.
+const builtinNames = Object.keys(PROTOTYPES);
+for (let index = 0; index < builtinNames.length; index += 1) {
+  Object.setPrototypeOf(PROTOTYPES[builtinNames[index]], AbstractType.prototype);
 }
 
 // What the class of a type inherits from: a built-in's prototype object, the

@@ -268,7 +268,7 @@ const enumeration = (field, context) => {
   const copy = [];
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index];
-    if (!isJSON(value)) return unrepresentable(context, `Enum value ${String(value)}`);
+    if (!isJSON(value)) return unrepresentable(context, `Enum value ${value}`);
     copy.push(value);
   }
   if (copy.length === 1 && context.target.const === true) return { const: copy[0] };

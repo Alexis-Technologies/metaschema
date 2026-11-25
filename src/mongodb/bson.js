@@ -81,7 +81,7 @@ const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
 
 const toDecimal128 = (value) => {
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? driver.Decimal128.fromString(String(value)) : value;
+    return Number.isFinite(value) ? driver.Decimal128.fromString(`${value}`) : value;
   }
   return typeof value === 'string' && DECIMAL.test(value)
     ? driver.Decimal128.fromString(value)

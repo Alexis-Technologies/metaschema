@@ -154,8 +154,7 @@ const add = (target, value, state, depth) => {
   const type = typeof value;
   if (type === 'string') {
     target.bits |= STRING;
-    addString(target, value, state);
-    return;
+    return void addString(target, value, state);
   }
   if (type === 'number') {
     target.bits |= Number.isInteger(value) ? INTEGER : FLOAT;
@@ -185,8 +184,7 @@ const add = (target, value, state, depth) => {
   }
   if (Array.isArray(value)) {
     target.bits |= LIST;
-    addItems(target, value, state, depth);
-    return;
+    return void addItems(target, value, state, depth);
   }
   if (isBytes(value)) {
     target.bits |= BYTES;
@@ -195,8 +193,7 @@ const add = (target, value, state, depth) => {
   const iterable = typeof value[Symbol.iterator] === 'function';
   if (name === 'Set' && iterable) {
     target.bits |= SET;
-    addItems(target, value, state, depth);
-    return;
+    return void addItems(target, value, state, depth);
   }
   if (name === 'Map' && iterable) {
     target.bits |= MAP;
@@ -209,8 +206,7 @@ const add = (target, value, state, depth) => {
       target.names.bits |= KEY_BITS.get(key) ?? ANY;
       add(target.entries, pair[1], state, depth + 1);
     }
-    state.path.pop();
-    return;
+    return void state.path.pop();
   }
   target.bits |= RECORD;
   target.records += 1;

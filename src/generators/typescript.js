@@ -40,11 +40,11 @@ const tsLiteral = (value) => {
     case 'string':
       return JSON.stringify(value);
     case 'number':
-      return Number.isFinite(value) ? String(value) : 'number';
+      return Number.isFinite(value) ? `${value}` : 'number';
     case 'bigint':
       return `${value}n`;
     case 'boolean':
-      return String(value);
+      return `${value}`;
     case 'undefined':
       return 'undefined';
     default:
@@ -185,7 +185,7 @@ const tsFields = (fields, ts, prefix) => {
 };
 
 // Text inside a comment: `*/` would close it.
-const tsComment = (text) => String(text).replace(/\*\//g, '*\\/');
+const tsComment = (text) => `${text}`.replace(/\*\//g, '*\\/');
 
 // The JSDoc of a field: its description, line by line, and `@deprecated`
 // (with the note when the field gives one) when it says so.

@@ -76,8 +76,8 @@ const toDate = (value) => {
 
 const toText = (value) => {
   const type = typeof value;
-  if (type === 'number') return Number.isFinite(value) ? String(value) : value;
-  return type === 'bigint' || type === 'boolean' ? String(value) : value;
+  if (type === 'number') return Number.isFinite(value) ? `${value}` : value;
+  return type === 'bigint' || type === 'boolean' ? `${value}` : value;
 };
 
 // Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
@@ -125,7 +125,7 @@ const toEnum = (value, field) => {
   const text = typeof value === 'string';
   if (!text && !isPrimitive(value)) return value;
   for (const member of members) {
-    if (text ? isPrimitive(member) && String(member) === value : member === String(value)) {
+    if (text ? isPrimitive(member) && `${member}` === value : member === `${value}`) {
       return member;
     }
   }
@@ -141,7 +141,7 @@ const enumConverterOf = (field) => {
   for (const member of field.enum) {
     if (typeof member === 'string') strings.add(member);
     else if (isPrimitive(member)) {
-      const text = String(member);
+      const text = `${member}`;
       if (!written.has(text)) written.set(text, member);
     }
   }
@@ -149,7 +149,7 @@ const enumConverterOf = (field) => {
     if (members.has(value)) return value;
     if (typeof value === 'string') return written.has(value) ? written.get(value) : value;
     if (!isPrimitive(value)) return value;
-    const text = String(value);
+    const text = `${value}`;
     return strings.has(text) ? text : value;
   };
 };
@@ -298,23 +298,14 @@ const report = (input, output, path, paths) => {
   if (output === input) return;
   const container = output !== null && typeof output === 'object';
   const given = input !== null && typeof input === 'object';
-  if (!container || !given) {
-    paths.push(path);
-    return;
-  }
+  if (!container || !given) return void paths.push(path);
   if (Array.isArray(output)) {
-    if (!Array.isArray(input)) {
-      paths.push(path);
-      return;
-    }
+    if (!Array.isArray(input)) return void paths.push(path);
     for (let index = 0; index < output.length; index += 1) {
       report(input[index], output[index], [...path, index], paths);
     }
   } else if (isMap(output)) {
-    if (!isMap(input)) {
-      paths.push(path);
-      return;
-    }
+    if (!isMap(input)) return void paths.push(path);
     for (const pair of output) report(input.get(pair[0]), pair[1], [...path, pair[0]], paths);
   } else if (!isPlain(output) || !isPlain(input)) {
     paths.push(path);

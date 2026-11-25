@@ -98,6 +98,7 @@ const ENUM_SET_SIZE = 8;
 // must not become a huge message.
 const KEY_LIMIT = 100;
 
+// `String`, not a template literal: a key may be a symbol.
 const shorten = (key) => {
   const name = String(key);
   return name.length > KEY_LIMIT ? `${name.slice(0, KEY_LIMIT)}...` : name;
@@ -108,7 +109,7 @@ const shorten = (key) => {
 const safeString = (value) => {
   if (typeof value === 'symbol') return value.toString();
   const bare = value !== null && typeof value === 'object' && typeof value.toString !== 'function';
-  return bare ? Object.prototype.toString.call(value) : String(value);
+  return bare ? Object.prototype.toString.call(value) : `${value}`;
 };
 
 const formatters = {

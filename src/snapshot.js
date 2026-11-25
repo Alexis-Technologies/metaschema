@@ -49,7 +49,7 @@ const base64Of = (bytes) => {
 const valueOf = (value) => {
   const type = typeof value;
   if (type === 'function') return { $function: true };
-  if (type === 'bigint') return { $bigint: String(value) };
+  if (type === 'bigint') return { $bigint: `${value}` };
   if (type !== 'object' || value === null) return value;
   if (hasBrand(value, 'Type')) return fieldOf(value);
   if (Array.isArray(value)) return listOf(value);

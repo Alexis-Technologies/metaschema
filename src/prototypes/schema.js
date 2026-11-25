@@ -36,8 +36,7 @@ const schema = {
     if (hasBrand(definition, 'Schema')) {
       prep.root.updateFromSchema(definition);
       this.schema = definition.fields;
-      adopt(this, definition.options);
-      return;
+      return void adopt(this, definition.options);
     }
     if (isStruct(definition)) this.schema = definition;
     else this.schema = createStruct(definition, prep);
