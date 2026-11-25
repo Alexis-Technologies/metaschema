@@ -697,6 +697,31 @@ interface of each entity in that order. `entities` is any iterable of `[name, de
 
 ## Budgets
 
+**alexiskills 1.1 (2026-11-25, unreleased) left the gates where they were**: bringing `src/` to
+it cost the core 21 bytes (22319 / 22336 bytes, 21.8 KB, 209 bytes under the 22 KB gate):
+- the 35 `return void f()`, each three characters longer than `f();return` once minified
+  (esbuild keeps both forms as written);
+- the index loop over `Object.keys(PROTOTYPES)` of `types.js` in place of `Object.values`;
+- the 17 template literals in place of `String(value)`, three characters shorter each, gave a
+  part of it back.
+
+The generators measure 7913, the compile subpath 4416, the model subpath 13141 (+13, the two
+sides of `mergeFields` without a destructuring), the stream subpath 987, the formats subpath
+3922, the derive subpath 2301, the coerce subpath 1979, the mongodb subpath 3729 and
+`./definition` 10793 (+18); the moves of a few bytes in the subpaths whose code did not change
+are the difference of two gzips.
+
+The bench was three alternating runs of all 74 rows in separate processes, against an archive of
+`chore/alexiskills` (36f132a), on a machine with a load average of 6 to 8 from other work. The
+median row moved −0.5%. The rows that moved by 5% or more, or where every run of one tree was
+above every run of the other (`check (jit) — flat struct, valid` −12%, `parseSafe (jit) —
+moltar flat` −16%, `check (jit) — nested struct, valid` −6%, `check — nested struct,
+invalid` −8%, `Schema.from — nested` −3%), ran again five times each way: −3% to +8%, none of
+them apart, and both trees bimodal where they had moved (the generated code of the JIT rows is
+the same on both trees). `parse` inlines what it did (`pass` and `wantOf` twice, `apply`,
+`createContext`, `looped`, `parsed`, `finalize`). `bench/baseline.json` was not re-saved.
+The paragraph that follows is 1.0.1's.
+
 **The conventions of alexiskills (2026-11-25, unreleased) left the gates where they were**:
 bringing `src/` to its rules (see "Conventions") cost the core 74 bytes (22298 / 22308 bytes,
 21.8 KB, 230 bytes under the 22 KB gate):
@@ -1005,72 +1030,69 @@ file means updating the `browser` map keys.
 
 ## Conventions (oxlint/oxfmt + review)
 
-The style is `js-conventions` of alexiskills, its Library profile (CommonJS, hand-written
-`.d.ts`, `node:test` with c8, no runtime dependency). This section is what metaschema adds to it
-or does otherwise, and it wins.
+The style is `js-conventions` of alexiskills 1.1, its Library profile (CommonJS, hand-written
+`.d.ts`, `node:test` with c8, no runtime dependency), and the tests follow
+`node-tooling-testing`. This section is what metaschema adds to them or does otherwise, and it
+wins.
 
 - Formatting: 2 spaces, single quotes, semicolons, trailing commas, **100 columns**, LF
-  (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` (from kerberos: the explicit rule
-  list, plus the `correctness` and `suspicious` categories as errors and `no-console` everywhere
-  but `scripts/` and `bench/`), with the rules of alexiskills since 2026-11-25:
-  - everywhere: `func-style: expression`, `no-nested-ternary`, `max-depth` 4, and `eqeqeq`
-    `always` with `null` included (stricter than the configuration of alexiskills, as its text
-    asks: `===` and `!==` only);
-  - in `src/`: every array iteration method (`map`, `filter`, `some`, `every`, `find`,
-    `findIndex`, `findLast`, `findLastIndex`, `reduce`, `reduceRight`, `flatMap`, `forEach`)
-    through `no-restricted-properties`, the unicorn plugin (`no-array-for-each`,
-    `no-array-reduce`, `no-useless-spread`, `prefer-set-has`, and its `suspicious` rules,
-    `no-array-sort` among them) and `max-lines-per-function` 80 as a warning. `map` is also a type
-    name and an option of `infer`, so the property is allowed on `COMPILE`, `options` and `state`
-    (`allowObjects`);
+  (`.oxfmtrc.json`, `.editorconfig`). Lint: `.oxlintrc.json` is the reference of alexiskills
+  (`references/ci-types-release.md` of `node-tooling-testing`) over the explicit rule list
+  metaschema took from kerberos (`no-var` and `object-shorthand` as errors among them), and the
+  `lint` script reports unused disable directives as errors. On top of the reference:
   - `forEach` and `reduce` are errors in `tests/` and `bench/` too, where `map`, `filter` and
-    `find` render or set up.
-
-  Suppress a rule only for an intentional construct, with a targeted
-  `// oxlint-disable-next-line <rule>`. `valid-typeof` is disabled at the two places that compare
-  `typeof` with a type name held in a property.
-- Keep metaschema's code style:
-  - module-level functions are arrow functions assigned to `const`; classes and prototype objects
-    use method shorthand; no `function` declarations;
-  - `Object.create(null)` for dictionaries;
-  - the keys of an object are read as `const keys = Object.keys(x)` with an index loop, never
-    `Object.entries`; use index loops, not `forEach`;
-  - prefer `const`; no `var`; a `let` starts with a value of its kind (`null` for a reference,
-    `''`, `0`, `false`), or is a `const` bound once by a ternary or by a function that returns
-    the value; one that holds what user code returned starts as `undefined`, the value of no
-    return;
-  - no nested ternaries: `if`/`else`, a function that returns the value, or a table;
+    `find` render or set up;
+  - `map` is also a type name and an option of `infer`, so in `src/` the property is allowed on
+    `COMPILE`, `options` and `state` (`allowObjects` of `no-restricted-properties`);
+  - `valid-typeof` is disabled at the two places that compare `typeof` with a type name held in
+    a property.
+- In the code, beyond the skill:
   - private class members with `#`;
-  - strict comparisons only. A value of the program that may be either absent value is
-    `x === undefined || x === null` (esbuild folds it back into `x == null`, so the bundle does
-    not grow); where the kind is ours, one comparison (`null` for a reference, `undefined` for a
-    scalar). `infer` keeps three states in `strings` and `formats` (`undefined` before the first
-    string, `null` past the cap, else the values) and tests both;
+  - a `let` that holds what user code returned starts as `undefined`, the value of no return;
+    `infer` keeps three states in `strings` and `formats` (`undefined` before the first string,
+    `null` past the cap, else the values) and tests both;
   - in the hot path (`check` closures): no closures or regexes created per call, one object
     shape per kind of object (context, issue, plan entry), `try/catch` only around user code,
-    and functions chosen at build time instead of lookups in the definition.
+    and functions chosen at build time instead of lookups in the definition;
+  - validators return messages, and validation never throws because of the value: a broken
+    definition is a `SchemaDefinitionError` with a code, a wrong call a `TypeError` with one.
 - Where metaschema keeps a way of its own, on purpose:
   - `for...in` with `Object.hasOwn` counts the keys of a value in the struct check, measured
-    (see "Structs"); `for...of` over arrays, Maps, Sets and iterators is how the rest of `src/` is
-    written, and `for...in` over plain objects outside the check;
-  - Node 18 is the floor, so `toSorted`, `toReversed` and `with` are not used: a fresh array
-    (`Object.keys`, `Array.from`) is sorted in place, in a statement of its own, which
-    `no-array-sort` accepts;
-  - `delete` stays where a definition built for the program must lack a key (`./derive`,
-    `fromJSONSchema`): a definition is data whose keys say something, not a record;
-  - `String(key)` stays where a key may be a symbol (a key of a path), which a template literal
-    throws on;
-  - the generated code of `./compile` is text, not source: it keeps `!= null`, the one
-    comparison the closures' check stands for.
-- Built-ins with the `node:` prefix; relative requires always end in `.js`.
-- Validators return messages; `throw` only for definition errors, always a
-  `SchemaDefinitionError` with a code.
-- Self-descriptive code; comments explain *why*, not what.
-- Conventional Commits (`feat(scope):`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor!:`).
+    (see "Structs"); `for...of` over arrays, Maps, Sets and iterators is how the rest of `src/`
+    is written, where the skill asks for an index loop over an array in library code, and
+    `for...in` walks plain objects outside the check;
+  - the generated code of `./compile` is text, not source: it keeps `!= null` (the one
+    comparison the closures' check stands for) and `void 0`;
+  - **a wrong call is a plain `TypeError` with a code** (`invalidTarget`, `invalidOption`,
+    `notRegistered`, `asyncReturn` of `errors.js`, and `ERR_INVALID_RECORD` of the stream
+    subpath), where alexiskills asks for a class of the library. A class would change the
+    `name` of the error a consumer may read, and the core is about 200 bytes under its gate; it is
+    a question for 4.0, with the codes;
+  - **the error codes keep the `ERR_` prefix of 3.x**, where alexiskills asks for `ALX_ERR_*`.
+    They are public: a consumer matches on `error.code`, so a rename is breaking, and it is
+    4.0's. A code added before then is `ALX_ERR_*`. Every code is a member of
+    `DefinitionErrorCode` or `RuntimeErrorCode` of `index.d.ts` and a row of the tables of
+    `docs/api/exports.md` (`SchemaDefinitionError`, "Runtime errors"), and
+    `tests/unit/error-codes.test.js` holds the source, the unions, the tables and this list,
+    the codes to rename in 4.0, to one set. Issue codes (`required`, `type`, `unexpected`,
+    `format`, …) are data of a result, not error codes, and stay as they are.
+    <!-- codes:4.0:start -->
+    - `SchemaDefinitionError` (31): `ERR_INVALID_DEFINITION`, `ERR_UNKNOWN_TYPE`,
+      `ERR_MISSING_SCHEMA`, `ERR_INVALID_TUPLE`, `ERR_INVALID_UNION`, `ERR_PROJECTION`,
+      `ERR_INVALID_CUSTOM_TYPE`, `ERR_INVALID_ENUM`, `ERR_INVALID_LENGTH`, `ERR_INVALID_RULE`,
+      `ERR_INVALID_REFERENCE`, `ERR_RESERVED_KEY`, `ERR_TYPE_REGISTERED`,
+      `ERR_UNKNOWN_JS_TYPE`, `ERR_INVALID_OPTIONS`, `ERR_UNREPRESENTABLE`,
+      `ERR_UNSUPPORTED_SCHEMA`, `ERR_INVALID_SNAPSHOT`, `ERR_UNSATISFIABLE`,
+      `ERR_SAMPLE_PATTERN`, `ERR_SAMPLE_TYPE`, `ERR_MERGE_CONFLICT`, `ERR_INFER_DEPTH`,
+      `ERR_INFER_MISMATCH`, `ERR_INVALID_FORMAT`, `ERR_FORMAT_REGISTERED`, `ERR_UNKNOWN_FIELD`,
+      `ERR_INVALID_COERCION`, `ERR_COERCION_REGISTERED`, `ERR_NO_EVAL`, `ERR_JIT_BUILD`;
+    - `TypeError` (5): `ERR_ASYNC_VALIDATOR`, `ERR_INVALID_TARGET`, `ERR_INVALID_OPTION`,
+      `ERR_INVALID_RECORD`, `ERR_NOT_REGISTERED`.
+    <!-- codes:4.0:end -->
 
 ## Skills
 
-The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.0.1, a
+The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.1.0, a
 devDependency: the skills of the Alexis libraries, forked from
 [metarhia/metaskills](https://github.com/metarhia/metaskills) 1.0.6. All 37 of them are linked,
 from the seven packs (`core`, `design`, `library`, `runtime`, `backend`, `security`,
@@ -1079,7 +1101,9 @@ by the `prepare` script (`alexiskills claude`) on every `pnpm install`, a worktr
 and left out by `.gitignore`; a skill a `pnpm update` brings appears without a relink. Until
 2026-11-24 the directory held seven skills of metarhia/metaskills 1.0.5, `js-conventions` and
 `npm-publish` adapted to this repository; what they said of metaschema alone is in this file
-now.
+now. 1.0.1 came on 2026-11-24, 1.1.0 on 2026-11-25 (the skills made to agree with themselves:
+`return void`, `describe`/`it` with `should` titles, `ALX_ERR_*` codes, named exceptions in
+place of the bans this file used to list as its own).
 
 - **The skills are not edited here.** A change to one goes to `Alexis-Technologies/metaskills`
   and comes back with a release of the package. A skill of this repository's own beside them
@@ -1095,8 +1119,17 @@ now.
 
 ## Testing notes
 
-- Runner: Node's built-in `node:test` + `node:assert`. Existing suites use flat
-  `test('Area: description', …)`; keep that style in those files.
+- Runner: Node's built-in `node:test` with `describe` and `it`, and `node:assert/strict`
+  (`equal`, `deepEqual`). A file is one `describe` per subject, named as the areas the titles
+  used to begin with (`Schema`, `JSON Schema`, `fromJSONSchema`, `Locales`), and every `it`
+  title starts with `should`; `--test-name-pattern="Tuple"` still selects a suite by its name.
+  The flat `test('Area: …')` of 3.4 and earlier was rewritten on 2026-11-25. Top-level
+  statements between the tests (a `register()`, a fixture) stay inside the `describe` in their
+  place: the callback runs at load time, before any test, as the top level did.
+- `tests/unit/error-codes.test.js` holds the codes of `src/`, the unions `DefinitionErrorCode` and
+  `RuntimeErrorCode` of `index.d.ts`, the two tables of `docs/api/exports.md` and the 4.0 list of
+  "Conventions" to one set (a code set on a plain `TypeError` is a runtime code). A new code is
+  `ALX_ERR_*` and goes into its union and its table in the same change.
 - `pnpm test` passes the glob unquoted (`tests/unit/*.test.js`) so the shell expands it on Node
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.
 - `tests/fixtures/schemas/` are plain CJS modules. `index.js` exports
@@ -1954,8 +1987,10 @@ What metaschema adds to the steps of the skill:
 - **Package (step 6).** `exports` lists `types` first for every entry and the `browser` map
   covers the root entry and `src/runtime/node.js`; there is no `dependencies` key and no
   `.npmignore` (the `files` allowlist decides), so `pnpm pack --dry-run` ships `src/` and the
-  root entries, never `.claude`, tests, docs, bench or scripts. The report gives the file count
-  and the rows of `pnpm run size`.
+  root entries, never `.claude`, tests, docs, bench or scripts. The smoke test of 6c reaches
+  every entry of `exports` (the root, the two locales and the ten subpaths) by `require` and by
+  `import`, and there is no bin. The report gives the file count and the rows of
+  `pnpm run size`.
 
 ## Upstream sync
 

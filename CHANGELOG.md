@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+
+- **The runtime error codes have a table.** "Runtime errors" of the API reference lists the five
+  codes of a wrong call (`ERR_ASYNC_VALIDATOR`, `ERR_INVALID_TARGET`, `ERR_INVALID_OPTION`,
+  `ERR_INVALID_RECORD`, `ERR_NOT_REGISTERED`) as the table of `SchemaDefinitionError` lists its
+  31, and a test holds the source, the two unions of `index.d.ts` and the two tables to one set
+  of codes. The codes keep their names: the `ALX_ERR_*` of alexiskills 1.1 would break every
+  program that matches on them.
+
 ### Tooling
 
-- **The agent skills are alexiskills.** `@alexify/metaskills` 1.0.1, a devDependency, links its
+- **The agent skills are alexiskills.** `@alexify/metaskills` 1.1.0, a devDependency, links its
   37 skills into `.claude/skills` from the `prepare` script (`alexiskills claude`) on every
   `pnpm install`, and `.gitignore` leaves the link out. The seven skills of metarhia/metaskills
   1.0.5 the repository kept there are gone; what two of them said of metaschema alone (the steps
@@ -24,6 +33,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     written as statements, three long functions split.
   - No behaviour changed: the suites pass on both backends and without eval. The core measures
     22298 bytes (21.8 KB, +74), and `check`, `parse` and the moltar rows are at parity or faster.
+- **alexiskills 1.1.**
+  - The lint turns `no-void` off and reports unused disable directives as errors.
+  - `src/` follows it: 35 call-then-return pairs are `return void fn()`, 17 `String(value)` of
+    values that cannot be symbols are template literals (four stay, where a key or a value may
+    be one), and the last `Object.values` and array destructuring are gone.
+  - The 55 suites are `describe` and `it('should …')` with `node:assert/strict`: 590 tests,
+    the same as before, under new titles, and four more for the error codes.
+  - No behaviour changed. The core measures 22319 bytes (+21), and the bench is at parity.
 
 ## [3.4.1] - 2026-11-24
 

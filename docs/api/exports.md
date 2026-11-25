@@ -259,20 +259,17 @@ struct (or a Model, for `indexesOf`) and an update that is not an object of oper
 
 ## Runtime errors
 
-Validation of data never throws because of the value. A synchronous `check` or `parse` throws a
-`TypeError` with `code: 'ERR_ASYNC_VALIDATOR'` when a `validate` function, a custom type's
-`checkType` or a field's `parse` function returns a promise; `checkAsync` and `parseAsync` await
-them. A `transform` of the stream subpath ends its stream with a `TypeError` with
-`code: 'ERR_INVALID_RECORD'` for an invalid record it was not told to drop. A parse that
-coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value
-holds), a document or an update written with ObjectIds before `register({ bson })` of the
-mongodb subpath, and a schema of the [definition entry](/guide/definition) asked to validate
-before the core entry was loaded, is a `TypeError` with `code: 'ERR_NOT_REGISTERED'`. An option of a call that
-is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the
-stream, derive and mongodb subpaths) is a `TypeError` with `code: 'ERR_INVALID_OPTION'`; the
-kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is a
-`SchemaDefinitionError` with `ERR_INVALID_OPTIONS`. The type of the codes is
-`RuntimeErrorCode`.
+Validation of data never throws because of the value, and a broken definition is a
+[`SchemaDefinitionError`](#schemadefinitionerror). A call that is wrong throws a `TypeError`
+with one of these codes (the async methods reject with it); their type is `RuntimeErrorCode`.
+
+| Code | Thrown when |
+| --- | --- |
+| `ERR_ASYNC_VALIDATOR` | a synchronous `check` or `parse` met a promise from a `validate` function, a custom type's `checkType` or a field's `parse` function; `checkAsync` and `parseAsync` await them |
+| `ERR_INVALID_TARGET` | a function of a subpath was given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a JSON Schema document, a sequence of records) |
+| `ERR_INVALID_OPTION` | an option of a call is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the stream, derive and mongodb subpaths); the kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is `ERR_INVALID_OPTIONS` |
+| `ERR_INVALID_RECORD` | a `transform` of the stream subpath met an invalid record it was not told to drop; the error carries `index`, `record` and `result` |
+| `ERR_NOT_REGISTERED` | a parse that coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value holds), a document or an update written with ObjectIds before `register({ bson })` of the mongodb subpath, or a schema of the [definition entry](/guide/definition) asked to validate before the core entry was loaded |
 
 ## `ValidationResult`
 
