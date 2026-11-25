@@ -1047,7 +1047,7 @@ file means updating the `browser` map keys.
 
 ## Conventions (oxlint/oxfmt + review)
 
-The style is `js-conventions` of alexiskills 1.1, its Library profile (CommonJS, hand-written
+The style is `js-conventions` of alexiskills 1.1.2, its Library profile (CommonJS, hand-written
 `.d.ts`, `node:test` with c8, no runtime dependency), and the tests follow
 `node-tooling-testing`. This section is what metaschema adds to them or does otherwise, and it
 wins.
@@ -1080,23 +1080,25 @@ wins.
     source. Issue codes (`required`, `type`, `unexpected`, `format`, …) are data of a result,
     not error codes.
 - Where metaschema keeps a way of its own, on purpose:
-  - `for...in` with `Object.hasOwn` counts the keys of a value in the struct check, measured
-    (see "Structs"); `for...of` over arrays, Maps, Sets and iterators is how the rest of `src/`
-    is written, where the skill asks for an index loop over an array in library code, and
-    `for...in` walks plain objects outside the check;
+  - a hole in a list of the caller reads as `undefined`, where the skill asks a loop that
+    replaced an array method to skip it: in a tuple, a union, `flags` or `aliases` it is
+    `ALX_ERR_INVALID_DEFINITION`, in an `enum` the member `undefined`, in an index a field named
+    `undefined` (`missing-index-field`), in an array value or a stream a value `undefined`
+    that is checked. That is 3.4.1's behaviour: no loop of the alexiskills changes replaced an
+    array method (`src/` had none left since 3.0), and the same calls with sparse lists gave
+    the same results on `main` and on this branch, on both backends (2026-11-25);
   - the generated code of `./compile` is text, not source: it keeps `!= null` (the one
-    comparison the closures' check stands for) and `void 0`;
-  - **CI tests Node 18.12.0, not the 18.0.0 of `engines`**, where the skill asks for the exact
-    floor: pnpm 10 (`packageManager`) runs from 18.12 on, so 18.0.0 cannot install the
-    dependencies, and `engines` stays `>=18.0.0` (Alex's decision, 2026-11-25: the floor is not
-    moved for the toolchain). The suite passes on 18.12.0 (every `it`, run locally with pnpm
-    10.34.5 that day; Node 18.12 counts the files, not the tests, in the summary of `--test`), and
-    the tests keep to what 18.12 has: `error-codes.test.js` walks `src/` itself, since
-    `readdirSync` reads subdirectories from 18.17 on.
+    comparison the closures' check stands for) and `void 0`.
+- The gap `node-tooling-testing` asks this file to record: **CI tests Node 18.12.0, the lowest
+  version pnpm 10 (`packageManager`) runs on**, and `engines` stays `>=18.0.0` (Alex's decision,
+  2026-11-25: the floor is not moved for the toolchain). The suite passes on 18.12.0 (every
+  `it`, run locally with pnpm 10.34.5 that day; Node 18.12 counts the files, not the tests, in
+  the summary of `--test`), and the tests keep to what 18.12 has: `error-codes.test.js` walks
+  `src/` itself, since `readdirSync` reads subdirectories from 18.17 on.
 
 ## Skills
 
-The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.1.0, a
+The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.1.2, a
 devDependency: the skills of the Alexis libraries, forked from
 [metarhia/metaskills](https://github.com/metarhia/metaskills) 1.0.6. All 37 of them are linked,
 from the seven packs (`core`, `design`, `library`, `runtime`, `backend`, `security`,
@@ -1107,7 +1109,9 @@ and left out by `.gitignore`; a skill a `pnpm update` brings appears without a r
 `npm-publish` adapted to this repository; what they said of metaschema alone is in this file
 now. 1.0.1 came on 2026-11-24, 1.1.0 on 2026-11-25 (the skills made to agree with themselves:
 `return void`, `describe`/`it` with `should` titles, `ALX_ERR_*` codes, named exceptions in
-place of the bans this file used to list as its own).
+place of the bans this file used to list as its own), 1.1.1 and 1.1.2 the same day (a CI matrix
+that starts where the package manager runs, `for...of` and `for...in` in library code, the holes
+of a caller's array).
 
 - **The skills are not edited here.** A change to one goes to `Alexis-Technologies/metaskills`
   and comes back with a release of the package. A skill of this repository's own beside them

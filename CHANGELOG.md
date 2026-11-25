@@ -54,7 +54,7 @@ The same guide with before-and-after examples is
 
 ### Tooling
 
-- **The agent skills are alexiskills.** `@alexify/metaskills` 1.1.0, a devDependency, links its
+- **The agent skills are alexiskills.** `@alexify/metaskills` 1.1.2, a devDependency, links its
   37 skills into `.claude/skills` from the `prepare` script (`alexiskills claude`) on every
   `pnpm install`, and `.gitignore` leaves the link out. The seven skills of metarhia/metaskills
   1.0.5 the repository kept there are gone; what two of them said of metaschema alone (the steps
@@ -78,7 +78,13 @@ The same guide with before-and-after examples is
     the same as before, under new titles, and six more for the error codes.
   - No behaviour changed. The core measures 22319 bytes (+21), and the bench is at parity.
 - **CI tests Node 18.12.0**, the lowest version pnpm 10 runs on, where it tested the latest
-  18.x; `engines` stays `>=18.0.0`, and the suite passes on 18.12.0.
+  18.x; `engines` stays `>=18.0.0`, and the suite passes on 18.12.0. alexiskills 1.1.1 asks for
+  exactly that.
+- **alexiskills 1.1.2.** It allows `for...of` and `for...in` in library code, as `src/` was
+  written. It also asks a loop that replaced an array method to skip the holes of a caller's
+  array. No loop of these changes replaced one, and a list with holes (an `enum`, a tuple, a
+  union, `flags`, `aliases`, an index, an array value, the records of a stream, the keys of
+  `pick`, the changes of `compatibility`) gives what it gave in 3.4.1 on both backends.
 
 ## [3.4.1] - 2026-11-24
 
