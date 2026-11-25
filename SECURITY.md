@@ -6,7 +6,8 @@ Only the latest published version receives fixes.
 
 | Version | Supported |
 |---|---|
-| 3.x | ✅ |
+| 4.x | ✅ |
+| 3.x | ❌ (upgrade: [Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3)) |
 | 2.x | ❌ (upgrade: the CHANGELOG has the notes) |
 | 1.x | ❌ |
 | `metaschema` (metarhia) 2.x | ❌ (report upstream) |

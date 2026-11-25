@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-25
+
 4.0 brings the errors of the package to the rules of the Alexis libraries (alexiskills 1.1).
 Every error code carries the `ALX_` prefix, and a wrong call throws a class of the package,
 `SchemaUsageError`, where it threw a plain `TypeError` (or a `SchemaDefinitionError`, for a
@@ -1790,7 +1792,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.1...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.1...v4.0.0
 [3.4.1]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...v3.3.0

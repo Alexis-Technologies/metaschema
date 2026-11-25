@@ -17,7 +17,10 @@ program without the driver. Since 3.4 a schema writes its own snapshot (`schema.
 the contract `@alexify/protoarray` builds its codecs from), `bytes`, `flags` and the `decimals`
 rule are built in, the checks are compiled on their first use, and the core is two halves over
 the same classes, the first of which is the `./definition` subpath (build and read, no
-validation). It has zero runtime dependencies and runs in Node.js ≥ 18 and browsers.
+validation). 4.0 brings the errors to the rules of the Alexis libraries: every code is
+`ALX_ERR_*`, a wrong call (a target or an option it does not take) throws `SchemaUsageError`
+beside `SchemaDefinitionError`, and a hook that watches a call never fails it. It has zero
+runtime dependencies and runs in Node.js ≥ 18 and browsers.
 
 It is a fork of [`metarhia/metaschema`](https://github.com/metarhia/metaschema) 2.2.2, maintained
 by Alexis Technologies and set up like the sibling libraries `@alexify/kerberos` and
