@@ -1509,9 +1509,20 @@ of a caller's array).
   branch and abandoned after it) only when the union's subtree carries something for the phase;
   a validator in such a branch runs in the trial and again in the check, with the same path.
   Use a `discriminator` to avoid it.
-- **A failed trial, a stopped settle and a synchronous throw still observe their promises.**
-  `abandon` in `issues.js` attaches a no-op rejection handler, so no promise metaschema leaves
-  behind rejects unhandled.
+- **Every promise is observed when it is met, not when it is awaited.** `observe` in
+  `issues.js` adopts a thenable once and attaches a no-op rejection handler to the promise it
+  returns, and `guarded` keeps that promise for `settle`: settle awaits the list in field order,
+  and a later promise that rejected while an earlier one was pending was an unhandled
+  rejection that ended the process until 4.0. `abandon` is `observe` for a promise nothing
+  waits for (a failed trial, a stopped settle, a synchronous throw), `compose` of `merge`
+  observes the first validator's promise before calling the second, and the async pair of the
+  stream observes each result as it queues it, so no promise metaschema leaves behind rejects
+  unhandled.
+- **The async pair awaits a `Promise` element of a sync source and no other thenable.**
+  `stepsOf` of `stream/index.js` reads a sync iterable through an async iterator of its own
+  steps, because `for await` over a sync iterable adopts every thenable and a record with a
+  field named `then` came out as what it resolved to (until 4.0); it calls `return()` of the
+  source when the iteration stops early, as `for await` does.
 - **A non-function `default` is shared by every parse output** (as in zod): `default: []` is the
   same array in every value; a function is a factory. A `default` factory or a field's
   `serialize` that throws is a programming error and throws out of `parse`/`serialize` (pinned by

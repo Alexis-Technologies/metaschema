@@ -44,6 +44,23 @@ The same guide with before-and-after examples is
 - **`saveTypes` of the browser build rejects with a code**, `ALX_ERR_UNSUPPORTED_RUNTIME`, new in
   `RuntimeErrorCode`.
 
+### Fixed
+
+- **An async validator that rejects while settle awaits an earlier one no longer ends the
+  process.** `checkAsync` and `parseAsync` keep the promises of the validators they meet and
+  await them in field order after the walk; a promise that rejected while an earlier one was
+  still pending had no handler yet, so Node reported an unhandled rejection and exited (since
+  3.2, whose settle overlaps the waits). Every promise is now observed as soon as it is met, and
+  its rejection is the `exception` issue of its field, as it always was once awaited.
+- **The `validate` of a merged field no longer leaves a rejecting promise behind.** When the
+  first of the two validators `merge` composes returned a promise and the second threw, the
+  first's promise rejected unhandled (since 3.1); it is observed before the second runs.
+- **`checkEachAsync` and `parseEachAsync` read a record with a `then` of its own as the record.**
+  Over a sync source, `for await` adopted every thenable, so a record with a field named `then`
+  holding a function came out as what that function resolved to (since 3.2). The async pair now
+  awaits an element of a sync source only when it is a `Promise`, as documented, and a sync
+  generator it stops early is still closed.
+
 ### Documentation
 
 - **Each error class has its table.** The API reference has a section for `SchemaUsageError`
