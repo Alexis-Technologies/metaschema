@@ -34,4 +34,4 @@ const reference = {
   },
 };
 
-module.exports = { reference, embeds };
+module.exports = { embeds, reference };

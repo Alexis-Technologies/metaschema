@@ -60,13 +60,10 @@ const schemaOf = (schema) => {
 // A sequence of records: anything with an iterator, or an async one where
 // the iteration is async. A string is iterable and surely a mistake.
 const recordsOf = (records, async) => {
-  const iterable =
-    records !== null &&
-    records !== undefined &&
-    typeof records !== 'string' &&
-    (typeof records[Symbol.iterator] === 'function' ||
-      (async && typeof records[Symbol.asyncIterator] === 'function'));
-  if (!iterable) throw invalidTarget('An iterable of records is expected');
+  const ruledOut = records === undefined || records === null || typeof records === 'string';
+  const sync = !ruledOut && typeof records[Symbol.iterator] === 'function';
+  const streamed = !ruledOut && async && typeof records[Symbol.asyncIterator] === 'function';
+  if (!sync && !streamed) throw invalidTarget('An iterable of records is expected');
   return records;
 };
 

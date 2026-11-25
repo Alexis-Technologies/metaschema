@@ -11,6 +11,15 @@ const { invalidOption: invalid } = require('./errors.js');
 // with the count on every field stays an integer comparison.
 const UNLIMITED = 2 ** 30 - 1;
 
+// How deep a value may nest through embedded references before the check
+// gives up on it: a graph that deep is a `depth` issue, not a stack overflow.
+const MAX_DEPTH = 128;
+
+// A caller's locale table as a null-prototype copy, made once per table: the
+// renderers are looked up by issue code, and a code a validator made up must
+// find nothing on Object.prototype.
+const TABLES = new WeakMap();
+
 // A whole number of issues, or no limit at all.
 const maxErrorsOf = (maxErrors) => {
   const valid = (Number.isInteger(maxErrors) || maxErrors === Infinity) && maxErrors >= 1;
@@ -18,21 +27,12 @@ const maxErrorsOf = (maxErrors) => {
   return Math.min(maxErrors, UNLIMITED);
 };
 
-// How deep a value may nest through embedded references before the check
-// gives up on it: a graph that deep is a `depth` issue, not a stack overflow.
-const MAX_DEPTH = 128;
-
 const maxDepthOf = (maxDepth) => {
   if (!Number.isInteger(maxDepth) || maxDepth < 1) {
     throw invalid('maxDepth', 'an integer of at least 1', maxDepth);
   }
   return maxDepth;
 };
-
-// A caller's locale table as a null-prototype copy, made once per table: the
-// renderers are looked up by issue code, and a code a validator made up must
-// find nothing on Object.prototype.
-const TABLES = new WeakMap();
 
 const messagesOf = (messages) => {
   if (typeof messages === 'function') return messages;
@@ -142,4 +142,4 @@ const createContext = (options, name = '', unknown = 'reject', parsing = false) 
   return context;
 };
 
-module.exports = { createContext, referencesOf, UNLIMITED, MAX_DEPTH };
+module.exports = { UNLIMITED, MAX_DEPTH, referencesOf, createContext };

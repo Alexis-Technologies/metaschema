@@ -32,6 +32,14 @@ const lazyRun = (schema) => {
   return run;
 };
 
+// A stub of a validation method: the method installed since, when the
+// validation half has been, else the error that it is not.
+const late = (schema, name, args) => {
+  const method = Schema.prototype[name];
+  if (method === STUBS[name]) throw noValidation(name);
+  return method.apply(schema, args);
+};
+
 // The half of the core that builds a schema and reads it: its fields and
 // metadata, its JSON and its snapshot. The validation half (`validation.js`,
 // which the core entry loads) installs `check`, `parse`, `serialize` and
@@ -61,7 +69,7 @@ class Schema extends SchemaMetadata {
         const reason = `Schema "${raw.name}" cannot be used as "${name}"`;
         throw new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
       }
-      raw.attach(...namespaces);
+      for (const namespace of namespaces) raw.attach(namespace);
       return raw;
     }
     super();
@@ -100,7 +108,7 @@ class Schema extends SchemaMetadata {
     if (this.namespaces.size === 0) return TYPES;
     if (this.#types === null) {
       const types = Object.create(null);
-      for (const ns of this.namespaces) Object.assign(types, ns.types);
+      for (const namespace of this.namespaces) Object.assign(types, namespace.types);
       this.#types = types;
     }
     return this.#types;
@@ -111,8 +119,8 @@ class Schema extends SchemaMetadata {
   // first, so a schema with the name of one of their entities (a schema
   // derived from it keeps the name) still reaches that entity.
   findReference(name) {
-    for (const ns of this.namespaces) {
-      const entity = ns.entities.get(name);
+    for (const namespace of this.namespaces) {
+      const entity = namespace.entities.get(name);
       if (entity) return entity;
     }
     return name === this.name && name !== '' ? this : null;
@@ -122,13 +130,13 @@ class Schema extends SchemaMetadata {
   // latter through the entities an async validator may be in), so both are
   // rebuilt on the next use.
   attach(...namespaces) {
-    for (const ns of namespaces) this.namespaces.add(ns);
+    for (const namespace of namespaces) this.namespaces.add(namespace);
     this.#types = null;
     this[STANDARD] = null;
   }
 
   detach(...namespaces) {
-    for (const ns of namespaces) this.namespaces.delete(ns);
+    for (const namespace of namespaces) this.namespaces.delete(namespace);
     this.#types = null;
     this[STANDARD] = null;
   }
@@ -182,12 +190,6 @@ const STUBS = {
   validate(...args) {
     return late(this, 'validate', args);
   },
-};
-
-const late = (schema, name, args) => {
-  const method = Schema.prototype[name];
-  if (method === STUBS[name]) throw noValidation(name);
-  return method.apply(schema, args);
 };
 
 for (const name of Object.keys(STUBS)) {

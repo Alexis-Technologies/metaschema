@@ -14,9 +14,9 @@ const STRUCT = Symbol.for('alexify.metaschema.struct');
 // fields, where a calculated field lives, but a value has no key by that name.
 const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 
-const invalidAliases = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
-
 const ALIASES = 'Option "aliases" needs a list of key names';
+
+const invalidAliases = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
 
 // A key a value may carry: a field, a calculated field or an alias, each
 // once.
@@ -42,7 +42,7 @@ const aliasesOf = (field, known) => {
 // may be named `check`, `name` or `constructor`, and an input key such as
 // `__proto__` or `toString` must be reported as unexpected instead of silently
 // resolving to something on Object.prototype.
-const createStruct = (defs, prep) => {
+const createStruct = (defs, preprocessor) => {
   const fields = Object.create(null);
   const plan = [];
   const known = Object.create(null);
@@ -51,7 +51,7 @@ const createStruct = (defs, prep) => {
     const entry = defs[key];
     const { field, required } = formatters.key(key);
     try {
-      const { Type, defs: typeDefs } = prep.parse(entry);
+      const { Type, defs: typeDefs } = preprocessor.parse(entry);
       if (!Type) {
         fields[field] = entry;
         if (!CODEC_KEYS.has(field)) {
@@ -64,7 +64,7 @@ const createStruct = (defs, prep) => {
       // both decide whether the field is required, and the field's check is
       // compiled with the answer, so it is settled before the field is built.
       typeDefs.required = (typeDefs.required ?? true) && required;
-      const child = new Type(typeDefs, prep);
+      const child = new Type(typeDefs, preprocessor);
       fields[field] = child;
       know(known, field);
       plan.push({
@@ -75,7 +75,7 @@ const createStruct = (defs, prep) => {
         aliases: aliasesOf(child, known),
       });
     } catch (error) {
-      if (error instanceof SchemaDefinitionError) error.locate(prep.root.name, field);
+      if (error instanceof SchemaDefinitionError) error.locate(preprocessor.root.name, field);
       throw error;
     }
   }

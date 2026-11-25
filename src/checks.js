@@ -11,6 +11,26 @@ const { STRUCT, isStruct } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
+// A number of `n` decimals is a whole number times 10ⁿ, to within the error
+// the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
+// ULPS units in the last place of the scaled value. A few units is what a
+// sum or a product of decimals leaves; 256 is room for a chain of them, and
+// still tells a decimal too many apart below 2⁴³ units of the last decimal
+// (ten billion at two), where a bound of 1e-9 of the value would let
+// 12345678.123 pass as two decimals. Above it every double passes. NaN and
+// the infinities have no decimals to count.
+const ULPS = 256;
+const NEAR = ULPS * Number.EPSILON;
+
+// The check of a struct, compiled on its first use: kept apart from the
+// frozen plan, whose creation is the cost of building a struct.
+const CHECKS = new WeakMap();
+
+// The branch of a discriminated union by the value of its discriminator, as
+// a Map of value to branch index: built once per field, on first use, and
+// shared by the check, the passes of parse and the JIT.
+const TABLES = new WeakMap();
+
 // The rules of a field (`rules.js` reads and normalizes them when the field
 // is built): one closure per rule over the field's bounds, run after the type
 // check in the order the type lists them.
@@ -126,17 +146,6 @@ const compileFormat = (type) => {
   };
 };
 
-// A number of `n` decimals is a whole number times 10ⁿ, to within the error
-// the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
-// ULPS units in the last place of the scaled value. A few units is what a
-// sum or a product of decimals leaves; 256 is room for a chain of them, and
-// still tells a decimal too many apart below 2⁴³ units of the last decimal
-// (ten billion at two), where a bound of 1e-9 of the value would let
-// 12345678.123 pass as two decimals. Above it every double passes. NaN and
-// the infinities have no decimals to count.
-const ULPS = 256;
-const NEAR = ULPS * Number.EPSILON;
-
 // Whether a number has more decimals than `scale` (10ⁿ) allows: the one test
 // of both backends (the JIT calls it through the scope).
 const decimalsOff = (value, scale) => {
@@ -168,15 +177,15 @@ const ruleNames = (type) => {
   return names;
 };
 
-const COMPILERS = Object.assign(Object.create(null), {
+const COMPILERS = {
+  __proto__: null,
   length: compileLength,
   pattern: compilePattern,
   format: compileFormat,
   decimals: compileDecimals,
   range: compileRange,
-});
+};
 
-// The checks of the rules a field carries.
 const compileRules = (type) => {
   const names = ruleNames(type);
   const checks = [];
@@ -355,10 +364,6 @@ const compileStruct = (entries, known) => {
   };
 };
 
-// The check of a struct, compiled on its first use: kept apart from the
-// frozen plan, whose creation is the cost of building a struct.
-const CHECKS = new WeakMap();
-
 const checkOf = (fields) => {
   let check = CHECKS.get(fields);
   if (check === undefined) {
@@ -432,11 +437,6 @@ const runReferenced = (schema, value, context, key) => {
 // What a branch is called in the message of a value that matched none.
 const nameOf = (branch) => (branch.type === 'schema' ? 'object' : branch.type);
 
-// The branch of a discriminated union by the value of its discriminator, as
-// a Map of value to branch index: built once per field, on first use, and
-// shared by the check, the passes of parse and the JIT.
-const TABLES = new WeakMap();
-
 const tableOf = (field) => {
   let table = TABLES.get(field);
   if (table === undefined) {
@@ -490,7 +490,6 @@ const COMPILE = {
   string() {
     return scalarCheck(this.scalar, this.required);
   },
-  // A number without a fraction.
   integer() {
     const { required } = this;
     return (value, context, key) => {
@@ -743,17 +742,17 @@ COMPILE.unknown = COMPILE.any;
 COMPILE.set = COMPILE.array;
 
 module.exports = {
-  COMPILE,
-  custom,
-  compileField,
-  checkOf,
-  aliasOf,
-  ruleNames,
-  compileRules,
-  patternLimit,
-  decimalsOff,
   codePoints,
   lengthOf,
+  patternLimit,
+  decimalsOff,
+  ruleNames,
+  compileRules,
+  compileField,
+  custom,
+  aliasOf,
+  checkOf,
   nameOf,
   tableOf,
+  COMPILE,
 };

@@ -1,43 +1,7 @@
-// A broken definition is a programming error, so it throws instead of being
-// collected like a validation error. The throw sites (type parsing, custom type
-// registration, projections) rarely know which entity and field they are
-// parsing; the struct that owns the field does, and calls `locate` on the way
-// up, so the message ends with `in "Entity.field"`. An error of another kind
-// that caused it travels as the standard `cause` (`options` of the Error).
-class SchemaDefinitionError extends TypeError {
-  #reason;
-
-  constructor(code, reason, options) {
-    super(reason, options);
-    this.code = code;
-    this.schema = '';
-    this.field = '';
-    this.#reason = reason;
-  }
-
-  locate(schema, field) {
-    this.schema = schema;
-    this.field = this.field ? `${field}.${this.field}` : field;
-    const location = schema ? `${schema}.${this.field}` : this.field;
-    this.message = `${this.#reason} in "${location}"`;
-    return this;
-  }
-}
-
-SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
-
-// A call that is wrong, where a definition is not: a target or an option
-// it does not take, a method that needs what a `register()` installs, a
-// promise where the call is synchronous, an invalid record a stream was
-// not told to drop. A TypeError, as it was a plain one until 4.0.
-class SchemaUsageError extends TypeError {
-  constructor(code, message, options) {
-    super(message, options);
-    this.code = code;
-  }
-}
-
-SchemaUsageError.prototype.name = 'SchemaUsageError';
+// The mark the validation half leaves on the process when it is installed
+// (`validation.js`): a schema whose classes have no validation where the
+// mark is there is one of another copy of the package.
+const VALIDATION = Symbol.for('alexify.metaschema.validation');
 
 // A validator, a custom checkType or a decoder returned a promise to a
 // synchronous check or parse: a programming error of the call, not of the
@@ -61,11 +25,6 @@ const notRegistered = (what, where) =>
     'ALX_ERR_NOT_REGISTERED',
     `${what} needs register() of @alexify/metaschema/${where} first`,
   );
-
-// The mark the validation half leaves on the process when it is installed
-// (`validation.js`): a schema whose classes have no validation where the
-// mark is there is one of another copy of the package.
-const VALIDATION = Symbol.for('alexify.metaschema.validation');
 
 // A schema of `./definition` asked to validate before the core entry was
 // loaded: the half of the core that validates is not installed into its
@@ -95,13 +54,56 @@ const invalidOption = (name, expected, value) =>
     `${name} must be ${expected}, got ${shown(value)}`,
   );
 
+// A broken definition is a programming error, so it throws instead of being
+// collected like a validation error. The throw sites (type parsing, custom type
+// registration, projections) rarely know which entity and field they are
+// parsing; the struct that owns the field does, and calls `locate` on the way
+// up, so the message ends with `in "Entity.field"`. An error of another kind
+// that caused it travels as the standard `cause` (`options` of the Error).
+class SchemaDefinitionError extends TypeError {
+  #reason;
+
+  constructor(code, reason, options) {
+    super(reason, options);
+    this.code = code;
+    this.schema = '';
+    this.field = '';
+    this.#reason = reason;
+  }
+
+  // A `field` of '' locates an error of the schema as a whole at the schema.
+  locate(schema, field) {
+    this.schema = schema;
+    if (field !== '') this.field = this.field ? `${field}.${this.field}` : field;
+    let location = this.field;
+    if (schema !== '') location = this.field === '' ? schema : `${schema}.${this.field}`;
+    this.message = `${this.#reason} in "${location}"`;
+    return this;
+  }
+}
+
+SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
+
+// A call that is wrong, where a definition is not: a target or an option
+// it does not take, a method that needs what a `register()` installs, a
+// promise where the call is synchronous, an invalid record a stream was
+// not told to drop. A TypeError, as it was a plain one until 4.0.
+class SchemaUsageError extends TypeError {
+  constructor(code, message, options) {
+    super(message, options);
+    this.code = code;
+  }
+}
+
+SchemaUsageError.prototype.name = 'SchemaUsageError';
+
 module.exports = {
   SchemaDefinitionError,
   SchemaUsageError,
+  VALIDATION,
   asyncReturn,
   invalidTarget,
   notRegistered,
   noValidation,
-  VALIDATION,
   invalidOption,
 };

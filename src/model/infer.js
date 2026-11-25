@@ -15,12 +15,7 @@ const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
-const { DEPTH, kindKeyOf } = require('./data.js');
-
-const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
-
-// An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const { MAX_DEPTH, kindKeyOf } = require('./data.js');
 
 // The kinds a place may hold, a bit each: a place that held values of
 // several kinds is a union of them, and null and undefined decide presence.
@@ -45,16 +40,25 @@ const BYTES = 16384;
 const PRESENCE = NULL | UNDEF;
 
 // The bit of the type of a key of a Map.
-const KEY_BITS = new Map([
-  ['string', STRING],
-  ['number', FLOAT],
-]);
+const KEY_BITS = { string: STRING, number: FLOAT };
 
 // How a key is written: a field, its presence (absent, undefined or null
 // among its values) written as the language writes it.
 const REQUIRED = 0;
 const OPTIONAL = 1;
 const NULLABLE = 2;
+
+// A place in the samples, for the errors: the keys of records, `[]` for
+// the elements of a list or the entries of a Map.
+const ITEM = Symbol('item');
+
+// A key a program would write as a field: a letter, a digit after it.
+const NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
+
+const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
 // The summary of one place: one shape for every node. `strings` is the
 // distinct strings while there are few enough for an enum (undefined before
@@ -74,10 +78,6 @@ const node = () => ({
   strings: undefined,
   formats: undefined,
 });
-
-// A place in the samples, for the errors: the keys of records, `[]` for
-// the elements of a list or the entries of a Map.
-const ITEM = Symbol('item');
 
 const where = (state) => {
   let text = '';
@@ -204,7 +204,7 @@ const add = (target, value, state, depth) => {
     state.path.push(ITEM);
     for (const pair of value) {
       const key = typeof pair[0];
-      target.names.bits |= KEY_BITS.get(key) ?? ANY;
+      target.names.bits |= KEY_BITS[key] ?? ANY;
       add(target.entries, pair[1], state, depth + 1);
     }
     return void state.path.pop();
@@ -250,9 +250,6 @@ const fuse = (into, from, cap) => {
   }
   return into;
 };
-
-// A key a program would write as a field: a letter, a digit after it.
-const NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 
 // Whether the records of a place are a dictionary rather than a struct: no
 // key is a name (ids, dates, codes as keys, from one sample on), or there
@@ -424,7 +421,7 @@ const optionsOf = (options) => {
     enum: cap = 8,
     integer = true,
     map = 16,
-    maxDepth = DEPTH,
+    maxDepth = MAX_DEPTH,
     formats = true,
   } = options;
   if (as !== 'definition' && as !== 'schema') throw option('as', '"definition" or "schema"');
@@ -437,8 +434,8 @@ const optionsOf = (options) => {
   if (map !== false && (!Number.isInteger(map) || map < 1)) {
     throw option('map', 'an integer of at least 1, or false');
   }
-  if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > DEPTH) {
-    throw option('maxDepth', `an integer from 1 to ${DEPTH}`);
+  if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > MAX_DEPTH) {
+    throw option('maxDepth', `an integer from 1 to ${MAX_DEPTH}`);
   }
   if (typeof formats !== 'boolean') throw option('formats', 'a boolean');
   const state = { as, name, kind, enum: cap === false ? 0 : cap, integer, map, maxDepth };
@@ -455,12 +452,10 @@ const optionsOf = (options) => {
 // The samples as a list, read twice (the summary, then the self-check). A
 // string is iterable, over its characters, and surely a mistake.
 const listOf = (samples) => {
-  const iterable =
-    samples !== null &&
-    samples !== undefined &&
-    typeof samples !== 'string' &&
-    typeof samples[Symbol.iterator] === 'function';
-  if (!iterable) throw invalidTarget('An iterable of samples is expected');
+  const ruledOut = samples === undefined || samples === null || typeof samples === 'string';
+  if (ruledOut || typeof samples[Symbol.iterator] !== 'function') {
+    throw invalidTarget('An iterable of samples is expected');
+  }
   const list = Array.isArray(samples) ? samples : Array.from(samples);
   if (list.length === 0) throw invalidTarget('At least one sample is expected');
   return list;

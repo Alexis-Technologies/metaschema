@@ -15,6 +15,15 @@ const EMPTY = Object.freeze({});
 // never allocates a list.
 const NONE = Object.freeze([]);
 
+// A key of the value that is not an identifier is bracketed and quoted, so
+// `a.b` as one key and `a` then `b` render differently. Keys taken from the
+// value may be huge; a message must not be.
+const IDENTIFIER = /^[\w$]+$/;
+
+// A message that already names its field (`Field "User.name" is not hex`, the
+// upstream convention for custom types) is kept as it is.
+const PREFIXED = 'Field';
+
 const push = (context, issue) => {
   if (context.issues === NONE) context.issues = [];
   context.issues.push(issue);
@@ -50,13 +59,10 @@ const issues = {
   pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
   format: (context, format, key) => record(context, 'format', { format }, key),
   // NaN and the infinities have no decimals: the value is named then.
-  decimals: (context, decimals, value, key) =>
-    record(
-      context,
-      'decimals',
-      Number.isFinite(value) ? { decimals } : { decimals, received: `${value}` },
-      key,
-    ),
+  decimals: (context, decimals, value, key) => {
+    const params = Number.isFinite(value) ? { decimals } : { decimals, received: `${value}` };
+    return record(context, 'decimals', params, key);
+  },
   union: (context, expected, discriminator, key) =>
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
@@ -64,11 +70,6 @@ const issues = {
   depth: (context, max, key) => record(context, 'depth', { max }, key),
   exception: (context, error, key) => record(context, 'exception', { error }, key),
 };
-
-// A key of the value that is not an identifier is bracketed and quoted, so
-// `a.b` as one key and `a` then `b` render differently. Keys taken from the
-// value may be huge; a message must not be.
-const IDENTIFIER = /^[\w$]+$/;
 
 const toDotPath = (path, root = '') => {
   let text = root;
@@ -145,10 +146,6 @@ const finalize = (list, messages) => {
     if (issue.message === '') issue.message = render(messages, issue);
   }
 };
-
-// A message that already names its field (`Field "User.name" is not hex`, the
-// upstream convention for custom types) is kept as it is.
-const PREFIXED = 'Field';
 
 const describe = (messages, root, issue) => {
   const { message } = issue;
@@ -293,11 +290,11 @@ const runCheckType = (type, value, context) =>
   guarded(context, 'type', type, type.checkType, value);
 
 module.exports = {
+  typeOf,
   EMPTY,
   NONE,
-  issues,
-  typeOf,
   pathOf,
+  issues,
   toDotPath,
   absorb,
   finalize,
@@ -306,7 +303,7 @@ module.exports = {
   observe,
   abandon,
   release,
+  settle,
   runValidate,
   runCheckType,
-  settle,
 };

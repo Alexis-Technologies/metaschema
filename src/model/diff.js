@@ -14,12 +14,26 @@ const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const {
   invalidSnapshot,
   unreadable,
-  atSchema,
   isObject,
   readSnapshot,
   same,
   isFunctionMarker,
 } = require('./data.js');
+
+const META = ['kind', 'scope', 'store', 'allow', 'parent', 'unknown', 'custom'];
+
+// The keys of an entity whose change leaves no reader compatible.
+const INCOMPATIBLE = new Set(['kind', 'store', 'parent', 'type']);
+
+// The classes as bits, so that the class of several changes is the AND of
+// theirs: backward and forward make full, either with its opposite makes
+// none.
+const NONE = 0;
+const BACKWARD = 1;
+const FORWARD = 2;
+const FULL = 3;
+
+const NAMES = ['none', 'backward', 'forward', 'full'];
 
 const change = (kind, op, entity, name, from, to, detail) => {
   const entry = { kind, op, entity, name };
@@ -139,8 +153,6 @@ const diffRelations = (entity, old, current, changes) => {
   }
 };
 
-const META = ['kind', 'scope', 'store', 'allow', 'parent', 'unknown', 'custom'];
-
 // The metadata of an entity; a schema of one type is its type, so a struct
 // that became one (or back) differs in `type`.
 const metaOf = (entity) => {
@@ -160,7 +172,7 @@ const isRelations = (list) => {
 // object: a definition or a function marker) or a `type`, and the relations
 // as a list of objects, when there.
 const checkEntity = (entity, name) => {
-  const fail = (reason) => atSchema(invalidSnapshot(reason), name);
+  const fail = (reason) => invalidSnapshot(reason).locate(name, '');
   if (!isObject(entity)) throw fail('An entity of a snapshot must be an object');
   const { fields, type, relations = [] } = entity;
   if (!isObject(fields === undefined ? type : fields) || !isRelations(relations)) {
@@ -207,16 +219,6 @@ const diff = (prev, next) => {
   diffKeyed('type', '', old.types || {}, current.types || {}, changes);
   return changes;
 };
-
-// The classes as bits, so that the class of several changes is the AND of
-// theirs: backward and forward make full, either with its opposite makes
-// none.
-const NONE = 0;
-const BACKWARD = 1;
-const FORWARD = 2;
-const FULL = 3;
-
-const NAMES = ['none', 'backward', 'forward', 'full'];
 
 // A field a reader may do without: an optional one, or one with a default
 // the reader fills in.
@@ -388,7 +390,7 @@ const entityLevel = (entry) => {
   if (op === 'removed') return BACKWARD;
   let level = FULL;
   for (const key of detail.keys) {
-    if (key === 'kind' || key === 'store' || key === 'parent' || key === 'type') level &= NONE;
+    if (INCOMPATIBLE.has(key)) level &= NONE;
     else if (key === 'unknown') level &= to.unknown === 'ignore' ? BACKWARD : FORWARD;
   }
   return level;
@@ -413,11 +415,10 @@ const levelOf = (entry) => {
 
 // What a change carries, as `diff` writes it: a kind and an op, and the
 // keys that differ for `changed`.
-const isChange = (entry) =>
-  isObject(entry) &&
-  typeof entry.kind === 'string' &&
-  typeof entry.op === 'string' &&
-  (entry.op !== 'changed' || Array.isArray(entry.detail?.keys));
+const isChange = (entry) => {
+  const named = isObject(entry) && typeof entry.kind === 'string' && typeof entry.op === 'string';
+  return named && (entry.op !== 'changed' || Array.isArray(entry.detail?.keys));
+};
 
 // The class of a change as bits. Whatever fails while its definitions are
 // read (a bigint that does not read, a nesting the stack cannot take) is an
@@ -443,4 +444,4 @@ const compatibility = (changes) => {
   return NAMES[level];
 };
 
-module.exports = { diff, compatibility, compatibilityOf };
+module.exports = { diff, compatibilityOf, compatibility };

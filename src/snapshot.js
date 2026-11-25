@@ -287,4 +287,4 @@ const schemaSnapshotOf = (schema) => {
   };
 };
 
-module.exports = { FORMAT, snapshotOf, schemaSnapshotOf, usesOf, orderOf };
+module.exports = { FORMAT, usesOf, snapshotOf, orderOf, schemaSnapshotOf };

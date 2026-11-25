@@ -16,15 +16,15 @@ const RESERVED = new Set([
   'root',
 ]);
 
+// The options of a field that are flags: `nullable` (null in place of a
+// value) and `coerce` (whether parse converts the input of its subtree).
+const FLAGS = ['nullable', 'coerce'];
+
 const reservedKey = (key) =>
   new SchemaDefinitionError(
     'ALX_ERR_RESERVED_KEY',
     `Key "${key}" is reserved in a field definition`,
   );
-
-// The options of a field that are flags: `nullable` (null in place of a
-// value) and `coerce` (whether parse converts the input of its subtree).
-const FLAGS = ['nullable', 'coerce'];
 
 const invalidFlag = (key) =>
   new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', `Option "${key}" needs a boolean`);
@@ -108,4 +108,4 @@ class AbstractType {
 
 AbstractType.prototype[BRAND] = 'Type';
 
-module.exports = { AbstractType, BUILD };
+module.exports = { BUILD, AbstractType };

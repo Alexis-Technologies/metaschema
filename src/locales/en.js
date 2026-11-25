@@ -3,6 +3,11 @@
 // message. `field` renders the location prefix of an error line.
 const { shorten, safeString } = require('../util.js');
 
+// The first keys of the list and how many more there are: a value with a
+// million keys the schema does not have is one issue, and its message is
+// not the million keys.
+const SHOWN_KEYS = 10;
+
 const field = (path) => `Field "${path}"`;
 
 const required = () => 'is required';
@@ -10,16 +15,11 @@ const required = () => 'is required';
 const type = ({ expected, key }) =>
   key === undefined ? `not of expected type: ${expected}` : `keys must be of type ${expected}`;
 
-// The first keys of the list and how many more there are: a value with a
-// million keys the schema does not have is one issue, and its message is
-// not the million keys.
-const SHOWN = 10;
-
 const list = (keys) => {
-  const count = Math.min(keys.length, SHOWN);
+  const count = Math.min(keys.length, SHOWN_KEYS);
   let text = shorten(keys[0]);
   for (let index = 1; index < count; index += 1) text += `, ${shorten(keys[index])}`;
-  return keys.length > SHOWN ? `${text} and ${keys.length - SHOWN} more` : text;
+  return keys.length > SHOWN_KEYS ? `${text} and ${keys.length - SHOWN_KEYS} more` : text;
 };
 
 const unexpected = ({ keys }) => `has unexpected keys: ${list(keys)}`;

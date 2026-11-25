@@ -19,7 +19,8 @@ const { baseTypeOf } = require('../types.js');
 // annotations pass through and whether the strict profile applies. The
 // tables of this file are null-prototype dictionaries: a type or a target is
 // looked up by a name that may be `constructor`.
-const TARGETS = Object.assign(Object.create(null), {
+const TARGETS = {
+  __proto__: null,
   'draft-2020-12': {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     definitions: '#/$defs/',
@@ -51,25 +52,23 @@ const TARGETS = Object.assign(Object.create(null), {
     tuple: 'items',
     annotations: ['title', 'description'],
   },
-});
+};
 
 const TARGET_NAMES = Object.keys(TARGETS);
 
 // BSON type names where they differ from the JSON Schema ones.
-const BSON = Object.assign(Object.create(null), {
-  boolean: 'bool',
-  integer: ['int', 'long'],
-  bigint: 'long',
-});
-
-// The name of an entity inside a JSON pointer (RFC 6901) in a URI fragment.
-const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
+const BSON = { __proto__: null, boolean: 'bool', integer: ['int', 'long'], bigint: 'long' };
 
 // The keys of a JSON object are strings, so a number key is a pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
 
 // The key every stored MongoDB document has.
 const ID = '_id';
+
+const STANDARD_TARGETS = new Set(['draft-2020-12', 'draft-07', 'openapi-3.0']);
+
+// The name of an entity inside a JSON pointer (RFC 6901) in a URI fragment.
+const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
 
 // An option of the call that is not what it must be: the call is wrong.
 const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
@@ -352,7 +351,8 @@ const definition = (schema, name, context) => {
   return { $ref: context.prefix + escapePointer(name) };
 };
 
-const RENDER = Object.assign(Object.create(null), {
+const RENDER = {
+  __proto__: null,
   string: (field, context) => {
     const json = typed('string', context);
     if (context.strict) return json;
@@ -426,7 +426,7 @@ const RENDER = Object.assign(Object.create(null), {
   reference,
   one: reference,
   many: reference,
-});
+};
 
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in.
@@ -582,8 +582,6 @@ const modelToJSONSchema = (model, options = {}) => {
   context.defs = documents;
   return place({}, context);
 };
-
-const STANDARD_TARGETS = new Set(['draft-2020-12', 'draft-07', 'openapi-3.0']);
 
 // The converter of Standard JSON Schema: `input` and `output` take the
 // target (one of the three JSON ones) and the other options as

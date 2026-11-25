@@ -29,17 +29,17 @@ const schema = {
   kind: 'struct',
   options: ['schema'],
 
-  construct(defs, prep) {
+  construct(defs, preprocessor) {
     const { schema: definition, required } = defs;
     if (!isDefinition(definition)) throw missingSchema(this.type);
     this.required = required ?? true;
     if (hasBrand(definition, 'Schema')) {
-      prep.root.updateFromSchema(definition);
+      preprocessor.root.updateFromSchema(definition);
       this.schema = definition.fields;
       return void adopt(this, definition.options);
     }
     if (isStruct(definition)) this.schema = definition;
-    else this.schema = createStruct(definition, prep);
+    else this.schema = createStruct(definition, preprocessor);
     adopt(this, definition);
   },
 };

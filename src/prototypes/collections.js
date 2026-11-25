@@ -16,7 +16,7 @@ const object = {
   options: ['key', 'value', 'length'],
   kind: 'struct',
 
-  construct(def, prep) {
+  construct(def, preprocessor) {
     const { type } = this;
     const { [type]: short, key, value } = def;
     let keyType = key;
@@ -32,8 +32,8 @@ const object = {
     }
     if (keyType !== 'string' && keyType !== 'number') throw invalidKey(type);
     this.key = keyType;
-    const { Type, defs } = prep.parse(valueDef);
-    this.value = new Type(defs, prep);
+    const { Type, defs } = preprocessor.parse(valueDef);
+    this.value = new Type(defs, preprocessor);
   },
 
   isInstance(value) {
@@ -54,11 +54,11 @@ const array = {
   rules: ['length'],
   options: ['value', 'length'],
 
-  construct(def, prep) {
+  construct(def, preprocessor) {
     const { type } = this;
     const source = def[type] || def.value;
-    const { Type, defs } = prep.parse(source);
-    this.value = new Type(defs, prep);
+    const { Type, defs } = preprocessor.parse(source);
+    this.value = new Type(defs, preprocessor);
   },
 
   isInstance(value) {

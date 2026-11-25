@@ -6,23 +6,9 @@ const { hasBrand, formatters, KINDS } = require('./util.js');
 const { firstKey } = require('./metautil.js');
 const { embeds } = require('./prototypes/reference.js');
 
-const warning = (code, text) => `Warning [${code}]: ${text}`;
-
 // The types no converter of coercion exists for: a value of them is taken
 // as it is.
 const NEVER_CONVERTED = new Set(['any', 'unknown', 'json', 'null', 'flags']);
-
-// A `coerce` key where no conversion can happen: a reference checked as an
-// id (the record it names is never entered), a type that takes any value.
-const deadCoerce = (field) => {
-  const name = field.one || field.many;
-  if (name !== undefined) {
-    const target = field.root.findReference(name);
-    if (target !== null && embeds(target, field.embed, 'kind')) return '';
-    return 'a reference checked as an id';
-  }
-  return NEVER_CONVERTED.has(field.type) ? `a value of type "${field.type}"` : '';
-};
 
 // A field lints by its definition keys: the keys every type knows, the
 // annotations that any field may carry for code that reads the schema, and
@@ -47,6 +33,20 @@ const KNOWN = new Set([
   'deprecated',
   'aliases',
 ]);
+
+const warning = (code, text) => `Warning [${code}]: ${text}`;
+
+// A `coerce` key where no conversion can happen: a reference checked as an
+// id (the record it names is never entered), a type that takes any value.
+const deadCoerce = (field) => {
+  const name = field.one || field.many;
+  if (name !== undefined) {
+    const target = field.root.findReference(name);
+    if (target !== null && embeds(target, field.embed, 'kind')) return '';
+    return 'a reference checked as an id';
+  }
+  return NEVER_CONVERTED.has(field.type) ? `a value of type "${field.type}"` : '';
+};
 
 const isCustom = (Type) => Type.source !== undefined && Type.source.js === undefined;
 

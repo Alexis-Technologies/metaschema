@@ -14,6 +14,16 @@ const { register: coercion } = require('../coerce/index.js');
 const TAG = '_bsontype';
 const ID = '_id';
 
+const HEX = /^[0-9a-fA-F]{24}$/;
+
+// A decimal written as one (`fromString` of the driver reads `NaN`, `inf`
+// and an exponent too), or a finite number.
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+// Text of the base64 shape only: the decoder of the driver reads anything,
+// and the empty string is never converted.
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
 const tagOf = (value) => (value !== null && typeof value === 'object' ? value[TAG] : undefined);
 
 const isObjectId = (value) => {
@@ -49,8 +59,6 @@ const typeOf = (test, bson, jsonSchema) =>
     metadata: Object.freeze({ bson, jsonSchema }),
   });
 
-const HEX = /^[0-9a-fA-F]{24}$/;
-
 // The types to give a model: `new Model({ ...types, ...own }, entities)`.
 // They are not registered by register(): a type name is a shorthand key of
 // a definition, so a program says where it uses them.
@@ -75,10 +83,6 @@ const driverOf = () => {
 const toObjectId = (value) =>
   typeof value === 'string' && HEX.test(value) ? new driver.ObjectId(value) : value;
 
-// A decimal written as one (`fromString` of the driver reads `NaN`, `inf`
-// and an exponent too), or a finite number.
-const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
-
 const toDecimal128 = (value) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? driver.Decimal128.fromString(`${value}`) : value;
@@ -87,10 +91,6 @@ const toDecimal128 = (value) => {
     ? driver.Decimal128.fromString(value)
     : value;
 };
-
-// Text of the base64 shape only: the decoder of the driver reads anything,
-// and the empty string is never converted.
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const toBinary = (value) =>
   typeof value === 'string' && value.length % 4 === 0 && BASE64.test(value)
@@ -127,4 +127,4 @@ const idOf = (schema) => {
   return id === null || ID in schema.fields ? null : id;
 };
 
-module.exports = { ID, HEX, types, register, driverOf, idOf, isObjectId, binaryBytes };
+module.exports = { ID, HEX, isObjectId, binaryBytes, types, driverOf, register, idOf };

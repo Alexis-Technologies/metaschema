@@ -11,33 +11,24 @@ const { isKindKey } = require('../kinds.js');
 
 // How deep the walks over a snapshot go: a definition nested deeper is not
 // one a program wrote.
-const DEPTH = 128;
+const MAX_DEPTH = 128;
 
 const invalidSnapshot = (reason, options) =>
   new SchemaDefinitionError('ALX_ERR_INVALID_SNAPSHOT', reason, options);
 
-const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${DEPTH} levels`);
+const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${MAX_DEPTH} levels`);
 
 // An error of another kind met while a snapshot is read (a bigint or a
 // pattern that does not read throws its own): an error of the snapshot,
 // with that error as its cause.
 const unreadable = (error) => invalidSnapshot(error.message, { cause: error });
 
-// An error of a schema as a whole, which has no field to be located at: the
-// schema is the location, written as `locate` writes one.
-const atSchema = (error, name) => {
-  error.schema = name;
-  error.message = `${error.message} in "${name}"`;
-  return error;
-};
-
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const isSnapshot = (value) =>
-  isObject(value) &&
-  value.format === FORMAT &&
-  isObject(value.entities) &&
-  (value.types === undefined || isObject(value.types));
+const isSnapshot = (value) => {
+  if (!isObject(value) || value.format !== FORMAT || !isObject(value.entities)) return false;
+  return value.types === undefined || isObject(value.types);
+};
 
 // The entity a snapshot of one schema is about, when it names one: a key
 // format 1 gained in 3.4, read by nothing else.
@@ -67,7 +58,7 @@ const readSnapshot = (target) => {
 const same = (a, b, depth = 0) => {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  if (depth > DEPTH) throw tooDeep();
+  if (depth > MAX_DEPTH) throw tooDeep();
   // By their shape, which a value of JSON cannot fake: `{ constructor: {
   // name: 'Date' } }` of a snapshot is data.
   const regExp = isRegExp(a);
@@ -182,11 +173,10 @@ const namespacesOf = (schemas) => {
 };
 
 module.exports = {
-  DEPTH,
+  MAX_DEPTH,
   invalidSnapshot,
   tooDeep,
   unreadable,
-  atSchema,
   isObject,
   isSnapshot,
   checkRoot,

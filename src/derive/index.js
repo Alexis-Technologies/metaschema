@@ -15,13 +15,16 @@ const {
   structDefinitionOf,
   metadataOf,
   structDefinition,
-  atSchema,
   namespacesOf,
 } = require('../model/data.js');
 
 // The functions of a nested struct that are its own: written for the whole
 // struct, they do not hold for a part of it.
 const CODECS = ['validate', 'parse', 'serialize'];
+
+// The id field a stored kind adds, which goes with the kind unless a call
+// names it.
+const idOf = idFieldOf;
 
 const sourceOf = (schema) => {
   if (!hasBrand(schema, 'Schema') || !isStruct(schema.fields)) {
@@ -45,10 +48,6 @@ const optionsOf = (options = {}) => {
   }
   return options;
 };
-
-// The id field a stored kind adds, which goes with the kind unless a call
-// names it.
-const idOf = idFieldOf;
 
 const isStored = (schema) => idFieldOf(schema) !== null;
 
@@ -132,7 +131,6 @@ const select = (schema, keys, options, keep) => {
 // The fields named, in the order of the schema.
 const pick = (schema, keys, options) => select(schema, keys, options, true);
 
-// Every field but the ones named.
 const omit = (schema, keys, options) => select(schema, keys, options, false);
 
 const isNestedStruct = (def) => def.type === 'schema' && typeof def.schema.type !== 'string';
@@ -195,7 +193,7 @@ const extend = (schema, extension, options) => {
     const first = firstKey(extension);
     if (isKindKey(first, extension[first])) {
       const reason = 'An extension has fields only; the kind is options.metadata';
-      throw atSchema(new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason), schema.name);
+      throw new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason).locate(schema.name, '');
     }
   }
   const keys = new Map();
@@ -224,7 +222,7 @@ const keyof = (schema, options) => {
   const { name = schema.name, metadata } = optionsOf(options);
   if (metadata !== undefined) {
     const reason = 'keyof takes a name only: a schema of an enum has no kind';
-    throw atSchema(new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason), schema.name);
+    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason).locate(schema.name, '');
   }
   const id = idOf(schema);
   const names = [];

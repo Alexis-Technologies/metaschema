@@ -15,7 +15,6 @@ const {
   structDefinitionOf,
   metadataOf,
   structDefinition,
-  atSchema,
   namespacesOf,
 } = require('./data.js');
 
@@ -266,7 +265,7 @@ const merge = (a, b, options = {}) => {
       const { field } = error;
       error.field = '';
       if (field) error.locate(name, field);
-      else atSchema(error, name);
+      else error.locate(name, '');
     }
     throw error;
   }

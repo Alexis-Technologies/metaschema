@@ -21,6 +21,7 @@ const { NESTED, LIST, KEYED, TUPLE, REFERENCE } = SHAPES;
 
 // A place an update is not checked at: a union, any, json.
 const LOOSE = Symbol('loose');
+const LOOSE_TYPES = new Set(['union', 'any', 'unknown', 'json']);
 // An element of a list of ids: a string.
 const ID = Symbol('id');
 // A part a node does not have (an element of a string, a field of an id):
@@ -35,9 +36,12 @@ const INDEX = /^\d+$/;
 
 // The operators of the values a path is set to, of the lists it adds to or
 // takes from, and every operator of an update the subpath reads.
-const VALUES = new Set(['$set', '$setOnInsert', '$min', '$max']);
-const LISTS = new Set(['$push', '$addToSet', '$pull', '$pullAll']);
-const OPERATORS = new Set(['$unset', '$inc', '$mul', '$currentDate', '$pop', ...VALUES, ...LISTS]);
+const VALUE_NAMES = ['$set', '$setOnInsert', '$min', '$max'];
+const LIST_NAMES = ['$push', '$addToSet', '$pull', '$pullAll'];
+const OTHER_NAMES = ['$unset', '$inc', '$mul', '$currentDate', '$pop'];
+const VALUES = new Set(VALUE_NAMES);
+const LISTS = new Set(LIST_NAMES);
+const OPERATORS = new Set(OTHER_NAMES.concat(VALUE_NAMES, LIST_NAMES));
 
 // The type a field is of, through the aliases of custom types.
 const baseOf = (field) => baseTypeOf(field).type;
@@ -70,8 +74,7 @@ const step = (node, segment, references) => {
     if (!ELEMENT.test(segment)) return NONE;
     return target === null ? ID : target;
   }
-  const base = baseOf(node);
-  return base === 'union' || base === 'any' || base === 'unknown' || base === 'json' ? LOOSE : NONE;
+  return LOOSE_TYPES.has(baseOf(node)) ? LOOSE : NONE;
 };
 
 // The node a path names, or null, NONE, LOOSE or DEEP: the records a path

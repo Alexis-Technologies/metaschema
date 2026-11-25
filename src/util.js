@@ -7,26 +7,6 @@ const BRAND = Symbol.for('alexify.metaschema.brand');
 // browser build free of any Node import.
 const INSPECT = Symbol.for('nodejs.util.inspect.custom');
 
-const hasBrand = (value, name) => value?.[BRAND] === name;
-
-// A built-in is recognised by the name of its constructor, which nothing
-// renames, and by its shape, which a value parsed from JSON cannot fake: an
-// own key called `constructor` holding `{ name: 'Map' }` is data, and
-// iterating such a value, or calling `getTime` on it, would throw out of a
-// check. The name is tested first, since most values fail it at once.
-const iterableNamed = (name) => (value) =>
-  value?.constructor?.name === name && typeof value[Symbol.iterator] === 'function';
-
-const isMap = iterableNamed('Map');
-
-const isSet = iterableNamed('Set');
-
-const isDate = (value) =>
-  value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
-
-const isRegExp = (value) =>
-  value?.constructor?.name === 'RegExp' && typeof value.exec === 'function';
-
 // The bytes of a Uint8Array of any realm, a Buffer included, by the name the
 // engine keeps in the view itself: the tag getter of the typed arrays reads
 // that slot and gives undefined for anything else, which a key or a symbol
@@ -36,30 +16,9 @@ const TYPED_TAG = Object.getOwnPropertyDescriptor(
   Symbol.toStringTag,
 ).get;
 
-const isBytes = (value) => TYPED_TAG.call(value) === 'Uint8Array';
-
-// The type of a value as a message names it: an array and null by name.
-const typeOf = (value) => {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-};
-
 // A JavaScript identifier: what generated code may write as `object.key` and
 // a TypeScript declaration as a bare name.
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
-
-// Defines an own data property, so a key such as `__proto__` taken from a
-// path or a definition lands on the object instead of changing its prototype.
-const define = (target, key, value) => {
-  Object.defineProperty(target, key, {
-    value,
-    enumerable: true,
-    writable: true,
-    configurable: true,
-  });
-  return value;
-};
 
 // The method that validates a value inside an existing context, shared by
 // Schema and the reference type that checks its target through it. A global
@@ -96,21 +55,7 @@ const ENUM_SET_SIZE = 8;
 
 // Key names taken from the value under check go into messages; a huge key
 // must not become a huge message.
-const KEY_LIMIT = 100;
-
-// `String`, not a template literal: a key may be a symbol.
-const shorten = (key) => {
-  const name = String(key);
-  return name.length > KEY_LIMIT ? `${name.slice(0, KEY_LIMIT)}...` : name;
-};
-
-// The text of a value that may have none (a symbol, an object without a
-// prototype), for a message: what a validator threw or returned is anything.
-const safeString = (value) => {
-  if (typeof value === 'symbol') return value.toString();
-  const bare = value !== null && typeof value === 'object' && typeof value.toString !== 'function';
-  return bare ? Object.prototype.toString.call(value) : `${value}`;
-};
+const KEY_MAX_CHARS = 100;
 
 const formatters = {
   type: (type, req = true) => {
@@ -128,18 +73,65 @@ const formatters = {
   },
 };
 
+const hasBrand = (value, name) => value?.[BRAND] === name;
+
+// A built-in is recognised by the name of its constructor, which nothing
+// renames, and by its shape, which a value parsed from JSON cannot fake: an
+// own key called `constructor` holding `{ name: 'Map' }` is data, and
+// iterating such a value, or calling `getTime` on it, would throw out of a
+// check. The name is tested first, since most values fail it at once.
+const iterableNamed = (name) => (value) =>
+  value?.constructor?.name === name && typeof value[Symbol.iterator] === 'function';
+
+const isMap = iterableNamed('Map');
+
+const isSet = iterableNamed('Set');
+
+const isDate = (value) =>
+  value?.constructor?.name === 'Date' && typeof value.getTime === 'function';
+
+const isRegExp = (value) =>
+  value?.constructor?.name === 'RegExp' && typeof value.exec === 'function';
+
+const isBytes = (value) => TYPED_TAG.call(value) === 'Uint8Array';
+
+// The type of a value as a message names it: an array and null by name.
+const typeOf = (value) => {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+};
+
+// Defines an own data property, so a key such as `__proto__` taken from a
+// path or a definition lands on the object instead of changing its prototype.
+const define = (target, key, value) => {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  return value;
+};
+
+// `String`, not a template literal: a key may be a symbol.
+const shorten = (key) => {
+  const name = String(key);
+  return name.length > KEY_MAX_CHARS ? `${name.slice(0, KEY_MAX_CHARS)}...` : name;
+};
+
+// The text of a value that may have none (a symbol, an object without a
+// prototype), for a message: what a validator threw or returned is anything.
+const safeString = (value) => {
+  if (typeof value === 'symbol') return value.toString();
+  const bare = value !== null && typeof value === 'object' && typeof value.toString !== 'function';
+  return bare ? Object.prototype.toString.call(value) : `${value}`;
+};
+
 module.exports = {
   BRAND,
   INSPECT,
-  hasBrand,
-  isMap,
-  isSet,
-  isDate,
-  isRegExp,
-  isBytes,
-  typeOf,
   IDENTIFIER,
-  define,
   RUN,
   HOOK,
   TRACKED,
@@ -149,7 +141,15 @@ module.exports = {
   KINDS,
   CYCLES,
   ENUM_SET_SIZE,
+  formatters,
+  hasBrand,
+  isMap,
+  isSet,
+  isDate,
+  isRegExp,
+  isBytes,
+  typeOf,
+  define,
   shorten,
   safeString,
-  formatters,
 };

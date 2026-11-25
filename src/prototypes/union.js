@@ -21,16 +21,16 @@ const union = {
   kind: 'struct',
   options: ['union', 'discriminator'],
 
-  construct(def, prep) {
+  construct(def, preprocessor) {
     const branches = def.union;
     if (!Array.isArray(branches) || branches.length === 0) {
       throw invalidUnion('needs a list of branches: { union: [...] }');
     }
     const built = [];
     for (let index = 0; index < branches.length; index += 1) {
-      const { Type, defs } = prep.parse(branches[index]);
+      const { Type, defs } = preprocessor.parse(branches[index]);
       if (!Type) throw invalidUnion(`branch ${index} cannot be a function`);
-      built.push(new Type(defs, prep));
+      built.push(new Type(defs, preprocessor));
     }
     this.union = built;
     const { discriminator } = this;

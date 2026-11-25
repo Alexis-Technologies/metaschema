@@ -103,15 +103,15 @@ const updateTypeMetadata = (Type, metadata) => {
 
 // A custom prototype brings `construct` and `checkType` (or a `compile` of
 // its own); an alias takes its base's, a registered type.
-const checkCustomType = (name, proto) => {
-  const { construct } = proto;
-  const checkType = proto.checkType || proto.compile;
+const checkCustomType = (name, prototype) => {
+  const { construct } = prototype;
+  const checkType = prototype.checkType || prototype.compile;
   if (!checkType || !construct) {
     throw customTypeError(name, 'must contain "construct" and "checkType" methods');
   }
-  const checkIsFn = typeof checkType === 'function';
-  const constructIsFn = typeof construct === 'function';
-  if (!checkIsFn || !constructIsFn) {
+  const hasCheckType = typeof checkType === 'function';
+  const hasConstruct = typeof construct === 'function';
+  if (!hasCheckType || !hasConstruct) {
     throw customTypeError(name, 'methods "construct" and "checkType" must be functions');
   }
 };
@@ -145,16 +145,16 @@ const typeFactory = (customTypes, registry = TYPES) => {
       updateTypeMetadata(registered, metadata);
       continue;
     }
-    let proto = rest;
+    let prototype = rest;
     if (js !== undefined) {
       const base = registry[js];
       if (!base) {
         const reason = `Unknown js type "${js}" for custom type "${name}"`;
         throw new SchemaDefinitionError('ALX_ERR_UNKNOWN_JS_TYPE', reason);
       }
-      proto = base.prototype;
-    } else checkCustomType(name, proto);
-    const Type = createType(name, proto);
+      prototype = base.prototype;
+    } else checkCustomType(name, prototype);
+    const Type = createType(name, prototype);
     Type.source = { js, construct: rest.construct, checkType: rest.checkType };
     updateTypeMetadata(Type, metadata);
     registry[name] = Type;

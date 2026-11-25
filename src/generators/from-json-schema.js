@@ -16,9 +16,6 @@ const { FORMATS } = require('../rules.js');
 const { isThenable, abandon } = require('../issues.js');
 const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 
-// An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
-
 // The keys of a JSON object are strings, so a number key is this pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
 
@@ -59,11 +56,15 @@ const KNOWN = new Set([
 
 // The steps `multipleOf` writes for a number of 0 to 15 decimals, by count.
 const DECIMALS = [];
-for (let count = 0; count <= 15; count += 1) DECIMALS.push(10 ** -count);
 
 // How deep a document may nest: past it the conversion stops whatever the
 // mode, since a lenient conversion must not recurse without end either.
 const MAX_DEPTH = 128;
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+
+for (let count = 0; count <= 15; count += 1) DECIMALS.push(10 ** -count);
 
 const option = (options, name, allowed) => {
   const value = options[name];
@@ -367,6 +368,17 @@ const objectRules = (context, node, def, take, used) => {
   return def;
 };
 
+// The rules of a JSON Schema type, `(context, node, def, take, used)`; the
+// type is the document's, so the table has no prototype to look it up in.
+const RULES_OF = {
+  __proto__: null,
+  string: stringRules,
+  number: (context, node, def, take) => numberRules(node, def, take),
+  integer: (context, node, def, take) => numberRules(node, def, take),
+  array: (context, node, def, take) => arrayRules(context, def, take),
+  object: objectRules,
+};
+
 // A JSON Schema type as a definition: the rules of the type, then the rest.
 const typed = (context, node, type, used) => {
   const def = { type };
@@ -374,11 +386,8 @@ const typed = (context, node, type, used) => {
     used.add(name);
     return node[name];
   };
-  if (type === 'string') return stringRules(context, node, def, take);
-  if (type === 'number' || type === 'integer') return numberRules(node, def, take);
-  if (type === 'array') return arrayRules(context, def, take);
-  if (type === 'object') return objectRules(context, node, def, take, used);
-  return def;
+  const rules = RULES_OF[type];
+  return rules === undefined ? def : rules(context, node, def, take, used);
 };
 
 // The branches of an anyOf or oneOf: null among them makes the value

@@ -13,6 +13,14 @@ const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../e
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
+// The checks the subpath generated: the closures a schema runs instead may
+// be the ones it was built with or ones compiled later, on first use.
+const GENERATED = new WeakSet();
+
+// The check a schema was built with, kept when the generated one replaces it
+// so that `{ jit: false }` can put it back.
+const ORIGINAL = new WeakMap();
+
 // An option of the call that is not what it must be: the call is wrong.
 const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
@@ -45,17 +53,18 @@ const optionsOf = (options) => {
   return { mode: jit, onFallback };
 };
 
-let evaluates = null;
+let probed = false;
+let evaluates = false;
 
 // Whether this environment builds a function from source, probed once.
 const canEval = () => {
-  if (evaluates === null) {
-    try {
-      // oxlint-disable-next-line no-new-func
-      evaluates = typeof new Function('') === 'function';
-    } catch {
-      evaluates = false;
-    }
+  if (probed) return evaluates;
+  probed = true;
+  try {
+    // oxlint-disable-next-line no-new-func
+    evaluates = typeof new Function('') === 'function';
+  } catch {
+    // ignore: no code generation from strings here, `evaluates` stays false
   }
   return evaluates;
 };
@@ -83,10 +92,6 @@ const failure = (target, error) => {
   return new SchemaDefinitionError('ALX_ERR_JIT_BUILD', reason, { cause: error });
 };
 
-// The checks the subpath generated: the closures a schema runs instead may
-// be the ones it was built with or ones compiled later, on first use.
-const GENERATED = new WeakSet();
-
 const build = (target) => {
   const code = new Code();
   emitRoot(target, code);
@@ -105,10 +110,6 @@ const generate = (target) => {
     throw failure(target, error);
   }
 };
-
-// The check a schema was built with, kept when the generated one replaces it
-// so that `{ jit: false }` can put it back.
-const ORIGINAL = new WeakMap();
 
 const replace = (target, run) => {
   if (!ORIGINAL.has(target)) ORIGINAL.set(target, target[RUN]);

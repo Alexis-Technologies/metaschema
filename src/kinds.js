@@ -2,14 +2,12 @@ const { toLowerCamel } = require('./metautil.js');
 const { hasBrand } = require('./util.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
-const projectionError = (name, reason) =>
-  new SchemaDefinitionError('ALX_ERR_PROJECTION', `Projection "${name}" ${reason}`);
-
 const KIND_ENT = ['entity', 'registry', 'dictionary'];
 const KIND_AUX = ['journal', 'details', 'relation', 'view'];
-const KIND_STORED = [...KIND_ENT, ...KIND_AUX];
+const KIND_STORED = KIND_ENT.concat(KIND_AUX);
 const KIND_MEMORY = ['struct', 'scalar', 'form', 'projection'];
-const KIND = [...KIND_MEMORY, ...KIND_STORED];
+const KIND = KIND_MEMORY.concat(KIND_STORED);
+const STORED = new Set(KIND_STORED);
 
 // A key is a kind when its name is one a kind may have (a capital letter,
 // then letters and digits, one of them lowercase: `Entity`, `Settings`,
@@ -21,17 +19,24 @@ const KIND = [...KIND_MEMORY, ...KIND_STORED];
 // the typings mirrors it.
 const KIND_NAME = /^[A-Z][A-Z\d]*[a-z][A-Za-z\d]*$/;
 
-const isMetadata = (value) => {
-  if (value === null || typeof value !== 'object' || hasBrand(value, 'Struct')) return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === null || Object.getPrototypeOf(proto) === null;
-};
-
-const isKindKey = (key, meta) => KIND_NAME.test(key) && isMetadata(meta);
-
 const SCOPE = ['application', 'global', 'local'];
 const STORE = ['persistent', 'memory'];
 const ALLOW = ['write', 'append', 'read'];
+
+const KIND_METADATA = Object.create(null);
+
+const constants = { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW };
+
+const projectionError = (name, reason) =>
+  new SchemaDefinitionError('ALX_ERR_PROJECTION', `Projection "${name}" ${reason}`);
+
+const isMetadata = (value) => {
+  if (value === null || typeof value !== 'object' || hasBrand(value, 'Struct')) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+};
+
+const isKindKey = (key, meta) => KIND_NAME.test(key) && isMetadata(meta);
 
 const projection = (kind, meta, root) => {
   const { scope = 'local', store = 'memory', allow = 'write' } = meta;
@@ -62,7 +67,7 @@ const idKeyOf = (name) => (name ? `${toLowerCamel(name)}Id` : 'id');
 // The id field of a built schema: the key above for a stored kind, null for
 // a memory kind. The one rule, read by the derive, mongodb and generators
 // subpaths (which each add what `_id` means to them).
-const idFieldOf = (schema) => (KIND_STORED.includes(schema.kind) ? idKeyOf(schema.name) : null);
+const idFieldOf = (schema) => (STORED.has(schema.kind) ? idKeyOf(schema.name) : null);
 
 // The metadata of a kind over the defaults of its scope and store; a stored
 // kind adds the optional id field named after the entity.
@@ -77,7 +82,6 @@ const kindStored = kindOf('application', 'persistent', true);
 
 const kindMemory = kindOf('local', 'memory', false);
 
-const KIND_METADATA = Object.create(null);
 for (const kind of KIND_MEMORY) {
   KIND_METADATA[kind] = kindMemory;
 }
@@ -91,6 +95,4 @@ const getKindMetadata = (kind, meta = {}, root) => {
   return handler(kind, meta, root);
 };
 
-const constants = { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW };
-
-module.exports = { constants, getKindMetadata, idFieldOf, isKindKey };
+module.exports = { constants, isKindKey, idFieldOf, getKindMetadata };

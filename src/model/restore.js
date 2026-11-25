@@ -7,7 +7,7 @@
 // `options.types` brings the real custom types where the model should
 // validate as the original did, and `model.placeholders` lists the paths
 // the placeholders stand at. The snapshot is input: whatever fails while it
-// is read (a tag that does not read, a nesting deeper than DEPTH, an index
+// is read (a tag that does not read, a nesting deeper than MAX_DEPTH, an index
 // named like a field) is ALX_ERR_INVALID_SNAPSHOT located where the walk was,
 // and the kind metadata it declares is never loosened by its `custom` keys.
 const { define, shorten } = require('../util.js');
@@ -16,17 +16,20 @@ const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
 const { SchemaDefinitionError, SchemaUsageError } = require('../errors.js');
 const {
-  DEPTH,
+  MAX_DEPTH,
   tooDeep,
   invalidSnapshot,
   unreadable,
-  atSchema,
   isObject,
   isSnapshot,
   checkRoot,
   isFunctionMarker,
   kindKeyOf,
 } = require('./data.js');
+
+// The keys whose function a placeholder gives the value back for: a codec
+// (and the collected `format`) that returns what it was given.
+const CODECS = new Set(['parse', 'serialize', 'format']);
 
 const nothing = () => undefined;
 
@@ -47,17 +50,17 @@ const identity = (value) => value;
 // the field's key and among the struct's fields).
 const placeholderOf = (key, at, context) => {
   context.placeholders.add(at);
-  return key === 'parse' || key === 'serialize' || key === 'format' ? identity : nothing;
+  return CODECS.has(key) ? identity : nothing;
 };
 
 // A value of a snapshot as a value of a definition: the tags revived (a
 // bigint that does not read throws its own error, a date is checked), a
 // function marker as the placeholder of its key. `at` is the path of the
 // value (`context.at` while it is read) and `depth` its nesting, which
-// stops at DEPTH.
+// stops at MAX_DEPTH.
 const revive = (value, key, at, depth, context) => {
   context.at = at;
-  if (depth > DEPTH) throw tooDeep();
+  if (depth > MAX_DEPTH) throw tooDeep();
   if (Array.isArray(value)) {
     const list = [];
     for (const item of value) list.push(revive(item, key, at, depth + 1, context));
@@ -98,7 +101,7 @@ const isField = (value) => isObject(value) && typeof value.type === 'string';
 // instance (the one form the schema type takes it in).
 const fieldDef = (def, at, depth, context) => {
   context.at = at;
-  if (depth > DEPTH) throw tooDeep();
+  if (depth > MAX_DEPTH) throw tooDeep();
   if (!isField(def)) throw invalidSnapshot('A field of a snapshot needs a type');
   const out = { type: def.type };
   for (const key of Object.keys(def)) {
@@ -207,13 +210,13 @@ const typeDef = (name, entry, context) => {
 };
 
 // The types in an order the registry accepts: an alias after the type it
-// aliases, down a chain no longer than DEPTH.
+// aliases, down a chain no longer than MAX_DEPTH.
 const typesDef = (given, context) => {
   const out = {};
   const seen = new Set();
   const add = (name, depth) => {
     if (seen.has(name)) return;
-    if (depth > DEPTH) throw tooDeep();
+    if (depth > MAX_DEPTH) throw tooDeep();
     seen.add(name);
     const entry = given[name];
     if (isObject(entry) && typeof entry.js === 'string' && Object.hasOwn(given, entry.js)) {
@@ -258,7 +261,7 @@ const fromJSON = (snapshot, options = {}) => {
     // definition error.
     const located = error instanceof SchemaDefinitionError ? error : unreadable(error);
     const field = context.at.slice(context.name.length + 1);
-    throw field ? located.locate(context.name, field) : atSchema(located, context.name);
+    throw field ? located.locate(context.name, field) : located.locate(context.name, '');
   }
   Object.assign(types, given);
   let model = null;

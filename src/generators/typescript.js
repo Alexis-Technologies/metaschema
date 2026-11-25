@@ -8,7 +8,8 @@ const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { baseTypeOf } = require('../types.js');
 
-const TS_SCALARS = Object.assign(Object.create(null), {
+const TS_SCALARS = {
+  __proto__: null,
   string: 'string',
   number: 'number',
   boolean: 'boolean',
@@ -18,7 +19,7 @@ const TS_SCALARS = Object.assign(Object.create(null), {
   null: 'null',
   any: 'any',
   unknown: 'unknown',
-});
+};
 
 const unrepresentable = (what) =>
   new SchemaDefinitionError(

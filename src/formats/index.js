@@ -104,11 +104,12 @@ const isIsoTime = timeOf(false);
 
 // A date-time is the two joined by `T` (or, as the RFC allows for
 // readability, a space).
-const dateTimeOf = (time) => (text) =>
-  text.length > 11 &&
-  (text[10] === 'T' || text[10] === 't' || text[10] === ' ') &&
-  isDate(text.slice(0, 10)) &&
-  time(text.slice(11));
+const DATE_TIME_SEPARATORS = new Set(['T', 't', ' ']);
+
+const dateTimeOf = (time) => (text) => {
+  if (text.length <= 11 || !DATE_TIME_SEPARATORS.has(text[10])) return false;
+  return isDate(text.slice(0, 10)) && time(text.slice(11));
+};
 
 const DURATION = /^P(?!$)((\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?|(\d+W)?)$/;
 
@@ -204,10 +205,10 @@ const isRelativePointer = (text) => {
 // mode. Compiling one costs memory in proportion to its text (a property
 // escape expands as it is parsed), so a text longer than any pattern a
 // program writes is not one; `length.max` on the field bounds it further.
-const REGEX_MAX = 4096;
+const REGEX_MAX_CHARS = 4096;
 
 const isRegex = (text) => {
-  if (text.length > REGEX_MAX) return false;
+  if (text.length > REGEX_MAX_CHARS) return false;
   try {
     return RegExp(text, 'u') instanceof RegExp;
   } catch {

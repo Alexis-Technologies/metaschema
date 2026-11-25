@@ -23,6 +23,22 @@ const ISO =
   /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ]([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/;
 const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
 
+// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
+// leaves unused at zero, so that one text is one value; what a decoder
+// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
+// the check. A charset, a length and the last quantum rather than one
+// expression of quanta, whose repetition grows the stack of the engine by a
+// frame each and overflowed it on a valid text of a few megabytes (the
+// formats subpath reads base64 the same way). `''` is the text of no bytes.
+const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
+
+// The types whose values are written as text as they read back: an enum
+// member of one of them matches the text `${member}`.
+const PRIMITIVES = new Set(['number', 'boolean', 'bigint']);
+
+// The table: a converter by type name, `(value, field) => value`.
+const COERCIONS = Object.create(null);
+
 const toNumber = (value) => {
   if (typeof value === 'string') {
     if (!DECIMAL.test(value)) return value;
@@ -81,15 +97,6 @@ const toText = (value) => {
   return type === 'bigint' || type === 'boolean' ? `${value}` : value;
 };
 
-// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
-// leaves unused at zero, so that one text is one value; what a decoder
-// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
-// the check. A charset, a length and the last quantum rather than one
-// expression of quanta, whose repetition grows the stack of the engine by a
-// frame each and overflowed it on a valid text of a few megabytes (the
-// formats subpath reads base64 the same way). `''` is the text of no bytes.
-const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
-
 const isBase64 = (text) => {
   const { length } = text;
   if (length % 4 !== 0 || !ALPHABET.test(text)) return false;
@@ -113,10 +120,7 @@ const toBytes = (value, field) => {
   return bytes;
 };
 
-const isPrimitive = (value) => {
-  const type = typeof value;
-  return type === 'number' || type === 'boolean' || type === 'bigint';
-};
+const isPrimitive = (value) => PRIMITIVES.has(typeof value);
 
 // The member a value is written as: a string for a number, a boolean or a
 // bigint member, or one of those for a string member.
@@ -218,9 +222,6 @@ const BUILT_IN = {
   set: toSet,
   map: toMap,
 };
-
-// The table: a converter by type name, `(value, field) => value`.
-const COERCIONS = Object.create(null);
 
 const invalidCoercion = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_COERCION', reason);
 

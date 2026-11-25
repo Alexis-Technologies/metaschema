@@ -208,11 +208,11 @@ const fromDocumentAsync = async (target, document, options) => {
 
 module.exports = {
   SHAPES,
+  idValue,
+  listOf,
+  walk,
+  stateOf,
   toDocument,
   fromDocument,
   fromDocumentAsync,
-  walk,
-  idValue,
-  stateOf,
-  listOf,
 };

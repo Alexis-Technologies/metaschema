@@ -31,6 +31,10 @@ const {
   wantOf,
 } = require('./codec.js');
 
+// The warnings of a schema and of a model, computed on first use: a schema
+// built in a hot path never pays for the lint.
+const LINTED = new WeakMap();
+
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
 // outer check, so the error limit and the cycle detection span the whole
@@ -92,10 +96,6 @@ const pass = (schema, phase, source, context, extra) => {
   const want = wantOf(phase, context) | extra;
   return apply(info, schema, source, context, undefined, phase, want);
 };
-
-// The warnings of a schema and of a model, computed on first use: a schema
-// built in a hot path never pays for the lint.
-const LINTED = new WeakMap();
 
 const linted = (target, lint) => {
   let warnings = LINTED.get(target);
