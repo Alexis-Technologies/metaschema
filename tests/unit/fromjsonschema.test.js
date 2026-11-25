@@ -493,11 +493,9 @@ describe('fromJSONSchema', () => {
   });
 
   it('should convert a $ref once per pointer', () => {
-    const start = performance.now();
+    // One object per level: the places that inline a definition share it, so
+    // a diamond of 20 levels is converted in 20 steps, not 2^20.
     const twenty = fromJSONSchema(diamond(20));
-    const elapsed = performance.now() - start;
-    assert.ok(elapsed < 50, `a diamond of 20 took ${elapsed} ms`);
-    // One object per level: the places that inline a definition share it.
     assert.equal(objectsOf(twenty) - objectsOf(fromJSONSchema(diamond(10))), 10);
     const schema = fromJSONSchema(diamond(3), { as: 'schema', name: 'D' });
     const leaf = { a: 'x', b: 'y' };

@@ -8,6 +8,7 @@ const { COERCION } = require('../../src/codec.js');
 const { compile, canEval } = require('../../src/compile/index.js');
 const { parseEach, parseEachAsync, transform } = require('../../src/stream/index.js');
 const { sample, fromJSON } = require('../../src/model/index.js');
+const { assertLinear } = require('../helpers/linear.js');
 
 // A schema checked on both backends: the schema, and a compiled copy.
 const both = (make) => {
@@ -253,10 +254,10 @@ describe('Coerce', () => {
     assert.equal(schema.parse({ data: bytes }, { coerce: true }).value.data, bytes);
     assert.equal(read(7), 'type');
     // Linear on hostile text.
-    const started = Date.now();
     assert.equal(read(`${'A'.repeat(1_000_000)}!`), 'type');
     assert.equal(read(`${'AAAA'.repeat(250_000)}A===`), 'type');
-    assert.ok(Date.now() - started < 1000);
+    assertLinear('base64', read, (part) => `${'A'.repeat(1_000_000 * part)}!`);
+    assertLinear('base64 quanta', read, (part) => `${'AAAA'.repeat(250_000 * part)}A===`);
     // A valid text of megabytes: one expression of quanta overflowed the stack
     // of the engine on it, and the converter left the text to the check.
     // A text whose bytes would be over length.max is not decoded: the check
@@ -347,20 +348,19 @@ describe('Coerce', () => {
 
   it('should keep the converters linear on hostile strings', () => {
     const schema = Schema.from({ n: '?number', i: '?integer', b: '?bigint', d: '?date' });
+    const digits = (part, digit = '1') => digit.repeat(100_000 * part);
     const hostile = [
-      `${'1'.repeat(100_000)}x`,
-      `${'1'.repeat(100_000)}.`,
-      `${'1'.repeat(100_000)}e`,
-      `.${'1'.repeat(100_000)}e+`,
-      `-${'0'.repeat(100_000)}.${'0'.repeat(100_000)}!`,
-      `2026-01-01T00:00:00.${'0'.repeat(100_000)}+`,
+      (part) => `${digits(part)}x`,
+      (part) => `${digits(part)}.`,
+      (part) => `${digits(part)}e`,
+      (part) => `.${digits(part)}e+`,
+      (part) => `-${digits(part, '0')}.${digits(part, '0')}!`,
+      (part) => `2026-01-01T00:00:00.${digits(part, '0')}+`,
     ];
-    for (const text of hostile) {
-      const started = performance.now();
-      const result = schema.parse({ n: text, i: text, b: text, d: text }, { coerce: true });
-      const took = performance.now() - started;
-      assert.equal(result.valid, false);
-      assert.ok(took < 50, `took ${took.toFixed(0)} ms on ${text.length} characters`);
+    const parse = (text) => schema.parse({ n: text, i: text, b: text, d: text }, { coerce: true });
+    for (const [index, make] of hostile.entries()) {
+      assert.equal(parse(make(1)).valid, false);
+      assertLinear(`hostile string ${index}`, parse, make);
     }
   });
 

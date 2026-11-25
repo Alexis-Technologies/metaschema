@@ -21,19 +21,20 @@ const declaredValueExports = (dtsFile) => {
   return names;
 };
 
-const entryPoints = [
-  ['index.js', 'index.d.ts'],
-  ['browser.js', 'index.d.ts'],
-  ['src/generators/index.js', 'src/generators/index.d.ts'],
-  ['src/compile/index.js', 'src/compile/index.d.ts'],
-  ['src/model/index.js', 'src/model/index.d.ts'],
-  ['src/stream/index.js', 'src/stream/index.d.ts'],
-  ['src/formats/index.js', 'src/formats/index.d.ts'],
-  ['src/derive/index.js', 'src/derive/index.d.ts'],
-  ['src/coerce/index.js', 'src/coerce/index.d.ts'],
-  ['src/mongodb/index.js', 'src/mongodb/index.d.ts'],
-  ['src/definition/index.js', 'src/definition/index.d.ts'],
-];
+// The entries of the package, read from its `exports` map: every subpath
+// with its runtime and its typings, and the browser build of the root, so
+// that a subpath added to the map is held to its typings with no list to
+// keep here. The locales are objects of renderers, compared below.
+const pkg = require(path.join(ROOT, 'package.json'));
+const LOCALE = /^\.\/locales\//;
+const entryPoints = [];
+for (const [subpath, target] of Object.entries(pkg.exports)) {
+  if (LOCALE.test(subpath)) continue;
+  entryPoints.push([target.default.slice(2), target.types.slice(2)]);
+  if (target.browser !== undefined) {
+    entryPoints.push([target.browser.slice(2), target.types.slice(2)]);
+  }
+}
 
 describe('Exports', () => {
   for (const [runtimeFile, dtsFile] of entryPoints) {
@@ -265,6 +266,28 @@ describe('Exports', () => {
       'a'.repeat(24),
       { User: [{ key: { login: 1 }, unique: true }] },
     ]);
+  });
+
+  it('should read every entry of the exports map, the root and its browser build first', () => {
+    assert.deepEqual(entryPoints.slice(0, 2), [
+      ['index.js', 'index.d.ts'],
+      ['browser.js', 'index.d.ts'],
+    ]);
+    assert.equal(entryPoints.length, Object.keys(pkg.exports).length - 2 + 1);
+  });
+
+  it('should give every locale of the exports map a renderer for each issue code', () => {
+    const source = fs.readFileSync(path.join(ROOT, 'index.d.ts'), 'utf8');
+    const union = source.match(/export type IssueCode =([^;]*);/)[1];
+    const codes = [...union.matchAll(/'(\w+)'/g)].map((match) => match[1]);
+    const expected = codes.concat('field').sort();
+    const locales = Object.keys(pkg.exports).filter((key) => LOCALE.test(key));
+    assert.deepEqual(locales, ['./locales/en', './locales/uk']);
+    for (const key of locales) {
+      const { default: runtime, types } = pkg.exports[key];
+      assert.match(fs.readFileSync(path.join(ROOT, types), 'utf8'), /Required<Locale>/);
+      assert.deepEqual(Object.keys(require(path.join(ROOT, runtime))).sort(), expected, key);
+    }
   });
 
   it('should reach the locales through their subpath exports', () => {

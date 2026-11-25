@@ -447,25 +447,23 @@ describe('Sample', () => {
 
   it('should bound a pattern before a string is built', () => {
     const field = (pattern, length) => Schema.from({ s: { type: 'string', pattern, length } });
-    // A repetition over the cap, bounded or not.
+    // A repetition over the cap, bounded or not: refused as the pattern is
+    // read, before a string is drawn (the error names the repetition).
     for (const pattern of ['^a{1000000}$', '^a{10001}$', '^a{0,10001}$', '^a{10001,}$']) {
-      const started = performance.now();
       assert.throws(() => sample(field(pattern, { max: 10 })), {
         code: 'ALX_ERR_SAMPLE_PATTERN',
         message: `Pattern /${pattern}/ cannot be sampled: a repetition over 10000`,
       });
-      assert.equal(performance.now() - started < 50, true);
     }
     assert.equal(sample(field('^a{10000}$', 10000)).s.length, 10000);
-    // A pattern whose shortest string is over length.max: no string is built.
-    const started = performance.now();
+    // A pattern whose shortest string is over length.max: no string is built,
+    // the minimal length of the nodes says so.
     assert.throws(() => sample(field('^(a{2000}){2000}$', { max: 10 }), { seed: 3 }), {
       code: 'ALX_ERR_UNSATISFIABLE',
       message:
         'No value satisfies "s" (seed 3): the pattern needs at least 4000000 characters, ' +
         'over the maximum 10',
     });
-    assert.equal(performance.now() - started < 50, true);
     assert.throws(() => sample(field('^abc$', 2)), {
       code: 'ALX_ERR_UNSATISFIABLE',
       message:

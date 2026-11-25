@@ -36,6 +36,23 @@ describe('Scripts', () => {
     ]);
   });
 
+  it('should measure every subpath of the exports map, each with a budget flag', () => {
+    // A subpath added to the map without a row would ship unbudgeted.
+    const { SUBPATHS, ALONE } = require('../../scripts/size.js');
+    const { exports: map } = require('../../package.json');
+    const measured = new Set();
+    for (const row of SUBPATHS) measured.add(row.subpath);
+    for (const row of ALONE) measured.add(`./${row.entry}`);
+    const subpaths = Object.keys(map).filter((key) => key !== '.' && !key.startsWith('./locales/'));
+    for (const key of subpaths) assert.equal(measured.has(map[key].default), true, key);
+    assert.equal(measured.size, subpaths.length);
+    for (const row of SUBPATHS.concat(ALONE)) assert.match(row.flag, /^--max-gzip-[a-z]+$/);
+    const gate = require('../../package.json').scripts['size:gate'];
+    for (const row of SUBPATHS.concat(ALONE)) {
+      assert.equal(gate.includes(`${row.flag} `), true, row.flag);
+    }
+  });
+
   it('should report the entries and the subpaths with size and enforce the budgets', () => {
     const budgets = [
       '--max-gzip',

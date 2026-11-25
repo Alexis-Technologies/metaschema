@@ -104,9 +104,9 @@ describe('Pattern', () => {
     // something else; the bound is what the ReDoS note promises.
     const bounded = Schema.from({ s: { type: 'string', length: { max: 10 }, pattern: /^(a+)+$/ } });
     const hostile = `${'a'.repeat(28)}!`;
-    const started = performance.now();
+    // The length issue alone: a pattern run on it would add its own issue
+    // (after a backtracking of 2^28 steps).
     const result = bounded.check({ s: hostile });
-    assert.ok(performance.now() - started < 50, 'the pattern was run past the bound');
     assert.deepEqual(result.errors, ['Field "s" exceeds the maximum length']);
     assert.deepEqual(bounded.check({ s: 'aaa!' }).errors, [
       'Field "s" does not match the pattern ^(a+)+$',

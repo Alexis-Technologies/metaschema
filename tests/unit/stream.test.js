@@ -11,7 +11,8 @@ const {
   register,
 } = require('../../src/stream/index.js');
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 1));
+// One turn of the event loop: a wait that needs no clock.
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 const user = new Schema('User', { name: 'string', 'age?': { type: 'number', default: 0 } });
 const rows = [{ name: 'a' }, { name: 1 }, { name: 'c', age: 3, extra: true }, { name: 'd' }];
@@ -427,7 +428,7 @@ describe('Stream', () => {
     process.on('unhandledRejection', listen);
     try {
       const schema = Schema.from({
-        n: { type: 'number', validate: () => new Promise((resolve) => setTimeout(resolve, 20)) },
+        n: { type: 'number', validate: () => new Promise((resolve) => setImmediate(resolve)) },
         'd?': {
           type: 'number',
           default: () => {

@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { Schema, Model } = require('../../index.js');
 const uk = require('../../src/locales/uk.js');
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 1));
+// One turn of the event loop: a wait that needs no clock.
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 const summarize = (issues) => issues.map(({ path, message }) => [path, message]);
 
@@ -282,18 +283,17 @@ describe('Async', () => {
       'Field "Mix.a" a async',
       'Field "Mix.d" d async',
     ]);
-    // Two independent validators waiting on real timers overlap: both start
-    // before either ends, so the check takes one wait, not two. Told by the
-    // order, not by the clock: a timer of 20 ms fires after up to 31 ms where
-    // the resolution is 15.6 ms (Windows), which a bound on the time missed.
+    // Two independent validators waiting on the event loop overlap: both
+    // start before either ends, so the check takes one wait, not two. Told by
+    // the order, not by the clock.
     const timers = [];
     const timer = (name) => () => {
       timers.push(`start:${name}`);
       return new Promise((resolve) =>
-        setTimeout(() => {
+        setImmediate(() => {
           timers.push(`end:${name}`);
           resolve();
-        }, 20),
+        }),
       );
     };
     const slow = new Schema('Slow', {

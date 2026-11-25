@@ -10,6 +10,7 @@ const { fullFormats } = require('ajv-formats/dist/formats.js');
 const z = require('zod');
 const v = require('valibot');
 const uk = require('../../src/locales/uk.js');
+const { assertLinear } = require('../helpers/linear.js');
 
 // A schema of one formatted field, and a copy on the other backend.
 const pair = (format, extra = {}) => {
@@ -869,41 +870,38 @@ describe('Formats', () => {
   it('should run the built-in tests in linear time', () => {
     register();
     const hostile = [
-      `${'a'.repeat(10_000)}@`,
-      `${'a.'.repeat(5_000)}!`,
-      `${'1'.repeat(10_000)}:`,
-      `${'a-'.repeat(5_000)}`,
-      `2026-10-11T12:00:00.${'0'.repeat(10_000)}!`,
-      `${':1'.repeat(5_000)}g`,
-      `P${'1'.repeat(10_000)}!`,
-      `/${'a'.repeat(10_000)}~`,
-      `/${'~0'.repeat(5_000)}~`,
-      `0${'/a'.repeat(5_000)}~`,
-      `{${'a'.repeat(10_000)}`,
-      `1.2.3-${'a.'.repeat(5_000)}!`,
-      `1.2.3-${'0'.repeat(10_000)}!`,
-      `1.2.3+${'a.'.repeat(5_000)}!`,
-      `${'👍'.repeat(5_000)}a`,
-      `${'1 '.repeat(5_000)}x`,
-      `https://${'a.'.repeat(5_000)}!`,
-      `https://${'a'.repeat(10_000)}:`,
-      `https://${'a:'.repeat(5_000)}@`,
-      `${'('.repeat(10_000)}`,
-      `${'a*'.repeat(5_000)}(`,
-      `DE${'1'.repeat(10_000)}`,
-      `1.1.1.1/${'1'.repeat(10_000)}`,
-      `${'00:'.repeat(3_000)}`,
-      `${'a'.repeat(10_000)}.${'b'.repeat(10)}.`,
-      `${'A'.repeat(10_001)}=`,
-      `#${'f'.repeat(10_000)}`,
+      (part) => `${'a'.repeat(10_000 * part)}@`,
+      (part) => `${'a.'.repeat(5_000 * part)}!`,
+      (part) => `${'1'.repeat(10_000 * part)}:`,
+      (part) => `${'a-'.repeat(5_000 * part)}`,
+      (part) => `2026-10-11T12:00:00.${'0'.repeat(10_000 * part)}!`,
+      (part) => `${':1'.repeat(5_000 * part)}g`,
+      (part) => `P${'1'.repeat(10_000 * part)}!`,
+      (part) => `/${'a'.repeat(10_000 * part)}~`,
+      (part) => `/${'~0'.repeat(5_000 * part)}~`,
+      (part) => `0${'/a'.repeat(5_000 * part)}~`,
+      (part) => `{${'a'.repeat(10_000 * part)}`,
+      (part) => `1.2.3-${'a.'.repeat(5_000 * part)}!`,
+      (part) => `1.2.3-${'0'.repeat(10_000 * part)}!`,
+      (part) => `1.2.3+${'a.'.repeat(5_000 * part)}!`,
+      (part) => `${'👍'.repeat(5_000 * part)}a`,
+      (part) => `${'1 '.repeat(5_000 * part)}x`,
+      (part) => `https://${'a.'.repeat(5_000 * part)}!`,
+      (part) => `https://${'a'.repeat(10_000 * part)}:`,
+      (part) => `https://${'a:'.repeat(5_000 * part)}@`,
+      (part) => `${'('.repeat(10_000 * part)}`,
+      (part) => `${'a*'.repeat(5_000 * part)}(`,
+      (part) => `DE${'1'.repeat(10_000 * part)}`,
+      (part) => `1.1.1.1/${'1'.repeat(10_000 * part)}`,
+      (part) => `${'00:'.repeat(3_000 * part)}`,
+      (part) => `${'a'.repeat(10_000 * part)}.${'b'.repeat(10 * part)}.`,
+      (part) => `${'A'.repeat(10_001 * part)}=`,
+      (part) => `#${'f'.repeat(10_000 * part)}`,
     ];
     for (const name of NAMES) {
       const { test: check } = FORMATS[name];
-      for (const text of hostile) {
-        const started = performance.now();
-        check(text);
-        const took = performance.now() - started;
-        assert.ok(took < 50, `${name} took ${took.toFixed(0)} ms on ${text.length} characters`);
+      for (const [index, make] of hostile.entries()) {
+        assertLinear(`${name} on hostile string ${index}`, check, make);
       }
     }
   });
