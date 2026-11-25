@@ -25,10 +25,13 @@ const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 const sorted = (codes) => [...codes].sort();
 
-const sourceFiles = () => {
-  const files = [];
-  for (const name of fs.readdirSync(path.join(ROOT, 'src'), { recursive: true })) {
-    if (name.endsWith('.js') || name.endsWith('.d.ts')) files.push(path.join('src', name));
+// A walk of its own: `readdirSync` reads subdirectories (`recursive`) from Node.js 18.17 on,
+// and CI runs the 18.12 of the floor.
+const sourceFiles = (dir = 'src', files = []) => {
+  for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+    const name = path.join(dir, entry.name);
+    if (entry.isDirectory()) sourceFiles(name, files);
+    else if (name.endsWith('.js') || name.endsWith('.d.ts')) files.push(name);
   }
   return files;
 };

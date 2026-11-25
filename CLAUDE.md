@@ -1085,7 +1085,14 @@ wins.
     is written, where the skill asks for an index loop over an array in library code, and
     `for...in` walks plain objects outside the check;
   - the generated code of `./compile` is text, not source: it keeps `!= null` (the one
-    comparison the closures' check stands for) and `void 0`.
+    comparison the closures' check stands for) and `void 0`;
+  - **CI tests Node 18.12.0, not the 18.0.0 of `engines`**, where the skill asks for the exact
+    floor: pnpm 10 (`packageManager`) runs from 18.12 on, so 18.0.0 cannot install the
+    dependencies, and `engines` stays `>=18.0.0` (Alex's decision, 2026-11-25: the floor is not
+    moved for the toolchain). The suite passes on 18.12.0 (every `it`, run locally with pnpm
+    10.34.5 that day; Node 18.12 counts the files, not the tests, in the summary of `--test`), and
+    the tests keep to what 18.12 has: `error-codes.test.js` walks `src/` itself, since
+    `readdirSync` reads subdirectories from 18.17 on.
 
 ## Skills
 

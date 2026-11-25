@@ -77,6 +77,8 @@ The same guide with before-and-after examples is
   - The 55 suites are `describe` and `it('should …')` with `node:assert/strict`: 590 tests,
     the same as before, under new titles, and six more for the error codes.
   - No behaviour changed. The core measures 22319 bytes (+21), and the bench is at parity.
+- **CI tests Node 18.12.0**, the lowest version pnpm 10 runs on, where it tested the latest
+  18.x; `engines` stays `>=18.0.0`, and the suite passes on 18.12.0.
 
 ## [3.4.1] - 2026-11-24
 
