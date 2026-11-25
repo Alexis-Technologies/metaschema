@@ -749,6 +749,41 @@ describe('Async', () => {
     ]);
   });
 
+  it('should observe a validator that rejects while settle awaits an earlier one', async () => {
+    // settle awaits the promises in field order: `b` rejects while the
+    // promise of `a` is still pending, and that rejection is the check's,
+    // not an unhandled one that ends the process.
+    const unhandled = [];
+    const listen = (reason) => unhandled.push(reason);
+    process.on('unhandledRejection', listen);
+    try {
+      const run = async (method) => {
+        let resolveA = null;
+        const schema = Schema.from({
+          a: { type: 'string', validate: () => new Promise((resolve) => (resolveA = resolve)) },
+          b: {
+            type: 'string',
+            validate: async () => {
+              throw new Error('b rejects');
+            },
+          },
+        });
+        const pending = schema[method]({ a: 'x', b: 'y' });
+        await tick();
+        resolveA(true);
+        return pending;
+      };
+      const parsed = await run('parseAsync');
+      assert.deepEqual(summarize(parsed.issues), [[['b'], 'validation failed Error: b rejects']]);
+      const checked = await run('checkAsync');
+      assert.deepEqual(checked.errors, ['Field "b" validation failed Error: b rejects']);
+      await tick();
+      assert.deepEqual(unhandled, []);
+    } finally {
+      process.off('unhandledRejection', listen);
+    }
+  });
+
   it('should leave no promise of the check unhandled when a walk throws', async () => {
     // A getter of the value that throws is the program's error and leaves
     // checkAsync as such; the promise a validator met before it returned is

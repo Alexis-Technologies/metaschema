@@ -160,13 +160,22 @@ const describe = (messages, root, issue) => {
 const isThenable = (value) =>
   value !== null && typeof value === 'object' && typeof value.then === 'function';
 
-// A promise nothing waits for any more (a synchronous call that throws for
-// it, a settle stopped by the error limit, the trial of a union branch) is
-// still observed, so that its rejection is never an unhandled one.
+// A promise is observed as soon as it is met, so that its rejection is never
+// an unhandled one: one the check awaits later still rejects into that await
+// (settle awaits the list in order, and a later promise may reject while an
+// earlier one is pending), and one nothing waits for any more (a synchronous
+// call that throws for it, a settle stopped by the error limit, the trial of
+// a union branch) is dropped. A thenable is adopted once, here.
 const swallow = () => {};
 
+const observe = (thenable) => {
+  const promise = Promise.resolve(thenable);
+  promise.then(undefined, swallow);
+  return promise;
+};
+
 const abandon = (thenable) => {
-  Promise.resolve(thenable).then(undefined, swallow);
+  observe(thenable);
 };
 
 // Drops the entries of a list of pending validators from `from` on (a failed
@@ -230,7 +239,8 @@ const guarded = (context, code, owner, fn, value) => {
       abandon(output);
       throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
     }
-    const entry = { owner, fn: null, value, promise: output, path: path.slice(), code, count };
+    const promise = observe(output);
+    const entry = { owner, fn: null, value, promise, path: path.slice(), code, count };
     return void pending.push(entry);
   }
   conclude(context, output, code, owner, value);
@@ -293,6 +303,7 @@ module.exports = {
   finalize,
   describe,
   isThenable,
+  observe,
   abandon,
   release,
   runValidate,
