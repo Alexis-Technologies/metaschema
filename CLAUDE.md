@@ -1064,8 +1064,8 @@ wins.
     `find` render or set up;
   - `map` is also a type name and an option of `infer`, so in `src/` the property is allowed on
     `COMPILE`, `options` and `state` (`allowObjects` of `no-restricted-properties`);
-  - `valid-typeof` is disabled at the two places that compare `typeof` with a type name held in
-    a property.
+  - `valid-typeof` is disabled at the three places of `checks.js` that compare `typeof` with a
+    type name held in a property.
 - In the code, beyond the skill:
   - private class members with `#`;
   - a `let` that holds what user code returned starts as `undefined`, the value of no return;
@@ -1081,7 +1081,13 @@ wins.
     `DefinitionErrorCode` or `RuntimeErrorCode` of `index.d.ts` and a row of the table of its
     class in `docs/api/exports.md`, and `tests/unit/error-codes.test.js` holds them to the
     source. Issue codes (`required`, `type`, `unexpected`, `format`, …) are data of a result,
-    not error codes.
+    not error codes. An error that wraps another passes it as the standard `cause` (the
+    `options` of the constructor), never by assignment;
+  - a hook that watches a call (`onFallback` of `./compile`, `onError` of `./coerce`,
+    `onUnsupported` of `fromJSONSchema`) is an observer: `notify`, a copy per subpath as
+    `install` is, drops what it throws and a promise of it that rejects (alexiskills,
+    `library-errors.md`). `onInvalid` of `transform` is not one: it is a step of the stream,
+    documented and tested as such, and what it throws ends the stream.
 - Where metaschema keeps a way of its own, on purpose:
   - a hole in a list of the caller reads as `undefined`, where the skill asks a loop that
     replaced an array method to skip it: in a tuple, a union, `flags` or `aliases` it is
@@ -1091,13 +1097,25 @@ wins.
     array method (`src/` had none left since 3.0), and the same calls with sparse lists gave
     the same results on `main` and on this branch, on both backends (2026-11-25);
   - the generated code of `./compile` is text, not source: it keeps `!= null` (the one
-    comparison the closures' check stands for) and `void 0`.
+    comparison the closures' check stands for) and `void 0`;
+  - the struct check counts the keys of the value with a `for...in` and no `Object.hasOwn`
+    (`checkOf` of `checks.js`, and the same loop in the code `emit.js` generates), where the
+    skill keeps `Object.keys` for input of unknown origin: it is the measured hot path ("a hot
+    path takes the loop a benchmark picks", see "Structs"), and an inherited enumerable key only
+    makes the count differ, which sends the value to `scanUnknown`, guarded by `Object.hasOwn`;
+  - `register()` of a subpath installs its methods on `Schema` and `Model` (and their
+    prototypes) when the program calls it, where the skill sets prototypes up at module load
+    only: nothing registers on import, by design (Alex's decision of 2026-10-10, "Out of scope
+    by design"), and every `register()` is idempotent and installs non-enumerable members.
 - The gap `node-tooling-testing` asks this file to record: **CI tests Node 18.12.0, the lowest
   version pnpm 10 (`packageManager`) runs on**, and `engines` stays `>=18.0.0` (Alex's decision,
   2026-11-25: the floor is not moved for the toolchain). The suite passes on 18.12.0 (every
   `it`, run locally with pnpm 10.34.5 that day; Node 18.12 counts the files, not the tests, in
   the summary of `--test`), and the tests keep to what 18.12 has: `error-codes.test.js` walks
-  `src/` itself, since `readdirSync` reads subdirectories from 18.17 on.
+  `src/` itself, since `readdirSync` reads subdirectories from 18.17 on, and they clean up with
+  `try/finally`, where `node-test-cookbook` prefers `t.after`: `t.after` and `t.mock` came in
+  18.13, and `mock.timers` in 18.19 (a test that must wait uses `setImmediate` or a promise it
+  resolves itself).
 
 ## Skills
 
@@ -1675,7 +1693,7 @@ of a caller's array).
   JSON can carry an own key `constructor` and did throw out of `check` before the review of
   3.2; the JIT inlines the same expression.
 - **A `pattern` or a `format` is never run over a string longer than `length.max`**
-  (`patternLimit` in `rules.js`, twice the bound in UTF-16 units under `unicode: true`): such
+  (`patternLimit` in `checks.js`, twice the bound in UTF-16 units under `unicode: true`): such
   a string is reported for its length alone, one issue where there were two before the review
   of 3.2, and that bound is what the ReDoS note promises. A field without `length.max` runs
   its pattern on every string.
@@ -1975,8 +1993,9 @@ step by step; it runs only as `/npm-publish` (its frontmatter has `disable-model
 true`), and this section wins where the two differ:
 
 1. Bump `version` in `package.json`.
-2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD` and add its link
-   reference.
+2. Turn `## [Unreleased]` in CHANGELOG.md into `## [X.Y.Z] - YYYY-MM-DD`, leave an empty
+   `## [Unreleased]` above it, add the link reference of the release and move the `[unreleased]`
+   compare link to `vX.Y.Z...HEAD`.
 3. Commit (`chore(release): X.Y.Z`) on the release branch and merge it into `main` (squashed).
 4. Tag `vX.Y.Z` on the squash commit on `main`, which is what the tags of the earlier releases
    point at, and push `main` and the tag.
