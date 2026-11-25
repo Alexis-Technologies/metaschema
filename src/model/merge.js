@@ -7,7 +7,7 @@
 const { hasBrand, define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
-const { isThenable } = require('../issues.js');
+const { isThenable, observe } = require('../issues.js');
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const {
   same,
@@ -33,9 +33,12 @@ const conflict = (reason, path = '') => {
 
 // Both validate functions, as one that returns what both returned (an
 // array of returns is one the check reads), awaited when either is async.
+// The promise of the first is observed before the second runs: a second that
+// throws leaves it behind, and it must not reject unhandled.
 const compose = (first, second) =>
   function validate(value, path) {
-    const a = first.call(this, value, path);
+    const returned = first.call(this, value, path);
+    const a = isThenable(returned) ? observe(returned) : returned;
     const b = second.call(this, value, path);
     if (isThenable(a) || isThenable(b)) return Promise.all([a, b]);
     return [a, b];

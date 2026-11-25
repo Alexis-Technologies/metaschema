@@ -116,6 +116,30 @@ describe('Merge', () => {
     assert.deepEqual(once.check({ n: -1 }).errors, ['Field "n" is negative']);
   });
 
+  it('should observe the promise of the first validator when the second throws', async () => {
+    const unhandled = [];
+    const listen = (reason) => unhandled.push(reason);
+    process.on('unhandledRejection', listen);
+    try {
+      const rejecting = async () => {
+        throw new Error('a rejects');
+      };
+      const throwing = () => {
+        throw new Error('b throws');
+      };
+      const merged = merge(
+        Schema.from({ x: { type: 'string', validate: rejecting } }),
+        Schema.from({ x: { type: 'string', validate: throwing } }),
+      );
+      const result = await merged.checkAsync({ x: 'v' });
+      assert.deepEqual(result.errors, ['Field "x" validation failed Error: b throws']);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      assert.deepEqual(unhandled, []);
+    } finally {
+      process.off('unhandledRejection', listen);
+    }
+  });
+
   it('should merge nested structs, collections, tuples, references and custom types', () => {
     const types = { money: { js: 'number', metadata: { pg: 'money' } } };
     const model = new Model(types, [
