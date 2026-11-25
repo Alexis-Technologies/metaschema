@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@alexify/metaskills':
-        specifier: ^1.0.1
-        version: 1.0.1
+        specifier: ^1.1.0
+        version: 1.1.0
       '@braintree/sanitize-url':
         specifier: ^7.1.2
         version: 7.1.2
@@ -104,8 +104,8 @@ importers:
 
 packages:
 
-  '@alexify/metaskills@1.0.1':
-    resolution: {integrity: sha512-wISPT7seWfsoDaQ9Q/zA6/lstrwlej8tS0Dt6lyV7W6VpXwi2Od/RSXvGJmRZEFW99wUWV471xFx7pYK3GQp8Q==}
+  '@alexify/metaskills@1.1.0':
+    resolution: {integrity: sha512-DS4dV/NjSs8dm9sbYvULbFulVkUFy+Y6k8GNE1D1qfPCErteLMn0i5t+k5Y3rkX3cZY6cuGh7KRzXK6rZVVOhA==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -2688,7 +2688,7 @@ packages:
 
 snapshots:
 
-  '@alexify/metaskills@1.0.1': {}
+  '@alexify/metaskills@1.1.0': {}
 
   '@algolia/abtesting@1.25.0':
     dependencies:

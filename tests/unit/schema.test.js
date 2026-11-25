@@ -609,7 +609,6 @@ test('Schema: the validate method reports a thrown null or symbol as an exceptio
     Struct: {},
     a: 'string',
     validate() {
-      // oxlint-disable-next-line no-throw-literal
       throw Symbol('s');
     },
   });
