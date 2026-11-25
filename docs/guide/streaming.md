@@ -153,9 +153,11 @@ min+gzip on top of the core; the core entry does not carry it.
   them; a program that collects every entry in an array keeps every result. `concurrency` is
   meant in tens, not thousands: the queue is an array shifted from the front.
 - **A record is a value; a promise is a value to the sync pair and awaited by the async one.**
-  `for await` over a sync source awaits its elements, so `checkEachAsync(schema, [promise])`
-  checks what the promise resolves to, and a rejected element rejects the iteration with its
-  own error; `checkEach` checks the promise object itself.
+  The async pair awaits an element of a sync source that is a `Promise`, so
+  `checkEachAsync(schema, [promise])` checks what the promise resolves to, and a rejected
+  element rejects the iteration with its own error; `checkEach` checks the promise object
+  itself. Any other value with a `then` (a record with a field named so) is the record in both
+  pairs: the async pair does not adopt it, as `for await` over a sync source would.
 - **An `onInvalid` that throws, and a parse that throws, end a transform with their error**, as
   a default factory that throws is the program's error in `parse`; `transform` catches nothing
   of its own.

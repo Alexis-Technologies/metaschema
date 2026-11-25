@@ -474,6 +474,48 @@ describe('Stream', () => {
     });
   });
 
+  it('should read a record with a then of its own from a sync source as the record', async () => {
+    // for await over a sync iterable adopts every thenable; the async pair
+    // awaits a Promise element only, and a record that has a `then` (a field
+    // named so) is the record, in both pairs and through every sync source.
+    const schema = Schema.from({ Struct: { unknown: 'ignore' }, name: 'string', then: '?any' });
+    const record = { name: 'a', then: (resolve) => resolve({ name: 1 }) };
+    const sources = [
+      [record],
+      new Set([record]),
+      (function* () {
+        yield record;
+      })(),
+    ];
+    for (const source of sources) {
+      const checked = await collect(checkEachAsync(schema, source));
+      assert.equal(checked.length, 1);
+      assert.equal(checked[0][1], record);
+      assert.equal(checked[0][2], true);
+    }
+    const parsed = [];
+    for await (const entry of parseEachAsync(schema, [record])) parsed.push(entry);
+    assert.equal(parsed[0].record, record);
+    assert.equal(parsed[0].result.value, record);
+  });
+
+  it('should close a sync source when the async pair stops early', async () => {
+    let closed = false;
+    const source = (function* () {
+      try {
+        yield { name: 'a' };
+        yield { name: 'b' };
+      } finally {
+        closed = true;
+      }
+    })();
+    for await (const entry of checkEachAsync(user, source)) {
+      assert.equal(entry.index, 0);
+      break;
+    }
+    assert.equal(closed, true);
+  });
+
   it('should end the stream with the error of an onInvalid that throws, or of a parse that rejects', async () => {
     const thrower = transform(user, {
       onInvalid: () => {

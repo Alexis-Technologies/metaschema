@@ -97,6 +97,28 @@ const each = function* (schema, records, options, limit, call) {
   }
 };
 
+// A source the async pair reads with for await. An async iterable is read as
+// it is; a sync one through an async iterator of its own steps, which awaits
+// an element that is a Promise (the documented contract) and nothing else:
+// for await over a sync iterable adopts every thenable, and a record with a
+// `then` of its own would come out as what that `then` resolves to, where a
+// value of the program is data (as for the passes of parse).
+const stepsOf = (records) => {
+  if (typeof records[Symbol.asyncIterator] === 'function') return records;
+  const iterator = records[Symbol.iterator]();
+  const next = () => {
+    const step = iterator.next();
+    if (step.done || !(step.value instanceof Promise)) return Promise.resolve(step);
+    return step.value.then((value) => ({ value, done: false }));
+  };
+  const close = (value) => {
+    const step = typeof iterator.return === 'function' ? iterator.return(value) : { done: true };
+    return Promise.resolve(step);
+  };
+  const steps = { next, return: close };
+  return { [Symbol.asyncIterator]: () => steps };
+};
+
 // The async pair over a sync or async iterable: up to `width` records are
 // checked at once, the entries come out in the order of the records, and the
 // promises still in flight when the iteration ends early (`maxInvalid`, a
@@ -107,7 +129,7 @@ const eachAsync = async function* (schema, records, options, limit, width, call)
   let failed = 0;
   let index = 0;
   try {
-    for await (const record of records) {
+    for await (const record of stepsOf(records)) {
       const result = call(schema, record, options);
       // Observed from the start: a record that rejects while an earlier one
       // is still awaited would reject unhandled before its turn (the await
