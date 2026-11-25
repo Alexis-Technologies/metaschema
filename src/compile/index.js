@@ -8,25 +8,39 @@
 // in the default mode. Nothing happens on import.
 const { hasBrand, RUN, HOOK } = require('../util.js');
 const { Schema } = require('../validation.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { isThenable, abandon } = require('../issues.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+
+// An observer never fails the operation it watches (alexiskills,
+// library-errors): what the hook throws, or a promise of it that rejects, is
+// dropped. A copy per subpath, as `install`, so the core carries none.
+const notify = (observer, first, second) => {
+  try {
+    const returned = observer(first, second);
+    if (isThenable(returned)) abandon(returned);
+  } catch {
+    // ignore: an observer never fails the operation it watches
+  }
+};
 
 // The options of compile and register: the mode, and the function told of
 // every schema the default mode could not compile.
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions(`Compile options must be an object, got ${JSON.stringify(options)}`);
+    throw wrongOption(`Compile options must be an object, got ${JSON.stringify(options)}`);
   }
   const { jit = 'auto', onFallback } = options;
   if (jit !== 'auto' && jit !== true && jit !== false) {
     const got = JSON.stringify(jit);
-    throw invalidOptions(`Compile option "jit" must be "auto", true or false, got ${got}`);
+    throw wrongOption(`Compile option "jit" must be "auto", true or false, got ${got}`);
   }
   if (onFallback !== undefined && typeof onFallback !== 'function') {
-    throw invalidOptions('Compile option "onFallback" must be a function');
+    throw wrongOption('Compile option "onFallback" must be a function');
   }
   return { mode: jit, onFallback };
 };
@@ -66,9 +80,7 @@ const accelerates = (mode) => {
 // error of the emitter or of `new Function` as the cause, under one code.
 const failure = (target, error) => {
   const reason = `The check of "${target.name}" could not be generated: ${error.message}`;
-  const wrapped = new SchemaDefinitionError('ALX_ERR_JIT_BUILD', reason);
-  wrapped.cause = error;
-  return wrapped;
+  return new SchemaDefinitionError('ALX_ERR_JIT_BUILD', reason, { cause: error });
 };
 
 // The checks the subpath generated: the closures a schema runs instead may
@@ -116,7 +128,7 @@ const install = (target, onFallback) => {
     run = build(target);
   } catch (error) {
     const wrapped = failure(target, error);
-    if (onFallback !== undefined) onFallback(target, wrapped);
+    if (onFallback !== undefined) notify(onFallback, target, wrapped);
     return wrapped;
   }
   replace(target, run);

@@ -581,6 +581,14 @@ describe('fromJSONSchema', () => {
       ],
       ['The keyword "not"', '/properties/t'],
     ]);
+    // An observer that throws drops nothing more and fails nothing.
+    const failing = () => {
+      throw new Error('observer');
+    };
+    assert.deepEqual(
+      fromJSONSchema(document, { unsupported: 'ignore', onUnsupported: failing }).n,
+      '?number',
+    );
     // Not in the throw mode: the error carries the place.
     const calls = [];
     assert.throws(() => fromJSONSchema(document, { onUnsupported: () => calls.push(1) }), {
@@ -720,7 +728,7 @@ describe('fromJSONSchema', () => {
       [{ onUnsupported: 'log' }, 'Option "onUnsupported" must be a function'],
     ]) {
       assert.throws(() => fromJSONSchema({ type: 'string' }, options), {
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTION',
         message,
       });
     }

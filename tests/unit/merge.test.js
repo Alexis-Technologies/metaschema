@@ -369,7 +369,7 @@ describe('Merge', () => {
       message: 'Two Schemas are expected',
     });
     assert.throws(() => merge(s({ a: 'string' }), s({ a: 'string' }), null), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
     });
   });
 

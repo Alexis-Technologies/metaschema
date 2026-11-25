@@ -334,7 +334,7 @@ describe('Sample', () => {
       [{ maxDepth: 33 }, 'Sample option "maxDepth" must be an integer from 0 to 32'],
       [{ maxDepth: 1e9 }, 'Sample option "maxDepth" must be an integer from 0 to 32'],
     ]) {
-      assert.throws(() => sample(schema, options), { code: 'ALX_ERR_INVALID_OPTIONS', message });
+      assert.throws(() => sample(schema, options), { code: 'ALX_ERR_INVALID_OPTION', message });
     }
     assert.throws(() => sample({ a: 'string' }), {
       name: 'SchemaUsageError',

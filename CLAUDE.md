@@ -456,8 +456,11 @@ a list of changes, a JSON Schema document) throws `ALX_ERR_INVALID_TARGET` (`inv
 `errors.js`, like `asyncReturn` for `ALX_ERR_ASYNC_VALIDATOR`): the call is wrong, not a
 definition. `ALX_ERR_INVALID_OPTION` (`invalidOption` in `errors.js`) is the same
 kind of error for an option of a call that is not what it must be (`maxErrors`, `references`,
-the `coerce` of a parse, the options of the stream, derive and mongodb subpaths): the kind
-metadata and the `metadata` of `merge` and `derive` are definitions, so a wrong one is
+the `coerce` of a parse, a `Model` option, the options of `compile`/`register`, `toJSONSchema`,
+`fromJSONSchema`, `fromJSON`, `merge`, `sample`, `infer`, `register` of `./coerce`, and of the
+stream, derive and mongodb subpaths; until the review of 4.0 the options of compile, the
+generators, the model subpath, `Model` and coerce's `register` were `ALX_ERR_INVALID_OPTIONS`):
+the kind metadata and the `metadata` of `merge` and `derive` are definitions, so a wrong one is
 `ALX_ERR_INVALID_OPTIONS`, a `SchemaDefinitionError`. `ALX_ERR_NOT_REGISTERED` (`notRegistered` in
 `errors.js`) is the same kind of error for a call that needs what `register()` of a subpath
 installs before it ran: a

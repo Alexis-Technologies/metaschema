@@ -901,15 +901,15 @@ describe('Compile', () => {
     assert.deepEqual(compile(schema, {}), { accelerated: canEval() });
     for (const jit of ['always', 1, null, 'true']) {
       assert.throws(() => compile(schema, { jit }), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: `Compile option "jit" must be "auto", true or false, got ${JSON.stringify(jit)}`,
       });
     }
     for (const options of [null, 'auto', true]) {
       assert.throws(() => compile(schema, options), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: `Compile options must be an object, got ${JSON.stringify(options)}`,
       });
     }
@@ -976,13 +976,27 @@ describe('Compile', () => {
         register({ jit: false });
         assert.deepEqual(calls, [['Later', 'ALX_ERR_JIT_BUILD']]);
         assert.notEqual(later[RUN].name, 'jit');
+        // An onFallback that throws or rejects fails nothing: it is an
+        // observer, and the schema is built with its closures.
+        register({
+          onFallback: () => {
+            throw new Error('observer');
+          },
+        });
+        const kept = new Schema('Kept', { a: 'string' });
+        register({ onFallback: () => Promise.reject(new Error('observer')) });
+        const rejected = new Schema('Rejected', { a: 'string' });
+        register({ jit: false });
+        assert.notEqual(kept[RUN].name, 'jit');
+        assert.equal(kept.check({ a: 'x' }).valid, true);
+        assert.notEqual(rejected[RUN].name, 'jit');
       } finally {
         globalThis.Function = Original;
       }
       assert.deepEqual(compile(schema), { accelerated: true });
       assert.equal(schema[RUN].name, 'jit');
       assert.throws(() => register({ onFallback: 1 }), {
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: 'Compile option "onFallback" must be a function',
       });
       // A model is compiled all or nothing when the JIT is demanded: an error
@@ -1024,10 +1038,10 @@ describe('Compile', () => {
     register({ jit: false });
     assert.notEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
     assert.throws(() => register({ jit: 'x' }), {
-      name: 'SchemaDefinitionError',
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      name: 'SchemaUsageError',
+      code: 'ALX_ERR_INVALID_OPTION',
     });
-    assert.throws(() => register(null), { code: 'ALX_ERR_INVALID_OPTIONS' });
+    assert.throws(() => register(null), { code: 'ALX_ERR_INVALID_OPTION' });
     assert.notEqual(Schema.from({ a: 'string' })[RUN].name, 'jit');
   });
 

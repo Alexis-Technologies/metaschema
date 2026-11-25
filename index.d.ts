@@ -55,7 +55,11 @@ export interface IssueParams {
   enum: { values: unknown[] };
   length: { min: number | undefined; max: number | undefined; actual: number };
   // A `min`/`max` rule failed; the bounds are what the definition gave.
-  range: { min: number | bigint | undefined; max: number | bigint | undefined; actual: number | bigint };
+  range: {
+    min: number | bigint | undefined;
+    max: number | bigint | undefined;
+    actual: number | bigint;
+  };
   // The source of the pattern the string did not match.
   pattern: { pattern: string };
   // The name of the format the string is not of.
@@ -224,7 +228,11 @@ export class ValidationResult {
   tree(): IssueTree;
   // The result as data: what JSON.stringify(result) writes.
   toJSON(): { valid: boolean; issues: ValidationIssue[] };
-  static issuesOf(error: ValidationReturn, path?: PropertyKey[], code?: IssueCode): ValidationIssue[];
+  static issuesOf(
+    error: ValidationReturn,
+    path?: PropertyKey[],
+    code?: IssueCode,
+  ): ValidationIssue[];
   static isInstance(error: unknown): boolean;
 }
 
@@ -380,6 +388,9 @@ export type DefinitionErrorCode =
   | 'ALX_ERR_RESERVED_KEY'
   | 'ALX_ERR_TYPE_REGISTERED'
   | 'ALX_ERR_UNKNOWN_JS_TYPE'
+  // The metadata of a definition that is not what it must be (the `unknown`
+  // or `coerce` metadata of a schema, the `metadata` of merge and derive); an
+  // option of a call is ALX_ERR_INVALID_OPTION of a SchemaUsageError.
   | 'ALX_ERR_INVALID_OPTIONS'
   | 'ALX_ERR_UNREPRESENTABLE'
   // Thrown by `fromJSONSchema` of the generators subpath for a keyword the
@@ -422,10 +433,10 @@ export type DefinitionErrorCode =
   | 'ALX_ERR_JIT_BUILD';
 
 export class SchemaDefinitionError extends TypeError {
-  code: DefinitionErrorCode;
+  readonly code: DefinitionErrorCode;
   schema: string;
   field: string;
-  constructor(code: DefinitionErrorCode, reason: string);
+  constructor(code: DefinitionErrorCode, reason: string, options?: { cause?: unknown });
   locate(schema: string, field: string): this;
 }
 
@@ -438,8 +449,9 @@ export type RuntimeErrorCode =
   // Schema, a Model, a snapshot, a list of changes, a sequence of records).
   | 'ALX_ERR_INVALID_TARGET'
   // An option of a call that is not what it must be (`maxErrors`, the
-  // `coerce` of a parse, the options of the stream, derive and mongodb
-  // subpaths).
+  // `coerce` of a parse, a Model option, the options of compile, register,
+  // toJSONSchema, fromJSONSchema, fromJSON, merge, sample and infer, and of
+  // the stream, derive, coerce and mongodb subpaths).
   | 'ALX_ERR_INVALID_OPTION'
   // An invalid record a `transform` of the stream subpath was not told to
   // drop; the error carries `index`, `record` and `result`.
@@ -458,12 +470,12 @@ export type RuntimeErrorCode =
 // stream carries it, its position and its result; an ALX_ERR_NOT_REGISTERED of a
 // schema of the definition entry names the method that was called.
 export class SchemaUsageError extends TypeError {
-  code: RuntimeErrorCode;
+  readonly code: RuntimeErrorCode;
   index?: number;
   record?: unknown;
   result?: ValidationResult;
   method?: string;
-  constructor(code: RuntimeErrorCode, message: string);
+  constructor(code: RuntimeErrorCode, message: string, options?: { cause?: unknown });
 }
 
 // ---------------------------------------------------------------------------
@@ -617,8 +629,32 @@ export interface UnionFieldSnapshot extends FieldSnapshotBase {
 }
 
 type UpperLetter =
-  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
-  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
+  | 'A'
+  | 'B'
+  | 'C'
+  | 'D'
+  | 'E'
+  | 'F'
+  | 'G'
+  | 'H'
+  | 'I'
+  | 'J'
+  | 'K'
+  | 'L'
+  | 'M'
+  | 'N'
+  | 'O'
+  | 'P'
+  | 'Q'
+  | 'R'
+  | 'S'
+  | 'T'
+  | 'U'
+  | 'V'
+  | 'W'
+  | 'X'
+  | 'Y'
+  | 'Z';
 
 // A reference: the type is the name of the entity, under `one` or `many`.
 export interface ReferenceFieldSnapshot extends FieldSnapshotBase {
@@ -861,7 +897,11 @@ export interface TransformOptions extends ParseOptions {
   async?: boolean;
   // Told of every invalid record, which is then dropped; without it the
   // stream ends with the error at the first one.
-  onInvalid?: (record: unknown, result: ValidationResult | ParseResult<unknown>, index: number) => void;
+  onInvalid?: (
+    record: unknown,
+    result: ValidationResult | ParseResult<unknown>,
+    index: number,
+  ) => void;
   // After that many invalid records the stream ends with the error even with
   // `onInvalid` (no limit by default).
   maxInvalid?: number;
@@ -1358,7 +1398,11 @@ type IsOptionalDef<X> = X extends `?${string}`
 type IsOptionalKey<K, X> = K extends `${string}?` ? true : IsOptionalDef<X>;
 
 // Whether parse fills the key when it is missing.
-type Defaulted<X> = X extends { default: infer V } ? ([V] extends [undefined] ? false : true) : false;
+type Defaulted<X> = X extends { default: infer V }
+  ? [V] extends [undefined]
+    ? false
+    : true
+  : false;
 
 type FieldKeys<D> = { [K in keyof D]: IsField<D[K]> extends true ? K : never }[keyof D];
 
@@ -1566,27 +1610,31 @@ type DerivedKind<D, O> = O extends { metadata: { kind: infer K extends string } 
 export type DerivedSchema<D, R> = IsWide<D> extends true ? Schema : Schema<Simplify<R>>;
 
 type Keep<D, K> = {
-  [P in keyof D as P extends FieldKeyOf<D>
-    ? FieldName<P> extends K
-      ? P
-      : never
-    : P extends CalculatedKeyOf<D>
-      ? P extends K
+  [
+    P in keyof D as P extends FieldKeyOf<D>
+      ? FieldName<P> extends K
         ? P
         : never
-      : never]: D[P];
+      : P extends CalculatedKeyOf<D>
+        ? P extends K
+          ? P
+          : never
+        : never
+  ]: D[P];
 };
 
 type Drop<D, K> = {
-  [P in keyof D as P extends FieldKeyOf<D>
-    ? FieldName<P> extends K
-      ? never
-      : P
-    : P extends CalculatedKeyOf<D>
-      ? P extends K
+  [
+    P in keyof D as P extends FieldKeyOf<D>
+      ? FieldName<P> extends K
         ? never
         : P
-      : never]: D[P];
+      : P extends CalculatedKeyOf<D>
+        ? P extends K
+          ? never
+          : P
+        : never
+  ]: D[P];
 };
 
 export type PickDefinition<D, K, O = {}> = DerivedKind<D, O> & Keep<D, K>;
@@ -1635,21 +1683,25 @@ type OptionalDef<X, O> = X extends string
     : NoDefault<X, O>;
 
 type PartialFields<D, O> = {
-  [P in keyof D as P extends FieldKeyOf<D>
-    ? `${FieldName<P> & string}?`
-    : P extends CalculatedKeyOf<D>
-      ? P
-      : never]: P extends FieldKeyOf<D> ? OptionalDef<D[P], O> : D[P];
+  [
+    P in keyof D as P extends FieldKeyOf<D>
+      ? `${FieldName<P> & string}?`
+      : P extends CalculatedKeyOf<D>
+        ? P
+        : never
+  ]: P extends FieldKeyOf<D> ? OptionalDef<D[P], O> : D[P];
 };
 
 type PartialOf<D, O> = {
-  [P in keyof D as P extends FieldKeyOf<D>
-    ? FieldName<P> extends KeysOf<O, D>
-      ? `${FieldName<P> & string}?`
-      : P
-    : P extends CalculatedKeyOf<D>
-      ? P
-      : never]: P extends FieldKeyOf<D>
+  [
+    P in keyof D as P extends FieldKeyOf<D>
+      ? FieldName<P> extends KeysOf<O, D>
+        ? `${FieldName<P> & string}?`
+        : P
+      : P extends CalculatedKeyOf<D>
+        ? P
+        : never
+  ]: P extends FieldKeyOf<D>
     ? FieldName<P> extends KeysOf<O, D>
       ? OptionalDef<D[P], O>
       : D[P]
@@ -1663,11 +1715,13 @@ type RequiredDef<X, O> = X extends `?${infer N}`
   : X extends string
     ? X
     : Simplify<
-        (X extends { type: `?${infer N}` }
-          ? Omit<X, 'type' | 'required'> & { type: N }
-          : IsStructDef<X> extends true
-            ? X
-            : Omit<X, 'required'>) extends infer Y
+        (
+          X extends { type: `?${infer N}` }
+            ? Omit<X, 'type' | 'required'> & { type: N }
+            : IsStructDef<X> extends true
+              ? X
+              : Omit<X, 'required'>
+        ) extends infer Y
           ? IsDeep<O> extends true
             ? [NestedOf<X>] extends [never]
               ? Y
@@ -1687,13 +1741,15 @@ type RequiredFields<D, O> = {
 };
 
 type RequiredOf<D, O> = {
-  [P in keyof D as P extends FieldKeyOf<D>
-    ? FieldName<P> extends KeysOf<O, D>
-      ? FieldName<P>
-      : P
-    : P extends CalculatedKeyOf<D> | OptionKey
-      ? P
-      : never]: P extends FieldKeyOf<D>
+  [
+    P in keyof D as P extends FieldKeyOf<D>
+      ? FieldName<P> extends KeysOf<O, D>
+        ? FieldName<P>
+        : P
+      : P extends CalculatedKeyOf<D> | OptionKey
+        ? P
+        : never
+  ]: P extends FieldKeyOf<D>
     ? FieldName<P> extends KeysOf<O, D>
       ? RequiredDef<D[P], O>
       : D[P]
@@ -1708,16 +1764,22 @@ type ExtensionOf<X> = X extends Schema<infer S> ? Omit<S, KindKey<S>> : X;
 // An extension whose fields are not known (a `Schema`, an entity of a
 // model): what it extends is not known either.
 export type ExtendedSchema<D, X, R> =
-  X extends Schema<infer S> ? (IsWide<S> extends true ? Schema : DerivedSchema<D, R>) : DerivedSchema<D, R>;
+  X extends Schema<infer S>
+    ? IsWide<S> extends true
+      ? Schema
+      : DerivedSchema<D, R>
+    : DerivedSchema<D, R>;
 
 export type ExtendDefinition<D, X, O = {}> = DerivedKind<D, O> & {
-  [P in keyof D as P extends KindKey<D>
-    ? never
-    : P extends FieldKeyOf<D>
-      ? FieldName<P> extends FieldName<keyof ExtensionOf<X>>
-        ? never
+  [
+    P in keyof D as P extends KindKey<D>
+      ? never
+      : P extends FieldKeyOf<D>
+        ? FieldName<P> extends FieldName<keyof ExtensionOf<X>>
+          ? never
+          : P
         : P
-      : P]: D[P];
+  ]: D[P];
 } & ExtensionOf<X>;
 
 // The names of the fields of a struct definition, as a definition of an enum.
@@ -1778,7 +1840,10 @@ export class Schema<const D extends string | object = string | object> {
     document: JSONSchema | true,
     options: FromJSONSchemaOptions & { as: 'schema' },
   ): Schema;
-  static fromJSONSchema(document: JSONSchema | true, options?: FromJSONSchemaOptions): object | string;
+  static fromJSONSchema(
+    document: JSONSchema | true,
+    options?: FromJSONSchemaOptions,
+  ): object | string;
   // The schema two schemas describe, by unification: exists once `register()`
   // of the `@alexify/metaschema/model` subpath has run; its `merge(a, b)` is
   // the same without it.

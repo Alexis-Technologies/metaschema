@@ -852,9 +852,12 @@ and every exported type.
 libraries (`ERR_INVALID_RULE` is `ALX_ERR_INVALID_RULE`, and so for every code), and a wrong
 call (a target or an option a call does not take, a method before its `register()`, a promise
 where the call is synchronous, an invalid record of a stream) throws `SchemaUsageError`, a
-subclass of `TypeError`, where it threw a plain `TypeError`; `saveTypes` in a browser rejects
-with `ALX_ERR_UNSUPPORTED_RUNTIME` of that class. The schema language, the results and their
-issue codes stay as they are. The before-and-after examples are in
+subclass of `TypeError`, where it threw a plain `TypeError`; the options of the compile
+subpath, the generators, the model subpath, `Model` and coerce's `register`, which threw
+`SchemaDefinitionError` with `ERR_INVALID_OPTIONS`, are among them (`ALX_ERR_INVALID_OPTION`).
+`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME` of that class, `cause` is
+the standard one, and a hook (`onFallback`, `onError`, `onUnsupported`) no longer fails the
+call it watches. The schema language, the results and their issue codes stay as they are. The before-and-after examples are in
 [Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3).
 
 ### From 2.x

@@ -301,8 +301,8 @@ const result = answer.check(toolUse.input);
 
 `any`, `unknown`, `json`, `object` and `map` have no place in the profile (a value without a
 type, an object without its properties listed) and throw, or render as `{}` with
-`unrepresentable: 'any'`. A root that is not a struct, and any other target, is an
-`ALX_ERR_INVALID_OPTIONS` error.
+`unrepresentable: 'any'`. A root that is not a struct, and any other target, is a
+`SchemaUsageError` with the code `ALX_ERR_INVALID_OPTION`.
 
 ## The mongodb target
 

@@ -13,9 +13,11 @@ const { define, shorten } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { isThenable, abandon } = require('../issues.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
 // The keys of a JSON object are strings, so a number key is this pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
@@ -71,19 +73,19 @@ const option = (options, name, allowed) => {
     for (let index = 0; index < allowed.length; index += 1) {
       list += `${index === 0 ? '' : ', '}${JSON.stringify(allowed[index])}`;
     }
-    throw invalidOptions(`Option "${name}" must be one of ${list}, got ${JSON.stringify(value)}`);
+    throw wrongOption(`Option "${name}" must be one of ${list}, got ${JSON.stringify(value)}`);
   }
   return value;
 };
 
 const createContext = (document, options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Options must be an object');
+    throw wrongOption('Options must be an object');
   }
   const { name = '', onUnsupported } = options;
-  if (typeof name !== 'string') throw invalidOptions('Option "name" must be a string');
+  if (typeof name !== 'string') throw wrongOption('Option "name" must be a string');
   if (onUnsupported !== undefined && typeof onUnsupported !== 'function') {
-    throw invalidOptions('Option "onUnsupported" must be a function');
+    throw wrongOption('Option "onUnsupported" must be a function');
   }
   return {
     document,
@@ -114,12 +116,24 @@ const pointerOf = (path) => {
   return pointer;
 };
 
+// An observer never fails the operation it watches (alexiskills,
+// library-errors): what the hook throws, or a promise of it that rejects, is
+// dropped. A copy per subpath, as `install`, so the core carries none.
+const notify = (observer, first, second) => {
+  try {
+    const returned = observer(first, second);
+    if (isThenable(returned)) abandon(returned);
+  } catch {
+    // ignore: an observer never fails the operation it watches
+  }
+};
+
 // A node outside the subset: the error with its place, or a drop that
 // `onUnsupported` is told of (in the throw mode the error carries both).
 const unsupported = (context, what) => {
   const where = pointerOf(context.path);
   if (context.lenient) {
-    if (context.onUnsupported !== undefined) context.onUnsupported(what, where);
+    if (context.onUnsupported !== undefined) notify(context.onUnsupported, what, where);
     return;
   }
   const reason = `${what} is not supported in a JSON Schema at "${where}"`;

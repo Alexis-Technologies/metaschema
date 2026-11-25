@@ -7,7 +7,7 @@
 // `unrepresentable: 'any'`.
 const { hasBrand, define } = require('../util.js');
 const { isStruct } = require('../struct.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { FORMATS } = require('../rules.js');
 const { idFieldOf } = require('../kinds.js');
@@ -71,7 +71,8 @@ const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
 // The key every stored MongoDB document has.
 const ID = '_id';
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
 const option = (options, name, allowed) => {
   const value = options[name];
@@ -82,7 +83,7 @@ const option = (options, name, allowed) => {
       list += `${index === 0 ? '' : ', '}${JSON.stringify(allowed[index])}`;
     }
     const got = JSON.stringify(value);
-    throw invalidOptions(`JSON Schema option "${name}" must be one of ${list}, got ${got}`);
+    throw wrongOption(`JSON Schema option "${name}" must be one of ${list}, got ${got}`);
   }
   return value;
 };
@@ -97,7 +98,7 @@ const isPointer = (value) =>
 // the location of an error).
 const createContext = (options, unknown) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('JSON Schema options must be an object');
+    throw wrongOption('JSON Schema options must be an object');
   }
   const name = option(options, 'target', TARGET_NAMES);
   const target = TARGETS[name];
@@ -107,25 +108,21 @@ const createContext = (options, unknown) => {
   const { profile, definitions = target.definitions } = options;
   if (profile !== undefined && profile !== 'strict') {
     const got = JSON.stringify(profile);
-    throw invalidOptions(`JSON Schema option "profile" must be "strict", got ${got}`);
+    throw wrongOption(`JSON Schema option "profile" must be "strict", got ${got}`);
   }
   const strict = profile === 'strict';
   if (strict && target.strict !== true) {
-    throw invalidOptions(
-      `Profile "strict" needs target "draft-2020-12" or "draft-07", got "${name}"`,
-    );
+    throw wrongOption(`Profile "strict" needs target "draft-2020-12" or "draft-07", got "${name}"`);
   }
   const mongo = name === 'mongodb';
   // The ids of stored records as MongoDB holds them (the ./mongodb subpath
   // writes them so): an ObjectId under `_id`, and in every reference.
   const objectIds = option(options, 'ids', ['string', 'objectId']) === 'objectId';
   if (objectIds && !mongo) {
-    throw invalidOptions(
-      `JSON Schema option "ids" "objectId" needs target "mongodb", got "${name}"`,
-    );
+    throw wrongOption(`JSON Schema option "ids" "objectId" needs target "mongodb", got "${name}"`);
   }
   if (!mongo && !isPointer(definitions)) {
-    throw invalidOptions('JSON Schema option "definitions" must be a pointer such as "#/$defs/"');
+    throw wrongOption('JSON Schema option "definitions" must be a pointer such as "#/$defs/"');
   }
   return {
     name,
@@ -518,9 +515,7 @@ const renderSchema = (schema, context, root = false) => {
 const renderRoot = (schema, context) => {
   context.closed = context.strict || schema.unknown !== 'ignore';
   if (context.strict && !isStruct(schema.fields)) {
-    throw invalidOptions(
-      `Profile "strict" needs a struct at the root, got "${schema.fields.type}"`,
-    );
+    throw wrongOption(`Profile "strict" needs a struct at the root, got "${schema.fields.type}"`);
   }
   const json = renderSchema(schema, context, true);
   // Every stored document has an `_id`; a closed mongodb root must let it in.
@@ -571,11 +566,11 @@ const modelToJSONSchema = (model, options = {}) => {
   const { root, ...rest } = options;
   if (root !== undefined) {
     const entity = model.entities.get(root);
-    if (entity === undefined) throw invalidOptions(`Entity "${root}" is not in the model`);
+    if (entity === undefined) throw wrongOption(`Entity "${root}" is not in the model`);
     return toJSONSchema(entity, rest);
   }
   const context = createContext(rest, 'reject');
-  if (context.strict) throw invalidOptions('Profile "strict" needs a root entity');
+  if (context.strict) throw wrongOption('Profile "strict" needs a root entity');
   const { entities, order } = model;
   const documents = new Map();
   for (const name of order) documents.set(name, null);
@@ -597,7 +592,7 @@ const standardConverter = (schema) => {
   const convert = (io) => (options) => {
     const target = options === null || typeof options !== 'object' ? undefined : options.target;
     if (!STANDARD_TARGETS.has(target)) {
-      throw invalidOptions(`JSON Schema target ${JSON.stringify(target)} is not supported`);
+      throw wrongOption(`JSON Schema target ${JSON.stringify(target)} is not supported`);
     }
     return toJSONSchema(schema, { ...options.libraryOptions, target, io });
   };

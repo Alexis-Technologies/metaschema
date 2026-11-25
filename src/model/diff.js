@@ -13,6 +13,7 @@
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const {
   invalidSnapshot,
+  unreadable,
   atSchema,
   isObject,
   readSnapshot,
@@ -426,7 +427,7 @@ const classOf = (entry) => {
   try {
     return levelOf(entry);
   } catch (error) {
-    const located = error instanceof SchemaDefinitionError ? error : invalidSnapshot(error.message);
+    const located = error instanceof SchemaDefinitionError ? error : unreadable(error);
     throw located.locate(entry.entity, entry.name);
   }
 };

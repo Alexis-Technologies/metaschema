@@ -208,6 +208,11 @@ expectType<string>(error.field);
 expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
 expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
 expectType<SchemaDefinitionError>(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x'));
+expectType<SchemaDefinitionError>(
+  new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x', { cause: new SyntaxError('y') }),
+);
+// The code of an error is what it was thrown with.
+expectError((error.code = 'ALX_ERR_INVALID_RULE'));
 
 const usage = new SchemaUsageError('ALX_ERR_INVALID_TARGET', 'not a Schema');
 expectAssignable<TypeError>(usage);
@@ -216,6 +221,8 @@ expectType<number | undefined>(usage.index);
 expectType<string | undefined>(usage.method);
 expectError(new SchemaUsageError('ALX_ERR_UNKNOWN_TYPE', 'x'));
 expectError(new SchemaUsageError('ERR_INVALID_TARGET', 'x'));
+expectType<SchemaUsageError>(new SchemaUsageError('ALX_ERR_INVALID_TARGET', 'x', { cause: 1 }));
+expectError((usage.code = 'ALX_ERR_INVALID_TARGET'));
 expectAssignable<RuntimeErrorCode>('ALX_ERR_UNSUPPORTED_RUNTIME');
 
 // The snapshot of a model and the aliases of a field.

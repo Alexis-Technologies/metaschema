@@ -7,7 +7,8 @@
 // check.
 const { SchemaDefinitionError } = require('./errors.js');
 
-const invalidRule = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_RULE', reason);
+const invalidRule = (reason, options) =>
+  new SchemaDefinitionError('ALX_ERR_INVALID_RULE', reason, options);
 
 const invalidLength = (reason = 'needs a number, [min, max] or { min, max }') =>
   new SchemaDefinitionError('ALX_ERR_INVALID_LENGTH', `Rule "length" ${reason}`);
@@ -46,7 +47,8 @@ const formatPattern = (value) => {
   try {
     return new RegExp(source, `${given}u`);
   } catch (error) {
-    throw invalidRule(`Rule "pattern" is not a valid regular expression: ${error.message}`);
+    const reason = `Rule "pattern" is not a valid regular expression: ${error.message}`;
+    throw invalidRule(reason, { cause: error });
   }
 };
 

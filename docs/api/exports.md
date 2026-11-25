@@ -158,8 +158,8 @@ The JIT backend, in a subpath of its own (4.3 KB min+gzip on top of the core); s
 | `canEval()` | whether this environment allows code generation from strings, probed once |
 | `compiled(target)` | whether the check of a `Schema` (of every entity of a `Model`) runs generated code now: `false` for a schema built before `register()` and after `{ jit: false }` |
 
-A target that is neither a `Schema` nor a `Model` is a `SchemaUsageError`; an option with a value it
-does not accept is `ALX_ERR_INVALID_OPTIONS`. The types of the subpath are `CompileOptions`
+A target that is neither a `Schema` nor a `Model` is a `SchemaUsageError`, and so is an option with a
+value it does not accept (`ALX_ERR_INVALID_OPTION`). The types of the subpath are `CompileOptions`
 (`{ jit?: 'auto' | boolean; onFallback?: (schema, error) => void }`) and `Compiled`
 (`{ accelerated: boolean; error?: SchemaDefinitionError }`).
 
@@ -275,7 +275,7 @@ because of the value, and a broken definition is a
 | --- | --- |
 | `ALX_ERR_ASYNC_VALIDATOR` | a synchronous `check` or `parse` met a promise from a `validate` function, a custom type's `checkType` or a field's `parse` function; `checkAsync` and `parseAsync` await them |
 | `ALX_ERR_INVALID_TARGET` | a function of a subpath was given something other than what it takes (a Schema, a Model, a snapshot, a list of changes, a JSON Schema document, a sequence of records) |
-| `ALX_ERR_INVALID_OPTION` | an option of a call is not what it must be (`maxErrors`, `references`, the `coerce` of a parse, the options of the stream, derive and mongodb subpaths); the kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is `ALX_ERR_INVALID_OPTIONS` |
+| `ALX_ERR_INVALID_OPTION` | an option of a call is not what it must be: `maxErrors`, `references` and the `coerce` of a check or a parse, a `Model` option, the options of `compile` and `register` of the compile subpath, of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have, `ids` with a target other than mongodb) and `fromJSONSchema`, of `fromJSON`, `merge`, `sample` and `infer`, of `register` of the coerce subpath, and the options of the stream, derive and mongodb subpaths; the kind metadata and the `metadata` of `merge` and `derive` are definitions, and a wrong one is `ALX_ERR_INVALID_OPTIONS` |
 | `ALX_ERR_INVALID_RECORD` | a `transform` of the stream subpath met an invalid record it was not told to drop |
 | `ALX_ERR_NOT_REGISTERED` | a parse that coerces before `register()` of the coerce subpath (as it enters the schema, whatever the value holds), a document or an update written with ObjectIds before `register({ bson })` of the mongodb subpath, or a schema of the [definition entry](/guide/definition) asked to validate before the core entry was loaded |
 | `ALX_ERR_UNSUPPORTED_RUNTIME` | `saveTypes` of the generators subpath in a browser, where there is no file system to write to (the promise rejects) |
@@ -332,7 +332,7 @@ it; see [Validation](/guide/validation#the-result).
 | `ALX_ERR_INVALID_REFERENCE` | `one` or `many` without an entity name |
 | `ALX_ERR_TYPE_REGISTERED` | a custom type entry that redefines a registered name (only `{ metadata }` may be added) |
 | `ALX_ERR_UNKNOWN_JS_TYPE` | a `js` alias that names no registered type |
-| `ALX_ERR_INVALID_OPTIONS` | a `Model` option, the `unknown` or `coerce` metadata of a schema, an option of `toJSONSchema` (an unknown target, the strict profile with another target or a root that is no struct, a root entity the model does not have, `ids` with a target other than mongodb), an option of `sample` or `infer`, the keys or options of a derive function, or the `jit` option of `compile`/`register` with a value it does not accept |
+| `ALX_ERR_INVALID_OPTIONS` | the metadata of a definition: the `unknown` or `coerce` metadata of a schema, the `metadata` of `merge` and `derive` (its `kind` included), and a `metadata` given to `keyof` (an option of a call is `ALX_ERR_INVALID_OPTION` of `SchemaUsageError` since 4.0) |
 | `ALX_ERR_NO_EVAL` | `compile` or `register` of the compile subpath with `jit: true` where code generation from strings is not allowed; see [The JIT backend](/guide/compile#the-jit-option) |
 | `ALX_ERR_JIT_BUILD` | the check of a schema could not be generated (the generator's error is the `cause`): thrown with `jit: true`, returned as `compile().error` and given to `onFallback` in the default mode |
 | `ALX_ERR_UNREPRESENTABLE` | two schemas of one name in what `schema.toSnapshot()` reaches; a type with no form in the JSON Schema target (a `bigint`, a `date`, `bytes`, `set` or `map` on the output side, a custom type without metadata, a tuple for openapi-3.0, a cycle for mongodb, a value without a type in the strict profile) when `unrepresentable` is `'throw'`; see [JSON Schema](/guide/json-schema#input-and-output) |

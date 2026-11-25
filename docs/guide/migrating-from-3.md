@@ -1,8 +1,9 @@
 # Migrating from 3.x
 
-4.0 changes the errors and nothing else. Every code carries the `ALX_` prefix of the Alexis
-libraries, and a wrong call throws a class of its own, `SchemaUsageError`, where it threw a plain
-`TypeError`. The schema language, `check`, `parse`, the shape of a result and the typings of the
+4.0 changes the errors, and the hooks that watch a call. Every code carries the `ALX_` prefix of
+the Alexis libraries, a wrong call throws a class of its own, `SchemaUsageError`, where it threw
+a plain `TypeError` (or, for a wrong option of some calls, a `SchemaDefinitionError`), and a hook
+that throws no longer fails the call it watches. The schema language, `check`, `parse`, the shape of a result and the typings of the
 schemas stay as they are, and so do the issue codes of a result (`required`, `type`,
 `unexpected`, …), which are data, not error codes. This page shows each change with the 3.x
 behaviour first and the 4.0 behaviour after it; the condensed list is under "Upgrading from 3.x"
@@ -64,6 +65,51 @@ A check of `instanceof TypeError` keeps working; a check of `error.name === 'Typ
 not. The fields that travelled on these errors are where they were: `index`, `record` and
 `result` on the `ALX_ERR_INVALID_RECORD` of a stream, `method` on the `ALX_ERR_NOT_REGISTERED`
 of a schema of the definition entry.
+
+## Every option of a call is `ALX_ERR_INVALID_OPTION`
+
+In 3.x a wrong option of `compile` and `register` of the compile subpath, of `toJSONSchema` and
+`fromJSONSchema`, of `fromJSON`, `merge`, `sample` and `infer`, of the `Model` constructor and of
+`register` of the coerce subpath was a `SchemaDefinitionError` with the code
+`ERR_INVALID_OPTIONS` (`ERR_INVALID_COERCION` for coerce), as if the definition were broken. The
+call is what is wrong, so it is a `SchemaUsageError` with `ALX_ERR_INVALID_OPTION` now, as the
+options of `check`, the stream, derive and mongodb subpaths already were:
+
+```js
+const { register } = require('@alexify/metaschema/compile');
+
+try {
+  register({ jit: 'yes' });
+} catch (error) {
+  // 3.x
+  error.name; // 'SchemaDefinitionError'
+  error.code; // 'ERR_INVALID_OPTIONS'
+  // 4.0
+  error.name; // 'SchemaUsageError'
+  error.code; // 'ALX_ERR_INVALID_OPTION'
+  error.message; // 'Compile option "jit" must be "auto", true or false, got "yes"', in both
+}
+```
+
+`ALX_ERR_INVALID_OPTIONS` stays the code of a broken piece of a definition: the `unknown` or
+`coerce` metadata of a schema, and the `metadata` of `merge` and `derive`.
+
+## The cause of an error is the standard `cause`
+
+An error that wraps another (a pattern the engine cannot compile, a snapshot value that does not
+read, a check the JIT could not generate) carries it as `error.cause`, set by the option of the
+`Error` constructor: not an own enumerable key any more, so `JSON.stringify(error)` and
+`Object.keys(error)` leave it out, and the errors of a snapshot that did not read keep the
+error of the engine, which 3.x dropped. `new SchemaDefinitionError(code, reason, { cause })`
+and `new SchemaUsageError(code, message, { cause })` take it.
+
+## A hook never fails the call it watches
+
+`onFallback` of `register()` of the compile subpath, `onError` of `register()` of the coerce
+subpath and `onUnsupported` of `fromJSONSchema` are told of what happened; one that throws, or
+returns a promise that rejects, no longer makes the call throw (3.x let a throwing `onFallback`
+out of `new Schema`). `onInvalid` of a stream `transform` is a step of the stream, not a hook:
+what it throws still ends the stream, as before.
 
 ## `saveTypes` in a browser has a code
 

@@ -7,7 +7,7 @@
 // (witness generation as a satisfiability check).
 const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { isStruct } = require('../struct.js');
 const { baseTypeOf } = require('../types.js');
 const { embeds } = require('../prototypes/reference.js');
@@ -18,7 +18,8 @@ const { FORMATS } = require('../rules.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
-const invalidOptions = (reason) => invalid('ALX_ERR_INVALID_OPTIONS', reason);
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
 // mulberry32: a 32-bit generator, the same numbers for a seed everywhere.
 const prng = (seed) => {
@@ -380,22 +381,20 @@ const MAX_DEPTH = 32;
 
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Sample options must be an object');
+    throw wrongOption('Sample options must be an object');
   }
   const { seed = 1, locale = 'en', references = 'kind', maxDepth = 3 } = options;
-  if (!Number.isInteger(seed)) throw invalidOptions('Sample option "seed" must be an integer');
+  if (!Number.isInteger(seed)) throw wrongOption('Sample option "seed" must be an integer');
   if (LETTERS[locale] === undefined) {
-    throw invalidOptions(
-      `Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`,
-    );
+    throw wrongOption(`Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`);
   }
   if (!REFERENCES.has(references)) {
-    throw invalidOptions(
+    throw wrongOption(
       `Sample option "references" must be "kind", "embed" or "id", got ${JSON.stringify(references)}`,
     );
   }
   if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > MAX_DEPTH) {
-    throw invalidOptions(`Sample option "maxDepth" must be an integer from 0 to ${MAX_DEPTH}`);
+    throw wrongOption(`Sample option "maxDepth" must be an integer from 0 to ${MAX_DEPTH}`);
   }
   return { seed, letters: LETTERS[locale], references, maxDepth };
 };

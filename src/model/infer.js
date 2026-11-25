@@ -10,7 +10,7 @@
 // what no type describes is `any` rather than an error.
 const { define, IDENTIFIER, shorten, isBytes } = require('../util.js');
 const { Schema } = require('../validation.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
 const { toDotPath, finalize } = require('../issues.js');
@@ -19,7 +19,8 @@ const { DEPTH, kindKeyOf } = require('./data.js');
 
 const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
 
-const invalidOptions = (reason) => invalid('ALX_ERR_INVALID_OPTIONS', reason);
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 
 // The kinds a place may hold, a bit each: a place that held values of
 // several kinds is a union of them, and null and undefined decide presence.
@@ -410,11 +411,11 @@ const mismatch = (state, index, issue) => {
   return error;
 };
 
-const option = (name, expected) => invalidOptions(`Infer option "${name}" must be ${expected}`);
+const option = (name, expected) => wrongOption(`Infer option "${name}" must be ${expected}`);
 
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Infer options must be an object');
+    throw wrongOption('Infer options must be an object');
   }
   const {
     as = 'definition',

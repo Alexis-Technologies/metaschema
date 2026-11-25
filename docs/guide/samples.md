@@ -53,11 +53,11 @@ sample(order, { seed: 1, locale: 'uk' });
 ```
 
 An option outside these (a locale the sampler has no letters for, a `references` the check does
-not know, a `maxDepth` over 32) is `ALX_ERR_INVALID_OPTIONS`:
+not know, a `maxDepth` over 32) is a `SchemaUsageError` with the code `ALX_ERR_INVALID_OPTION`:
 
 ```js
 sample(order, { references: 'graph' });
-// throws SchemaDefinitionError [ALX_ERR_INVALID_OPTIONS]: Sample option "references" must be "kind", "embed" or "id", got "graph"
+// throws SchemaUsageError [ALX_ERR_INVALID_OPTION]: Sample option "references" must be "kind", "embed" or "id", got "graph"
 ```
 
 ## What is drawn

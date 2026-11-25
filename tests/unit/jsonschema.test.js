@@ -1028,13 +1028,13 @@ describe('JSON Schema', () => {
     }
     for (const target of ['openapi-3.0', 'mongodb']) {
       assert.throws(() => schema.toJSONSchema({ profile: 'strict', target }), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: `Profile "strict" needs target "draft-2020-12" or "draft-07", got "${target}"`,
       });
     }
     assert.throws(() => Schema.from({ array: 'string' }).toJSONSchema({ profile: 'strict' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'Profile "strict" needs a struct at the root, got "array"',
     });
     // The shape a tool definition takes.
@@ -1097,8 +1097,8 @@ describe('JSON Schema', () => {
     ];
     for (const pair of cases) {
       assert.throws(() => schema.toJSONSchema(pair[0]), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: pair[1],
       });
     }
@@ -1173,11 +1173,11 @@ describe('JSON Schema', () => {
       additionalProperties: false,
     });
     assert.throws(() => model.toJSONSchema({ root: 'Nothing' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'Entity "Nothing" is not in the model',
     });
     assert.throws(() => model.toJSONSchema({ profile: 'strict' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'Profile "strict" needs a root entity',
     });
     assert.equal(model.toJSONSchema({ profile: 'strict', root: 'Person' }).type, 'object');
@@ -1272,8 +1272,8 @@ describe('JSON Schema', () => {
       'draft-07',
     ]) {
       assert.throws(() => jsonSchema.input(options), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: /^JSON Schema target .* is not supported$/,
       });
     }

@@ -13,9 +13,15 @@ const { isKindKey } = require('../kinds.js');
 // one a program wrote.
 const DEPTH = 128;
 
-const invalidSnapshot = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_SNAPSHOT', reason);
+const invalidSnapshot = (reason, options) =>
+  new SchemaDefinitionError('ALX_ERR_INVALID_SNAPSHOT', reason, options);
 
 const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${DEPTH} levels`);
+
+// An error of another kind met while a snapshot is read (a bigint or a
+// pattern that does not read throws its own): an error of the snapshot,
+// with that error as its cause.
+const unreadable = (error) => invalidSnapshot(error.message, { cause: error });
 
 // An error of a schema as a whole, which has no field to be located at: the
 // schema is the location, written as `locate` writes one.
@@ -179,6 +185,7 @@ module.exports = {
   DEPTH,
   invalidSnapshot,
   tooDeep,
+  unreadable,
   atSchema,
   isObject,
   isSnapshot,

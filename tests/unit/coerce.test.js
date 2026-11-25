@@ -657,8 +657,19 @@ describe('Coerce', () => {
     register({});
     assert.equal(odd.parse({ s: 1 }, { coerce: true }).valid, false);
     assert.equal(seen.length, 2);
+    // A hook that throws is an observer and fails nothing: the value is left
+    // to the check, as without the hook.
+    register(
+      {},
+      {
+        onError: () => {
+          throw new Error('observer');
+        },
+      },
+    );
+    assert.deepEqual(odd.parse({ s: 1 }, { coerce: true }).issues[0].path, ['s']);
     for (const options of [null, 'log', { onError: true }]) {
-      assert.throws(() => register({}, options), { code: 'ALX_ERR_INVALID_COERCION' });
+      assert.throws(() => register({}, options), { code: 'ALX_ERR_INVALID_OPTION' });
     }
   });
 
@@ -757,7 +768,7 @@ describe('Coerce', () => {
     assert.equal(plain.coercions, null);
     for (const coercions of ['money', [], { Money: () => 1 }, { money: 'number' }]) {
       assert.throws(() => new Model({}, [], null, { coercions }), {
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: /^Model option "coercions" must be an object of functions by type name/,
       });
     }

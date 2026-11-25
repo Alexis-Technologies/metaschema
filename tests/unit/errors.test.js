@@ -59,6 +59,22 @@ describe('Errors', () => {
     });
   });
 
+  it('should carry the error that caused it as the standard cause', () => {
+    // A pattern that does not compile: the SyntaxError of the engine is the
+    // cause, set by the option of the Error constructor (not enumerable, so
+    // JSON and the own keys of the error do not carry it).
+    assert.throws(
+      () => Schema.from({ s: { type: 'string', pattern: '(' } }),
+      (error) =>
+        error.code === 'ALX_ERR_INVALID_RULE' &&
+        error.cause instanceof SyntaxError &&
+        !Object.keys(error).includes('cause'),
+    );
+    const caused = new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x', { cause: 1 });
+    assert.equal(caused.cause, 1);
+    assert.equal(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x').cause, undefined);
+  });
+
   it('should give every definition error its code', () => {
     const cases = [
       [() => Schema.from({ data: 'schema' }), 'ALX_ERR_MISSING_SCHEMA'],

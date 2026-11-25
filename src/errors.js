@@ -2,12 +2,13 @@
 // collected like a validation error. The throw sites (type parsing, custom type
 // registration, projections) rarely know which entity and field they are
 // parsing; the struct that owns the field does, and calls `locate` on the way
-// up, so the message ends with `in "Entity.field"`.
+// up, so the message ends with `in "Entity.field"`. An error of another kind
+// that caused it travels as the standard `cause` (`options` of the Error).
 class SchemaDefinitionError extends TypeError {
   #reason;
 
-  constructor(code, reason) {
-    super(reason);
+  constructor(code, reason, options) {
+    super(reason, options);
     this.code = code;
     this.schema = '';
     this.field = '';
@@ -30,8 +31,8 @@ SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
 // promise where the call is synchronous, an invalid record a stream was
 // not told to drop. A TypeError, as it was a plain one until 4.0.
 class SchemaUsageError extends TypeError {
-  constructor(code, message) {
-    super(message);
+  constructor(code, message, options) {
+    super(message, options);
     this.code = code;
   }
 }

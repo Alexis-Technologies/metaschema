@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 4.0 brings the errors of the package to the rules of the Alexis libraries (alexiskills 1.1).
 Every error code carries the `ALX_` prefix, and a wrong call throws a class of the package,
-`SchemaUsageError`, where it threw a plain `TypeError`. A program that matches on
-`error.code`, or on the `name` of the error of a call, changes; one that checks
-`instanceof TypeError` does not. The schema language, `check`, `parse`, the results and their
-issue codes are what they were.
+`SchemaUsageError`, where it threw a plain `TypeError` (or a `SchemaDefinitionError`, for a
+wrong option of some calls). A program that matches on `error.code`, or on the `name` of the
+error of a call, changes; one that checks `instanceof TypeError` does not. A hook no longer
+fails the call it watches, and three defects of the async paths of 3.x are fixed. The schema
+language, `check`, `parse`, the results and their issue codes are what they were.
 
 ### Upgrading from 3.x
 
@@ -30,6 +31,13 @@ The same guide with before-and-after examples is
   and `instanceof TypeError` holds as before.
 - **`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME`**, a
   `SchemaUsageError`, where it rejected with a bare `Error`.
+- **Every option of a call is `ALX_ERR_INVALID_OPTION` of `SchemaUsageError`.** The options of
+  `compile` and `register` of the compile subpath, `toJSONSchema`, `fromJSONSchema`, `fromJSON`,
+  `merge`, `sample`, `infer`, the `Model` constructor and `register` of the coerce subpath threw
+  `SchemaDefinitionError` with `ERR_INVALID_OPTIONS` (`ERR_INVALID_COERCION` for coerce);
+  `ALX_ERR_INVALID_OPTIONS` is the code of the metadata of a definition only.
+- **`error.cause` is the standard one**: set through the options of the constructor, so not an
+  own enumerable key (`JSON.stringify(error)` leaves it out).
 
 ### Changed (breaking)
 
@@ -43,6 +51,25 @@ The same guide with before-and-after examples is
   `ALX_ERR_INVALID_RECORD`, `method` on the `ALX_ERR_NOT_REGISTERED` of the definition entry).
 - **`saveTypes` of the browser build rejects with a code**, `ALX_ERR_UNSUPPORTED_RUNTIME`, new in
   `RuntimeErrorCode`.
+- **An option of a call is a `SchemaUsageError` with `ALX_ERR_INVALID_OPTION` everywhere**, as
+  alexiskills asks of a wrong call ("one class per failure the caller handles differently"):
+  the options of the compile subpath, of the generators, of `fromJSON`, `merge`, `sample` and
+  `infer`, of `Model` and of `register` of the coerce subpath were `SchemaDefinitionError` with
+  `ALX_ERR_INVALID_OPTIONS` (`ALX_ERR_INVALID_COERCION`). The metadata of a definition keeps
+  `ALX_ERR_INVALID_OPTIONS`.
+- **The cause of an error is the standard `cause`.** `SchemaDefinitionError` and
+  `SchemaUsageError` take `options` as the third argument of the constructor, as `Error` does,
+  and pass it on; the errors that wrapped another assigned `cause` as an own enumerable key, and
+  an error of a snapshot that did not read (a bigint, a pattern) lost the engine's error, which
+  is its cause now. `code` is `readonly` in the typings.
+
+### Changed
+
+- **A hook never fails the call it watches.** `onFallback` of the compile subpath, `onError` of
+  the coerce subpath and `onUnsupported` of `fromJSONSchema` are observers (alexiskills,
+  library-errors): what one throws, or a promise of it that rejects, is dropped, where a
+  throwing `onFallback` made `new Schema` throw under `register()`. `onInvalid` of a stream
+  `transform` stays a step of the stream, and its throw ends it.
 
 ### Fixed
 

@@ -11,6 +11,7 @@ const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../validation.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
+const { isThenable, abandon } = require('../issues.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
 
 // The integer digits and the fraction are told apart by the dot alone:
@@ -251,6 +252,18 @@ const converterOf = (field) => {
   }
 };
 
+// An observer never fails the operation it watches (alexiskills,
+// library-errors): what the hook throws, or a promise of it that rejects, is
+// dropped. A copy per subpath, as `install`, so the core carries none.
+const notify = (observer, first, second) => {
+  try {
+    const returned = observer(first, second);
+    if (isThenable(returned)) abandon(returned);
+  } catch {
+    // ignore: an observer never fails the operation it watches
+  }
+};
+
 // The hook `register({ onError })` gives: told of a converter that threw,
 // with the field, since the value is left to the check as if the converter
 // could not read it, and a bug in a converter of the program would look the
@@ -269,7 +282,7 @@ const resolve = (node) => {
     try {
       return run(value, node);
     } catch (error) {
-      if (onError !== null) onError(error, node);
+      if (onError !== null) notify(onError, error, node);
       return value;
     }
   };
@@ -361,11 +374,11 @@ const register = (custom = {}, settings = {}) => {
     throw invalidCoercion('The converters must be an object of functions by type name');
   }
   if (settings === null || typeof settings !== 'object') {
-    throw invalidCoercion('The options of register must be an object');
+    throw invalidOption('The options of register', 'an object', settings);
   }
   const hook = settings.onError;
   if (hook !== undefined && typeof hook !== 'function') {
-    throw invalidCoercion('Option "onError" must be a function');
+    throw invalidOption('Option "onError"', 'a function', typeof hook);
   }
   const names = Object.keys(custom);
   for (const name of names) check(name, custom[name]);

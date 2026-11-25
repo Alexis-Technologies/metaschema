@@ -800,7 +800,7 @@ describe('Formats', () => {
     assert.equal(compile(inferred, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
     for (const value of emails) assert.equal(inferred.check(value).valid, true);
     assert.throws(() => infer(emails, { formats: 'no' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'Infer option "formats" must be a boolean',
     });
     // A custom format infers unless it says not to.

@@ -167,7 +167,7 @@ describe('Types', () => {
     assert.equal(Schema.from({ amount: 'coin' }, [numbers]).check({ amount: 2 }).valid, true);
     assert.equal(strings.types.string.metadata.pg, undefined);
     assert.throws(() => new Model({}, [], null, { registry: 'private' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'Model option "registry" must be "shared" or "isolated", got "private"',
     });
   });

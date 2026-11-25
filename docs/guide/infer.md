@@ -78,8 +78,9 @@ infer([{ qty: 1 }], { integer: false });
 // { Struct: {}, qty: 'number' }
 ```
 
-An option outside these is `ALX_ERR_INVALID_OPTIONS`; a `samples` argument that is not a non-empty
-iterable (a string included) is a `SchemaUsageError` with `code: 'ALX_ERR_INVALID_TARGET'`.
+An option outside these is a `SchemaUsageError` with `code: 'ALX_ERR_INVALID_OPTION'`; a `samples`
+argument that is not a non-empty iterable (a string included) is one with
+`code: 'ALX_ERR_INVALID_TARGET'`.
 
 ## What is inferred
 

@@ -14,11 +14,12 @@ const { define, shorten } = require('../util.js');
 const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../schema.js');
 const { Model } = require('../model.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError } = require('../errors.js');
 const {
   DEPTH,
   tooDeep,
   invalidSnapshot,
+  unreadable,
   atSchema,
   isObject,
   isSnapshot,
@@ -237,7 +238,7 @@ const fromJSON = (snapshot, options = {}) => {
   }
   checkRoot(snapshot);
   if (!isObject(options)) {
-    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', 'Restore options must be an object');
+    throw new SchemaUsageError('ALX_ERR_INVALID_OPTION', 'Restore options must be an object');
   }
   const { registry = 'isolated', types: given = {} } = options;
   const context = { name: 'types', at: 'types', given, shared: registry === 'shared' };
@@ -255,7 +256,7 @@ const fromJSON = (snapshot, options = {}) => {
     // (a bigint or a pattern that does not read throws its own), located in
     // the entity at the path the walk was on, as a struct locates a
     // definition error.
-    const located = error instanceof SchemaDefinitionError ? error : invalidSnapshot(error.message);
+    const located = error instanceof SchemaDefinitionError ? error : unreadable(error);
     const field = context.at.slice(context.name.length + 1);
     throw field ? located.locate(context.name, field) : atSchema(located, context.name);
   }
@@ -267,9 +268,8 @@ const fromJSON = (snapshot, options = {}) => {
     // What the core rejects is located already; anything else is the
     // snapshot's too, never a bare TypeError.
     if (error instanceof SchemaDefinitionError) throw error;
-    const wrapped = invalidSnapshot(`The model of the snapshot cannot be built: ${error.message}`);
-    wrapped.cause = error;
-    throw wrapped;
+    const reason = `The model of the snapshot cannot be built: ${error.message}`;
+    throw invalidSnapshot(reason, { cause: error });
   }
   Object.defineProperty(model, 'placeholders', { value: Array.from(context.placeholders) });
   return model;

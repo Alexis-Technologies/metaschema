@@ -253,7 +253,7 @@ describe('Evolution', () => {
     // The options, and a target that is not a list of changes.
     for (const options of [null, 'shared', 1]) {
       assert.throws(() => fromJSON(committed, options), {
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        code: 'ALX_ERR_INVALID_OPTION',
         message: 'Restore options must be an object',
       });
     }
@@ -279,6 +279,12 @@ describe('Evolution', () => {
     fails(
       { A: struct({ n: field('bigint', { min: { $bigint: 'abc' } }) }) },
       { message: 'Cannot convert abc to a BigInt in "A.n.min"', schema: 'A', field: 'n.min' },
+    );
+    // The error that did not read is the cause, as the standard option sets it.
+    const unread = broken({ A: struct({ n: field('bigint', { min: { $bigint: 'abc' } }) }) });
+    assert.throws(
+      () => fromJSON(unread),
+      (error) => error.cause instanceof SyntaxError && !Object.keys(error).includes('cause'),
     );
     fails(
       { A: struct({ d: field('date', { default: { $date: 'junk' } }) }) },
@@ -614,6 +620,10 @@ describe('Evolution', () => {
       schema: 'A',
       field: 'a',
     });
+    assert.throws(
+      () => compatibility(diff(bound('x'), bound('1'))),
+      (error) => error.cause instanceof SyntaxError,
+    );
     assert.equal(compatibility(diff(bound('0'), bound('1'))), 'forward');
     // What `diff` does not read of a change it does not check: a definition
     // that is not one is an error of the snapshot, located at the change.

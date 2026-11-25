@@ -231,10 +231,11 @@ const compiledOf = (type) => {
     if (error instanceof SchemaDefinitionError) throw error;
     const { root } = type;
     const reason = `Custom type "${type.type}" could not compile its check: ${error?.message}`;
-    const failed = new SchemaDefinitionError('ALX_ERR_INVALID_CUSTOM_TYPE', reason);
+    const failed = new SchemaDefinitionError('ALX_ERR_INVALID_CUSTOM_TYPE', reason, {
+      cause: error,
+    });
     failed.schema = root.name;
     failed.message = `${reason} in "${root.name}"`;
-    failed.cause = error;
     throw failed;
   }
 };

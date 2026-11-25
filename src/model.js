@@ -3,12 +3,14 @@ const { firstKey, isFirstLower } = require('./metautil.js');
 const { BRAND, INSPECT, CYCLES } = require('./util.js');
 const { Schema } = require('./schema.js');
 const { TYPES, createRegistry, typeFactory } = require('./types.js');
-const { SchemaDefinitionError, noValidation } = require('./errors.js');
+const { SchemaUsageError, noValidation } = require('./errors.js');
 const { snapshotOf, orderOf } = require('./snapshot.js');
 
+// An option of the constructor that is not what it must be: the call is
+// wrong, not a definition.
 const invalidOption = (name, expected, value) => {
   const reason = `Model option "${name}" must be ${expected}, got ${JSON.stringify(value)}`;
-  return new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+  return new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
 };
 
 const registryFor = (options) => {

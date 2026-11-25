@@ -449,7 +449,7 @@ describe('Infer', () => {
     });
   });
 
-  it('should throw a TypeError for a wrong argument, ALX_ERR_INVALID_OPTIONS for a wrong option', () => {
+  it('should throw a SchemaUsageError for a wrong argument or a wrong option', () => {
     for (const bad of [undefined, null, 1, {}, 'samples', { next: () => ({}) }]) {
       assert.throws(() => infer(bad), {
         name: 'SchemaUsageError',
@@ -465,8 +465,8 @@ describe('Infer', () => {
     }
     const invalid = (options, message) =>
       assert.throws(() => infer([1], options), {
-        name: 'SchemaDefinitionError',
-        code: 'ALX_ERR_INVALID_OPTIONS',
+        name: 'SchemaUsageError',
+        code: 'ALX_ERR_INVALID_OPTION',
         message,
       });
     invalid(null, 'Infer options must be an object');

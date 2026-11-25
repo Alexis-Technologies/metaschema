@@ -696,11 +696,11 @@ describe('Mongodb', () => {
     const document = toDocument(Account, account);
     for (const key of Object.keys(document)) assert.ok(key in validator.properties, key);
     assert.throws(() => toJSONSchema(Account, { ids: 'objectId' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
       message: 'JSON Schema option "ids" "objectId" needs target "mongodb", got "draft-2020-12"',
     });
     assert.throws(() => toJSONSchema(Account, { target: 'mongodb', ids: 'uuid' }), {
-      code: 'ALX_ERR_INVALID_OPTIONS',
+      code: 'ALX_ERR_INVALID_OPTION',
     });
     // Without the option the target describes the program's values, as in 3.2.
     const plain = toJSONSchema(model, { target: 'mongodb' }).Account;

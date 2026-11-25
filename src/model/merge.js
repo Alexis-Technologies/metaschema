@@ -8,7 +8,7 @@ const { hasBrand, define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
 const { isThenable, observe } = require('../issues.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const {
   same,
   definitionOf,
@@ -225,7 +225,7 @@ const merge = (a, b, options = {}) => {
     throw invalidTarget('Two Schemas are expected');
   }
   if (options === null || typeof options !== 'object') {
-    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', 'Merge options must be an object');
+    throw new SchemaUsageError('ALX_ERR_INVALID_OPTION', 'Merge options must be an object');
   }
   const { name = a.name, metadata = {} } = options;
   const namespaces = namespacesOf([a, b]);
