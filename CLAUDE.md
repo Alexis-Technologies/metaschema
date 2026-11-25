@@ -270,9 +270,9 @@ src/
                     reference (embeds), schema, tuple, union, json, flags
   runtime/          node.js (writeFile via node:fs) and browser.js (same interface, rejects)
   generators/       the ./generators subpath: index.js (toJSONSchema, toTypeScript, saveTypes, fromJSONSchema,
-                    register), index.d.ts, jsonschema.js (targets, strict profile, mongodb, the ~standard
+                    register), index.d.ts, json-schema.js (targets, strict profile, mongodb, the ~standard
                     converter), typescript.js (toInterface, modelToTypeScript: JSDoc, named types),
-                    fromjsonschema.js (the subset of JSON Schema read back into a definition)
+                    from-json-schema.js (the subset of JSON Schema read back into a definition)
   compile/          the ./compile subpath: index.js (compile, register, canEval), index.d.ts,
                     code.js (the source builder: quote, prop, literal, the scope), emit.js (an emitter per prototype)
   model/            the ./model subpath: index.js (fromJSON, diff, compatibility, sample, merge, register),
@@ -352,10 +352,10 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   (`embeds`) and `checks` (`COMPILE`: it tells a node's shape by the identity of its
   `compile`, as `compile/emit.js` does; `aliasOf`, `tableOf`) and never `schema.js`: a
   reference is followed through `root.findReference` at parse time.
-- `generators/jsonschema.js` and `generators/typescript.js` require `util`, `struct`, `errors`
+- `generators/json-schema.js` and `generators/typescript.js` require `util`, `struct`, `errors`
   and `prototypes/reference.js` (`embeds`, the one rule shared by `check` and both
   generators), `typescript.js` also `metautil` and `types` (`baseTypeOf`, to tell `flags` by
-  its type), `jsonschema.js` also `rules` (`FORMATS`, the pattern of a format), `kinds`
+  its type), `json-schema.js` also `rules` (`FORMATS`, the pattern of a format), `kinds`
   (`idFieldOf`, for `ids: 'objectId'`) and `types` (`baseTypeOf`), never `schema.js` or `model.js`: they take the instances and read `fields`,
   `unknown`, `name`, `findReference` and the kind metadata. `generators/index.js` requires
   `validation.js` and `model.js` (for `register()`, which wraps the `~standard` accessor the
@@ -367,7 +367,7 @@ an edge). The leaves are `util.js`, `errors.js` and `metautil.js`. From there:
   identity of the type checks, `decimalsOff`, `codePoints`, `lengthOf`, `ruleNames`, `patternLimit`,
   `nameOf`, `tableOf`) and `code.js`; `compile/index.js` requires `util` (`RUN`, `HOOK`),
   `validation.js`, `errors` and the two. Nothing in the core requires `compile/`.
-- `generators/fromjsonschema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
+- `generators/from-json-schema.js` requires `metautil`, `util` (`define`, `shorten`), `schema.js`
   (for `as: 'schema'`), `types` (`readsAsStruct`, to tell a struct key that reads as a type),
   `rules` (`FORMATS`, to read a registered `format` back) and `errors`.
 - `model/data.js` requires `util`, `snapshot` (`FORMAT`), `errors`, `struct` (`isStruct`,
