@@ -149,7 +149,7 @@
     "metarhia"
   ],
   "devDependencies": {
-    "@alexify/metaskills": "^1.1.2",
+    "@alexify/metaskills": "^1.2.0",
     "@braintree/sanitize-url": "^7.1.2",
     "@standard-schema/spec": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
