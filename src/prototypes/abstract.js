@@ -16,18 +16,18 @@ const RESERVED = new Set([
   'root',
 ]);
 
-const reservedKey = (key) =>
-  new SchemaDefinitionError('ERR_RESERVED_KEY', `Key "${key}" is reserved in a field definition`);
-
 // The options of a field that are flags: `nullable` (null in place of a
 // value) and `coerce` (whether parse converts the input of its subtree).
 const FLAGS = ['nullable', 'coerce'];
 
-const invalidFlag = (key) =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a boolean`);
+const reservedKey = (key) =>
+  new SchemaDefinitionError(`Key "${key}" is reserved in a field definition`, {
+    code: 'ALX_ERR_RESERVED_KEY',
+  });
 
-const invalidCodec = (key) =>
-  new SchemaDefinitionError('ERR_INVALID_DEFINITION', `Option "${key}" needs a function`);
+const invalidFlag = (key) => new SchemaDefinitionError(`Option "${key}" needs a boolean`);
+
+const invalidCodec = (key) => new SchemaDefinitionError(`Option "${key}" needs a function`);
 
 // `parse` (the decoder) and `serialize` are read by parse and serialize, on
 // any type; a definition that gave them anything else can never work.
@@ -105,4 +105,4 @@ class AbstractType {
 
 AbstractType.prototype[BRAND] = 'Type';
 
-module.exports = { AbstractType, BUILD };
+module.exports = { BUILD, AbstractType };

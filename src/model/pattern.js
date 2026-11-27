@@ -3,12 +3,26 @@
 // random source of the sample. The subset is what a validation pattern is
 // made of: alternatives, groups, classes, escapes and quantifiers; what
 // generates no string (a lookaround, a back reference, a word boundary) is
-// ERR_SAMPLE_PATTERN. Nothing here reads a schema: `sample.js` hands over
+// ALX_ERR_SAMPLE_PATTERN. Nothing here reads a schema: `sample.js` hands over
 // the RegExp and the random source, and the letters of the locale are read
 // at draw time, so the nodes serve every locale.
 const { SchemaDefinitionError } = require('../errors.js');
 
-const invalid = (reason) => new SchemaDefinitionError('ERR_SAMPLE_PATTERN', reason);
+// How many times a quantifier may repeat, and how deep groups may nest: the
+// bounds of what a draw allocates and of what the parser recurses into.
+const MAX_REPEAT = 10_000;
+const MAX_GROUP_DEPTH = 64;
+
+const LETTER = /^[A-Za-z]$/;
+
+const PATTERNS = new WeakMap();
+
+// The pool a negated class draws from: the letters and digits that are not
+// in it; a class that excludes the letters excludes every letter of the
+// pool, since \P{L} matches no letter in any locale.
+const POOL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_- ';
+
+const invalid = (reason) => new SchemaDefinitionError(reason, { code: 'ALX_ERR_SAMPLE_PATTERN' });
 
 // A whole number in [0, max], and an element of a list, from the random
 // source of a sample.
@@ -22,31 +36,99 @@ const code = (char) => char.codePointAt(0);
 
 const range = (from, to) => [code(from), code(to)];
 
-// How many times a quantifier may repeat, and how deep groups may nest: the
-// bounds of what a draw allocates and of what the parser recurses into.
-const MAX_REPEAT = 10_000;
-const MAX_GROUPS = 64;
-
-const CLASSES = Object.assign(Object.create(null), {
+const CLASSES = {
+  __proto__: null,
   d: [range('0', '9')],
   w: [range('0', '9'), range('A', 'Z'), range('a', 'z'), range('_', '_')],
   s: [range(' ', ' ')],
-});
+};
 
 // The Unicode property escapes a validation pattern uses; the letters are
 // those of the locale, read when the string is drawn.
-const PROPERTIES = Object.assign(Object.create(null), {
+const PROPERTIES = {
+  __proto__: null,
   L: 'letters',
   Letter: 'letters',
   Lu: [range('A', 'Z')],
   Ll: [range('a', 'z')],
   N: [range('0', '9')],
   Nd: [range('0', '9')],
-});
-
-const LETTER = /^[A-Za-z]$/;
+};
 
 const classNode = (set, negate, letters) => ({ set, negate, letters });
+
+// The fewest code points a string of the node has: a lower bound of its
+// length however the length rule counts (a surrogate pair in the source is
+// two text nodes and one code point).
+const minLengthOf = (node) => {
+  if (node.text !== undefined) return /^[\uDC00-\uDFFF]$/.test(node.text) ? 0 : 1;
+  if (node.set !== undefined) return 1;
+  if (node.alt !== undefined) {
+    let least = Infinity;
+    for (const branch of node.alt) least = Math.min(least, minLengthOf(branch));
+    return least;
+  }
+  if (node.seq !== undefined) {
+    let total = 0;
+    for (const part of node.seq) total += minLengthOf(part);
+    return total;
+  }
+  return node.min * minLengthOf(node.node);
+};
+
+// The nodes of a RegExp and the minimal length of its strings, once per
+// RegExp: the nodes carry nothing of a locale or a seed.
+const patternOf = (pattern) => {
+  let entry = PATTERNS.get(pattern);
+  if (entry === undefined) {
+    const node = new PatternParser(pattern.source).parse();
+    entry = { node, minLength: minLengthOf(node) };
+    PATTERNS.set(pattern, entry);
+  }
+  return entry;
+};
+
+const inSet = (set, point) => {
+  for (const pair of set) if (point >= pair[0] && point <= pair[1]) return true;
+  return false;
+};
+
+// A character of a class: one of its ranges, or a letter of the locale
+// where the class holds them.
+const fromSet = (state, node) => {
+  if (node.negate) {
+    const out = [];
+    for (const char of POOL) {
+      if (!inSet(node.set, code(char)) && !(node.letters && LETTER.test(char))) out.push(char);
+    }
+    if (out.length === 0) throw invalid('A class excludes every character');
+    return pick(state, out);
+  }
+  const choices = node.set.length + (node.letters ? 1 : 0);
+  if (choices === 0) throw invalid('A class allows no character');
+  const index = int(state, choices - 1);
+  if (index === node.set.length) return pick(state, state.letters);
+  const pair = node.set[index];
+  return String.fromCodePoint(pair[0] + int(state, pair[1] - pair[0]));
+};
+
+// `extra` is how many repetitions an unbounded quantifier may add: the
+// length the field asks for, when it does, else a few.
+const fromPattern = (state, node, extra) => {
+  if (node.text !== undefined) return node.text;
+  if (node.set !== undefined) return fromSet(state, node);
+  if (node.alt !== undefined) return fromPattern(state, pick(state, node.alt), extra);
+  if (node.seq !== undefined) {
+    let text = '';
+    for (const part of node.seq) text += fromPattern(state, part, extra);
+    return text;
+  }
+  const max = node.max === Infinity ? node.min + extra : node.max;
+  const count = node.min + int(state, max - node.min);
+  let text = '';
+  for (let index = 0; index < count; index += 1) text += fromPattern(state, node.node, extra);
+  return text;
+};
 
 // The nodes of a pattern: { alt }, { seq }, { set, negate, letters } for a
 // class (`letters`: the letters of the locale are in it), { text }, and
@@ -110,7 +192,9 @@ class PatternParser {
 
   group() {
     this.groups += 1;
-    if (this.groups > MAX_GROUPS) throw this.fail(`groups nested deeper than ${MAX_GROUPS}`);
+    if (this.groups > MAX_GROUP_DEPTH) {
+      throw this.fail(`groups nested deeper than ${MAX_GROUP_DEPTH}`);
+    }
     if (this.peek() === '?') {
       this.next();
       const kind = this.next();
@@ -128,7 +212,7 @@ class PatternParser {
 
   // A class escape (\d, \w, \s, \p{..}) as ranges, the negated ones as
   // what they are not among the letters and digits, or one character.
-  escape(inSet) {
+  escape(isInClass) {
     const char = this.next();
     if (char === undefined) throw this.fail('a trailing backslash');
     const lower = char.toLowerCase();
@@ -146,7 +230,7 @@ class PatternParser {
       const letters = property === 'letters';
       return classNode(letters ? [] : property, char !== lower, letters);
     }
-    if (char === 'b' && !inSet) throw this.fail('a word boundary');
+    if (char === 'b' && !isInClass) throw this.fail('a word boundary');
     if (char === 'B' || char === 'k' || (char >= '1' && char <= '9')) {
       throw this.fail('a back reference');
     }
@@ -197,11 +281,8 @@ class PatternParser {
         }
         char = escaped.text;
       }
-      if (
-        this.peek() === '-' &&
-        this.source[this.at + 1] !== ']' &&
-        this.at + 1 < this.source.length
-      ) {
+      const isRange = this.peek() === '-' && this.at + 1 < this.source.length;
+      if (isRange && this.source[this.at + 1] !== ']') {
         this.next();
         let to = this.next();
         if (to === '\\') to = this.escape(true).text;
@@ -227,7 +308,9 @@ class PatternParser {
       const match = /^\{(\d+)(,(\d*))?\}$/.exec(this.source.slice(this.at, close + 1));
       if (match === null) return node;
       min = Number(match[1]);
-      max = match[2] === undefined ? min : match[3] === '' ? Infinity : Number(match[3]);
+      if (match[2] === undefined) max = min;
+      else if (match[3] === '') max = Infinity;
+      else max = Number(match[3]);
       if (min > MAX_REPEAT || (max !== Infinity && max > MAX_REPEAT)) {
         throw this.fail(`a repetition over ${MAX_REPEAT}`);
       }
@@ -238,85 +321,5 @@ class PatternParser {
     return { node, min, max };
   }
 }
-
-// The fewest code points a string of the node has: a lower bound of its
-// length however the length rule counts (a surrogate pair in the source is
-// two text nodes and one code point).
-const minLengthOf = (node) => {
-  if (node.text !== undefined) return /^[\uDC00-\uDFFF]$/.test(node.text) ? 0 : 1;
-  if (node.set !== undefined) return 1;
-  if (node.alt !== undefined) {
-    let least = Infinity;
-    for (const branch of node.alt) least = Math.min(least, minLengthOf(branch));
-    return least;
-  }
-  if (node.seq !== undefined) {
-    let total = 0;
-    for (const part of node.seq) total += minLengthOf(part);
-    return total;
-  }
-  return node.min * minLengthOf(node.node);
-};
-
-const PATTERNS = new WeakMap();
-
-// The nodes of a RegExp and the minimal length of its strings, once per
-// RegExp: the nodes carry nothing of a locale or a seed.
-const patternOf = (pattern) => {
-  let entry = PATTERNS.get(pattern);
-  if (entry === undefined) {
-    const node = new PatternParser(pattern.source).parse();
-    entry = { node, minLength: minLengthOf(node) };
-    PATTERNS.set(pattern, entry);
-  }
-  return entry;
-};
-
-// The pool a negated class draws from: the letters and digits that are not
-// in it; a class that excludes the letters excludes every letter of the
-// pool, since \P{L} matches no letter in any locale.
-const POOL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_- ';
-
-const inSet = (set, point) => {
-  for (const pair of set) if (point >= pair[0] && point <= pair[1]) return true;
-  return false;
-};
-
-// A character of a class: one of its ranges, or a letter of the locale
-// where the class holds them.
-const fromSet = (state, node) => {
-  if (node.negate) {
-    const out = [];
-    for (const char of POOL) {
-      if (!inSet(node.set, code(char)) && !(node.letters && LETTER.test(char))) out.push(char);
-    }
-    if (out.length === 0) throw invalid('A class excludes every character');
-    return pick(state, out);
-  }
-  const choices = node.set.length + (node.letters ? 1 : 0);
-  if (choices === 0) throw invalid('A class allows no character');
-  const index = int(state, choices - 1);
-  if (index === node.set.length) return pick(state, state.letters);
-  const pair = node.set[index];
-  return String.fromCodePoint(pair[0] + int(state, pair[1] - pair[0]));
-};
-
-// `extra` is how many repetitions an unbounded quantifier may add: the
-// length the field asks for, when it does, else a few.
-const fromPattern = (state, node, extra) => {
-  if (node.text !== undefined) return node.text;
-  if (node.set !== undefined) return fromSet(state, node);
-  if (node.alt !== undefined) return fromPattern(state, pick(state, node.alt), extra);
-  if (node.seq !== undefined) {
-    let text = '';
-    for (const part of node.seq) text += fromPattern(state, part, extra);
-    return text;
-  }
-  const max = node.max === Infinity ? node.min + extra : node.max;
-  const count = node.min + int(state, max - node.min);
-  let text = '';
-  for (let index = 0; index < count; index += 1) text += fromPattern(state, node.node, extra);
-  return text;
-};
 
 module.exports = { int, pick, patternOf, fromPattern };

@@ -102,8 +102,8 @@ unhandled.
 [`TransformStream`](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream) (a global
 in Node.js since 18 and in every browser): the records go in, and the parsed value of every
 valid record comes out. An invalid record is handed to `onInvalid(record, result, index)` and
-dropped; without `onInvalid` the stream ends at the first invalid record with a `TypeError`
-whose `code` is `ERR_INVALID_RECORD` and which carries the `index`, the `record` and the
+dropped; without `onInvalid` the stream ends at the first invalid record with a `SchemaUsageError`
+whose `code` is `ALX_ERR_INVALID_RECORD` and which carries the `index`, the `record` and the
 `result`. With `maxInvalid`, the n-th invalid record is reported and the stream ends with that
 error all the same: a stream that ends looks complete to what reads it, so it cannot stop
 quietly as a generator does.
@@ -132,7 +132,7 @@ middle.
 `register()` installs the five functions as methods of `Schema`, non-enumerable, once per
 process: `schema.checkEach(rows, options)`, `schema.parseEach(rows, options)`,
 `schema.checkEachAsync(source, options)`, `schema.parseEachAsync(source, options)` and
-`schema.transform(options)`. The functions do the same without it. The subpath is 1.0 KB
+`schema.transform(options)`. The functions do the same without it. The subpath is 1.1 KB
 min+gzip on top of the core; the core entry does not carry it.
 
 ## Boundaries
@@ -153,9 +153,11 @@ min+gzip on top of the core; the core entry does not carry it.
   them; a program that collects every entry in an array keeps every result. `concurrency` is
   meant in tens, not thousands: the queue is an array shifted from the front.
 - **A record is a value; a promise is a value to the sync pair and awaited by the async one.**
-  `for await` over a sync source awaits its elements, so `checkEachAsync(schema, [promise])`
-  checks what the promise resolves to, and a rejected element rejects the iteration with its
-  own error; `checkEach` checks the promise object itself.
+  The async pair awaits an element of a sync source that is a `Promise`, so
+  `checkEachAsync(schema, [promise])` checks what the promise resolves to, and a rejected
+  element rejects the iteration with its own error; `checkEach` checks the promise object
+  itself. Any other value with a `then` (a record with a field named so) is the record in both
+  pairs: the async pair does not adopt it, as `for await` over a sync source would.
 - **An `onInvalid` that throws, and a parse that throws, end a transform with their error**, as
   a default factory that throws is the program's error in `parse`; `transform` catches nothing
   of its own.

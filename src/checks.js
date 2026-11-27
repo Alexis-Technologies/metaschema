@@ -11,6 +11,26 @@ const { STRUCT, isStruct } = require('./struct.js');
 const { embeds } = require('./prototypes/reference.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
+// A number of `n` decimals is a whole number times 10ⁿ, to within the error
+// the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
+// ULPS units in the last place of the scaled value. A few units is what a
+// sum or a product of decimals leaves; 256 is room for a chain of them, and
+// still tells a decimal too many apart below 2⁴³ units of the last decimal
+// (ten billion at two), where a bound of 1e-9 of the value would let
+// 12345678.123 pass as two decimals. Above it every double passes. NaN and
+// the infinities have no decimals to count.
+const ULPS = 256;
+const NEAR = ULPS * Number.EPSILON;
+
+// The check of a struct, compiled on its first use: kept apart from the
+// frozen plan, whose creation is the cost of building a struct.
+const CHECKS = new WeakMap();
+
+// The branch of a discriminated union by the value of its discriminator, as
+// a Map of value to branch index: built once per field, on first use, and
+// shared by the check, the passes of parse and the JIT.
+const TABLES = new WeakMap();
+
 // The rules of a field (`rules.js` reads and normalizes them when the field
 // is built): one closure per rule over the field's bounds, run after the type
 // check in the order the type lists them.
@@ -126,17 +146,6 @@ const compileFormat = (type) => {
   };
 };
 
-// A number of `n` decimals is a whole number times 10ⁿ, to within the error
-// the arithmetic of doubles leaves on the way (0.1 + 0.2 has two decimals):
-// ULPS units in the last place of the scaled value. A few units is what a
-// sum or a product of decimals leaves; 256 is room for a chain of them, and
-// still tells a decimal too many apart below 2⁴³ units of the last decimal
-// (ten billion at two), where a bound of 1e-9 of the value would let
-// 12345678.123 pass as two decimals. Above it every double passes. NaN and
-// the infinities have no decimals to count.
-const ULPS = 256;
-const NEAR = ULPS * Number.EPSILON;
-
 // Whether a number has more decimals than `scale` (10ⁿ) allows: the one test
 // of both backends (the JIT calls it through the scope).
 const decimalsOff = (value, scale) => {
@@ -168,15 +177,15 @@ const ruleNames = (type) => {
   return names;
 };
 
-const COMPILERS = Object.assign(Object.create(null), {
+const COMPILERS = {
+  __proto__: null,
   length: compileLength,
   pattern: compilePattern,
   format: compileFormat,
   decimals: compileDecimals,
   range: compileRange,
-});
+};
 
-// The checks of the rules a field carries.
 const compileRules = (type) => {
   const names = ruleNames(type);
   const checks = [];
@@ -200,7 +209,7 @@ const nullable = (inner) => (value, context, key) => {
 const withRules = (type, inner, rules) => {
   const { required, validate } = type;
   return (value, context, key) => {
-    if (value == null && !required) return;
+    if ((value === undefined || value === null) && !required) return;
     const before = context.count;
     inner(value, context, key);
     if (context.count !== before) return;
@@ -222,7 +231,7 @@ const withRules = (type, inner, rules) => {
 // field without rules is its type check alone, and check is the hot path.
 // The type check of a field. A custom type with a `compile` of its own runs
 // it here, on the first check, not when the schema is built: what it throws
-// is the type's (ERR_INVALID_CUSTOM_TYPE, located at the schema, with the
+// is the type's (ALX_ERR_INVALID_CUSTOM_TYPE, located at the schema, with the
 // error as the cause), never a bare error out of a check.
 const compiledOf = (type) => {
   try {
@@ -231,11 +240,8 @@ const compiledOf = (type) => {
     if (error instanceof SchemaDefinitionError) throw error;
     const { root } = type;
     const reason = `Custom type "${type.type}" could not compile its check: ${error?.message}`;
-    const failed = new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', reason);
-    failed.schema = root.name;
-    failed.message = `${reason} in "${root.name}"`;
-    failed.cause = error;
-    throw failed;
+    const code = 'ALX_ERR_INVALID_CUSTOM_TYPE';
+    throw new SchemaDefinitionError(reason, { code, cause: error }).locate(root.name, '');
   }
 };
 
@@ -255,7 +261,7 @@ const custom = {
     const type = this;
     const { required } = this;
     return (value, context, key) => {
-      if (value == null && !required) return;
+      if ((value === undefined || value === null) && !required) return;
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       runCheckType(type, value, context);
@@ -302,11 +308,9 @@ const scanUnknown = (value, known, context) => {
 // return is what the field adds to the keys found.
 const checkAbsent = (entry, value, context, name) => {
   const under = aliasOf(value, entry.aliases, name);
-  let item;
-  if (under !== name) {
-    item = value[under];
-    context.renamed = true;
-  }
+  const renamed = under !== name;
+  if (renamed) context.renamed = true;
+  const item = renamed ? value[under] : undefined;
   if (item === undefined) {
     if (!entry.required) return 0;
     if (!Object.hasOwn(value, under)) {
@@ -331,8 +335,7 @@ const compileStruct = (entries, known) => {
   Object.freeze(plan);
   return (value, context, key) => {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-      issues.type(context, 'object', value, key);
-      return;
+      return void issues.type(context, 'object', value, key);
     }
     const nested = key !== undefined;
     if (nested) context.path.push(key);
@@ -357,10 +360,6 @@ const compileStruct = (entries, known) => {
   };
 };
 
-// The check of a struct, compiled on its first use: kept apart from the
-// frozen plan, whose creation is the cost of building a struct.
-const CHECKS = new WeakMap();
-
 const checkOf = (fields) => {
   let check = CHECKS.get(fields);
   if (check === undefined) {
@@ -376,7 +375,7 @@ const checkOf = (fields) => {
 const scalarCheck = (scalar, required) => (value, context, key) => {
   // oxlint-disable-next-line valid-typeof
   if (typeof value === scalar) return;
-  if (!required && value == null) return;
+  if (!required && (value === undefined || value === null)) return;
   issues.type(context, scalar, value, key);
 };
 
@@ -392,9 +391,8 @@ const compileList = (type, isList) => {
   const name = type.type;
   return (value, context, key) => {
     if (!isList(value)) {
-      if (!required && value == null) return;
-      issues.type(context, name, value, key);
-      return;
+      if (!required && (value === undefined || value === null)) return;
+      return void issues.type(context, name, value, key);
     }
     const nested = key !== undefined;
     if (nested) context.path.push(key);
@@ -414,14 +412,8 @@ const compileList = (type, isList) => {
 // nested deeper than the check allows is reported instead of overflowing the
 // stack.
 const runReferenced = (schema, value, context, key) => {
-  if (value === null || typeof value !== 'object') {
-    schema[RUN](value, context, key);
-    return;
-  }
-  if (context.depth >= context.maxDepth) {
-    issues.depth(context, context.maxDepth, key);
-    return;
-  }
+  if (value === null || typeof value !== 'object') return void schema[RUN](value, context, key);
+  if (context.depth >= context.maxDepth) return void issues.depth(context, context.maxDepth, key);
   let { seen } = context;
   if (seen === null) {
     // The first embedded record creates the set, and the value the check
@@ -430,10 +422,7 @@ const runReferenced = (schema, value, context, key) => {
     if (context.source !== null) seen.add(context.source);
     context.seen = seen;
   }
-  if (seen.has(value)) {
-    issues.circular(context, key);
-    return;
-  }
+  if (seen.has(value)) return void issues.circular(context, key);
   seen.add(value);
   context.depth += 1;
   schema[RUN](value, context, key);
@@ -443,11 +432,6 @@ const runReferenced = (schema, value, context, key) => {
 
 // What a branch is called in the message of a value that matched none.
 const nameOf = (branch) => (branch.type === 'schema' ? 'object' : branch.type);
-
-// The branch of a discriminated union by the value of its discriminator, as
-// a Map of value to branch index: built once per field, on first use, and
-// shared by the check, the passes of parse and the JIT.
-const TABLES = new WeakMap();
 
 const tableOf = (field) => {
   let table = TABLES.get(field);
@@ -475,7 +459,7 @@ const compilePlain = (type, required) => {
   }
   const { length } = checks;
   return (value, context, key) => {
-    if (!required && value == null) return;
+    if (!required && (value === undefined || value === null)) return;
     const { count } = context;
     // The validators a failed branch set aside in an async check go with
     // its issues: they belong to a branch the value does not match.
@@ -502,12 +486,11 @@ const COMPILE = {
   string() {
     return scalarCheck(this.scalar, this.required);
   },
-  // A number without a fraction.
   integer() {
     const { required } = this;
     return (value, context, key) => {
       if (Number.isInteger(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'integer', value, key);
     };
   },
@@ -516,7 +499,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (isDate(value) && !Number.isNaN(value.getTime())) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'date', value, key);
     };
   },
@@ -525,7 +508,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (isBytes(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'bytes', value, key);
     };
   },
@@ -548,13 +531,13 @@ const COMPILE = {
       const set = new Set(values);
       return (value, context, key) => {
         if (set.has(value)) return;
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         issues.enum(context, values, key);
       };
     }
     return (value, context, key) => {
       if (values.includes(value)) return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.enum(context, values, key);
     };
   },
@@ -567,9 +550,8 @@ const COMPILE = {
     const { check } = this.value;
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
+        if (!required && (value === undefined || value === null)) return;
+        return void issues.type(context, type, value, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);
@@ -594,9 +576,8 @@ const COMPILE = {
     const { check } = this.value;
     return (value, context, key) => {
       if (!isMap(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
+        if (!required && (value === undefined || value === null)) return;
+        return void issues.type(context, type, value, key);
       }
       if (value.size === 0) {
         if (required) issues.required(context, key);
@@ -626,28 +607,19 @@ const COMPILE = {
     const { one, many, root, required, embed } = this;
     if (one) {
       return (value, context, key) => {
-        if (!required && value == null) return;
+        if (!required && (value === undefined || value === null)) return;
         const schema = root.findReference(one);
-        if (!schema) {
-          issues.reference(context, one, key);
-          return;
-        }
+        if (!schema) return void issues.reference(context, one, key);
         if (embeds(schema, embed, context.references)) runReferenced(schema, value, context, key);
         else if (typeof value !== 'string') issues.type(context, 'string', value, key);
       };
     }
     const expected = `array of ${many}`;
     return (value, context, key) => {
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       const schema = root.findReference(many);
-      if (!schema) {
-        issues.reference(context, many, key);
-        return;
-      }
-      if (!Array.isArray(value)) {
-        issues.type(context, expected, value, key);
-        return;
-      }
+      if (!schema) return void issues.reference(context, many, key);
+      if (!Array.isArray(value)) return void issues.type(context, expected, value, key);
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       const embedded = embeds(schema, embed, context.references);
@@ -666,7 +638,7 @@ const COMPILE = {
     const { required } = this;
     const check = isStruct(this.schema) ? checkOf(this.schema) : this.schema.check;
     return (value, context, key) => {
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       check(value, context, key);
     };
   },
@@ -678,13 +650,11 @@ const COMPILE = {
     const { length } = checks;
     return (value, context, key) => {
       if (!Array.isArray(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
+        if (!required && (value === undefined || value === null)) return;
+        return void issues.type(context, type, value, key);
       }
       if (value.length > length) {
-        issues.length(context, undefined, length, value.length, key);
-        return;
+        return void issues.length(context, undefined, length, value.length, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);
@@ -707,15 +677,11 @@ const COMPILE = {
     for (const value of table.keys()) expected.push(value);
     return (value, context, key) => {
       if (value === null || typeof value !== 'object') {
-        if (!required && value == null) return;
-        issues.type(context, 'object', value, key);
-        return;
+        if (!required && (value === undefined || value === null)) return;
+        return void issues.type(context, 'object', value, key);
       }
       const index = table.get(value[discriminator]);
-      if (index !== undefined) {
-        checks[index](value, context, key);
-        return;
-      }
+      if (index !== undefined) return void checks[index](value, context, key);
       const nested = key !== undefined;
       if (nested) context.path.push(key);
       issues.union(context, expected, discriminator, discriminator);
@@ -727,7 +693,7 @@ const COMPILE = {
     const { required } = this;
     return (value, context, key) => {
       if (value !== null && typeof value === 'object') return;
-      if (!required && value == null) return;
+      if (!required && (value === undefined || value === null)) return;
       issues.type(context, 'object', value, key);
     };
   },
@@ -740,9 +706,8 @@ const COMPILE = {
     for (const name of this.flags) known[name] = true;
     return (value, context, key) => {
       if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-        if (!required && value == null) return;
-        issues.type(context, type, value, key);
-        return;
+        if (!required && (value === undefined || value === null)) return;
+        return void issues.type(context, type, value, key);
       }
       const nested = key !== undefined;
       if (nested) context.path.push(key);
@@ -773,17 +738,17 @@ COMPILE.unknown = COMPILE.any;
 COMPILE.set = COMPILE.array;
 
 module.exports = {
-  COMPILE,
-  custom,
-  compileField,
-  checkOf,
-  aliasOf,
-  ruleNames,
-  compileRules,
-  patternLimit,
-  decimalsOff,
   codePoints,
   lengthOf,
+  patternLimit,
+  decimalsOff,
+  ruleNames,
+  compileRules,
+  compileField,
+  custom,
+  aliasOf,
+  checkOf,
   nameOf,
   tableOf,
+  COMPILE,
 };

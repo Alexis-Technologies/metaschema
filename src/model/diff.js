@@ -13,12 +13,27 @@
 const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
 const {
   invalidSnapshot,
-  atSchema,
+  unreadable,
   isObject,
   readSnapshot,
   same,
   isFunctionMarker,
 } = require('./data.js');
+
+const META = ['kind', 'scope', 'store', 'allow', 'parent', 'unknown', 'custom'];
+
+// The keys of an entity whose change leaves no reader compatible.
+const INCOMPATIBLE = new Set(['kind', 'store', 'parent', 'type']);
+
+// The classes as bits, so that the class of several changes is the AND of
+// theirs: backward and forward make full, either with its opposite makes
+// none.
+const NONE = 0;
+const BACKWARD = 1;
+const FORWARD = 2;
+const FULL = 3;
+
+const NAMES = ['none', 'backward', 'forward', 'full'];
 
 const change = (kind, op, entity, name, from, to, detail) => {
   const entry = { kind, op, entity, name };
@@ -34,7 +49,9 @@ const own = (object, key) => (Object.hasOwn(object, key) ? object[key] : undefin
 const keysOf = (a, b) => {
   const keys = new Set(Object.keys(a));
   for (const key of Object.keys(b)) keys.add(key);
-  return Array.from(keys).sort();
+  const sorted = Array.from(keys);
+  sorted.sort();
+  return sorted;
 };
 
 // The keys whose values differ between two objects, sorted.
@@ -136,8 +153,6 @@ const diffRelations = (entity, old, current, changes) => {
   }
 };
 
-const META = ['kind', 'scope', 'store', 'allow', 'parent', 'unknown', 'custom'];
-
 // The metadata of an entity; a schema of one type is its type, so a struct
 // that became one (or back) differs in `type`.
 const metaOf = (entity) => {
@@ -157,7 +172,7 @@ const isRelations = (list) => {
 // object: a definition or a function marker) or a `type`, and the relations
 // as a list of objects, when there.
 const checkEntity = (entity, name) => {
-  const fail = (reason) => atSchema(invalidSnapshot(reason), name);
+  const fail = (reason) => invalidSnapshot(reason).locate(name, '');
   if (!isObject(entity)) throw fail('An entity of a snapshot must be an object');
   const { fields, type, relations = [] } = entity;
   if (!isObject(fields === undefined ? type : fields) || !isRelations(relations)) {
@@ -204,16 +219,6 @@ const diff = (prev, next) => {
   diffKeyed('type', '', old.types || {}, current.types || {}, changes);
   return changes;
 };
-
-// The classes as bits, so that the class of several changes is the AND of
-// theirs: backward and forward make full, either with its opposite makes
-// none.
-const NONE = 0;
-const BACKWARD = 1;
-const FORWARD = 2;
-const FULL = 3;
-
-const NAMES = ['none', 'backward', 'forward', 'full'];
 
 // A field a reader may do without: an optional one, or one with a default
 // the reader fills in.
@@ -330,7 +335,8 @@ const keyLevel = (key, from, to, field) => {
       return boundLevel(from, to, false);
     case 'pattern':
     case 'format':
-      return from === undefined ? FORWARD : to === undefined ? BACKWARD : NONE;
+      if (from === undefined) return FORWARD;
+      return to === undefined ? BACKWARD : NONE;
     case 'enum':
     case 'flags':
       return Array.isArray(from) && Array.isArray(to) ? enumLevel(from, to) : NONE;
@@ -384,7 +390,7 @@ const entityLevel = (entry) => {
   if (op === 'removed') return BACKWARD;
   let level = FULL;
   for (const key of detail.keys) {
-    if (key === 'kind' || key === 'store' || key === 'parent' || key === 'type') level &= NONE;
+    if (INCOMPATIBLE.has(key)) level &= NONE;
     else if (key === 'unknown') level &= to.unknown === 'ignore' ? BACKWARD : FORWARD;
   }
   return level;
@@ -409,11 +415,10 @@ const levelOf = (entry) => {
 
 // What a change carries, as `diff` writes it: a kind and an op, and the
 // keys that differ for `changed`.
-const isChange = (entry) =>
-  isObject(entry) &&
-  typeof entry.kind === 'string' &&
-  typeof entry.op === 'string' &&
-  (entry.op !== 'changed' || Array.isArray(entry.detail?.keys));
+const isChange = (entry) => {
+  const named = isObject(entry) && typeof entry.kind === 'string' && typeof entry.op === 'string';
+  return named && (entry.op !== 'changed' || Array.isArray(entry.detail?.keys));
+};
 
 // The class of a change as bits. Whatever fails while its definitions are
 // read (a bigint that does not read, a nesting the stack cannot take) is an
@@ -423,7 +428,7 @@ const classOf = (entry) => {
   try {
     return levelOf(entry);
   } catch (error) {
-    const located = error instanceof SchemaDefinitionError ? error : invalidSnapshot(error.message);
+    const located = error instanceof SchemaDefinitionError ? error : unreadable(error);
     throw located.locate(entry.entity, entry.name);
   }
 };
@@ -439,4 +444,4 @@ const compatibility = (changes) => {
   return NAMES[level];
 };
 
-module.exports = { diff, compatibility, compatibilityOf };
+module.exports = { diff, compatibilityOf, compatibility };

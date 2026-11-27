@@ -21,6 +21,7 @@ const { NESTED, LIST, KEYED, TUPLE, REFERENCE } = SHAPES;
 
 // A place an update is not checked at: a union, any, json.
 const LOOSE = Symbol('loose');
+const LOOSE_TYPES = new Set(['union', 'any', 'unknown', 'json']);
 // An element of a list of ids: a string.
 const ID = Symbol('id');
 // A part a node does not have (an element of a string, a field of an id):
@@ -35,9 +36,12 @@ const INDEX = /^\d+$/;
 
 // The operators of the values a path is set to, of the lists it adds to or
 // takes from, and every operator of an update the subpath reads.
-const VALUES = ['$set', '$setOnInsert', '$min', '$max'];
-const LISTS = ['$push', '$addToSet', '$pull', '$pullAll'];
-const OPERATORS = [...VALUES, ...LISTS, '$unset', '$inc', '$mul', '$currentDate', '$pop'];
+const VALUE_NAMES = ['$set', '$setOnInsert', '$min', '$max'];
+const LIST_NAMES = ['$push', '$addToSet', '$pull', '$pullAll'];
+const OTHER_NAMES = ['$unset', '$inc', '$mul', '$currentDate', '$pop'];
+const VALUES = new Set(VALUE_NAMES);
+const LISTS = new Set(LIST_NAMES);
+const OPERATORS = new Set(OTHER_NAMES.concat(VALUE_NAMES, LIST_NAMES));
 
 // The type a field is of, through the aliases of custom types.
 const baseOf = (field) => baseTypeOf(field).type;
@@ -70,8 +74,7 @@ const step = (node, segment, references) => {
     if (!ELEMENT.test(segment)) return NONE;
     return target === null ? ID : target;
   }
-  const base = baseOf(node);
-  return base === 'union' || base === 'any' || base === 'unknown' || base === 'json' ? LOOSE : NONE;
+  return LOOSE_TYPES.has(baseOf(node)) ? LOOSE : NONE;
 };
 
 // The node a path names, or null, NONE, LOOSE or DEEP: the records a path
@@ -129,7 +132,7 @@ const checkStep = (node, value, context, key) => {
 };
 
 const checkOperation = (operator, node, value, context, key) => {
-  if (VALUES.includes(operator)) checkAt(node, value, context, key);
+  if (VALUES.has(operator)) checkAt(node, value, context, key);
   else if (operator === '$unset') {
     if (hasBrand(node, 'Type') && node.required) issues.required(context, key);
   } else if (operator === '$inc' || operator === '$mul') checkStep(node, value, context, key);
@@ -186,7 +189,7 @@ const checkUpdate = (target, update, options) => {
   const unknown = [];
   for (const operator of Object.keys(update)) {
     const operand = update[operator];
-    if (!OPERATORS.includes(operator) || !isObject(operand)) {
+    if (!OPERATORS.has(operator) || !isObject(operand)) {
       unknown.push(operator);
       continue;
     }
@@ -209,8 +212,8 @@ const valueOf = (state, context, node, value) => {
 };
 
 const operandOf = (state, context, operator, node, value) => {
-  if (VALUES.includes(operator)) return valueOf(state, context, node, value);
-  if (!LISTS.includes(operator)) return value;
+  if (VALUES.has(operator)) return valueOf(state, context, node, value);
+  if (!LISTS.has(operator)) return value;
   const element = elementOf(node, state.references);
   if (element === null) return value;
   const each = (item) => valueOf(state, context, element, item);

@@ -257,13 +257,13 @@ longest of theirs, not the sum; a validator over them waits for them, and such v
 one after the other: the rule that a validator runs only when nothing under it failed needs
 that much order.
 
-The synchronous `check` and `parse` throw a `TypeError` with the code `ERR_ASYNC_VALIDATOR` when
+The synchronous `check` and `parse` throw a `SchemaUsageError` with the code `ALX_ERR_ASYNC_VALIDATOR` when
 a validator, a `checkType` or a decoder returns a promise:
 
 ```js
 signup.check({ login: 'marcus', password: 'secret' });
-// TypeError: The validator of "Signup.login" returned a promise; use checkAsync or parseAsync
-//   code: 'ERR_ASYNC_VALIDATOR'
+// SchemaUsageError: The validator of "Signup.login" returned a promise; use checkAsync or parseAsync
+//   code: 'ALX_ERR_ASYNC_VALIDATOR'
 ```
 
 `serialize` is synchronous; its `check` option runs the synchronous `check`.
@@ -303,7 +303,28 @@ and `serialize` takes an `InferOutput<D>` and gives an `Infer<D>`.
 | decoders, the schema's `parse` | not called | called on a valid value | called |
 | `unknown` | `reject` or `ignore`; the schema's own metadata by default | `reject`, `ignore` or `strip` | the schema's own metadata, or `libraryOptions` |
 | the value | never touched | never touched; the output shares what did not change | the output of `parse` |
-| a validator's promise | `ERR_ASYNC_VALIDATOR`; `checkAsync` | `ERR_ASYNC_VALIDATOR`; `parseAsync` | a promise when the schema has an async function |
+| a validator's promise | `ALX_ERR_ASYNC_VALIDATOR`; `checkAsync` | `ALX_ERR_ASYNC_VALIDATOR`; `parseAsync` | a promise when the schema has an async function |
+
+## At a trust boundary
+
+`check` and `parse` take the limits of a request from the call, because a schema is built once
+at startup and serves every caller. Four defaults are what a program inside its own process
+wants and what a boundary that reads untrusted input sets otherwise:
+
+- **`maxErrors` has no limit.** A body of 200,000 wrong elements gives 200,000 issues, and every
+  one is an object with a path. Pass `maxErrors` (20 is plenty for a form or an API answer), and
+  `length.max` on the arrays, which bounds the walk itself.
+- **The async validators a check meets all start during the walk.** A `validate` that awaits I/O
+  on every element of an array starts one call per element; `maxErrors` stops what is recorded,
+  not what has started. `length.max` bounds them, or the elements go through `./stream` with a
+  `concurrency`.
+- **A pattern runs on a string up to its `length.max`, and on every string without one.** A
+  schema written in code says its bound; one read with `fromJSONSchema` or `fromJSON` keeps the
+  document's, so an imported `pattern` without `maxLength` is the importer's to bound
+  (`schema.warnings` has `unbounded-pattern` for it).
+- **The message of an `exception` issue is the text of what the validator threw.** A validator
+  that calls a database and fails puts the driver's message in the result; map `exception`
+  issues to a generic text (and the answer to a 500) before they leave the process.
 
 ## Boundaries
 

@@ -10,16 +10,12 @@
 // what no type describes is `any` rather than an error.
 const { define, IDENTIFIER, shorten, isBytes } = require('../util.js');
 const { Schema } = require('../validation.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { readsAsStruct } = require('../types.js');
 const { FORMATS } = require('../rules.js');
 const { toDotPath, finalize } = require('../issues.js');
 const en = require('../locales/en.js');
-const { DEPTH, kindKeyOf } = require('./data.js');
-
-const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
-
-const invalidOptions = (reason) => invalid('ERR_INVALID_OPTIONS', reason);
+const { MAX_DEPTH, kindKeyOf } = require('./data.js');
 
 // The kinds a place may hold, a bit each: a place that held values of
 // several kinds is a union of them, and null and undefined decide presence.
@@ -43,11 +39,24 @@ const BYTES = 16384;
 
 const PRESENCE = NULL | UNDEF;
 
+// The bit of the type of a key of a Map.
+const KEY_BITS = { string: STRING, number: FLOAT };
+
 // How a key is written: a field, its presence (absent, undefined or null
 // among its values) written as the language writes it.
 const REQUIRED = 0;
 const OPTIONAL = 1;
 const NULLABLE = 2;
+
+// A place in the samples, for the errors: the keys of records, `[]` for
+// the elements of a list or the entries of a Map.
+const ITEM = Symbol('item');
+
+// A key a program would write as a field: a letter, a digit after it.
+const NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 // The summary of one place: one shape for every node. `strings` is the
 // distinct strings while there are few enough for an enum (undefined before
@@ -68,10 +77,6 @@ const node = () => ({
   formats: undefined,
 });
 
-// A place in the samples, for the errors: the keys of records, `[]` for
-// the elements of a list or the entries of a Map.
-const ITEM = Symbol('item');
-
 const where = (state) => {
   let text = '';
   for (let index = 0; index < state.path.length; index += 1) {
@@ -83,11 +88,11 @@ const where = (state) => {
   return text;
 };
 
-const tooDeep = (state) =>
-  invalid(
-    'ERR_INFER_DEPTH',
-    `Sample ${state.index} nests deeper than ${state.maxDepth} levels at "${where(state)}" (a cycle?)`,
-  );
+const tooDeep = (state) => {
+  const levels = `${state.maxDepth} levels at "${where(state)}"`;
+  const message = `Sample ${state.index} nests deeper than ${levels} (a cycle?)`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_INFER_DEPTH' });
+};
 
 // The formats of a place narrow with every string: the candidates are the
 // registered formats that infer (a format every word passes says not to),
@@ -148,8 +153,7 @@ const add = (target, value, state, depth) => {
   const type = typeof value;
   if (type === 'string') {
     target.bits |= STRING;
-    addString(target, value, state);
-    return;
+    return void addString(target, value, state);
   }
   if (type === 'number') {
     target.bits |= Number.isInteger(value) ? INTEGER : FLOAT;
@@ -179,8 +183,7 @@ const add = (target, value, state, depth) => {
   }
   if (Array.isArray(value)) {
     target.bits |= LIST;
-    addItems(target, value, state, depth);
-    return;
+    return void addItems(target, value, state, depth);
   }
   if (isBytes(value)) {
     target.bits |= BYTES;
@@ -189,8 +192,7 @@ const add = (target, value, state, depth) => {
   const iterable = typeof value[Symbol.iterator] === 'function';
   if (name === 'Set' && iterable) {
     target.bits |= SET;
-    addItems(target, value, state, depth);
-    return;
+    return void addItems(target, value, state, depth);
   }
   if (name === 'Map' && iterable) {
     target.bits |= MAP;
@@ -200,11 +202,10 @@ const add = (target, value, state, depth) => {
     state.path.push(ITEM);
     for (const pair of value) {
       const key = typeof pair[0];
-      target.names.bits |= key === 'string' ? STRING : key === 'number' ? FLOAT : ANY;
+      target.names.bits |= KEY_BITS[key] ?? ANY;
       add(target.entries, pair[1], state, depth + 1);
     }
-    state.path.pop();
-    return;
+    return void state.path.pop();
   }
   target.bits |= RECORD;
   target.records += 1;
@@ -247,9 +248,6 @@ const fuse = (into, from, cap) => {
   }
   return into;
 };
-
-// A key a program would write as a field: a letter, a digit after it.
-const NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 
 // Whether the records of a place are a dictionary rather than a struct: no
 // key is a name (ids, dates, codes as keys, from one sample on), or there
@@ -297,7 +295,10 @@ const written = (form, presence) => {
 };
 
 // A place that held nothing but null or undefined.
-const bareOf = (bits, absent) => (bits & NULL ? (absent ? '?null' : 'null') : '?unknown');
+const bareOf = (bits, absent) => {
+  if ((bits & NULL) === 0) return '?unknown';
+  return absent ? '?null' : 'null';
+};
 
 // The element of a list, the value of a dictionary: `?type` when null or
 // undefined was among them.
@@ -312,10 +313,12 @@ const itemOf = (target, state) => {
 // string of the place passed, else a string.
 const stringOf = (target, state) => {
   const { strings, texts, formats } = target;
-  if (strings != null && texts >= 4 && texts >= 2 * strings.size) {
+  const counted = strings !== undefined && strings !== null;
+  if (counted && texts >= 4 && texts >= 2 * strings.size) {
     return { def: { enum: Array.from(strings) } };
   }
-  if (formats != null && formats.length > 0) return { def: { type: 'string', format: formats[0] } };
+  const formatted = formats !== undefined && formats !== null && formats.length > 0;
+  if (formatted) return { def: { type: 'string', format: formats[0] } };
   return { def: 'string' };
 };
 
@@ -335,13 +338,18 @@ const mapOf = (target, state) => {
 // as an optional key, so it is written with one more.
 const nameOf = (key) => (key.endsWith('?') ? `${key}?` : key);
 
+const presenceOf = (absent, nul) => {
+  if (absent) return OPTIONAL;
+  return nul ? NULLABLE : REQUIRED;
+};
+
 // A key of a struct: optional when some record lacks it or holds undefined,
 // nullable when every record has it and some hold null.
 const keyOf = (child, records, state) => {
   const absent = child.count < records || (child.bits & UNDEF) !== 0;
   const nul = (child.bits & NULL) !== 0;
   if ((child.bits & ~PRESENCE) === 0) return bareOf(child.bits, absent);
-  return written(formOf(child, state), absent ? OPTIONAL : nul ? NULLABLE : REQUIRED);
+  return written(formOf(child, state), presenceOf(absent, nul));
 };
 
 const recordOf = (target, state) => {
@@ -390,19 +398,15 @@ const formOf = (target, state) => {
 const mismatch = (state, index, issue) => {
   finalize([issue], en);
   const at = toDotPath(issue.path, state.name);
-  const error = invalid(
-    'ERR_INFER_MISMATCH',
-    `The inferred definition rejects sample ${index} at "${at}": ${issue.message}`,
-  );
-  error.index = index;
-  return error;
+  const message = `The inferred definition rejects sample ${index} at "${at}": ${issue.message}`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_INFER_MISMATCH', index });
 };
 
-const option = (name, expected) => invalidOptions(`Infer option "${name}" must be ${expected}`);
+const option = (name, expected) => wrongOption(`Infer option "${name}" must be ${expected}`);
 
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Infer options must be an object');
+    throw wrongOption('Infer options must be an object');
   }
   const {
     as = 'definition',
@@ -411,7 +415,7 @@ const optionsOf = (options) => {
     enum: cap = 8,
     integer = true,
     map = 16,
-    maxDepth = DEPTH,
+    maxDepth = MAX_DEPTH,
     formats = true,
   } = options;
   if (as !== 'definition' && as !== 'schema') throw option('as', '"definition" or "schema"');
@@ -424,8 +428,8 @@ const optionsOf = (options) => {
   if (map !== false && (!Number.isInteger(map) || map < 1)) {
     throw option('map', 'an integer of at least 1, or false');
   }
-  if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > DEPTH) {
-    throw option('maxDepth', `an integer from 1 to ${DEPTH}`);
+  if (!Number.isInteger(maxDepth) || maxDepth < 1 || maxDepth > MAX_DEPTH) {
+    throw option('maxDepth', `an integer from 1 to ${MAX_DEPTH}`);
   }
   if (typeof formats !== 'boolean') throw option('formats', 'a boolean');
   const state = { as, name, kind, enum: cap === false ? 0 : cap, integer, map, maxDepth };
@@ -442,15 +446,31 @@ const optionsOf = (options) => {
 // The samples as a list, read twice (the summary, then the self-check). A
 // string is iterable, over its characters, and surely a mistake.
 const listOf = (samples) => {
-  const iterable =
-    samples !== null &&
-    samples !== undefined &&
-    typeof samples !== 'string' &&
-    typeof samples[Symbol.iterator] === 'function';
-  if (!iterable) throw invalidTarget('An iterable of samples is expected');
+  const ruledOut = samples === undefined || samples === null || typeof samples === 'string';
+  if (ruledOut || typeof samples[Symbol.iterator] !== 'function') {
+    throw invalidTarget('An iterable of samples is expected');
+  }
   const list = Array.isArray(samples) ? samples : Array.from(samples);
   if (list.length === 0) throw invalidTarget('At least one sample is expected');
   return list;
+};
+
+// The definition of the root. A root of records is a struct with its kind;
+// a root of records and null or undefined is a union of that one struct,
+// since the `schema` shorthand at the root is the struct itself and cannot
+// be optional.
+const rootDefinition = (root, state) => {
+  const presence = root.bits & PRESENCE ? OPTIONAL : REQUIRED;
+  const form = (root.bits & ~PRESENCE) === 0 ? null : formOf(root, state);
+  if (form === null) return bareOf(root.bits, (root.bits & UNDEF) !== 0);
+  if (form.struct === undefined) return written(form, presence);
+  if (presence !== REQUIRED) {
+    const union = { def: { union: [written(form, REQUIRED)] } };
+    return written(union, presence);
+  }
+  const definition = { [kindKeyOf(state.kind)]: {} };
+  for (const key of Object.keys(form.struct)) define(definition, key, form.struct[key]);
+  return definition;
 };
 
 // A definition (or a Schema, with `as: 'schema'`) that accepts every
@@ -466,18 +486,7 @@ const infer = (samples, options = {}) => {
     state.index = index;
     add(root, list[index], state, 0);
   }
-  // A root of records is a struct with its kind; a root of records and
-  // null or undefined is a union of that one struct, since the `schema`
-  // shorthand at the root is the struct itself and cannot be optional.
-  let definition;
-  const presence = root.bits & PRESENCE ? OPTIONAL : REQUIRED;
-  const form = (root.bits & ~PRESENCE) === 0 ? null : formOf(root, state);
-  if (form === null) definition = bareOf(root.bits, (root.bits & UNDEF) !== 0);
-  else if (form.struct === undefined) definition = written(form, presence);
-  else if (presence === REQUIRED) {
-    definition = { [kindKeyOf(state.kind)]: {} };
-    for (const key of Object.keys(form.struct)) define(definition, key, form.struct[key]);
-  } else definition = written({ def: { union: [written(form, REQUIRED)] } }, presence);
+  const definition = rootDefinition(root, state);
   const schema = new Schema(state.name, definition);
   const check = { unknown: 'reject', maxErrors: 1 };
   for (let index = 0; index < list.length; index += 1) {

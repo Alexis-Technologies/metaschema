@@ -4,7 +4,7 @@ const { SchemaDefinitionError } = require('../errors.js');
 
 const missingSchema = (type) => {
   const hint = `Type "${type}" needs a schema definition: { type: '${type}', schema: { ... } }`;
-  return new SchemaDefinitionError('ERR_MISSING_SCHEMA', hint);
+  return new SchemaDefinitionError(hint, { code: 'ALX_ERR_MISSING_SCHEMA' });
 };
 
 const isDefinition = (value) =>
@@ -29,18 +29,17 @@ const schema = {
   kind: 'struct',
   options: ['schema'],
 
-  construct(defs, prep) {
+  construct(defs, preprocessor) {
     const { schema: definition, required } = defs;
     if (!isDefinition(definition)) throw missingSchema(this.type);
     this.required = required ?? true;
     if (hasBrand(definition, 'Schema')) {
-      prep.root.updateFromSchema(definition);
+      preprocessor.root.updateFromSchema(definition);
       this.schema = definition.fields;
-      adopt(this, definition.options);
-      return;
+      return void adopt(this, definition.options);
     }
     if (isStruct(definition)) this.schema = definition;
-    else this.schema = createStruct(definition, prep);
+    else this.schema = createStruct(definition, preprocessor);
     adopt(this, definition);
   },
 };

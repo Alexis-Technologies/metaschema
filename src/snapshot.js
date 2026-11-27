@@ -49,7 +49,7 @@ const base64Of = (bytes) => {
 const valueOf = (value) => {
   const type = typeof value;
   if (type === 'function') return { $function: true };
-  if (type === 'bigint') return { $bigint: String(value) };
+  if (type === 'bigint') return { $bigint: `${value}` };
   if (type !== 'object' || value === null) return value;
   if (hasBrand(value, 'Type')) return fieldOf(value);
   if (Array.isArray(value)) return listOf(value);
@@ -67,7 +67,9 @@ const valueOf = (value) => {
 // sorted, so the text does not depend on how the definition was written.
 const fieldOf = (field) => {
   const out = { type: field.type, required: field.required };
-  for (const key of Object.keys(field).sort()) {
+  const keys = Object.keys(field);
+  keys.sort();
+  for (const key of keys) {
     const item = field[key];
     if (key !== 'root' && item !== undefined) out[key] = valueOf(item);
   }
@@ -137,10 +139,9 @@ const typeOf = (Type) => {
 };
 
 const typeClash = (name) =>
-  new SchemaDefinitionError(
-    'ERR_UNREPRESENTABLE',
-    `Two types named "${name}" cannot be represented in one snapshot`,
-  );
+  new SchemaDefinitionError(`Two types named "${name}" cannot be represented in one snapshot`, {
+    code: 'ALX_ERR_UNREPRESENTABLE',
+  });
 
 // The types the entities use, by name, and the custom types their aliases
 // name down the chain (a model is restored from them): each from the table
@@ -172,7 +173,9 @@ const typesOf = (entities, tableOf) => {
     }
   }
   const out = {};
-  for (const name of Array.from(found.keys()).sort()) {
+  const names = Array.from(found.keys());
+  names.sort();
+  for (const name of names) {
     const entry = typeOf(found.get(name));
     if (entry !== null) out[name] = entry;
   }
@@ -200,10 +203,9 @@ const snapshotOf = (model) => {
 };
 
 const clash = (name) =>
-  new SchemaDefinitionError(
-    'ERR_UNREPRESENTABLE',
-    `Two schemas named "${name}" cannot be represented in one snapshot`,
-  );
+  new SchemaDefinitionError(`Two schemas named "${name}" cannot be represented in one snapshot`, {
+    code: 'ALX_ERR_UNREPRESENTABLE',
+  });
 
 // The order of the entities of a model and of a snapshot: depth first from
 // each start in turn, every entity after the ones its edges reach
@@ -283,4 +285,4 @@ const schemaSnapshotOf = (schema) => {
   };
 };
 
-module.exports = { FORMAT, snapshotOf, schemaSnapshotOf, usesOf, orderOf };
+module.exports = { FORMAT, usesOf, snapshotOf, orderOf, schemaSnapshotOf };

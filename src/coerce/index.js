@@ -11,6 +11,7 @@ const { isFirstLower } = require('../metautil.js');
 const { Schema } = require('../validation.js');
 const { createContext } = require('../context.js');
 const { COERCE, COERCION, PREPARE, infoOf, apply, wantOf, looped } = require('../codec.js');
+const { isThenable, abandon } = require('../issues.js');
 const { SchemaDefinitionError, invalidTarget, invalidOption } = require('../errors.js');
 
 // The integer digits and the fraction are told apart by the dot alone:
@@ -21,6 +22,22 @@ const INTEGER = /^[+-]?\d+$/;
 const ISO =
   /^(\d{4})-(\d{2})-(\d{2})(?:[Tt ]([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/;
 const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
+// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
+// leaves unused at zero, so that one text is one value; what a decoder
+// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
+// the check. A charset, a length and the last quantum rather than one
+// expression of quanta, whose repetition grows the stack of the engine by a
+// frame each and overflowed it on a valid text of a few megabytes (the
+// formats subpath reads base64 the same way). `''` is the text of no bytes.
+const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
+
+// The types whose values are written as text as they read back: an enum
+// member of one of them matches the text `${member}`.
+const PRIMITIVES = new Set(['number', 'boolean', 'bigint']);
+
+// The table: a converter by type name, `(value, field) => value`.
+const COERCIONS = Object.create(null);
 
 const toNumber = (value) => {
   if (typeof value === 'string') {
@@ -76,18 +93,9 @@ const toDate = (value) => {
 
 const toText = (value) => {
   const type = typeof value;
-  if (type === 'number') return Number.isFinite(value) ? String(value) : value;
-  return type === 'bigint' || type === 'boolean' ? String(value) : value;
+  if (type === 'number') return Number.isFinite(value) ? `${value}` : value;
+  return type === 'bigint' || type === 'boolean' ? `${value}` : value;
 };
-
-// Canonical base64 (RFC 4648 §4): padded, and with the bits the padding
-// leaves unused at zero, so that one text is one value; what a decoder
-// would forgive (whitespace, a missing `=`, the URL alphabet) is left to
-// the check. A charset, a length and the last quantum rather than one
-// expression of quanta, whose repetition grows the stack of the engine by a
-// frame each and overflowed it on a valid text of a few megabytes (the
-// formats subpath reads base64 the same way). `''` is the text of no bytes.
-const ALPHABET = /^[A-Za-z0-9+/]*={0,2}$/;
 
 const isBase64 = (text) => {
   const { length } = text;
@@ -103,7 +111,7 @@ const isBase64 = (text) => {
 const toBytes = (value, field) => {
   if (typeof value !== 'string' || !isBase64(value)) return value;
   const max = field.length?.max;
-  const pad = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const pad = (value.endsWith('=') ? 1 : 0) + (value.endsWith('==') ? 1 : 0);
   if (max !== undefined && (value.length / 4) * 3 - pad > max) return value;
   if (Uint8Array.fromBase64 !== undefined) return Uint8Array.fromBase64(value);
   const text = atob(value);
@@ -112,10 +120,7 @@ const toBytes = (value, field) => {
   return bytes;
 };
 
-const isPrimitive = (value) => {
-  const type = typeof value;
-  return type === 'number' || type === 'boolean' || type === 'bigint';
-};
+const isPrimitive = (value) => PRIMITIVES.has(typeof value);
 
 // The member a value is written as: a string for a number, a boolean or a
 // bigint member, or one of those for a string member.
@@ -125,7 +130,7 @@ const toEnum = (value, field) => {
   const text = typeof value === 'string';
   if (!text && !isPrimitive(value)) return value;
   for (const member of members) {
-    if (text ? isPrimitive(member) && String(member) === value : member === String(value)) {
+    if (text ? isPrimitive(member) && `${member}` === value : member === `${value}`) {
       return member;
     }
   }
@@ -141,7 +146,7 @@ const enumConverterOf = (field) => {
   for (const member of field.enum) {
     if (typeof member === 'string') strings.add(member);
     else if (isPrimitive(member)) {
-      const text = String(member);
+      const text = `${member}`;
       if (!written.has(text)) written.set(text, member);
     }
   }
@@ -149,7 +154,7 @@ const enumConverterOf = (field) => {
     if (members.has(value)) return value;
     if (typeof value === 'string') return written.has(value) ? written.get(value) : value;
     if (!isPrimitive(value)) return value;
-    const text = String(value);
+    const text = `${value}`;
     return strings.has(text) ? text : value;
   };
 };
@@ -179,16 +184,27 @@ const isPlain = (value) => {
   return prototype === null || Object.getPrototypeOf(prototype) === null;
 };
 
-// A plain object or a list of pairs; the keys of a map of numbers that are
-// written as numbers become numbers.
+// The keys of a map of numbers that are written as numbers become numbers.
+const mapKey = (key, field) =>
+  field.key === 'number' && typeof key === 'string' ? toNumber(key) : key;
+
+// A plain object or a list of pairs.
 const toMap = (value, field) => {
   if (value === null || typeof value !== 'object') return value;
   const list = Array.isArray(value);
   if (list ? !isPairs(value) : !isPlain(value)) return value;
   const map = new Map();
-  for (const pair of list ? value : Object.entries(value)) {
-    const key = field.key === 'number' && typeof pair[0] === 'string' ? toNumber(pair[0]) : pair[0];
-    map.set(key, pair[1]);
+  if (list) {
+    for (let index = 0; index < value.length; index += 1) {
+      const pair = value[index];
+      map.set(mapKey(pair[0], field), pair[1]);
+    }
+    return map;
+  }
+  const keys = Object.keys(value);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    map.set(mapKey(key, field), value[key]);
   }
   return map;
 };
@@ -207,10 +223,8 @@ const BUILT_IN = {
   map: toMap,
 };
 
-// The table: a converter by type name, `(value, field) => value`.
-const COERCIONS = Object.create(null);
-
-const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERCION', reason);
+const invalidCoercion = (reason) =>
+  new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_COERCION' });
 
 // The converter of a field: its type's, or the one of the type it is an
 // alias of (`{ money: { js: 'number' } }` converts as a number); an alias
@@ -221,8 +235,8 @@ const invalidCoercion = (reason) => new SchemaDefinitionError('ERR_INVALID_COERC
 // process-wide one: the models among the namespaces of the schema.
 const ownConverterOf = (root, name) => {
   for (const namespace of root.namespaces) {
-    const own = namespace.coercions;
-    if (own != null && own[name] !== undefined) return own[name];
+    const own = namespace.coercions?.[name];
+    if (own !== undefined) return own;
   }
   return undefined;
 };
@@ -237,6 +251,18 @@ const converterOf = (field) => {
     if (typeof js !== 'string') return null;
     name = js;
     Type = field.root.types[js];
+  }
+};
+
+// An observer never fails the operation it watches (alexiskills,
+// library-errors): what the hook throws, or a promise of it that rejects, is
+// dropped. A copy per subpath, as `install`, so the core carries none.
+const notify = (observer, first, second) => {
+  try {
+    const returned = observer(first, second);
+    if (isThenable(returned)) abandon(returned);
+  } catch {
+    // ignore: an observer never fails the operation it watches
   }
 };
 
@@ -258,7 +284,7 @@ const resolve = (node) => {
     try {
       return run(value, node);
     } catch (error) {
-      if (onError !== null) onError(error, node);
+      if (onError !== null) notify(onError, error, node);
       return value;
     }
   };
@@ -274,7 +300,7 @@ const check = (name, converter) => {
   const known = COERCIONS[name] ?? BUILT_IN[name];
   if (known !== undefined && known !== converter) {
     const reason = `Converter "${name}" is registered already with another function`;
-    throw new SchemaDefinitionError('ERR_COERCION_REGISTERED', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_COERCION_REGISTERED' });
   }
 };
 
@@ -287,23 +313,14 @@ const report = (input, output, path, paths) => {
   if (output === input) return;
   const container = output !== null && typeof output === 'object';
   const given = input !== null && typeof input === 'object';
-  if (!container || !given) {
-    paths.push(path);
-    return;
-  }
+  if (!container || !given) return void paths.push(path);
   if (Array.isArray(output)) {
-    if (!Array.isArray(input)) {
-      paths.push(path);
-      return;
-    }
+    if (!Array.isArray(input)) return void paths.push(path);
     for (let index = 0; index < output.length; index += 1) {
       report(input[index], output[index], [...path, index], paths);
     }
   } else if (isMap(output)) {
-    if (!isMap(input)) {
-      paths.push(path);
-      return;
-    }
+    if (!isMap(input)) return void paths.push(path);
     for (const pair of output) report(input.get(pair[0]), pair[1], [...path, pair[0]], paths);
   } else if (!isPlain(output) || !isPlain(input)) {
     paths.push(path);
@@ -350,7 +367,7 @@ let installed = false;
 
 // Fills the table with the built-in converters and the program's own, once
 // per name, process-wide (another function under a registered name is
-// ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
+// ALX_ERR_COERCION_REGISTERED; a converter of an alias type is the way to read a
 // type differently), and adds `schema.coerce(value, options)`. Every entry
 // is checked before any is written, so a call that throws leaves the table
 // as it was. `options.onError` is told of a converter that threw.
@@ -359,11 +376,11 @@ const register = (custom = {}, settings = {}) => {
     throw invalidCoercion('The converters must be an object of functions by type name');
   }
   if (settings === null || typeof settings !== 'object') {
-    throw invalidCoercion('The options of register must be an object');
+    throw invalidOption('The options of register', 'an object', settings);
   }
   const hook = settings.onError;
   if (hook !== undefined && typeof hook !== 'function') {
-    throw invalidCoercion('Option "onError" must be a function');
+    throw invalidOption('Option "onError"', 'a function', typeof hook);
   }
   const names = Object.keys(custom);
   for (const name of names) check(name, custom[name]);

@@ -58,9 +58,11 @@ jobs:
       # other compiler pass over it.
       - run: pnpm run check:dts
 
-  # The engines floor is Node 18. `node --test tests/unit/*.test.js` relies on
-  # the shell to expand the glob before Node 21, which cmd.exe does not do, so
-  # Windows runs only on the Node versions that expand test globs themselves.
+  # The engines floor is Node 18.0.0, and the lowest version tested is 18.12.0,
+  # the lowest pnpm 10 runs on (CLAUDE.md, Conventions). `node --test
+  # tests/unit/*.test.js` relies on the shell to expand the glob before Node 21,
+  # which cmd.exe does not do, so Windows runs only on the Node versions that
+  # expand test globs themselves.
   test:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
@@ -68,10 +70,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: [18, 20, 22, 24]
+        node-version: ['18.12.0', 20, 22, 24]
         exclude:
           - os: windows-latest
-            node-version: 18
+            node-version: '18.12.0'
           - os: windows-latest
             node-version: 20
     steps:

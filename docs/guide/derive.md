@@ -38,7 +38,7 @@ UpdateAccount.parse({ role: 'admin' });
 Each function builds a new `Schema` from the definition the source was built from: the source
 is never changed, and every rule of a field comes along (its type, length, pattern, enum,
 aliases, codecs, annotations). The functions take a schema of a struct; anything else is a
-`TypeError` with `code: 'ERR_INVALID_TARGET'`.
+`SchemaUsageError` with `code: 'ALX_ERR_INVALID_TARGET'`.
 
 ## pick and omit
 
@@ -46,7 +46,7 @@ aliases, codecs, annotations). The functions take a schema of a struct; anything
 but those. The keys are field names as the schema has them (`'nick'`, not `'nick?'`), a
 calculated field included; the fields come in the order of the schema, whatever the order of
 the keys. A name the schema has no field of is a `SchemaDefinitionError` with
-`code: 'ERR_UNKNOWN_FIELD'`, located in the source:
+`code: 'ALX_ERR_UNKNOWN_FIELD'`, located in the source:
 
 ```js
 pick(Account, ['email']);
@@ -100,7 +100,7 @@ Signup.fields.company.required; // false
 
 The extension is an object of fields, or a Schema of a struct, whose fields, indexes and own
 functions come along (not its kind, nor the id of a stored kind). An extension with a kind as
-its first key is `ERR_INVALID_DEFINITION`: the kind of the result is `options.metadata`.
+its first key is `ALX_ERR_INVALID_DEFINITION`: the kind of the result is `options.metadata`.
 
 `extend` replaces; [`merge`](/guide/schema-syntax#merging-schemas) of `./model` unifies (a field
 in both takes the constraints of both, and what no value satisfies is a conflict). Use `extend`

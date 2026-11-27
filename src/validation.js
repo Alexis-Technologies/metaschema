@@ -31,6 +31,10 @@ const {
   wantOf,
 } = require('./codec.js');
 
+// The warnings of a schema and of a model, computed on first use: a schema
+// built in a hot path never pays for the lint.
+const LINTED = new WeakMap();
+
 // The validation of a schema inside an existing context: `check` starts one,
 // and a reference field checks its target entity within the context of the
 // outer check, so the error limit and the cycle detection span the whole
@@ -92,10 +96,6 @@ const pass = (schema, phase, source, context, extra) => {
   const want = wantOf(phase, context) | extra;
   return apply(info, schema, source, context, undefined, phase, want);
 };
-
-// The warnings of a schema and of a model, computed on first use: a schema
-// built in a hot path never pays for the lint.
-const LINTED = new WeakMap();
 
 const linted = (target, lint) => {
   let warnings = LINTED.get(target);
@@ -217,13 +217,10 @@ const members = {
     if (this[TRACKED]) context.source = value;
     walkAsync(this, value, context);
     if (context.async.length > 0) await settle(context);
-    let output;
-    if (context.count === 0) {
-      // Only a promise of the pass is awaited: a thenable in the value is data.
-      output = pass(this, FINISH, value, context, 0);
-      if (output instanceof Promise) output = (await output).value;
-    }
-    return parsed(context, output);
+    if (context.count !== 0) return parsed(context, undefined);
+    // Only a promise of the pass is awaited: a thenable in the value is data.
+    const output = pass(this, FINISH, value, context, 0);
+    return parsed(context, output instanceof Promise ? (await output).value : output);
   },
 
   // The other direction: the schema's own `serialize`, then the serializers
@@ -250,7 +247,7 @@ const members = {
       if (isThenable(output)) throw asyncReturn('validator', path, 'checkAsync');
       return result.add(output);
     } catch (error) {
-      if (error?.code === 'ERR_ASYNC_VALIDATOR') throw error;
+      if (error?.code === 'ALX_ERR_ASYNC_VALIDATOR') throw error;
       return result.add({
         code: 'exception',
         message: `validation failed ${safeString(error)}`,
@@ -275,7 +272,7 @@ const members = {
     if (this[STANDARD] === null) {
       const async = hasAsync(this);
       const validate = (value, options) => {
-        const libraryOptions = options == null ? undefined : options.libraryOptions;
+        const libraryOptions = options?.libraryOptions;
         if (async) return this.parseAsync(value, libraryOptions).then(standardize);
         return standardize(this.parse(value, libraryOptions));
       };

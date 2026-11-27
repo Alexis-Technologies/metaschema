@@ -29,13 +29,13 @@ const literal = (value) => {
     case 'string':
       return quote(value);
     case 'boolean':
-      return String(value);
+      return `${value}`;
     case 'bigint':
       return `${value}n`;
     case 'undefined':
       return 'void 0';
     case 'number':
-      return Number.isFinite(value) && !Object.is(value, -0) ? String(value) : undefined;
+      return Number.isFinite(value) && !Object.is(value, -0) ? `${value}` : undefined;
     default:
       return value === null ? 'null' : undefined;
   }

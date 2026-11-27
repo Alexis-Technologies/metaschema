@@ -81,15 +81,6 @@ const SHAPES = new Map([
   [COMPILE.flags, FLAGS],
 ]);
 
-const shapeOf = (node) => {
-  if (hasBrand(node, 'Schema')) return SCHEMA;
-  if (isStruct(node)) return FIELDS;
-  const shape = SHAPES.get(node.compile);
-  return shape === undefined ? LEAF : shape;
-};
-
-const isAsyncFunction = (fn) => typeof fn === 'function' && fn.constructor.name === 'AsyncFunction';
-
 // What the passes know about a node, computed on first use and kept apart
 // from the node: its shape, the bits of its subtree, its own decoder and
 // serializer, its own coercion policy (a field's `coerce` key, which turns
@@ -100,19 +91,65 @@ const isAsyncFunction = (fn) => typeof fn === 'function' && fn.constructor.name 
 // reference counts as carrying everything).
 const INFO = new WeakMap();
 
+// Before the check (the defaults, a serialization) a graph may loop through
+// its references; the records on the way down are kept in `seen`, which the
+// caller clears before the check. A loop is marked there: the copies the
+// defaults make cannot close it, so parse checks such a value as it was
+// given, and the check reports the loop. After the check a loop cannot be
+// there.
+const LOOP = Symbol('loop');
+
+const shapeOf = (node) => {
+  if (hasBrand(node, 'Schema')) return SCHEMA;
+  if (isStruct(node)) return FIELDS;
+  const shape = SHAPES.get(node.compile);
+  return shape === undefined ? LEAF : shape;
+};
+
+const isAsyncFunction = (fn) => typeof fn === 'function' && fn.constructor.name === 'AsyncFunction';
+
+// One pass over the plan of a struct: the child and its info of every
+// field into the lists given, and the fields each phase has to visit
+// (every field under strip) into `parts`; the bits of the fields.
+const fillParts = (plan, parts, children, infos, refs) => {
+  let bits = 0;
+  for (let index = 0; index < plan.length; index += 1) {
+    const { type } = plan[index];
+    const childInfo = infoOf(type);
+    children.push(type);
+    infos.push(childInfo);
+    bits |= childInfo.bits;
+    for (let at = 0; at < childInfo.refs.length; at += 1) refs.push(childInfo.refs[at]);
+    const defaulted = type.default !== undefined;
+    if (defaulted) bits |= DEFAULTS;
+    if (defaulted || (childInfo.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
+    // A field with aliases, or with one below, is visited by the pass
+    // that decodes, which renames; whether that pass enters the subtree
+    // is decided by the bits and the context at the field.
+    const aliased = plan[index].aliases.length > 0;
+    if (aliased) bits |= ALIASES;
+    if (aliased || (childInfo.bits & (DECODERS | ALIASES)) !== 0) parts[DECODERS].push(index);
+    if ((childInfo.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
+    parts[STRUCTS].push(index);
+  }
+  return bits;
+};
+
 const infoOf = (node) => {
   let info = INFO.get(node);
   if (info !== undefined) return info;
   const shape = shapeOf(node);
   // A struct's own functions belong to the node that holds it.
-  const own = shape === SCHEMA ? node.options : shape === FIELDS ? EMPTY : node;
+  let own = node;
+  if (shape === SCHEMA) own = node.options;
+  else if (shape === FIELDS) own = EMPTY;
   const decode = own.parse || undefined;
   const encode = own.serialize || undefined;
   // A field that coerces makes the pass before the check enter its subtree
   // whatever the policy of the call. An own key only: a `coerce` set on
   // Object.prototype elsewhere must not turn every schema's on.
   const policy = Object.hasOwn(own, 'coerce') ? own.coerce : undefined;
-  const coerce = policy === true ? true : policy === false ? false : undefined;
+  const coerce = typeof policy === 'boolean' ? policy : undefined;
   let bits = decode === undefined ? COERCE : COERCE | DECODERS;
   if (encode !== undefined) bits |= ENCODERS;
   if (coerce === true) bits |= DEFAULTS | POLICY;
@@ -149,34 +186,14 @@ const infoOf = (node) => {
   }
   if (plan === null) {
     for (let index = 0; index < children.length; index += 1) {
-      const sub = infoOf(children[index]);
-      infos.push(sub);
-      bits |= sub.bits;
-      for (let at = 0; at < sub.refs.length; at += 1) refs.push(sub.refs[at]);
+      const childInfo = infoOf(children[index]);
+      infos.push(childInfo);
+      bits |= childInfo.bits;
+      for (let at = 0; at < childInfo.refs.length; at += 1) refs.push(childInfo.refs[at]);
     }
   } else {
-    // One pass over the plan: the child and its info, and the fields each
-    // phase has to visit (every field under strip).
     parts = { [DEFAULTS]: [], [DECODERS]: [], [ENCODERS]: [], [STRUCTS]: [] };
-    for (let index = 0; index < plan.length; index += 1) {
-      const { type } = plan[index];
-      const sub = infoOf(type);
-      children.push(type);
-      infos.push(sub);
-      bits |= sub.bits;
-      for (let at = 0; at < sub.refs.length; at += 1) refs.push(sub.refs[at]);
-      const defaulted = type.default !== undefined;
-      if (defaulted) bits |= DEFAULTS;
-      if (defaulted || (sub.bits & DEFAULTS) !== 0) parts[DEFAULTS].push(index);
-      // A field with aliases, or with one below, is visited by the pass
-      // that decodes, which renames; whether that pass enters the subtree
-      // is decided by the bits and the context at the field.
-      const aliased = plan[index].aliases.length > 0;
-      if (aliased) bits |= ALIASES;
-      if (aliased || (sub.bits & (DECODERS | ALIASES)) !== 0) parts[DECODERS].push(index);
-      if ((sub.bits & ENCODERS) !== 0) parts[ENCODERS].push(index);
-      parts[STRUCTS].push(index);
-    }
+    bits |= fillParts(plan, parts, children, infos, refs);
   }
   // The walker of the node: the one of its shape, or for a field with a
   // coercion policy of its own the one that applies the policy first.
@@ -304,7 +321,7 @@ const decode = (info, node, value, context, key) => {
       return out instanceof Promise ? out : boxed(out);
     });
   }
-  let out;
+  let out = undefined;
   try {
     out = fn.call(node, value);
   } catch (error) {
@@ -344,14 +361,6 @@ const walkLeaf = (info, node, value, context, key, phase, want) => convert(want,
 
 const walkInner = (info, node, value, context, key, phase, want) =>
   apply(info.infos[0], info.children[0], value, context, key, phase, want);
-
-// Before the check (the defaults, a serialization) a graph may loop through
-// its references; the records on the way down are kept in `seen`, which the
-// caller clears before the check. A loop is marked there: the copies the
-// defaults make cannot close it, so parse checks such a value as it was
-// given, and the check reports the loop. After the check a loop cannot be
-// there.
-const LOOP = Symbol('loop');
 
 const looped = (context) => context.seen !== null && context.seen.has(LOOP);
 
@@ -481,7 +490,7 @@ const walkItems = (children, infos, fixed, value, context, key, phase, want) => 
 
 const walkList = (info, node, value, context, key, phase, want) => {
   const input = convert(want, value, node, info);
-  if (input == null) return input;
+  if (input === undefined || input === null) return input;
   return walkItems(
     info.children,
     info.infos,
@@ -497,11 +506,11 @@ const walkList = (info, node, value, context, key, phase, want) => {
 // The values of an object or a Map, by key.
 const walkKeyed = (info, node, given, context, key, phase, want) => {
   const value = convert(want, given, node, info);
-  if (value == null) return value;
+  if (value === undefined || value === null) return value;
   const map = isMap(value);
   if (!map && (typeof value !== 'object' || Array.isArray(value))) return value;
   const child = info.children[0];
-  const sub = info.infos[0];
+  const childInfo = info.infos[0];
   const clone = map ? toMap : copy;
   const put = map ? putEntry : putKey;
   const nested = key !== undefined;
@@ -512,7 +521,7 @@ const walkKeyed = (info, node, given, context, key, phase, want) => {
     for (const pair of value) {
       const name = pair[0];
       const item = pair[1];
-      const result = apply(sub, child, item, context, name, phase, want);
+      const result = apply(childInfo, child, item, context, name, phase, want);
       if (result !== item) {
         out = written(out, value, clone, put, name, result);
         if (phase === DECODERS && isPending(context, result)) {
@@ -525,7 +534,7 @@ const walkKeyed = (info, node, given, context, key, phase, want) => {
     for (const name in value) {
       if (!Object.hasOwn(value, name)) continue;
       const item = value[name];
-      const result = apply(sub, child, item, context, name, phase, want);
+      const result = apply(childInfo, child, item, context, name, phase, want);
       if (result !== item) {
         out = written(out, value, clone, put, name, result);
         if (phase === DECODERS && isPending(context, result)) {
@@ -630,16 +639,16 @@ const walkReference = (info, node, value, context, key, phase, want) => {
   const target = root.findReference(one || many);
   if (target === null || !embeds(target, embed, context.references)) return value;
   if (context.depth >= context.maxDepth) return value;
-  const sub = infoOf(target);
+  const childInfo = infoOf(target);
   context.depth += 1;
   let out = value;
-  if (one) out = apply(sub, target, value, context, key, phase, want);
+  if (one) out = apply(childInfo, target, value, context, key, phase, want);
   else if (Array.isArray(value)) {
     // The target as the one child of the list, kept on the info from one
     // visit to the next (it changes only when the namespaces do).
     if (info.children[0] !== target) {
       info.children[0] = target;
-      info.infos[0] = sub;
+      info.infos[0] = childInfo;
     }
     out = walkItems(info.children, info.infos, false, value, context, key, phase, want);
   }
@@ -708,12 +717,12 @@ const wantOf = (phase, context) => {
 // the bits the pass wants is returned as it is, which is the one test a
 // value nothing applies to costs.
 const apply = (info, node, value, context, key, phase, want) => {
-  if (value == null) return value;
+  if (value === undefined || value === null) return value;
   if ((info.bits & want) === 0) return value;
   let input = value;
   if (phase === ENCODERS && info.encode !== undefined) {
     input = info.encode.call(node, value);
-    if (input == null) return input;
+    if (input === undefined || input === null) return input;
   }
   const out = info.walk(info, node, input, context, key, phase, want);
   return phase === DECODERS ? decode(info, node, out, context, key) : out;
@@ -726,8 +735,8 @@ module.exports = {
   COERCE,
   COERCION,
   infoOf,
-  apply,
-  wantOf,
-  looped,
   hasAsync,
+  looped,
+  wantOf,
+  apply,
 };

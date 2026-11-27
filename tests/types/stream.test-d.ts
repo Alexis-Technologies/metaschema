@@ -77,7 +77,7 @@ expectAssignable<EachOptions>({ maxErrors: 1, maxInvalid: 1 });
 expectAssignable<ParseEachOptions>({ unknown: 'strip' });
 expectAssignable<EachAsyncOptions>({ concurrency: 1 });
 expectAssignable<TransformOptions>({ mode: 'parse', async: false });
-expectAssignable<RuntimeErrorCode>('ERR_INVALID_RECORD');
+expectAssignable<RuntimeErrorCode>('ALX_ERR_INVALID_RECORD');
 
 // The record of an entry is typed by the source.
 const typed = [{ name: 'a' }, { name: 'b' }];

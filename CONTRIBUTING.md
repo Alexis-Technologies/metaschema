@@ -10,7 +10,10 @@ pnpm install
 pnpm test
 ```
 
-There is no build step. What you edit in `src/` is what ships.
+There is no build step. What you edit in `src/` is what ships. `pnpm install` also links the
+agent skills of [alexiskills](https://alexiskills.vercel.app) (`@alexify/metaskills`, a
+devDependency) into `.claude/skills`, a symlink git leaves out; the code style they describe is
+the one `pnpm run lint` holds `src/` to, and [CLAUDE.md](CLAUDE.md) says where metaschema differs.
 
 ## The rules that are not negotiable
 
@@ -30,14 +33,17 @@ builtin leaks anywhere else.
 the runtime exports and the declarations drift apart.
 
 **5. Errors are data.** Validation collects messages in a `ValidationResult` and never throws on bad
-input. `throw` is for broken schema definitions only.
+input. `throw` is for a broken schema definition (`SchemaDefinitionError`) and a wrong call
+(`SchemaUsageError`: a target or an option the call does not take), each with an `ALX_ERR_*`
+code that `index.d.ts` declares and `docs/api/exports.md` lists.
 
 **6. No loader.** metaschema does not read schema files, evaluate source strings or run a sandbox.
 That was removed on purpose in 1.0.
 
 ## Tests
 
-Node's built-in `node:test`, no external framework.
+Node's built-in `node:test`, no external framework: `describe` and `it('should …')` with
+`node:assert/strict`.
 
 - `tests/unit/*.test.js`: one file per area. Run one with `node --test tests/unit/schema.test.js`.
 - `tests/types/*.test-d.ts`: `tsd` assertions against `index.d.ts`.
@@ -60,13 +66,14 @@ pnpm run test:nojit
 pnpm run test:coverage
 pnpm run test:types
 pnpm run check:dts
-pnpm size --max-gzip 17.75 --max-gzip-generators 7.5 --max-gzip-compile 4.25 --max-gzip-model 12 --max-gzip-stream 1.5 --max-gzip-formats 2
+pnpm run size:gate
 pnpm docs:build
 ```
 
-That list is what CI runs, and the merge gate. `prepublishOnly` runs the first part of it (lint,
-format check, coverage, tsd and `check:dts`) before a publish; the JIT and no-eval runs of the
-suite, the bundle budgets and the docs build are CI's.
+That list is what CI runs, and the merge gate. The bundle budgets are the flags of the
+`size:gate` script in `package.json`, the one place they are written. `prepublishOnly` runs all
+of it but the docs build (lint, format check, coverage, the JIT and no-eval runs, tsd,
+`check:dts` and `size:gate`) before a publish.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat(scope):`, `fix(scope):`, `test:`, `docs:`).

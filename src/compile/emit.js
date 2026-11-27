@@ -49,7 +49,7 @@ const record = (state, statement, extra = []) => {
 
 // The state under a container: its key joins the prefix of its children.
 const inside = (state, key) =>
-  key === undefined ? state : { ...state, prefix: [...state.prefix, key] };
+  key === undefined ? state : { ...state, prefix: state.prefix.concat([key]) };
 
 const issue = (state, name, args) => `${state.code.ref(issues)}.${name}(c, ${args});`;
 
@@ -133,13 +133,14 @@ const emitRange = (type, x, key, state) => {
   code.push('}');
 };
 
-const RULES = Object.assign(Object.create(null), {
+const RULES = {
+  __proto__: null,
   length: emitLength,
   pattern: emitPattern,
   format: emitFormat,
   decimals: emitDecimals,
   range: emitRange,
-});
+};
 
 // The rules of a field in the order the closure backend runs them.
 const rulesOf = (type) => {
@@ -173,10 +174,7 @@ const typed = (type, x, key, state, fails, failure, body) => {
   record(state, failure);
   const rules = type === null ? [] : rulesOf(type);
   const tail = type !== null && (rules.length > 0 || type.validate);
-  if (body === undefined && !tail) {
-    code.push('}');
-    return;
-  }
+  if (body === undefined && !tail) return void code.push('}');
   code.push('} else {');
   const before = body !== undefined && tail ? code.name('b') : '';
   if (before) code.push(`const ${before} = c.count;`);
@@ -200,15 +198,10 @@ const emitDate = (type, x, key, state) => {
   typed(type, x, key, state, fails, typeIssue(state, 'date', x, key));
 };
 
-const emitBytes = (type, x, key, state) =>
-  typed(
-    type,
-    x,
-    key,
-    state,
-    `!${state.code.ref(isBytes)}(${x})`,
-    typeIssue(state, 'bytes', x, key),
-  );
+const emitBytes = (type, x, key, state) => {
+  const fails = `!${state.code.ref(isBytes)}(${x})`;
+  return typed(type, x, key, state, fails, typeIssue(state, 'bytes', x, key));
+};
 
 const emitNull = (type, x, key, state) =>
   typed(type, x, key, state, `${x} !== null`, typeIssue(state, 'null', x, key));
@@ -225,22 +218,23 @@ const emitEnum = (type, x, key, state) => {
   const { code } = state;
   const values = type.enum;
   const { length } = values;
-  let fails;
+  let fails = '';
   if (length > ENUM_SET_SIZE) {
     fails = `!${code.ref(new Set(values))}.has(${x})`;
   } else {
     // A chain of comparisons with the literals, unless a value has none
     // (NaN, an object): then the list itself, as the closure backend scans it.
     let chain = '';
+    let literals = true;
     for (let index = 0; index < length; index += 1) {
       const text = literal(values[index]);
       if (text === undefined) {
-        chain = null;
+        literals = false;
         break;
       }
       chain += `${index === 0 ? '' : ' && '}${x} !== ${text}`;
     }
-    fails = chain === null ? `!${code.ref(values)}.includes(${x})` : chain;
+    fails = literals ? chain : `!${code.ref(values)}.includes(${x})`;
   }
   const failure = issue(state, 'enum', `${code.ref(values)}, ${keyOf(key)}`);
   typed(type, x, key, state, fails, failure);
@@ -371,7 +365,7 @@ const emitTuple = (type, x, key, state) => {
     for (let index = 0; index < length; index += 1) {
       const item = code.name('x');
       code.push(`const ${item} = ${x}[${index}];`);
-      emitField(elements[index], item, String(index), children);
+      emitField(elements[index], item, `${index}`, children);
     }
     code.push('}');
   });
@@ -464,10 +458,7 @@ const emitStruct = (fields, x, key, state) => {
 // any, is the field's own: a schema of one type has no schema-level one).
 const emitSchema = (type, x, key, state) => {
   const fields = type.schema;
-  if (!isStruct(fields)) {
-    emitField(fields, x, key, state);
-    return;
-  }
+  if (!isStruct(fields)) return void emitField(fields, x, key, state);
   const body = () => emitStruct(fields, x, key, state);
   typed(type, x, key, state, notObject(x), typeIssue(state, 'object', x, key), body);
 };
@@ -504,8 +495,7 @@ const emitUnion = (type, x, key, state) => {
     if (!type.validate) return;
     code.push(`if (c.count === ${before}) {`);
     emitTail(type, x, key, state, []);
-    code.push('}');
-    return;
+    return void code.push('}');
   }
   const fails = `${x} === null || typeof ${x} !== "object"`;
   typed(type, x, key, state, fails, typeIssue(state, 'object', x, key), () => {
@@ -574,17 +564,16 @@ const EMITTERS = new Map([
 const emitField = (type, x, key, state) => {
   const emitter = EMITTERS.get(type.compile);
   if (emitter === undefined) {
-    record(state, `${state.code.ref(type.check)}(${x}, c, ${keyOf(key)});`);
-    return;
+    return void record(state, `${state.code.ref(type.check)}(${x}, c, ${keyOf(key)});`);
   }
   const { code } = state;
   const { required } = type;
-  let guard = null;
+  let guard = '';
   if (!required) guard = `${x} != null`;
   else if (type.nullable === true) guard = `${x} !== null`;
-  if (guard !== null) code.push(`if (${guard}) {`);
+  if (guard !== '') code.push(`if (${guard}) {`);
   emitter(type, x, key, state);
-  if (guard !== null) code.push('}');
+  if (guard !== '') code.push('}');
 };
 
 // The body of a schema's check, `(v, c, k)`: the key the root was called

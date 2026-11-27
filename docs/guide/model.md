@@ -232,9 +232,9 @@ model.entities.get('Product').toSnapshot();
 An anonymous schema is the entity `''` (`root: ''`). A reference no model resolves is left out,
 as the snapshot of a model leaves it; two schemas of one name in what a schema reaches (one
 derived from an entity keeps its name, and references the entity) cannot be one snapshot, and
-are `ERR_UNREPRESENTABLE`. [`fromJSON`](#restoring-a-model) reads it back as a model, whose
+are `ALX_ERR_UNREPRESENTABLE`. [`fromJSON`](#restoring-a-model) reads it back as a model, whose
 entity `snapshot.root` is the schema again (`toSnapshot()` of it writes the same text), and
-checks that `root` names one of the entities (`ERR_INVALID_SNAPSHOT` otherwise); `diff` reads it
+checks that `root` names one of the entities (`ALX_ERR_INVALID_SNAPSHOT` otherwise); `diff` reads it
 as any snapshot.
 
 ### What format 1 guarantees
@@ -290,7 +290,7 @@ JSON.stringify(restored) === JSON.stringify(snapshot); // true: the snapshot of 
 snapshot's, where the restored model should validate as the original did; `options.registry`
 is `'isolated'` unless it says `'shared'`, so the placeholders of the custom types never reach
 the shared registry. A snapshot of another format, or a value that is not one, is
-`ERR_INVALID_SNAPSHOT`.
+`ALX_ERR_INVALID_SNAPSHOT`.
 
 ### The snapshot as a trust boundary
 
@@ -315,15 +315,15 @@ reads it as such, and `diff` the same.
 
 - **A shared registry takes no placeholder type.** With `registry: 'shared'`, a type of the
   snapshot with a check of its own (`check: true`) that `options.types` does not bring is
-  `ERR_INVALID_SNAPSHOT`: registered process-wide, the placeholder would stand for the type in
-  every schema of the process and refuse the real one later (`ERR_TYPE_REGISTERED`). An entry
+  `ALX_ERR_INVALID_SNAPSHOT`: registered process-wide, the placeholder would stand for the type in
+  every schema of the process and refuse the real one later (`ALX_ERR_TYPE_REGISTERED`). An entry
   of metadata for a built-in (`string: { metadata: { pg: 'varchar' } }`) is registered as any
   model registers one: that is the contract of the type table.
 - **The kind metadata of an entity wins over its `custom` keys.** `unknown`, `scope`, `store`
   and `allow` are read from the entity, never from `custom`, so a snapshot cannot turn a
   closed struct into one that ignores unknown keys through its metadata. An index named like a
   field (`indexes.email` beside the field `email`), which would replace the field, is
-  `ERR_INVALID_SNAPSHOT`.
+  `ALX_ERR_INVALID_SNAPSHOT`.
 - **The keys of a snapshot are keys.** A field named `__proto__` or `constructor` is a field
   of the restored model, defined on the definition rather than assigned, and `diff` reads own
   keys only, so such a field added is `added`, never compared with `Object.prototype`.
@@ -336,19 +336,19 @@ reads it as such, and `diff` the same.
   read, a date that is not one, a pattern written as an object without a string `source`
   (which would match everything), a field without a type, an entity without a kind, a nesting
   deeper than 128 levels (of nested `value`, `schema` or `union` definitions, or of the objects
-  of a value), a chain of more than 128 aliases: `ERR_INVALID_SNAPSHOT`, never a bare
+  of a value), a chain of more than 128 aliases: `ALX_ERR_INVALID_SNAPSHOT`, never a bare
   `SyntaxError` or `TypeError`, with `error.schema` and `error.field` set and the message
   ending with the entity and the path, as a definition error does.
 
   ```js
   fromJSON({ ...snapshot, entities: { Order: { kind: 'struct', fields: { total: { type: 'bigint', required: true, min: { $bigint: 'abc' } } } } } });
-  // throws SchemaDefinitionError [ERR_INVALID_SNAPSHOT]: Cannot convert abc to a BigInt in "Order.total.min"
+  // throws SchemaDefinitionError [ALX_ERR_INVALID_SNAPSHOT]: Cannot convert abc to a BigInt in "Order.total.min"
   ```
 
   `diff` checks an entity before it reads it (an object with `fields` of objects or a `type`,
   and `relations` as a list of objects), and `compatibility` checks each change it is given (a
-  `kind`, an `op`, and `detail.keys` for `changed`; anything else is `ERR_INVALID_TARGET`); a
-  definition inside a change that cannot be read is `ERR_INVALID_SNAPSHOT` located at the
+  `kind`, an `op`, and `detail.keys` for `changed`; anything else is `ALX_ERR_INVALID_TARGET`); a
+  definition inside a change that cannot be read is `ALX_ERR_INVALID_SNAPSHOT` located at the
   change.
 
 ## Loading schemas from files

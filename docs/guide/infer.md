@@ -68,7 +68,7 @@ After `register()` of the subpath the same is `Schema.infer(orders, options)`.
 | `enum` | `8` | the most distinct strings a place may hold to be an `enum`, each value seen twice on average over at least four samples; `0` or `false` never |
 | `integer` | `true` | whether whole numbers are `integer` rather than `number` |
 | `map` | `16` | the distinct keys past which the records of a place read as a dictionary (see below); `false` keeps every record a struct |
-| `maxDepth` | `128` | how deep a sample may nest; past it `ERR_INFER_DEPTH` |
+| `maxDepth` | `128` | how deep a sample may nest; past it `ALX_ERR_INFER_DEPTH` |
 | `formats` | `true` | whether a place whose every string passes a registered [format](/guide/formats) is that format; nothing is registered until `register()` of the formats subpath ran |
 
 ```js
@@ -78,8 +78,9 @@ infer([{ qty: 1 }], { integer: false });
 // { Struct: {}, qty: 'number' }
 ```
 
-An option outside these is `ERR_INVALID_OPTIONS`; a `samples` argument that is not a non-empty
-iterable (a string included) is a `TypeError` with `code: 'ERR_INVALID_TARGET'`.
+An option outside these is a `SchemaUsageError` with `code: 'ALX_ERR_INVALID_OPTION'`; a `samples`
+argument that is not a non-empty iterable (a string included) is one with
+`code: 'ALX_ERR_INVALID_TARGET'`.
 
 ## What is inferred
 
@@ -205,21 +206,21 @@ with another type, the self-check says so:
 
 ```js
 infer([{ orderId: 1 }], { kind: 'entity', name: 'Order' });
-// throws SchemaDefinitionError [ERR_INFER_MISMATCH]: The inferred definition rejects sample 0 at "Order.orderId": not of expected type: string
+// throws SchemaDefinitionError [ALX_ERR_INFER_MISMATCH]: The inferred definition rejects sample 0 at "Order.orderId": not of expected type: string
 ```
 
 ## The self-check
 
 Before it returns, `infer` builds the schema and checks every sample against it under
-`unknown: 'reject'`. A sample it rejects is `ERR_INFER_MISMATCH` with the sample's index
+`unknown: 'reject'`. A sample it rejects is `ALX_ERR_INFER_MISMATCH` with the sample's index
 (`error.index`) and the first issue: the id field of a stored kind above, or a bug of the
 inference, which is worth reporting with the sample. The check costs one `check` per sample,
 nothing next to the walk. A sample nested deeper than `maxDepth` (a cycle, most likely) is
-`ERR_INFER_DEPTH` with the sample's index and the place:
+`ALX_ERR_INFER_DEPTH` with the sample's index and the place:
 
 ```js
 infer([{ a: { b: { c: 1 } } }], { maxDepth: 2 });
-// throws SchemaDefinitionError [ERR_INFER_DEPTH]: Sample 0 nests deeper than 2 levels at "a.b" (a cycle?)
+// throws SchemaDefinitionError [ALX_ERR_INFER_DEPTH]: Sample 0 nests deeper than 2 levels at "a.b" (a cycle?)
 ```
 
 ## Round trip with sample

@@ -15,6 +15,15 @@ const EMPTY = Object.freeze({});
 // never allocates a list.
 const NONE = Object.freeze([]);
 
+// A key of the value that is not an identifier is bracketed and quoted, so
+// `a.b` as one key and `a` then `b` render differently. Keys taken from the
+// value may be huge; a message must not be.
+const IDENTIFIER = /^[\w$]+$/;
+
+// A message that already names its field (`Field "User.name" is not hex`, the
+// upstream convention for custom types) is kept as it is.
+const PREFIXED = 'Field';
+
 const push = (context, issue) => {
   if (context.issues === NONE) context.issues = [];
   context.issues.push(issue);
@@ -50,13 +59,10 @@ const issues = {
   pattern: (context, pattern, key) => record(context, 'pattern', { pattern }, key),
   format: (context, format, key) => record(context, 'format', { format }, key),
   // NaN and the infinities have no decimals: the value is named then.
-  decimals: (context, decimals, value, key) =>
-    record(
-      context,
-      'decimals',
-      Number.isFinite(value) ? { decimals } : { decimals, received: String(value) },
-      key,
-    ),
+  decimals: (context, decimals, value, key) => {
+    const params = Number.isFinite(value) ? { decimals } : { decimals, received: `${value}` };
+    return record(context, 'decimals', params, key);
+  },
   union: (context, expected, discriminator, key) =>
     record(context, 'union', { expected, discriminator }, key),
   reference: (context, entity, key) => record(context, 'reference', { entity }, key),
@@ -64,11 +70,6 @@ const issues = {
   depth: (context, max, key) => record(context, 'depth', { max }, key),
   exception: (context, error, key) => record(context, 'exception', { error }, key),
 };
-
-// A key of the value that is not an identifier is bracketed and quoted, so
-// `a.b` as one key and `a` then `b` render differently. Keys taken from the
-// value may be huge; a message must not be.
-const IDENTIFIER = /^[\w$]+$/;
 
 const toDotPath = (path, root = '') => {
   let text = root;
@@ -100,14 +101,8 @@ const isIssue = (output) =>
 // issues already.
 const absorb = (context, output, code, fallback) => {
   if (output === true || output === null || output === undefined) return;
-  if (output === false) {
-    record(context, code, fallback);
-    return;
-  }
-  if (typeof output === 'string') {
-    record(context, code, EMPTY, undefined, output);
-    return;
-  }
+  if (output === false) return void record(context, code, fallback);
+  if (typeof output === 'string') return void record(context, code, EMPTY, undefined, output);
   if (Array.isArray(output)) {
     // One by one: a validator may legitimately return more messages than a
     // spread call accepts.
@@ -128,8 +123,7 @@ const absorb = (context, output, code, fallback) => {
   if (isIssue(output)) {
     const path = relative(context, output.path);
     const params = output.params === undefined ? EMPTY : output.params;
-    push(context, { code: output.code || code, path, message: output.message, params });
-    return;
+    return void push(context, { code: output.code || code, path, message: output.message, params });
   }
   record(context, code, EMPTY, undefined, safeString(output));
 };
@@ -153,10 +147,6 @@ const finalize = (list, messages) => {
   }
 };
 
-// A message that already names its field (`Field "User.name" is not hex`, the
-// upstream convention for custom types) is kept as it is.
-const PREFIXED = 'Field';
-
 const describe = (messages, root, issue) => {
   const { message } = issue;
   if (message.startsWith(PREFIXED)) return message;
@@ -167,13 +157,22 @@ const describe = (messages, root, issue) => {
 const isThenable = (value) =>
   value !== null && typeof value === 'object' && typeof value.then === 'function';
 
-// A promise nothing waits for any more (a synchronous call that throws for
-// it, a settle stopped by the error limit, the trial of a union branch) is
-// still observed, so that its rejection is never an unhandled one.
+// A promise is observed as soon as it is met, so that its rejection is never
+// an unhandled one: one the check awaits later still rejects into that await
+// (settle awaits the list in order, and a later promise may reject while an
+// earlier one is pending), and one nothing waits for any more (a synchronous
+// call that throws for it, a settle stopped by the error limit, the trial of
+// a union branch) is dropped. A thenable is adopted once, here.
 const swallow = () => {};
 
+const observe = (thenable) => {
+  const promise = Promise.resolve(thenable);
+  promise.then(undefined, swallow);
+  return promise;
+};
+
 const abandon = (thenable) => {
-  Promise.resolve(thenable).then(undefined, swallow);
+  observe(thenable);
 };
 
 // Drops the entries of a list of pending validators from `from` on (a failed
@@ -193,7 +192,7 @@ const fallbackOf = (code, owner, value) =>
 
 // What a validator or a checkType returned, into the context.
 const conclude = (context, output, code, owner, value) => {
-  if (output === true || output == null) return;
+  if (output === true || output === undefined || output === null) return;
   const bare = output === false || Array.isArray(output);
   absorb(context, output, code, bare ? fallbackOf(code, owner, value) : EMPTY);
 };
@@ -224,23 +223,22 @@ const guarded = (context, code, owner, fn, value) => {
   const pending = context.async;
   const { path, count } = context;
   if (pending !== null && pending.length > 0 && under(path, pending[pending.length - 1].path)) {
-    pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
-    return;
+    return void pending.push({ owner, fn, value, promise: null, path: path.slice(), code, count });
   }
-  let output;
+  let output = undefined;
   try {
     output = fn.call(owner, value, toDotPath(path, context.root));
   } catch (error) {
-    issues.exception(context, error);
-    return;
+    return void issues.exception(context, error);
   }
   if (isThenable(output)) {
     if (pending === null) {
       abandon(output);
       throw asyncReturn('validator', toDotPath(path, context.root), 'checkAsync or parseAsync');
     }
-    pending.push({ owner, fn: null, value, promise: output, path: path.slice(), code, count });
-    return;
+    const promise = observe(output);
+    const entry = { owner, fn: null, value, promise, path: path.slice(), code, count };
+    return void pending.push(entry);
   }
   conclude(context, output, code, owner, value);
 };
@@ -270,7 +268,7 @@ const settle = async (context) => {
     const entry = pending[index];
     if (entry.fn !== null && failedUnder(context, entry)) continue;
     context.path = entry.path;
-    let output;
+    let output = undefined;
     try {
       output =
         entry.fn === null
@@ -292,19 +290,20 @@ const runCheckType = (type, value, context) =>
   guarded(context, 'type', type, type.checkType, value);
 
 module.exports = {
+  typeOf,
   EMPTY,
   NONE,
-  issues,
-  typeOf,
   pathOf,
+  issues,
   toDotPath,
   absorb,
   finalize,
   describe,
   isThenable,
+  observe,
   abandon,
   release,
+  settle,
   runValidate,
   runCheckType,
-  settle,
 };

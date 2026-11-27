@@ -51,8 +51,8 @@ verdict (`tests/unit/jsonschema-ajv.test.js`).
 ## The generators subpath
 
 The generators live outside the core entry so that a program that only validates does not
-carry them: `@alexify/metaschema` is 21.7 KB min+gzip, `@alexify/metaschema/generators` adds
-7.7 KB on top. The subpath exports five functions:
+carry them: `@alexify/metaschema` is 22.0 KB min+gzip, `@alexify/metaschema/generators` adds
+7.9 KB on top. The subpath exports five functions:
 
 | Export | Meaning |
 | --- | --- |
@@ -82,7 +82,7 @@ The rest of this page uses the functions; every example reads the same with the 
 | `target` | `'draft-2020-12'` (default), `'draft-07'`, `'openapi-3.0'`, `'mongodb'` | the dialect; see [Targets](#targets) |
 | `profile` | `'strict'` | the dialect of LLM structured outputs; see [The strict profile](#the-strict-profile) |
 | `io` | `'input'` (default), `'output'` | which side of the wire the document describes; see [Input and output](#input-and-output) |
-| `unrepresentable` | `'throw'` (default), `'any'` | what to do with a type that has no form in the target: throw `SchemaDefinitionError` (code `ERR_UNREPRESENTABLE`), or render it as `{}` |
+| `unrepresentable` | `'throw'` (default), `'any'` | what to do with a type that has no form in the target: throw `SchemaDefinitionError` (code `ALX_ERR_UNREPRESENTABLE`), or render it as `{}` |
 | `references` | `'kind'` (default), `'embed'`, `'id'` | how a reference renders, as in [`check`](/guide/references#storage-view-and-graph-view) |
 | `definitions` | a pointer such as `'#/$defs/'` | where a `$ref` points and where the definitions are placed; the default depends on the target |
 
@@ -167,7 +167,7 @@ form.
 
 ```js
 toJSONSchema(Schema.from({ amount: 'bigint' }));
-// throws SchemaDefinitionError [ERR_UNREPRESENTABLE]:
+// throws SchemaDefinitionError [ALX_ERR_UNREPRESENTABLE]:
 //   Type "bigint" cannot be represented in JSON Schema target "draft-2020-12" in "amount"
 
 toJSONSchema(Schema.from({ amount: 'bigint' }), { unrepresentable: 'any' });
@@ -244,7 +244,7 @@ toJSONSchema(model, { target: 'openapi-3.0' });
 // { components: { schemas: { Tag: {...}, Company: {...}, Person: {...} } } }
 
 toJSONSchema(model, { target: 'mongodb' });
-// throws ERR_UNREPRESENTABLE here: Tag refers to itself, and the mongodb target inlines
+// throws ALX_ERR_UNREPRESENTABLE here: Tag refers to itself, and the mongodb target inlines
 // references (see below); without `parent` in Tag:
 // { Tag: {...}, Company: {...}, Person: {...} }  (one $jsonSchema per entity)
 ```
@@ -301,8 +301,8 @@ const result = answer.check(toolUse.input);
 
 `any`, `unknown`, `json`, `object` and `map` have no place in the profile (a value without a
 type, an object without its properties listed) and throw, or render as `{}` with
-`unrepresentable: 'any'`. A root that is not a struct, and any other target, is an
-`ERR_INVALID_OPTIONS` error.
+`unrepresentable: 'any'`. A root that is not a struct, and any other target, is a
+`SchemaUsageError` with the code `ALX_ERR_INVALID_OPTION`.
 
 ## The mongodb target
 
@@ -400,7 +400,7 @@ The result is a definition for `new Schema(name, definition)`, or the `Schema` i
 | `as` | `'definition'` (default), `'schema'` | what comes back: the definition, or a `Schema` built from it |
 | `name` | a string | the name of the schema: what `$ref: '#'` refers to (an entity name), and the name of the `Schema` |
 | `references` | `'inline'` (default), `'name'` | a `$ref` into `$defs`, `definitions` or `components.schemas`: the definition in place, or a reference to an entity of that name (capitalized), to resolve through a [`Model`](/guide/references) |
-| `unsupported` | `'throw'` (default), `'ignore'` | a keyword the subset has no form for: `SchemaDefinitionError` with the code `ERR_UNSUPPORTED_SCHEMA` and the place in the document as a JSON pointer, or dropped |
+| `unsupported` | `'throw'` (default), `'ignore'` | a keyword the subset has no form for: `SchemaDefinitionError` with the code `ALX_ERR_UNSUPPORTED_SCHEMA` and the place in the document as a JSON pointer, or dropped |
 | `onUnsupported` | `(reason, pointer) => void` | told of every drop of `unsupported: 'ignore'`: what was dropped, as the error names it, and its place as a JSON pointer; not called in the throw mode, where the error carries both |
 
 The subset, the reverse of [the mapping](#the-mapping):
@@ -418,7 +418,7 @@ The subset, the reverse of [the mapping](#the-mapping):
 | `type: 'array'` with `items: T`, `minItems`, `maxItems` | `{ array: T, length }`; `uniqueItems: true` gives a `set` |
 | `prefixItems` (2020-12) or an `items` list (draft-07) with `minItems` | a tuple, the elements past `minItems` optional |
 | `enum`, `const` | `{ enum: [...] }`; `null` among the values makes the field nullable |
-| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` (each branch lists it in `required`, as OpenAPI asks; one that does not is `ERR_INVALID_UNION` when the definition is built) |
+| `anyOf`, `oneOf` | `{ union: [...] }`; a `{ type: 'null' }` branch makes the field nullable, one branch left is that branch; OpenAPI's `discriminator.propertyName` is the `discriminator` (each branch lists it in `required`, as OpenAPI asks; one that does not is `ALX_ERR_INVALID_UNION` when the definition is built) |
 | `type: ['T', 'null']`, `nullable: true` | `nullable: true` on a required property; an optional one accepts null anyway |
 | a `type` list | a `union` of the types |
 | `allOf` of one schema | that schema (`{ allOf: [{ $ref }], nullable: true }` is how OpenAPI 3.0 writes a nullable reference) |
@@ -440,7 +440,7 @@ else is outside the subset: `allOf` of several schemas, `not`, `if`/`then`/`else
 
 ```js
 fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 2 } } });
-// throws SchemaDefinitionError [ERR_UNSUPPORTED_SCHEMA]:
+// throws SchemaDefinitionError [ALX_ERR_UNSUPPORTED_SCHEMA]:
 //   The keyword "multipleOf" is not supported in a JSON Schema at "/properties/n"
 
 fromJSONSchema({ type: 'object', properties: { n: { type: 'number', multipleOf: 2 } } }, { unsupported: 'ignore' });
@@ -480,7 +480,7 @@ The document is read as untrusted input, and what it can make the import do is b
   (a diamond: each definition referring twice to the next) is converted in linear time, while a
   walk per `$ref` would be exponential; `new Schema` and `JSON.stringify` still unfold the
   result. Through a `Model` with `references: 'name'` it stays a graph.
-- **A nesting deeper than 128 levels** is `ERR_UNSUPPORTED_SCHEMA` (`Nesting deeper than 128
+- **A nesting deeper than 128 levels** is `ALX_ERR_UNSUPPORTED_SCHEMA` (`Nesting deeper than 128
   levels at "<pointer>"`) in both modes: a lenient import does not recurse without end either.
 - **A `pattern` is checked under the `u` flag.** A JSON Schema pattern is ECMA-262 without the
   flag, and the `pattern` rule of a field compiles with it, so a pattern the flag rejects (an
@@ -490,7 +490,7 @@ The document is read as untrusted input, and what it can make the import do is b
 
 ```js
 fromJSONSchema({ type: 'object', properties: { s: { type: 'string', pattern: '\\:' } } });
-// throws SchemaDefinitionError [ERR_UNSUPPORTED_SCHEMA]:
+// throws SchemaDefinitionError [ALX_ERR_UNSUPPORTED_SCHEMA]:
 //   The pattern "\\:" (not a valid pattern under the u flag) is not supported in a JSON Schema at "/properties/s"
 ```
 

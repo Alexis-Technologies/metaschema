@@ -4,12 +4,15 @@ const { hasBrand, formatters, typeOf } = require('./util.js');
 const { constants, isKindKey } = require('./kinds.js');
 const { SchemaDefinitionError } = require('./errors.js');
 
+const BUILT_IN_KINDS = new Set(constants.KIND);
+
 // The first key of an object decides what it is: a Schema or a built field is
 // used as it is, a kind key (`isKindKey` of kinds.js: a name like `Entity`
 // holding the metadata object) is a kind, `type` is the long form, a type
 // name is that type's shorthand, and anything else is a nested struct, a
 // capitalized key that is no kind (`PORT`, `Name: 'string'`) included.
-const PARSERS = Object.assign(Object.create(null), {
+const PARSERS = {
+  __proto__: null,
   string: ['stringShorthand'],
   object: [
     'schemaInstance',
@@ -21,13 +24,10 @@ const PARSERS = Object.assign(Object.create(null), {
   ],
   function: ['functionField'],
   array: ['tupleShorthand'],
-});
+};
 
-const invalid = (source, srcType = typeOf(source)) =>
-  new SchemaDefinitionError(
-    'ERR_INVALID_DEFINITION',
-    `Invalid definition: "${source}" of type ${srcType}`,
-  );
+const invalid = (source, sourceType = typeOf(source)) =>
+  new SchemaDefinitionError(`Invalid definition: "${source}" of type ${sourceType}`);
 
 class Preprocessor {
   constructor(root) {
@@ -40,16 +40,16 @@ class Preprocessor {
   // The first key of an object is read once here and handed to the parsers
   // that look at it.
   parse(source) {
-    const srcType = typeOf(source);
-    const parsers = PARSERS[srcType];
+    const sourceType = typeOf(source);
+    const parsers = PARSERS[sourceType];
     if (parsers) {
-      const first = srcType === 'object' ? firstKey(source) : undefined;
+      const first = sourceType === 'object' ? firstKey(source) : undefined;
       for (const name of parsers) {
         const result = this[name](source, first);
         if (result) return result;
       }
     }
-    throw invalid(source, srcType);
+    throw invalid(source, sourceType);
   }
 
   // A Schema instance as a field: `{ schema: instance }` and the long form go
@@ -86,7 +86,7 @@ class Preprocessor {
       return { Type: types.reference, defs };
     }
     if (!types[type]) {
-      throw new SchemaDefinitionError('ERR_UNKNOWN_TYPE', `Unknown type "${type}"`);
+      throw new SchemaDefinitionError(`Unknown type "${type}"`, { code: 'ALX_ERR_UNKNOWN_TYPE' });
     }
     const defs = { required, ...source };
     return { Type: types[type], defs };
@@ -111,7 +111,7 @@ class Preprocessor {
     const kind = toLowerCamel(first);
     // A kind of the program's own is kept for the lint: metadata that reads
     // as field definitions is most likely a field that was read as a kind.
-    if (!constants.KIND.includes(kind)) {
+    if (!BUILT_IN_KINDS.has(kind)) {
       if (this.kinds === null) this.kinds = [];
       this.kinds.push([first, meta]);
     }

@@ -33,8 +33,8 @@ expectType<'auto' | boolean | undefined>(options.jit);
 
 // The code of the error `jit: true` throws without eval, and the one of a
 // check that could not be generated, reported in the default mode.
-expectAssignable<DefinitionErrorCode>('ERR_NO_EVAL');
-expectAssignable<DefinitionErrorCode>('ERR_JIT_BUILD');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_NO_EVAL');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_JIT_BUILD');
 expectType<SchemaDefinitionError | undefined>(compile(user).error);
 expectType<void>(register({ onFallback: (schema, error) => void [schema, error.code] }));
 expectError(register({ onFallback: 1 }));

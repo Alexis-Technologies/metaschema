@@ -39,6 +39,6 @@ expectType<unknown>(form.coerce({ age: '1' }));
 expectError(coerce({ age: 'integer' }, {}));
 expectAssignable<CoerceOptions>({ maxDepth: 1 });
 
-expectAssignable<DefinitionErrorCode>('ERR_INVALID_COERCION');
-expectAssignable<DefinitionErrorCode>('ERR_COERCION_REGISTERED');
-expectAssignable<RuntimeErrorCode>('ERR_NOT_REGISTERED');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_INVALID_COERCION');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_COERCION_REGISTERED');
+expectAssignable<RuntimeErrorCode>('ALX_ERR_NOT_REGISTERED');

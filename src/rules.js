@@ -7,10 +7,25 @@
 // check.
 const { SchemaDefinitionError } = require('./errors.js');
 
-const invalidRule = (reason) => new SchemaDefinitionError('ERR_INVALID_RULE', reason);
+// The formatter of each rule, by name; the names are the rules that exist. A
+// null-prototype dictionary: a definition key may be called `constructor`.
+// The formats a string may name (`format: 'email'`): a null-prototype table
+// of `{ test, examples }` entries, empty until `register()` of the formats
+// subpath fills it (the core knows the rule, the subpath the formats), read
+// when the field is built. A name the table lacks is a definition error with
+// the hint, never a check that passes everything.
+const FORMATS = Object.create(null);
+
+// The entry a field's format named when the field was built: a format the
+// program registers later under that name does not change the field, whose
+// check is compiled on its first use.
+const NAMED = new WeakMap();
+
+const invalidRule = (reason, options) =>
+  new SchemaDefinitionError(reason, { ...options, code: 'ALX_ERR_INVALID_RULE' });
 
 const invalidLength = (reason = 'needs a number, [min, max] or { min, max }') =>
-  new SchemaDefinitionError('ERR_INVALID_LENGTH', `Rule "length" ${reason}`);
+  new SchemaDefinitionError(`Rule "length" ${reason}`, { code: 'ALX_ERR_INVALID_LENGTH' });
 
 const isBound = (value) => value === undefined || typeof value === 'number';
 
@@ -46,23 +61,10 @@ const formatPattern = (value) => {
   try {
     return new RegExp(source, `${given}u`);
   } catch (error) {
-    throw invalidRule(`Rule "pattern" is not a valid regular expression: ${error.message}`);
+    const reason = `Rule "pattern" is not a valid regular expression: ${error.message}`;
+    throw invalidRule(reason, { cause: error });
   }
 };
-
-// The formatter of each rule, by name; the names are the rules that exist. A
-// null-prototype dictionary: a definition key may be called `constructor`.
-// The formats a string may name (`format: 'email'`): a null-prototype table
-// of `{ test, examples }` entries, empty until `register()` of the formats
-// subpath fills it (the core knows the rule, the subpath the formats), read
-// when the field is built. A name the table lacks is a definition error with
-// the hint, never a check that passes everything.
-const FORMATS = Object.create(null);
-
-// The entry a field's format named when the field was built: a format the
-// program registers later under that name does not change the field, whose
-// check is compiled on its first use.
-const NAMED = new WeakMap();
 
 const formatName = (value, type) => {
   if (typeof value !== 'string') throw invalidRule('Rule "format" needs the name of a format');
@@ -84,14 +86,15 @@ const formatDecimals = (value) => {
   return value;
 };
 
-const FORMAT = Object.assign(Object.create(null), {
+const FORMAT = {
+  __proto__: null,
   length: formatLength,
   min: formatLimit('min'),
   max: formatLimit('max'),
   pattern: formatPattern,
   format: formatName,
   decimals: formatDecimals,
-});
+};
 
 // The bounds of a field leave room for a value: the definition is checked
 // when the field is built, its check compiled later.
@@ -107,4 +110,4 @@ const notApplicable = (rule, type, rules) => {
   return invalidRule(`Rule "${rule}" does not apply to type "${type}"${hint}`);
 };
 
-module.exports = { FORMAT, FORMATS, formatOf, checkBounds, notApplicable };
+module.exports = { FORMATS, formatOf, FORMAT, checkBounds, notApplicable };

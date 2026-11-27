@@ -1,7 +1,7 @@
 // What the functions of the `./model` subpath share: a snapshot from a Model
 // or as given, and equality of the JSON values a snapshot is made of. A
 // snapshot is input (a file, a registry, another program), so what it says
-// is checked before it is read, and every error is ERR_INVALID_SNAPSHOT
+// is checked before it is read, and every error is ALX_ERR_INVALID_SNAPSHOT
 // located in the entity, never a bare SyntaxError or TypeError.
 const { hasBrand, define, isDate, isRegExp } = require('../util.js');
 const { FORMAT } = require('../snapshot.js');
@@ -11,27 +11,24 @@ const { isKindKey } = require('../kinds.js');
 
 // How deep the walks over a snapshot go: a definition nested deeper is not
 // one a program wrote.
-const DEPTH = 128;
+const MAX_DEPTH = 128;
 
-const invalidSnapshot = (reason) => new SchemaDefinitionError('ERR_INVALID_SNAPSHOT', reason);
+const invalidSnapshot = (reason, options) =>
+  new SchemaDefinitionError(reason, { ...options, code: 'ALX_ERR_INVALID_SNAPSHOT' });
 
-const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${DEPTH} levels`);
+const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${MAX_DEPTH} levels`);
 
-// An error of a schema as a whole, which has no field to be located at: the
-// schema is the location, written as `locate` writes one.
-const atSchema = (error, name) => {
-  error.schema = name;
-  error.message = `${error.message} in "${name}"`;
-  return error;
-};
+// An error of another kind met while a snapshot is read (a bigint or a
+// pattern that does not read throws its own): an error of the snapshot,
+// with that error as its cause.
+const unreadable = (error) => invalidSnapshot(error.message, { cause: error });
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const isSnapshot = (value) =>
-  isObject(value) &&
-  value.format === FORMAT &&
-  isObject(value.entities) &&
-  (value.types === undefined || isObject(value.types));
+const isSnapshot = (value) => {
+  if (!isObject(value) || value.format !== FORMAT || !isObject(value.entities)) return false;
+  return value.types === undefined || isObject(value.types);
+};
 
 // The entity a snapshot of one schema is about, when it names one: a key
 // format 1 gained in 3.4, read by nothing else.
@@ -61,7 +58,7 @@ const readSnapshot = (target) => {
 const same = (a, b, depth = 0) => {
   if (a === b) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
-  if (depth > DEPTH) throw tooDeep();
+  if (depth > MAX_DEPTH) throw tooDeep();
   // By their shape, which a value of JSON cannot fake: `{ constructor: {
   // name: 'Date' } }` of a snapshot is data.
   const regExp = isRegExp(a);
@@ -142,7 +139,7 @@ const structDefinition = (base, metadata, fields) => {
   const kindKey = kindKeyOf(kind);
   if (kindKey === null) {
     const reason = `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`;
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_OPTIONS' });
   }
   const definition = { [kindKey]: rest };
   for (const key of Object.keys(fields)) define(definition, key, fields[key]);
@@ -176,10 +173,10 @@ const namespacesOf = (schemas) => {
 };
 
 module.exports = {
-  DEPTH,
+  MAX_DEPTH,
   invalidSnapshot,
   tooDeep,
-  atSchema,
+  unreadable,
   isObject,
   isSnapshot,
   checkRoot,

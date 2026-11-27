@@ -158,8 +158,8 @@ expectType<ValidationIssue[]>(checked.issues);
 
 // Validators and custom types may return promises; the error of a
 // synchronous call has a code of its own.
-expectAssignable<RuntimeErrorCode>('ERR_ASYNC_VALIDATOR');
-expectNotAssignable<RuntimeErrorCode>('ERR_NO_EVAL');
+expectAssignable<RuntimeErrorCode>('ALX_ERR_ASYNC_VALIDATOR');
+expectNotAssignable<RuntimeErrorCode>('ALX_ERR_NO_EVAL');
 Schema.from({
   name: { type: 'string', validate: async (value: string) => value !== '' || 'empty' },
 });

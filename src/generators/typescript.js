@@ -8,7 +8,8 @@ const { SchemaDefinitionError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { baseTypeOf } = require('../types.js');
 
-const TS_SCALARS = Object.assign(Object.create(null), {
+const TS_SCALARS = {
+  __proto__: null,
   string: 'string',
   number: 'number',
   boolean: 'boolean',
@@ -18,10 +19,12 @@ const TS_SCALARS = Object.assign(Object.create(null), {
   null: 'null',
   any: 'any',
   unknown: 'unknown',
-});
+};
 
 const unrepresentable = (what) =>
-  new SchemaDefinitionError('ERR_UNREPRESENTABLE', `${what} cannot be represented in TypeScript`);
+  new SchemaDefinitionError(`${what} cannot be represented in TypeScript`, {
+    code: 'ALX_ERR_UNREPRESENTABLE',
+  });
 
 // The name of an interface or a type is an identifier; a declaration has no
 // place for anything else.
@@ -40,11 +43,11 @@ const tsLiteral = (value) => {
     case 'string':
       return JSON.stringify(value);
     case 'number':
-      return Number.isFinite(value) ? String(value) : 'number';
+      return Number.isFinite(value) ? `${value}` : 'number';
     case 'bigint':
       return `${value}n`;
     case 'boolean':
-      return String(value);
+      return `${value}`;
     case 'undefined':
       return 'undefined';
     default:
@@ -185,7 +188,7 @@ const tsFields = (fields, ts, prefix) => {
 };
 
 // Text inside a comment: `*/` would close it.
-const tsComment = (text) => String(text).replace(/\*\//g, '*\\/');
+const tsComment = (text) => `${text}`.replace(/\*\//g, '*\\/');
 
 // The JSDoc of a field: its description, line by line, and `@deprecated`
 // (with the note when the field gives one) when it says so.

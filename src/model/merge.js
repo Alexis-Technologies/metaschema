@@ -2,20 +2,19 @@
 // constraints of both (the length and the bounds that satisfy both, the
 // values both enums hold, the validate functions of both), a field in one
 // comes as it is, and what no value can satisfy (two types, two patterns,
-// bounds with nothing in common, two defaults) is ERR_MERGE_CONFLICT with
+// bounds with nothing in common, two defaults) is ALX_ERR_MERGE_CONFLICT with
 // the field. CUE composes definitions this way, instead of inheritance.
 const { hasBrand, define } = require('../util.js');
 const { Schema } = require('../schema.js');
 const { isStruct } = require('../struct.js');
-const { isThenable } = require('../issues.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { isThenable, observe } = require('../issues.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const {
   same,
   definitionOf,
   structDefinitionOf,
   metadataOf,
   structDefinition,
-  atSchema,
   namespacesOf,
 } = require('./data.js');
 
@@ -26,24 +25,33 @@ const BOOLEANS = new Set(['unique', 'index', 'primary', 'deprecated']);
 // A conflict carries the path of the field it is at; `merge` locates it in
 // the schema on the way out, as a struct does with a definition error.
 const conflict = (reason, path = '') => {
-  const error = new SchemaDefinitionError('ERR_MERGE_CONFLICT', reason);
-  error.field = path;
-  return error;
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_MERGE_CONFLICT', field: path });
 };
 
 // Both validate functions, as one that returns what both returned (an
 // array of returns is one the check reads), awaited when either is async.
+// The promise of the first is observed before the second runs: a second that
+// throws leaves it behind, and it must not reject unhandled.
 const compose = (first, second) =>
   function validate(value, path) {
-    const a = first.call(this, value, path);
+    const returned = first.call(this, value, path);
+    const a = isThenable(returned) ? observe(returned) : returned;
     const b = second.call(this, value, path);
     if (isThenable(a) || isThenable(b)) return Promise.all([a, b]);
     return [a, b];
   };
 
-const lower = (a, b) => (a === undefined ? b : b === undefined ? a : a > b ? a : b);
+const lower = (a, b) => {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a > b ? a : b;
+};
 
-const upper = (a, b) => (a === undefined ? b : b === undefined ? a : a < b ? a : b);
+const upper = (a, b) => {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return a < b ? a : b;
+};
 
 // The length both rules allow: the greater of the minimums, the lesser of
 // the maximums.
@@ -153,7 +161,9 @@ const mergeFields = (x, y, path) => {
   const b = typeof y === 'string' ? { type: y } : y;
   const type = mergeType(a.type, b.type, path);
   // The side whose type the result has sets the keys of its type.
-  const [first, second] = type === b.type && type !== a.type ? [b, a] : [a, b];
+  const swapped = type === b.type && type !== a.type;
+  const first = swapped ? b : a;
+  const second = swapped ? a : b;
   const def = { type };
   const keys = new Set(Object.keys(first));
   for (const key of Object.keys(second)) keys.add(key);
@@ -212,7 +222,9 @@ const merge = (a, b, options = {}) => {
     throw invalidTarget('Two Schemas are expected');
   }
   if (options === null || typeof options !== 'object') {
-    throw new SchemaDefinitionError('ERR_INVALID_OPTIONS', 'Merge options must be an object');
+    throw new SchemaUsageError('Merge options must be an object', {
+      code: 'ALX_ERR_INVALID_OPTION',
+    });
   }
   const { name = a.name, metadata = {} } = options;
   const namespaces = namespacesOf([a, b]);
@@ -249,12 +261,11 @@ const merge = (a, b, options = {}) => {
     }
     return new Schema(name, definition, namespaces);
   } catch (error) {
-    if (error instanceof SchemaDefinitionError && error.code === 'ERR_MERGE_CONFLICT') {
-      const { field } = error;
-      error.field = '';
-      if (field) error.locate(name, field);
-      else atSchema(error, name);
-    }
+    // A conflict carries its field from where it was found: located at the
+    // schema, its message names the place.
+    const isConflict =
+      error instanceof SchemaDefinitionError && error.code === 'ALX_ERR_MERGE_CONFLICT';
+    if (isConflict) error.locate(name, '');
     throw error;
   }
 };

@@ -6,7 +6,8 @@ Only the latest published version receives fixes.
 
 | Version | Supported |
 |---|---|
-| 3.x | ✅ |
+| 4.x | ✅ |
+| 3.x | ❌ (upgrade: [Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3)) |
 | 2.x | ❌ (upgrade: the CHANGELOG has the notes) |
 | 1.x | ❌ |
 | `metaschema` (metarhia) 2.x | ❌ (report upstream) |
@@ -79,7 +80,7 @@ Some things work as intended and are not vulnerabilities:
   a copy (the `custom` metadata of a kind, the indexes and the `database` metadata included):
   no function, no object of the model, a function as `{ $function: true }`. Read back by
   `fromJSON`, a snapshot is untrusted input: its tags (`$date`, `$bigint`, `$bytes`, `$map`,
-  `$set`) are read into values and a tag that does not read is `ERR_INVALID_SNAPSHOT`; a value
+  `$set`) are read into values and a tag that does not read is `ALX_ERR_INVALID_SNAPSHOT`; a value
   shaped like a `Date` or a `RegExp` (`{ "constructor": { "name": "Date" } }`) is data; its
   `root` names one of its entities; a field key `root` is refused like the methods of a field;
   the walks are bounded (128 levels, and a chain of entities of any length orders without
@@ -92,7 +93,7 @@ Some things work as intended and are not vulnerabilities:
   `length.max` holds one. `fromDocument` of `./mongodb` reads a generic Binary (subtype 0 or
   2) into a copy of its bytes and leaves any other subtype to the check.
 - **The definition entry does not validate.** A schema built through
-  `@alexify/metaschema/definition` throws `ERR_NOT_REGISTERED` from every way to validate until
+  `@alexify/metaschema/definition` throws `ALX_ERR_NOT_REGISTERED` from every way to validate until
   the core entry of the same copy of the package is loaded, and has no `~standard`, so a
   consumer of Standard Schema never takes it for a validator. A schema of another copy (two
   versions of the package installed) does not validate with this copy's core and says so.
@@ -101,7 +102,7 @@ Some things work as intended and are not vulnerabilities:
   keys of the definition, written as own properties), and checks the definition it built
   against every sample before it returns it. A key of a sample that reaches an error message
   is truncated to 100 characters, as a key of a value under check is.
-- **The error a stream ends with carries the record.** `ERR_INVALID_RECORD` of the stream
+- **The error a stream ends with carries the record.** `ALX_ERR_INVALID_RECORD` of the stream
   subpath has `record` and `result` on it, since the stream carries them no further; a logger
   that serializes error objects writes the record.
 - **Validation errors are data.** `check` collects problems as issues (a code, a path and params,

@@ -9,7 +9,7 @@
 // installs the methods on Schema for the programs that want them.
 const { hasBrand } = require('../util.js');
 const { abandon } = require('../issues.js');
-const { invalidTarget, invalidOption: invalid } = require('../errors.js');
+const { SchemaUsageError, invalidTarget, invalidOption: invalid } = require('../errors.js');
 const { Schema } = require('../validation.js');
 
 const optionsOf = (options) => {
@@ -60,13 +60,10 @@ const schemaOf = (schema) => {
 // A sequence of records: anything with an iterator, or an async one where
 // the iteration is async. A string is iterable and surely a mistake.
 const recordsOf = (records, async) => {
-  const iterable =
-    records !== null &&
-    records !== undefined &&
-    typeof records !== 'string' &&
-    (typeof records[Symbol.iterator] === 'function' ||
-      (async && typeof records[Symbol.asyncIterator] === 'function'));
-  if (!iterable) throw invalidTarget('An iterable of records is expected');
+  const ruledOut = records === undefined || records === null || typeof records === 'string';
+  const sync = !ruledOut && typeof records[Symbol.iterator] === 'function';
+  const streamed = !ruledOut && async && typeof records[Symbol.asyncIterator] === 'function';
+  if (!sync && !streamed) throw invalidTarget('An iterable of records is expected');
   return records;
 };
 
@@ -75,6 +72,11 @@ const CHECK = (schema, record, options) => schema.check(record, options);
 const PARSE = (schema, record, options) => schema.parse(record, options);
 const CHECK_ASYNC = (schema, record, options) => schema.checkAsync(record, options);
 const PARSE_ASYNC = (schema, record, options) => schema.parseAsync(record, options);
+
+const callOf = (async, parse) => {
+  if (async) return parse ? PARSE_ASYNC : CHECK_ASYNC;
+  return parse ? PARSE : CHECK;
+};
 
 // One record after the other. The entry of a record carries its position,
 // since an iterator has none, and the record itself, since a stream cannot
@@ -92,6 +94,28 @@ const each = function* (schema, records, options, limit, call) {
   }
 };
 
+// A source the async pair reads with for await. An async iterable is read as
+// it is; a sync one through an async iterator of its own steps, which awaits
+// an element that is a Promise (the documented contract) and nothing else:
+// for await over a sync iterable adopts every thenable, and a record with a
+// `then` of its own would come out as what that `then` resolves to, where a
+// value of the program is data (as for the passes of parse).
+const stepsOf = (records) => {
+  if (typeof records[Symbol.asyncIterator] === 'function') return records;
+  const iterator = records[Symbol.iterator]();
+  const next = () => {
+    const step = iterator.next();
+    if (step.done || !(step.value instanceof Promise)) return Promise.resolve(step);
+    return step.value.then((value) => ({ value, done: false }));
+  };
+  const close = (value) => {
+    const step = typeof iterator.return === 'function' ? iterator.return(value) : { done: true };
+    return Promise.resolve(step);
+  };
+  const steps = { next, return: close };
+  return { [Symbol.asyncIterator]: () => steps };
+};
+
 // The async pair over a sync or async iterable: up to `width` records are
 // checked at once, the entries come out in the order of the records, and the
 // promises still in flight when the iteration ends early (`maxInvalid`, a
@@ -102,7 +126,7 @@ const eachAsync = async function* (schema, records, options, limit, width, call)
   let failed = 0;
   let index = 0;
   try {
-    for await (const record of records) {
+    for await (const record of stepsOf(records)) {
       const result = call(schema, record, options);
       // Observed from the start: a record that rejects while an earlier one
       // is still awaited would reject unhandled before its turn (the await
@@ -160,12 +184,8 @@ const parseEachAsync = (schema, records, options) => {
 // The error a stream ends with: the record, its position and its result
 // travel on it, since the stream carries them no further.
 const invalidRecord = (index, record, result) => {
-  const error = new TypeError(`Record ${index} is invalid`);
-  error.code = 'ERR_INVALID_RECORD';
-  error.index = index;
-  error.record = record;
-  error.result = result;
-  return error;
+  const message = `Record ${index} is invalid`;
+  return new SchemaUsageError(message, { code: 'ALX_ERR_INVALID_RECORD', index, record, result });
 };
 
 // A TransformStream over the records of a stream: a valid record goes on as
@@ -182,16 +202,13 @@ const transform = (schema, options) => {
   const async = asyncOf(options);
   const onInvalid = callbackOf(options);
   const parse = mode === 'parse';
-  const call = async ? (parse ? PARSE_ASYNC : CHECK_ASYNC) : parse ? PARSE : CHECK;
+  const call = callOf(async, parse);
   let failed = 0;
   let index = 0;
   const settle = (record, result, controller) => {
     const at = index;
     index += 1;
-    if (result.valid) {
-      controller.enqueue(parse ? result.value : record);
-      return;
-    }
+    if (result.valid) return void controller.enqueue(parse ? result.value : record);
     failed += 1;
     if (onInvalid !== undefined) onInvalid(record, result, at);
     if (onInvalid === undefined || failed >= limit) {

@@ -7,7 +7,7 @@
 // (witness generation as a satisfiability check).
 const { hasBrand, define } = require('../util.js');
 const { createContext } = require('../context.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { isStruct } = require('../struct.js');
 const { baseTypeOf } = require('../types.js');
 const { embeds } = require('../prototypes/reference.js');
@@ -16,9 +16,37 @@ const en = require('../locales/en.js');
 const { int, pick, patternOf, fromPattern } = require('./pattern.js');
 const { FORMATS } = require('../rules.js');
 
-const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
+// The letters of a free string, by locale.
+const LETTERS = {
+  __proto__: null,
+  en: 'abcdefghijklmnopqrstuvwxyz',
+  uk: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя',
+};
 
-const invalidOptions = (reason) => invalid('ERR_INVALID_OPTIONS', reason);
+// How many draws a field gets before it is given up on, and how many an
+// optional field is present in, out of four.
+const DRAWS = 24;
+const PRESENT = 3;
+
+// What a draw returns for a field the value leaves out: an optional
+// reference nested too deep.
+const ABSENT = Symbol('absent');
+
+// The widest span a bigint is drawn from: what a number holds exactly.
+const SPAN = 2n ** 53n;
+
+// The errors of a branch that another branch may not have: a union tries
+// every branch from a random one on and fails with the last error only when
+// every branch failed.
+const RETRIED = new Set(['ALX_ERR_UNSATISFIABLE', 'ALX_ERR_SAMPLE_PATTERN', 'ALX_ERR_SAMPLE_TYPE']);
+
+// How a reference may be held, as in check, and how deep embedded records
+// may nest: a `many` reference fans out by up to four records a level.
+const REFERENCES = new Set(['kind', 'embed', 'id']);
+const MAX_DEPTH = 32;
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 // mulberry32: a 32-bit generator, the same numbers for a seed everywhere.
 const prng = (seed) => {
@@ -30,21 +58,6 @@ const prng = (seed) => {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 };
-
-// The letters of a free string, by locale.
-const LETTERS = Object.assign(Object.create(null), {
-  en: 'abcdefghijklmnopqrstuvwxyz',
-  uk: 'абвгґдеєжзиіїйклмнопрстуфхцчшщьюя',
-});
-
-// How many draws a field gets before it is given up on, and how many an
-// optional field is present in, out of four.
-const DRAWS = 24;
-const PRESENT = 3;
-
-// What a draw returns for a field the value leaves out: an optional
-// reference nested too deep.
-const ABSENT = Symbol('absent');
 
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in; a custom type with a check of its own has none.
@@ -89,6 +102,13 @@ const stringOf = (state, field, key) => {
 
 const asNumber = (value) => (typeof value === 'bigint' ? Number(value) : value);
 
+// The units of one in the last decimal a number is drawn to: 1 for a whole
+// number, 10ⁿ for n decimals, 0 when any number will do.
+const scaleOf = (field, whole) => {
+  if (whole) return 1;
+  return field.decimals === undefined ? 0 : 10 ** field.decimals;
+};
+
 // A number within the bounds; a whole one, or one of `decimals` decimals,
 // rounded toward the inside of the bounds.
 const numberOf = (state, field, whole) => {
@@ -97,7 +117,7 @@ const numberOf = (state, field, whole) => {
   const low = min ?? (max === undefined ? 0 : max - 100);
   const high = max ?? low + 100;
   const value = low + state.random() * (high - low);
-  const scale = whole ? 1 : field.decimals === undefined ? 0 : 10 ** field.decimals;
+  const scale = scaleOf(field, whole);
   // Past 2⁵³ units of the last decimal every double is a whole number of
   // them (and the product may be no number at all): the value is one.
   if (scale === 0 || !(Math.abs(value * scale) < 2 ** 53)) return value;
@@ -105,16 +125,15 @@ const numberOf = (state, field, whole) => {
   return up > high ? Math.floor(value * scale) / scale : up;
 };
 
-// The widest span a bigint is drawn from: what a number holds exactly.
-const SPAN = 2n ** 53n;
+// The lower bound of a bigint drawn: the minimum, else a hundred under the
+// maximum, else zero.
+const lowOf = (field) => {
+  if (field.min !== undefined) return BigInt(field.min);
+  return field.max === undefined ? 0n : BigInt(field.max) - 100n;
+};
 
 const bigintOf = (state, field) => {
-  const low =
-    field.min === undefined
-      ? field.max === undefined
-        ? 0n
-        : BigInt(field.max) - 100n
-      : BigInt(field.min);
+  const low = lowOf(field);
   const high = field.max === undefined ? low + 100n : BigInt(field.max);
   const span = high - low > SPAN ? SPAN : high - low;
   return low + BigInt(int(state, Number(span)));
@@ -172,11 +191,6 @@ const tupleOf = (state, field) => {
   }
   return list;
 };
-
-// The errors of a branch that another branch may not have: a union tries
-// every branch from a random one on and fails with the last error only when
-// every branch failed.
-const RETRIED = new Set(['ERR_UNSATISFIABLE', 'ERR_SAMPLE_PATTERN', 'ERR_SAMPLE_TYPE']);
 
 const unionOf = (state, field, key) => {
   const branches = field.union;
@@ -242,10 +256,8 @@ const customOf = (state, field, key) => {
   const { sample: given } = field.constructor.metadata;
   if (given === undefined) {
     const hint = `Type "${field.type}" needs metadata.sample to be sampled`;
-    throw invalid(
-      'ERR_SAMPLE_TYPE',
-      `${hint} in "${toDotPath(pathOf(state, key), state.root.name)}"`,
-    );
+    const where = toDotPath(pathOf(state, key), state.root.name);
+    throw new SchemaDefinitionError(`${hint} in "${where}"`, { code: 'ALX_ERR_SAMPLE_TYPE' });
   }
   return typeof given === 'function' ? given(field, state.random) : given;
 };
@@ -257,12 +269,37 @@ const pathOf = (state, key) => (key === undefined ? state.path : state.path.conc
 const unsatisfiable = (state, key, reason) => {
   const where = toDotPath(pathOf(state, key), state.root.name);
   const { seed } = state;
-  const error = invalid(
-    'ERR_UNSATISFIABLE',
-    `No value satisfies "${where}" (seed ${seed}): ${reason}`,
-  );
-  error.seed = seed;
-  return error;
+  const message = `No value satisfies "${where}" (seed ${seed}): ${reason}`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_UNSATISFIABLE', seed });
+};
+
+// A draw by the built-in type a field validates as; a type of the program's
+// own draws through its prototype (`customOf`).
+const DRAWERS = {
+  __proto__: null,
+  string: stringOf,
+  number: (state, field) => numberOf(state, field, false),
+  integer: (state, field) => numberOf(state, field, true),
+  bigint: bigintOf,
+  boolean: (state) => state.random() < 0.5,
+  date: (state) => new Date(1_600_000_000_000 + Math.floor(state.random() * 100_000_000_000)),
+  bytes: bytesOf,
+  flags: flagsOf,
+  null: () => null,
+  any: (state) => lettersOf(state, 4),
+  unknown: (state) => lettersOf(state, 4),
+  json: () => ({}),
+  enum: (state, field) => pick(state, field.enum),
+  array: listOf,
+  set: listOf,
+  object: keyedOf,
+  map: keyedOf,
+  tuple: tupleOf,
+  union: unionOf,
+  schema: (state, field, key) => drawValue(field.schema, state, key),
+  reference: referenceOf,
+  one: referenceOf,
+  many: referenceOf,
 };
 
 // One draw for a field, by the built-in type it validates as.
@@ -271,51 +308,11 @@ const draw = (state, field, key) => {
   if (Array.isArray(examples) && examples.length > 0 && state.random() < 0.5) {
     return pick(state, examples);
   }
-  switch (baseOf(field)) {
-    case 'string':
-      return stringOf(state, field, key);
-    case 'number':
-      return numberOf(state, field, false);
-    case 'integer':
-      return numberOf(state, field, true);
-    case 'bigint':
-      return bigintOf(state, field);
-    case 'boolean':
-      return state.random() < 0.5;
-    case 'date':
-      return new Date(1_600_000_000_000 + Math.floor(state.random() * 100_000_000_000));
-    case 'bytes':
-      return bytesOf(state, field);
-    case 'flags':
-      return flagsOf(state, field);
-    case 'null':
-      return null;
-    case 'any':
-    case 'unknown':
-      return lettersOf(state, 4);
-    case 'json':
-      return {};
-    case 'enum':
-      return pick(state, field.enum);
-    case 'array':
-    case 'set':
-      return listOf(state, field, key);
-    case 'object':
-    case 'map':
-      return keyedOf(state, field);
-    case 'tuple':
-      return tupleOf(state, field);
-    case 'union':
-      return unionOf(state, field, key);
-    case 'schema':
-      return drawValue(field.schema, state, key);
-    case 'reference':
-    case 'one':
-    case 'many':
-      return referenceOf(state, field, key);
-    default:
-      return customOf(state, field, key);
-  }
+  // A type of the program's own has no base (null), which must not read as
+  // the key "null" of the table.
+  const base = baseOf(field);
+  const drawer = base === null ? customOf : (DRAWERS[base] ?? customOf);
+  return drawer(state, field, key);
 };
 
 // Whether a draw passes the field's own check (its type, its rules, its
@@ -364,29 +361,22 @@ const sampleField = (field, state, key) => {
   throw unsatisfiable(state, key, issue.message);
 };
 
-// How a reference may be held, as in check, and how deep embedded records
-// may nest: a `many` reference fans out by up to four records a level.
-const REFERENCES = ['kind', 'embed', 'id'];
-const MAX_DEPTH = 32;
-
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('Sample options must be an object');
+    throw wrongOption('Sample options must be an object');
   }
   const { seed = 1, locale = 'en', references = 'kind', maxDepth = 3 } = options;
-  if (!Number.isInteger(seed)) throw invalidOptions('Sample option "seed" must be an integer');
+  if (!Number.isInteger(seed)) throw wrongOption('Sample option "seed" must be an integer');
   if (LETTERS[locale] === undefined) {
-    throw invalidOptions(
-      `Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`,
-    );
+    throw wrongOption(`Sample option "locale" must be "en" or "uk", got ${JSON.stringify(locale)}`);
   }
-  if (!REFERENCES.includes(references)) {
-    throw invalidOptions(
+  if (!REFERENCES.has(references)) {
+    throw wrongOption(
       `Sample option "references" must be "kind", "embed" or "id", got ${JSON.stringify(references)}`,
     );
   }
   if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > MAX_DEPTH) {
-    throw invalidOptions(`Sample option "maxDepth" must be an integer from 0 to ${MAX_DEPTH}`);
+    throw wrongOption(`Sample option "maxDepth" must be an integer from 0 to ${MAX_DEPTH}`);
   }
   return { seed, letters: LETTERS[locale], references, maxDepth };
 };

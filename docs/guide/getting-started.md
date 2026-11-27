@@ -82,5 +82,6 @@ Type declarations ship with the package (`index.d.ts`), so TypeScript needs no e
 - [Domain Models](/guide/model): entities, references and generated TypeScript.
 - [Why metaschema?](/guide/why) and [Compared with alternatives](/guide/comparison): where it
   fits among the other schema libraries.
+- [Migrating from 3.x](/guide/migrating-from-3): what changed in 4.0, if you come from 3.x.
 - [Migrating from 2.x](/guide/migrating-from-2): what changed in 3.x, if you come from 2.x.
 - [Migrating from 1.x](/guide/migrating-from-1): what changed in 2.0, if you come from 1.x.

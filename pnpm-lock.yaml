@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@alexify/metaskills':
+        specifier: ^1.2.0
+        version: 1.2.0
       '@braintree/sanitize-url':
         specifier: ^7.1.2
         version: 7.1.2
@@ -100,6 +103,11 @@ importers:
         version: 4.6.6
 
 packages:
+
+  '@alexify/metaskills@1.2.0':
+    resolution: {integrity: sha512-wqQ0M5a7pBSUGHhqdX1FmukR89G6SiQ2N/DCc77su8JW2Y342C2HNRPQX9IePewXDkC+VENzm+RmzUzNMIugUg==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   '@algolia/abtesting@1.25.0':
     resolution: {integrity: sha512-rSTin9Uta23uaewYVQEp8XI9T3iA/zrg0/1G2vhf8oFFDxFL5vybnZ5IQwsVAg4JpKxPX4/WYNKdcfWrZymk7w==}
@@ -2679,6 +2687,8 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@alexify/metaskills@1.2.0': {}
 
   '@algolia/abtesting@1.25.0':
     dependencies:

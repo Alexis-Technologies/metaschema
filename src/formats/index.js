@@ -35,7 +35,7 @@ const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidFormat = (name, reason) =>
-  new SchemaDefinitionError('ERR_INVALID_FORMAT', `Format "${name}" ${reason}`);
+  new SchemaDefinitionError(`Format "${name}" ${reason}`, { code: 'ALX_ERR_INVALID_FORMAT' });
 
 // ajv-formats' fast email: a local part of its characters, an `@`, and
 // labels of at most 63 characters joined by dots.
@@ -104,11 +104,12 @@ const isIsoTime = timeOf(false);
 
 // A date-time is the two joined by `T` (or, as the RFC allows for
 // readability, a space).
-const dateTimeOf = (time) => (text) =>
-  text.length > 11 &&
-  (text[10] === 'T' || text[10] === 't' || text[10] === ' ') &&
-  isDate(text.slice(0, 10)) &&
-  time(text.slice(11));
+const DATE_TIME_SEPARATORS = new Set(['T', 't', ' ']);
+
+const dateTimeOf = (time) => (text) => {
+  if (text.length <= 11 || !DATE_TIME_SEPARATORS.has(text[10])) return false;
+  return isDate(text.slice(0, 10)) && time(text.slice(11));
+};
 
 const DURATION = /^P(?!$)((\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+S)?)?|(\d+W)?)$/;
 
@@ -204,10 +205,10 @@ const isRelativePointer = (text) => {
 // mode. Compiling one costs memory in proportion to its text (a property
 // escape expands as it is parsed), so a text longer than any pattern a
 // program writes is not one; `length.max` on the field bounds it further.
-const REGEX_MAX = 4096;
+const REGEX_MAX_CHARS = 4096;
 
 const isRegex = (text) => {
-  if (text.length > REGEX_MAX) return false;
+  if (text.length > REGEX_MAX_CHARS) return false;
   try {
     return RegExp(text, 'u') instanceof RegExp;
   } catch {
@@ -507,10 +508,9 @@ const entryOf = (name, entry) => {
 };
 
 const registered = (name) =>
-  new SchemaDefinitionError(
-    'ERR_FORMAT_REGISTERED',
-    `Format "${name}" is already registered with another test`,
-  );
+  new SchemaDefinitionError(`Format "${name}" is already registered with another test`, {
+    code: 'ALX_ERR_FORMAT_REGISTERED',
+  });
 
 // A name is registered once: the same test again is nothing, and another
 // test under a registered name is an error, since the schemas built so far
@@ -541,7 +541,9 @@ const add = (name, entry, own) => {
 // what it overrode; an empty list otherwise.
 const register = (custom = {}) => {
   if (custom === null || typeof custom !== 'object') {
-    throw new SchemaDefinitionError('ERR_INVALID_FORMAT', 'Formats must be an object of entries');
+    throw new SchemaDefinitionError('Formats must be an object of entries', {
+      code: 'ALX_ERR_INVALID_FORMAT',
+    });
   }
   const replaced = [];
   for (const name of Object.keys(BUILT_IN)) {

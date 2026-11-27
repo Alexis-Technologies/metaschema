@@ -23,7 +23,7 @@ compatibility(changes); // 'full', 'backward', 'forward' or 'none'
 ## The model subpath
 
 The functions live outside the core entry, so that a program that only validates does not carry
-them: `@alexify/metaschema` is 21.7 KB min+gzip, `@alexify/metaschema/model` adds 12.8 KB on
+them: `@alexify/metaschema` is 22.0 KB min+gzip, `@alexify/metaschema/model` adds 12.9 KB on
 top. The subpath exports eight functions:
 
 | Export | Meaning |
@@ -68,7 +68,7 @@ The rules, the same on both [backends](/guide/compile):
   `serialize` reads the value of the program, which carries the field keys, and leaves it as it
   is.
 - An alias is a key of the struct: it cannot be a field, a calculated field or an alias of
-  another field, whatever the order of the definition (`ERR_INVALID_DEFINITION`). A nested
+  another field, whatever the order of the definition (`ALX_ERR_INVALID_DEFINITION`). A nested
   struct takes aliases through its `schema` shorthand or the long form
   (`address: { schema: { city: 'string' }, aliases: ['addr'] }`).
 - The [JSON Schema](/guide/json-schema), the [generated TypeScript](/guide/typescript) and
@@ -133,7 +133,7 @@ A `Model` is compared through its snapshot, built on every call: a registry serv
 compares many versions should keep the snapshots (`JSON.stringify(model)` at release time) and
 pass them to `diff`, rather than rebuild the models. A snapshot is input to `diff`, as it is
 to `fromJSON`: an entity that is not one (no `fields` of objects nor `type`, `relations` that
-are not a list) is `ERR_INVALID_SNAPSHOT` naming the entity; see
+are not a list) is `ALX_ERR_INVALID_SNAPSHOT` naming the entity; see
 [the snapshot as a trust boundary](/guide/model#the-snapshot-as-a-trust-boundary).
 
 ## `compatibility`
@@ -251,8 +251,8 @@ assert.ok(level === 'full' || level === 'backward', `the model is ${level} compa
 ```
 
 `compatibility` takes the list `diff` writes: an entry that is not a change (no `kind` or
-`op`, a `changed` without `detail.keys`) is `ERR_INVALID_TARGET`, and a definition inside a
-change that cannot be read (a bigint tag that does not read) is `ERR_INVALID_SNAPSHOT` located
+`op`, a `changed` without `detail.keys`) is `ALX_ERR_INVALID_TARGET`, and a definition inside a
+change that cannot be read (a bigint tag that does not read) is `ALX_ERR_INVALID_SNAPSHOT` located
 at the change.
 
 ## Boundaries

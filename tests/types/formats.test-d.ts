@@ -27,8 +27,8 @@ expectAssignable<FormatDefinition>({ test: (value: string) => value !== '', exam
 // The issue and the error codes of the subpath.
 expectAssignable<IssueCode>('format');
 expectType<{ format: string }>({} as IssueOf<'format'>['params']);
-expectAssignable<DefinitionErrorCode>('ERR_INVALID_FORMAT');
-expectAssignable<DefinitionErrorCode>('ERR_FORMAT_REGISTERED');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_INVALID_FORMAT');
+expectAssignable<DefinitionErrorCode>('ALX_ERR_FORMAT_REGISTERED');
 
 // The rule changes nothing of the inferred type: a formatted field is a string.
 const user = Schema.from({

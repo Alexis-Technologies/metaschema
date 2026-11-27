@@ -7,6 +7,166 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-27
+
+4.0 brings the errors of the package to the rules of the Alexis libraries (alexiskills 1.1).
+Every error code carries the `ALX_` prefix, and a wrong call throws a class of the package,
+`SchemaUsageError`, where it threw a plain `TypeError` (or a `SchemaDefinitionError`, for a
+wrong option of some calls). A program that matches on `error.code`, or on the `name` of the
+error of a call, changes; one that checks `instanceof TypeError` does not. A hook no longer
+fails the call it watches, and three defects of the async paths of 3.x are fixed. The schema
+language, `check`, `parse`, the results and their issue codes are what they were.
+
+### Upgrading from 3.x
+
+The same guide with before-and-after examples is
+[Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3).
+
+- **Every code has the `ALX_` prefix**, and what follows it is the name it had:
+  `ERR_INVALID_RULE` is `ALX_ERR_INVALID_RULE`, `ERR_NOT_REGISTERED` is
+  `ALX_ERR_NOT_REGISTERED`, and so for the 31 codes of `SchemaDefinitionError` and the 5 of a
+  wrong call. A search for `'ERR_` finds every comparison to change; `DefinitionErrorCode` and
+  `RuntimeErrorCode` hold the new names.
+- **A wrong call throws `SchemaUsageError`** (`ALX_ERR_ASYNC_VALIDATOR`,
+  `ALX_ERR_INVALID_TARGET`, `ALX_ERR_INVALID_OPTION`, `ALX_ERR_INVALID_RECORD`,
+  `ALX_ERR_NOT_REGISTERED`): `error.name` is `'SchemaUsageError'` where it was `'TypeError'`,
+  and `instanceof TypeError` holds as before.
+- **`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME`**, a
+  `SchemaUsageError`, where it rejected with a bare `Error`.
+- **Every option of a call is `ALX_ERR_INVALID_OPTION` of `SchemaUsageError`.** The options of
+  `compile` and `register` of the compile subpath, `toJSONSchema`, `fromJSONSchema`, `fromJSON`,
+  `merge`, `sample`, `infer`, the `Model` constructor and `register` of the coerce subpath threw
+  `SchemaDefinitionError` with `ERR_INVALID_OPTIONS` (`ERR_INVALID_COERCION` for coerce);
+  `ALX_ERR_INVALID_OPTIONS` is the code of the metadata of a definition only.
+- **The error classes take `(message, options = {})`**: a program that builds one writes
+  `new SchemaDefinitionError(message, { code })` where it wrote `(code, message)`. `error.cause`
+  is the standard one, not an own enumerable key (`JSON.stringify(error)` leaves it out).
+
+### Changed (breaking)
+
+- **Every error code is `ALX_ERR_*`**, as alexiskills 1.1 asks of the Alexis libraries (Fastify's
+  are `FST_ERR_*`): the codes of other packages and of Node pass through a program, and the
+  prefix tells the package's own apart. The names after it did not change.
+- **`SchemaUsageError`, a `TypeError`, is the error of a wrong call**, beside
+  `SchemaDefinitionError` for a broken definition. The core entry and
+  `@alexify/metaschema/definition` export it, `index.d.ts` declares it with `code:
+  RuntimeErrorCode` and the fields the errors carried in 3.x (`index`, `record` and `result` on
+  `ALX_ERR_INVALID_RECORD`, `method` on the `ALX_ERR_NOT_REGISTERED` of the definition entry).
+- **`saveTypes` of the browser build rejects with a code**, `ALX_ERR_UNSUPPORTED_RUNTIME`, new in
+  `RuntimeErrorCode`.
+- **An option of a call is a `SchemaUsageError` with `ALX_ERR_INVALID_OPTION` everywhere**, as
+  alexiskills asks of a wrong call ("one class per failure the caller handles differently"):
+  the options of the compile subpath, of the generators, of `fromJSON`, `merge`, `sample` and
+  `infer`, of `Model` and of `register` of the coerce subpath were `SchemaDefinitionError` with
+  `ALX_ERR_INVALID_OPTIONS` (`ALX_ERR_INVALID_COERCION`). The metadata of a definition keeps
+  `ALX_ERR_INVALID_OPTIONS`.
+- **The error classes take `(message, options = {})`, as `Error` does** (alexiskills 1.2):
+  `new SchemaDefinitionError(message, { code, cause, schema, field, index, seed })` and
+  `new SchemaUsageError(message, { code, cause, index, record, result, method })`, where
+  `SchemaDefinitionError` took `(code, reason)` in 3.x. `options` goes to `Error` whole, so `cause` is the standard one and set
+  only when given (the errors that wrapped another assigned it as an own enumerable key, and an
+  error of a snapshot that did not read lost the engine's error, which is its cause now). Every
+  field is set by the constructor, none afterwards. Without a code a `SchemaDefinitionError` is
+  `ALX_ERR_INVALID_DEFINITION` and a `SchemaUsageError` `ALX_ERR_INVALID_TARGET`; `code` is
+  `readonly` in the typings, and `DefinitionErrorOptions` and `UsageErrorOptions` type the
+  options.
+
+### Changed
+
+- **A hook never fails the call it watches.** `onFallback` of the compile subpath, `onError` of
+  the coerce subpath and `onUnsupported` of `fromJSONSchema` are observers (alexiskills,
+  library-errors): what one throws, or a promise of it that rejects, is dropped, where a
+  throwing `onFallback` made `new Schema` throw under `register()`. `onInvalid` of a stream
+  `transform` stays a step of the stream, and its throw ends it.
+- **`saveTypes` replaces the file whole.** It writes a file of its own beside the target and
+  renames it into place, so a reader (`tsc --watch`, an editor) never sees half a declaration
+  file and a write that fails leaves the old file as it was; it wrote the target in place.
+
+### Fixed
+
+- **An async validator that rejects while settle awaits an earlier one no longer ends the
+  process.** `checkAsync` and `parseAsync` keep the promises of the validators they meet and
+  await them in field order after the walk; a promise that rejected while an earlier one was
+  still pending had no handler yet, so Node reported an unhandled rejection and exited (since
+  3.2, whose settle overlaps the waits). Every promise is now observed as soon as it is met, and
+  its rejection is the `exception` issue of its field, as it always was once awaited.
+- **The `validate` of a merged field no longer leaves a rejecting promise behind.** When the
+  first of the two validators `merge` composes returned a promise and the second threw, the
+  first's promise rejected unhandled (since 3.1); it is observed before the second runs.
+- **`checkEachAsync` and `parseEachAsync` read a record with a `then` of its own as the record.**
+  Over a sync source, `for await` adopted every thenable, so a record with a field named `then`
+  holding a function came out as what that function resolved to (since 3.2). The async pair now
+  awaits an element of a sync source only when it is a `Promise`, as documented, and a sync
+  generator it stops early is still closed.
+
+### Documentation
+
+- **Each error class has its table.** The API reference has a section for `SchemaUsageError`
+  beside the one of `SchemaDefinitionError`, with the fields and the six codes, and a test holds
+  the source, the two unions of `index.d.ts` and the two tables to one set of codes, throws every
+  code of a wrong call once to see its class, and fails on a code without the prefix.
+- **Migrating from 3.x**, a page of the guide, and "From 3.x" in the README.
+- **The public API is documented as JSDoc in the `.d.ts`**, which an editor shows on hover:
+  222 `//` comments over declarations became `/** */` blocks, and `Schema`, `Model`,
+  `ValidationResult`, `SchemaDefinitionError` and the options types got the ones they lacked.
+- **"At a trust boundary"** in the guide to parse: the four defaults a boundary sets otherwise
+  (`maxErrors`, the async validators a walk starts, a pattern without `length.max`, the text of
+  an `exception` issue).
+
+### Tooling
+
+- **The agent skills are alexiskills.** `@alexify/metaskills` 1.2.0, a devDependency, links its
+  37 skills into `.claude/skills` from the `prepare` script (`alexiskills claude`) on every
+  `pnpm install`, and `.gitignore` leaves the link out. The seven skills of metarhia/metaskills
+  1.0.5 the repository kept there are gone; what two of them said of metaschema alone (the steps
+  of a release, the code style) is in CLAUDE.md. Nothing of it ships: the `files` of the package
+  are what they were.
+- **The lint rules of alexiskills, and `src/` brought to them.**
+  - New rules: `func-style`, `no-nested-ternary`, `max-depth` and a strict `eqeqeq` (`null`
+    included) everywhere; in `src/` every array iteration method, the unicorn rules and
+    `max-lines-per-function`.
+  - The code changed for them: 31 loose comparisons with `null`, 16 nested ternaries,
+    3 `Object.entries`, 14 `let` without a value, three membership lists made Sets, three sorts
+    written as statements, three long functions split.
+  - No behaviour changed: the suites pass on both backends and without eval. The core measures
+    22298 bytes (21.8 KB, +74), and `check`, `parse` and the moltar rows are at parity or faster.
+- **alexiskills 1.1.**
+  - The lint turns `no-void` off and reports unused disable directives as errors.
+  - `src/` follows it: 35 call-then-return pairs are `return void fn()`, 17 `String(value)` of
+    values that cannot be symbols are template literals (four stay, where a key or a value may
+    be one), and the last `Object.values` and array destructuring are gone.
+  - The 55 suites are `describe` and `it('should …')` with `node:assert/strict`: 590 tests,
+    the same as before, under new titles, and six more for the error codes.
+  - No behaviour changed. The core measures 22319 bytes (+21), and the bench is at parity.
+- **CI tests Node 18.12.0**, the lowest version pnpm 10 runs on, where it tested the latest
+  18.x; `engines` stays `>=18.0.0`, and the suite passes on 18.12.0. alexiskills 1.1.1 asks for
+  exactly that.
+- **alexiskills 1.1.2.** It allows `for...of` and `for...in` in library code, as `src/` was
+  written. It also asks a loop that replaced an array method to skip the holes of a caller's
+  array. No loop of these changes replaced one, and a list with holes (an `enum`, a tuple, a
+  union, `flags`, `aliases`, an index, an array value, the records of a stream, the keys of
+  `pick`, the changes of `compatibility`) gives what it gave in 3.4.1 on both backends.
+- **alexiskills 1.2.0.** Every error class of a library takes `(message, options = {})`, and
+  metaschema's do (see Changed (breaking)); the skills describe metaschema 4.0.
+- **The review against alexiskills 1.1.2** (no behaviour changed beyond what Fixed and Changed
+  say):
+  - `src/` keeps the order of a module (constants, functions, classes, exports in that order),
+    `concat` for a concatenation, `{ __proto__: null, ... }` for a fixed table, a `Set` for a
+    membership list, a `let` of one kind, named steps where an expression wrapped, tables for
+    two dispatchers, names with their units, and kebab-case files (`json-schema.js`,
+    `from-json-schema.js`). An A/B of the `check` and `parse` rows against the commit before is
+    at parity (median −0.8%); the `checkAsync` rows with promises pay the fix of settle (one
+    rejection handler per promise: −8% on four resolved promises, −15% on the JIT).
+  - The tests bound linearity relative to an input of an eighth of the size, not in
+    milliseconds, wait on `setImmediate` rather than timers, read the entries of
+    `export-parity` from the `exports` map and hold every subpath to a size row and a gate.
+  - `package.json` says `"type": "commonjs"`, leaves `CLAUDE.md` out of the tarball, and has no
+    `release` script: a release runs `pnpm publish`.
+  - The coerce subpath's gate is 3 KB: the observer guard took it to 2027 bytes, 21 under the
+    2 KB gate (2049 at the end of the review); the core measures 22402 bytes (21.9 KB).
+- **The core gate is 23 KB.** The error classes of alexiskills 1.2 write every code as an
+  option, which took the core to 22508 bytes (22.0 KB), 20 under the 22 KB gate.
+
 ## [3.4.1] - 2026-11-24
 
 3.4.1 settles what a capitalized key is. Until now the first key of an object was a kind
@@ -1642,7 +1802,8 @@ published.
 
 ### [metaschema 0.x][upstream-0.x] - First generation of metaschema
 
-[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.1...HEAD
+[unreleased]: https://github.com/Alexis-Technologies/metaschema/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.1...v4.0.0
 [3.4.1]: https://github.com/Alexis-Technologies/metaschema/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.3.0...v3.4.0
 [3.3.0]: https://github.com/Alexis-Technologies/metaschema/compare/v3.2.0...v3.3.0

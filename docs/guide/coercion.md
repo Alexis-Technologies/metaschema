@@ -49,16 +49,16 @@ shorthand `address: { city: 'string', coerce: false }` the key would be a field.
 
 The core has the policy and the step; the converters are those of the
 `@alexify/metaschema/coerce` subpath, which `register()` installs. A parse that coerces (by the
-call, the kind metadata or a field's own `coerce: true`) before that is a `TypeError` with
-`code: 'ERR_NOT_REGISTERED'`, thrown as the pass enters the schema, whatever the value holds:
+call, the kind metadata or a field's own `coerce: true`) before that is a `SchemaUsageError` with
+`code: 'ALX_ERR_NOT_REGISTERED'`, thrown as the pass enters the schema, whatever the value holds:
 an empty body in a test does not hide a missing `register()` from the program. A schema with
 `coerce` builds without it, and a parse that does not coerce never needs it.
 
 `register(custom)` also takes converters of the program's own, by type name, for its custom
 types (below), and installs `schema.coerce(value)`. It runs once per name, process-wide, like
 the type registry, and checks every entry before it writes any; another function under a
-registered name is `ERR_COERCION_REGISTERED`, a name that does not start with a lowercase letter
-(the names of types do) or an entry that is not a function `ERR_INVALID_COERCION`.
+registered name is `ALX_ERR_COERCION_REGISTERED`, a name that does not start with a lowercase letter
+(the names of types do) or an entry that is not a function `ALX_ERR_INVALID_COERCION`.
 
 ## What is converted
 

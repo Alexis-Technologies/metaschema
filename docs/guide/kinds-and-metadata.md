@@ -76,7 +76,7 @@ signup.check({ login: 'a', password: 'b', remember: true }, { unknown: 'reject' 
 // [ 'Field "Signup" has unexpected keys: remember' ]
 ```
 
-Any other value throws `ERR_INVALID_OPTIONS` when the schema is built.
+Any other value throws `ALX_ERR_INVALID_OPTIONS` when the schema is built.
 
 ## Custom kinds
 

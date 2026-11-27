@@ -7,7 +7,7 @@
 // `unrepresentable: 'any'`.
 const { hasBrand, define } = require('../util.js');
 const { isStruct } = require('../struct.js');
-const { SchemaDefinitionError } = require('../errors.js');
+const { SchemaDefinitionError, SchemaUsageError } = require('../errors.js');
 const { embeds } = require('../prototypes/reference.js');
 const { FORMATS } = require('../rules.js');
 const { idFieldOf } = require('../kinds.js');
@@ -19,7 +19,8 @@ const { baseTypeOf } = require('../types.js');
 // annotations pass through and whether the strict profile applies. The
 // tables of this file are null-prototype dictionaries: a type or a target is
 // looked up by a name that may be `constructor`.
-const TARGETS = Object.assign(Object.create(null), {
+const TARGETS = {
+  __proto__: null,
   'draft-2020-12': {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     definitions: '#/$defs/',
@@ -51,19 +52,12 @@ const TARGETS = Object.assign(Object.create(null), {
     tuple: 'items',
     annotations: ['title', 'description'],
   },
-});
+};
 
 const TARGET_NAMES = Object.keys(TARGETS);
 
 // BSON type names where they differ from the JSON Schema ones.
-const BSON = Object.assign(Object.create(null), {
-  boolean: 'bool',
-  integer: ['int', 'long'],
-  bigint: 'long',
-});
-
-// The name of an entity inside a JSON pointer (RFC 6901) in a URI fragment.
-const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
+const BSON = { __proto__: null, boolean: 'bool', integer: ['int', 'long'], bigint: 'long' };
 
 // The keys of a JSON object are strings, so a number key is a pattern.
 const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
@@ -71,7 +65,13 @@ const NUMBER_KEY = '^-?\\d+(\\.\\d+)?$';
 // The key every stored MongoDB document has.
 const ID = '_id';
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+const STANDARD_TARGETS = new Set(['draft-2020-12', 'draft-07', 'openapi-3.0']);
+
+// The name of an entity inside a JSON pointer (RFC 6901) in a URI fragment.
+const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 const option = (options, name, allowed) => {
   const value = options[name];
@@ -82,7 +82,7 @@ const option = (options, name, allowed) => {
       list += `${index === 0 ? '' : ', '}${JSON.stringify(allowed[index])}`;
     }
     const got = JSON.stringify(value);
-    throw invalidOptions(`JSON Schema option "${name}" must be one of ${list}, got ${got}`);
+    throw wrongOption(`JSON Schema option "${name}" must be one of ${list}, got ${got}`);
   }
   return value;
 };
@@ -97,7 +97,7 @@ const isPointer = (value) =>
 // the location of an error).
 const createContext = (options, unknown) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions('JSON Schema options must be an object');
+    throw wrongOption('JSON Schema options must be an object');
   }
   const name = option(options, 'target', TARGET_NAMES);
   const target = TARGETS[name];
@@ -107,25 +107,21 @@ const createContext = (options, unknown) => {
   const { profile, definitions = target.definitions } = options;
   if (profile !== undefined && profile !== 'strict') {
     const got = JSON.stringify(profile);
-    throw invalidOptions(`JSON Schema option "profile" must be "strict", got ${got}`);
+    throw wrongOption(`JSON Schema option "profile" must be "strict", got ${got}`);
   }
   const strict = profile === 'strict';
   if (strict && target.strict !== true) {
-    throw invalidOptions(
-      `Profile "strict" needs target "draft-2020-12" or "draft-07", got "${name}"`,
-    );
+    throw wrongOption(`Profile "strict" needs target "draft-2020-12" or "draft-07", got "${name}"`);
   }
   const mongo = name === 'mongodb';
   // The ids of stored records as MongoDB holds them (the ./mongodb subpath
   // writes them so): an ObjectId under `_id`, and in every reference.
   const objectIds = option(options, 'ids', ['string', 'objectId']) === 'objectId';
   if (objectIds && !mongo) {
-    throw invalidOptions(
-      `JSON Schema option "ids" "objectId" needs target "mongodb", got "${name}"`,
-    );
+    throw wrongOption(`JSON Schema option "ids" "objectId" needs target "mongodb", got "${name}"`);
   }
   if (!mongo && !isPointer(definitions)) {
-    throw invalidOptions('JSON Schema option "definitions" must be a pointer such as "#/$defs/"');
+    throw wrongOption('JSON Schema option "definitions" must be a pointer such as "#/$defs/"');
   }
   return {
     name,
@@ -151,7 +147,7 @@ const createContext = (options, unknown) => {
 const unrepresentable = (context, what) => {
   if (context.any) return {};
   const reason = `${what} cannot be represented in JSON Schema target "${context.name}"`;
-  throw new SchemaDefinitionError('ERR_UNREPRESENTABLE', reason);
+  throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNREPRESENTABLE' });
 };
 
 const typed = (name, context) =>
@@ -268,7 +264,7 @@ const enumeration = (field, context) => {
   const copy = [];
   for (let index = 0; index < values.length; index += 1) {
     const value = values[index];
-    if (!isJSON(value)) return unrepresentable(context, `Enum value ${String(value)}`);
+    if (!isJSON(value)) return unrepresentable(context, `Enum value ${value}`);
     copy.push(value);
   }
   if (copy.length === 1 && context.target.const === true) return { const: copy[0] };
@@ -317,19 +313,20 @@ const union = (field, context) => {
 // the record for a memory kind, `embed` on the field and the `references`
 // option deciding otherwise. A target that cannot be resolved is held as
 // an id, as the dts does, unless the field embeds it.
-const reference = (field, context) => {
+const referenceOf = (field, context) => {
   const name = field.type;
   const target = field.root.findReference(name);
-  let json;
   const id = context.objectIds ? { bsonType: 'objectId' } : typed('string', context);
   if (target === null) {
-    if (field.embed === true) json = unrepresentable(context, `Reference "${name}" (embed)`);
-    else json = id;
-  } else if (!embeds(target, field.embed, context.references)) {
-    json = id;
-  } else {
-    json = definition(target, name, context);
+    if (field.embed === true) return unrepresentable(context, `Reference "${name}" (embed)`);
+    return id;
   }
+  if (!embeds(target, field.embed, context.references)) return id;
+  return definition(target, name, context);
+};
+
+const reference = (field, context) => {
+  const json = referenceOf(field, context);
   return field.many === undefined ? json : { [context.key]: 'array', items: json };
 };
 
@@ -354,7 +351,8 @@ const definition = (schema, name, context) => {
   return { $ref: context.prefix + escapePointer(name) };
 };
 
-const RENDER = Object.assign(Object.create(null), {
+const RENDER = {
+  __proto__: null,
   string: (field, context) => {
     const json = typed('string', context);
     if (context.strict) return json;
@@ -428,7 +426,7 @@ const RENDER = Object.assign(Object.create(null), {
   reference,
   one: reference,
   many: reference,
-});
+};
 
 // The built-in type a field validates as: its own, or the one its alias
 // chain ends in.
@@ -517,9 +515,7 @@ const renderSchema = (schema, context, root = false) => {
 const renderRoot = (schema, context) => {
   context.closed = context.strict || schema.unknown !== 'ignore';
   if (context.strict && !isStruct(schema.fields)) {
-    throw invalidOptions(
-      `Profile "strict" needs a struct at the root, got "${schema.fields.type}"`,
-    );
+    throw wrongOption(`Profile "strict" needs a struct at the root, got "${schema.fields.type}"`);
   }
   const json = renderSchema(schema, context, true);
   // Every stored document has an `_id`; a closed mongodb root must let it in.
@@ -570,11 +566,11 @@ const modelToJSONSchema = (model, options = {}) => {
   const { root, ...rest } = options;
   if (root !== undefined) {
     const entity = model.entities.get(root);
-    if (entity === undefined) throw invalidOptions(`Entity "${root}" is not in the model`);
+    if (entity === undefined) throw wrongOption(`Entity "${root}" is not in the model`);
     return toJSONSchema(entity, rest);
   }
   const context = createContext(rest, 'reject');
-  if (context.strict) throw invalidOptions('Profile "strict" needs a root entity');
+  if (context.strict) throw wrongOption('Profile "strict" needs a root entity');
   const { entities, order } = model;
   const documents = new Map();
   for (const name of order) documents.set(name, null);
@@ -587,16 +583,14 @@ const modelToJSONSchema = (model, options = {}) => {
   return place({}, context);
 };
 
-const STANDARD_TARGETS = ['draft-2020-12', 'draft-07', 'openapi-3.0'];
-
 // The converter of Standard JSON Schema: `input` and `output` take the
 // target (one of the three JSON ones) and the other options as
 // `libraryOptions`.
 const standardConverter = (schema) => {
   const convert = (io) => (options) => {
     const target = options === null || typeof options !== 'object' ? undefined : options.target;
-    if (!STANDARD_TARGETS.includes(target)) {
-      throw invalidOptions(`JSON Schema target ${JSON.stringify(target)} is not supported`);
+    if (!STANDARD_TARGETS.has(target)) {
+      throw wrongOption(`JSON Schema target ${JSON.stringify(target)} is not supported`);
     }
     return toJSONSchema(schema, { ...options.libraryOptions, target, io });
   };

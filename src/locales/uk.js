@@ -2,6 +2,10 @@
 // check as `messages`: `schema.check(value, { messages: uk })`.
 const { shorten, safeString } = require('../util.js');
 
+// Перші ключі списку і скільки їх ще: значення з мільйоном невідомих ключів
+// є одним issue, і його повідомлення не є цим мільйоном.
+const SHOWN_KEYS = 10;
+
 const field = (path) => `Поле "${path}"`;
 
 const required = () => 'є обовʼязковим';
@@ -9,15 +13,11 @@ const required = () => 'є обовʼязковим';
 const type = ({ expected, key }) =>
   key === undefined ? `не відповідає типу: ${expected}` : `ключі мають бути типу ${expected}`;
 
-// Перші ключі списку і скільки їх ще: значення з мільйоном невідомих ключів
-// є одним issue, і його повідомлення не є цим мільйоном.
-const SHOWN = 10;
-
 const list = (keys) => {
-  const count = Math.min(keys.length, SHOWN);
+  const count = Math.min(keys.length, SHOWN_KEYS);
   let text = shorten(keys[0]);
   for (let index = 1; index < count; index += 1) text += `, ${shorten(keys[index])}`;
-  return keys.length > SHOWN ? `${text} і ще ${keys.length - SHOWN}` : text;
+  return keys.length > SHOWN_KEYS ? `${text} і ще ${keys.length - SHOWN_KEYS}` : text;
 };
 
 const unexpected = ({ keys }) => `має неочікувані ключі: ${list(keys)}`;

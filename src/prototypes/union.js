@@ -1,6 +1,7 @@
 const { SchemaDefinitionError } = require('../errors.js');
 
-const invalidUnion = (reason) => new SchemaDefinitionError('ERR_INVALID_UNION', `Union ${reason}`);
+const invalidUnion = (reason) =>
+  new SchemaDefinitionError(`Union ${reason}`, { code: 'ALX_ERR_INVALID_UNION' });
 
 // The values of the discriminator field of a branch: the branch must be a
 // struct whose field of that name is an enum, so the branch is known from
@@ -20,16 +21,16 @@ const union = {
   kind: 'struct',
   options: ['union', 'discriminator'],
 
-  construct(def, prep) {
+  construct(def, preprocessor) {
     const branches = def.union;
     if (!Array.isArray(branches) || branches.length === 0) {
       throw invalidUnion('needs a list of branches: { union: [...] }');
     }
     const built = [];
     for (let index = 0; index < branches.length; index += 1) {
-      const { Type, defs } = prep.parse(branches[index]);
+      const { Type, defs } = preprocessor.parse(branches[index]);
       if (!Type) throw invalidUnion(`branch ${index} cannot be a function`);
-      built.push(new Type(defs, prep));
+      built.push(new Type(defs, preprocessor));
     }
     this.union = built;
     const { discriminator } = this;

@@ -2,7 +2,7 @@ const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidFlags = (type) => {
   const hint = `Type "${type}" needs a list of distinct names: { ${type}: ['read', 'write'] }`;
-  return new SchemaDefinitionError('ERR_INVALID_DEFINITION', hint);
+  return new SchemaDefinitionError(hint);
 };
 
 // A set of named switches: an object whose keys are names of the list, each

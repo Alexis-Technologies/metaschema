@@ -9,9 +9,9 @@ const { invalidTarget } = require('../errors.js');
 const { Schema } = require('../validation.js');
 const { Model } = require('../model.js');
 const { writeFile } = require('../runtime/node.js');
-const generators = require('./jsonschema.js');
+const generators = require('./json-schema.js');
 const typescript = require('./typescript.js');
-const { fromJSONSchema } = require('./fromjsonschema.js');
+const { fromJSONSchema } = require('./from-json-schema.js');
 
 const isModel = (target) => {
   if (hasBrand(target, 'Schema')) return false;

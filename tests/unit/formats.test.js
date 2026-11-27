@@ -1,5 +1,5 @@
-const { test } = require('node:test');
-const assert = require('node:assert');
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
 
 const { Schema, Model } = require('../../index.js');
 const { FORMATS, register } = require('../../src/formats/index.js');
@@ -10,13 +10,14 @@ const { fullFormats } = require('ajv-formats/dist/formats.js');
 const z = require('zod');
 const v = require('valibot');
 const uk = require('../../src/locales/uk.js');
+const { assertLinear } = require('../helpers/linear.js');
 
 // A schema of one formatted field, and a copy on the other backend.
 const pair = (format, extra = {}) => {
   const definition = { s: { type: 'string', format, ...extra } };
   const a = new Schema('S', definition);
   const b = new Schema('S', definition);
-  assert.strictEqual(compile(b, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
+  assert.equal(compile(b, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
   return [a, b];
 };
 
@@ -367,562 +368,564 @@ const NAMES = [
 ];
 const NOT_INFERRED = NAMES.slice(NAMES.indexOf('hostname'));
 
-test('Formats: the rule needs a registered format, and register() fills the table once', () => {
-  assert.deepStrictEqual(Object.keys(FORMATS), []);
-  assert.throws(() => Schema.from({ s: { type: 'string', format: 'email' } }), {
-    name: 'SchemaDefinitionError',
-    code: 'ERR_INVALID_RULE',
-    message:
-      'Rule "format" names a format that is not registered: "email" (register() of @alexify/metaschema/formats) in "s"',
-  });
-  assert.throws(() => Schema.from({ s: { type: 'string', format: /email/ } }), {
-    code: 'ERR_INVALID_RULE',
-    message: 'Rule "format" needs the name of a format in "s"',
-  });
-  // The call names the built-in formats it replaced: none here.
-  assert.deepStrictEqual(register(), []);
-  const names = NAMES;
-  assert.deepStrictEqual(Object.keys(FORMATS), names);
-  for (const name of names) {
-    const entry = FORMATS[name];
-    assert.strictEqual(Object.isFrozen(entry), true, name);
-    assert.strictEqual(typeof entry.test, 'function', name);
-    assert.ok(entry.examples.length >= 2, name);
-    assert.strictEqual(Object.isFrozen(entry.examples), true, name);
-    for (const example of entry.examples) assert.strictEqual(entry.test(example), true, example);
-    assert.strictEqual(entry.infer, !NOT_INFERRED.includes(name), name);
-    // The pattern of the export is a shape: it never rejects what the test
-    // accepts.
-    if (entry.pattern !== undefined) {
-      const shape = new RegExp(entry.pattern, 'u');
-      for (const example of entry.examples) assert.ok(shape.test(example), `${name} ${example}`);
-    }
-  }
-  // Once: the same table, the same entries.
-  const before = names.map((name) => FORMATS[name]);
-  register();
-  assert.deepStrictEqual(Object.keys(FORMATS), names);
-  assert.deepStrictEqual(
-    names.map((name) => FORMATS[name]),
-    before,
-  );
-  // A format is a rule of strings only, and a known option (no lint warning).
-  assert.throws(() => Schema.from({ n: { type: 'number', format: 'email' } }), {
-    code: 'ERR_INVALID_RULE',
-    message: 'Rule "format" does not apply to type "number" in "n"',
-  });
-  assert.throws(() => Schema.from({ s: { type: 'string', format: 'phone' } }), {
-    code: 'ERR_INVALID_RULE',
-  });
-  assert.deepStrictEqual(Schema.from({ s: { type: 'string', format: 'email' } }).warnings, []);
-  assert.strictEqual(
-    Schema.from({ s: { type: 'string', format: 'email' } }).fields.s.format,
-    'email',
-  );
-});
-
-test('Formats: every built-in format accepts its values and rejects the others, on both backends', () => {
-  register();
-  for (const [name, { valid, invalid }] of Object.entries(TABLE)) {
-    const schemas = pair(name);
-    const ajv = ajvOf(name);
-    for (const value of valid) {
-      for (const schema of schemas) {
-        assert.strictEqual(schema.check({ s: value }).valid, true, `${name}: ${value}`);
-      }
-      assert.strictEqual(ajv(value), true, `ajv-formats rejects ${name} ${JSON.stringify(value)}`);
-    }
-    for (const value of invalid) {
-      for (const schema of schemas) {
-        assert.deepStrictEqual(
-          schema.check({ s: value }).errors,
-          [`Field "S.s" is not a valid ${name}`],
-          `${name}: ${value}`,
-        );
-      }
-      assert.strictEqual(ajv(value), false, `ajv-formats accepts ${name} ${JSON.stringify(value)}`);
-    }
-    // A value of another type is a type issue, never a format one.
-    for (const schema of schemas) {
-      assert.deepStrictEqual(schema.check({ s: 42 }).errors, [
-        'Field "S.s" not of expected type: string',
-      ]);
-    }
-  }
-});
-
-test('Formats: the formats of 3.3 agree with another library, but where they differ on purpose', async () => {
-  register();
-  // ArkType generates code: its verdicts are read where that is allowed.
-  if (canEval()) {
-    const { type } = await import('arktype');
-    const semver = type('string.semver');
-    MORE.semver.oracle = (text) => !(semver(text) instanceof type.errors);
-  }
-  for (const [name, { oracle, valid, invalid, pinned = [] }] of Object.entries(MORE)) {
-    const schemas = pair(name);
-    const pattern = FORMATS[name].pattern;
-    const shape = pattern === undefined ? null : new RegExp(pattern, 'u');
-    for (const value of valid) {
-      for (const schema of schemas) {
-        assert.strictEqual(schema.check({ s: value }).valid, true, `${name}: ${value}`);
-      }
-      if (oracle !== null) {
-        assert.strictEqual(oracle(value), true, `the oracle of ${name}: ${value}`);
-      }
-      if (shape !== null) assert.ok(shape.test(value), `the pattern of ${name}: ${value}`);
-    }
-    for (const value of invalid) {
-      for (const schema of schemas) {
-        assert.deepStrictEqual(
-          schema.check({ s: value }).errors,
-          [`Field "S.s" is not a valid ${name}`],
-          `${name}: ${value}`,
-        );
-      }
-      if (oracle !== null) {
-        assert.strictEqual(oracle(value), false, `the oracle of ${name}: ${value}`);
-      }
-    }
-    for (const value of pinned) {
-      const ours = FORMATS[name].test(value);
-      assert.notStrictEqual(ours, oracle(value), `${name} agrees on ${JSON.stringify(value)}`);
-    }
-  }
-});
-
-test('Formats: the issue, both locales, the order of the rules and the bound of length.max', () => {
-  register();
-  const [schema] = pair('email', { length: { min: 2, max: 20 }, pattern: /^[a-z@.]+$/ });
-  const result = schema.check({ s: 'A@' });
-  assert.deepStrictEqual(result.issues, [
-    {
-      code: 'pattern',
-      path: ['s'],
-      message: 'does not match the pattern ^[a-z@.]+$',
-      params: { pattern: '^[a-z@.]+$' },
-    },
-    { code: 'format', path: ['s'], message: 'is not a valid email', params: { format: 'email' } },
-  ]);
-  assert.deepStrictEqual(schema.check({ s: 'A@' }, { messages: uk }).errors, [
-    'Поле "S.s" не відповідає шаблону ^[a-z@.]+$',
-    'Поле "S.s" не є коректним email',
-  ]);
-  assert.deepStrictEqual(
-    schema.check({ s: 'A@' }, { maxErrors: 1 }).issues.map((issue) => issue.code),
-    ['pattern'],
-  );
-  // Too short: length, then the pattern and the format over a short string.
-  assert.deepStrictEqual(
-    schema.check({ s: 'A' }).issues.map((issue) => issue.code),
-    ['length', 'pattern', 'format'],
-  );
-  // Past length.max neither the pattern nor the format is run.
-  const calls = [];
-  register({ counted: { test: (value) => calls.push(value) > 0, examples: ['x'], infer: false } });
-  const [bounded] = pair('counted', { length: { max: 4 } });
-  assert.deepStrictEqual(
-    bounded.check({ s: 'abcde' }).issues.map((issue) => issue.code),
-    ['length'],
-  );
-  assert.deepStrictEqual(calls, []);
-  assert.strictEqual(bounded.check({ s: 'abcd' }).valid, true);
-  assert.deepStrictEqual(calls, ['abcd']);
-  // The validate function runs after the format, on a value that passed it.
-  const checked = Schema.from({
-    s: {
-      type: 'string',
-      format: 'email',
-      validate: (value) => !value.endsWith('.test') || 'is a test address',
-    },
-  });
-  assert.deepStrictEqual(checked.check({ s: 'ann@example.test' }).errors, [
-    'Field "s" is a test address',
-  ]);
-  assert.deepStrictEqual(checked.check({ s: 'nope' }).errors, ['Field "s" is not a valid email']);
-  // An optional or nullable formatted field.
-  const optional = Schema.from({
-    's?': { type: 'string', format: 'uuid' },
-    n: { type: 'string', format: 'uuid', nullable: true },
-  });
-  assert.strictEqual(optional.check({ n: null }).valid, true);
-  assert.strictEqual(optional.check({ s: null, n: null }).valid, true);
-  assert.strictEqual(optional.check({ s: 'x', n: null }).valid, false);
-});
-
-test('Formats: the program registers its own, once per name', () => {
-  register();
-  const phone = { test: (value) => /^\+\d{9,15}$/.test(value), examples: ['+380501234567'] };
-  register({ phone });
-  const schema = Schema.from({ s: { type: 'string', format: 'phone' } });
-  assert.strictEqual(schema.check({ s: '+380501234567' }).valid, true);
-  assert.deepStrictEqual(schema.check({ s: '050' }).errors, ['Field "s" is not a valid phone']);
-  assert.strictEqual(FORMATS.phone.infer, true);
-  // The same test again is nothing; another test under a name the program
-  // registered is an error (a built-in name is formats-override.test.js's).
-  register({ phone });
-  assert.throws(() => register({ phone: { test: () => true, examples: ['x'] } }), {
-    code: 'ERR_FORMAT_REGISTERED',
-    message: 'Format "phone" is already registered with another test',
-  });
-  assert.strictEqual(schema.check({ s: '050' }).valid, false);
-  // What is not a format.
-  const bad = [
-    ['phone2', null, 'Format "phone2" needs { test, examples }'],
-    ['phone2', { examples: ['x'] }, 'Format "phone2" needs a test function'],
-    ['phone2', { test: () => true }, 'Format "phone2" needs a list of example strings'],
-    [
-      'phone2',
-      { test: () => true, examples: [] },
-      'Format "phone2" needs a list of example strings',
-    ],
-    [
-      'phone2',
-      { test: () => true, examples: [1] },
-      'Format "phone2" needs a list of example strings',
-    ],
-    [
-      'phone2',
-      { test: () => true, examples: ['x'], infer: 1 },
-      'Format "phone2" needs a boolean infer',
-    ],
-    ['', { test: () => true, examples: ['x'] }, 'Format "" needs a name'],
-  ];
-  for (const [name, entry, message] of bad) {
-    assert.throws(() => register({ [name]: entry }), {
+describe('Formats', () => {
+  it('should require a registered format for the rule, and fill the table once with register()', () => {
+    assert.deepEqual(Object.keys(FORMATS), []);
+    assert.throws(() => Schema.from({ s: { type: 'string', format: 'email' } }), {
       name: 'SchemaDefinitionError',
-      code: 'ERR_INVALID_FORMAT',
-      message,
+      code: 'ALX_ERR_INVALID_RULE',
+      message:
+        'Rule "format" names a format that is not registered: "email" (register() of @alexify/metaschema/formats) in "s"',
     });
-    assert.strictEqual(FORMATS.phone2, undefined);
-  }
-  assert.throws(() => register(null), { code: 'ERR_INVALID_FORMAT' });
-  assert.throws(() => register('phone'), { code: 'ERR_INVALID_FORMAT' });
-  // A name is a key of a table without a prototype.
-  const odd = Object.defineProperty({}, '__proto__', {
-    value: { test: (value) => value === 'p', examples: ['p'] },
-    enumerable: true,
-  });
-  register(odd);
-  assert.strictEqual(Object.hasOwn(FORMATS, '__proto__'), true);
-  assert.strictEqual(
-    Schema.from({ s: { type: 'string', format: '__proto__' } }).check({ s: 'p' }).valid,
-    true,
-  );
-  register({ constructor: { test: (value) => value === 'c', examples: ['c'] } });
-  assert.strictEqual(Object.hasOwn(FORMATS, 'constructor'), true);
-  assert.strictEqual(
-    Schema.from({ s: { type: 'string', format: 'constructor' } }).check({ s: 'c' }).valid,
-    true,
-  );
-});
-
-test('Formats: JSON Schema writes the format and reads a registered one back', () => {
-  register();
-  const schema = Schema.from({
-    email: { type: 'string', format: 'email', length: { max: 64 } },
-    'site?': { type: 'string', format: 'uri' },
-  });
-  for (const target of ['draft-2020-12', 'draft-07', 'openapi-3.0']) {
-    const json = toJSONSchema(schema, { target });
-    assert.deepStrictEqual(
-      json.properties.email,
-      { type: 'string', maxLength: 64, format: 'email' },
-      target,
+    assert.throws(() => Schema.from({ s: { type: 'string', format: /email/ } }), {
+      code: 'ALX_ERR_INVALID_RULE',
+      message: 'Rule "format" needs the name of a format in "s"',
+    });
+    // The call names the built-in formats it replaced: none here.
+    assert.deepEqual(register(), []);
+    const names = NAMES;
+    assert.deepEqual(Object.keys(FORMATS), names);
+    for (const name of names) {
+      const entry = FORMATS[name];
+      assert.equal(Object.isFrozen(entry), true, name);
+      assert.equal(typeof entry.test, 'function', name);
+      assert.ok(entry.examples.length >= 2, name);
+      assert.equal(Object.isFrozen(entry.examples), true, name);
+      for (const example of entry.examples) assert.equal(entry.test(example), true, example);
+      assert.equal(entry.infer, !NOT_INFERRED.includes(name), name);
+      // The pattern of the export is a shape: it never rejects what the test
+      // accepts.
+      if (entry.pattern !== undefined) {
+        const shape = new RegExp(entry.pattern, 'u');
+        for (const example of entry.examples) assert.ok(shape.test(example), `${name} ${example}`);
+      }
+    }
+    // Once: the same table, the same entries.
+    const before = names.map((name) => FORMATS[name]);
+    register();
+    assert.deepEqual(Object.keys(FORMATS), names);
+    assert.deepEqual(
+      names.map((name) => FORMATS[name]),
+      before,
     );
-  }
-  assert.deepStrictEqual(toJSONSchema(schema, { target: 'mongodb' }).properties.email, {
-    bsonType: 'string',
-    maxLength: 64,
+    // A format is a rule of strings only, and a known option (no lint warning).
+    assert.throws(() => Schema.from({ n: { type: 'number', format: 'email' } }), {
+      code: 'ALX_ERR_INVALID_RULE',
+      message: 'Rule "format" does not apply to type "number" in "n"',
+    });
+    assert.throws(() => Schema.from({ s: { type: 'string', format: 'phone' } }), {
+      code: 'ALX_ERR_INVALID_RULE',
+    });
+    assert.deepEqual(Schema.from({ s: { type: 'string', format: 'email' } }).warnings, []);
+    assert.equal(Schema.from({ s: { type: 'string', format: 'email' } }).fields.s.format, 'email');
   });
-  assert.deepStrictEqual(toJSONSchema(schema, { profile: 'strict' }).properties.email, {
-    type: 'string',
-  });
-  // Back: a registered format is the rule, any other the annotation it was.
-  const document = toJSONSchema(schema);
-  assert.deepStrictEqual(fromJSONSchema(document), {
-    Struct: {},
-    email: { type: 'string', length: { min: undefined, max: 64 }, format: 'email' },
-    site: { type: 'string', format: 'uri', required: false },
-  });
-  assert.deepStrictEqual(
-    fromJSONSchema({
-      type: 'object',
-      properties: { x: { type: 'string', format: 'int32' } },
-      required: ['x'],
-      additionalProperties: false,
-    }),
-    { Struct: {}, x: 'string' },
-  );
-  assert.deepStrictEqual(
-    fromJSONSchema({
-      type: 'object',
-      properties: { x: { type: 'integer', format: 'int32' } },
-      required: ['x'],
-      additionalProperties: false,
-    }),
-    { Struct: {}, x: 'integer' },
-  );
-  const imported = fromJSONSchema(document, { as: 'schema', name: 'User' });
-  assert.deepStrictEqual(imported.check({ email: 'nope' }).errors, [
-    'Field "User.email" is not a valid email',
-  ]);
-});
 
-test('Formats: the export writes the shape of a format beside its name, the import drops it', () => {
-  register();
-  const schema = Schema.from({
-    id: { type: 'string', format: 'ulid' },
-    mail: { type: 'string', format: 'email' },
-    blob: { type: 'string', format: 'base64' },
-    own: { type: 'string', format: 'ulid', pattern: '^0' },
-  });
-  const json = toJSONSchema(schema);
-  assert.deepStrictEqual(json.properties.id, {
-    type: 'string',
-    pattern: FORMATS.ulid.pattern,
-    format: 'ulid',
-  });
-  // A format of JSON Schema has no shape; a pattern of the field wins.
-  assert.deepStrictEqual(json.properties.mail, { type: 'string', format: 'email' });
-  assert.deepStrictEqual(json.properties.own, { type: 'string', pattern: '^0', format: 'ulid' });
-  // The strict profile drops it with every rule; mongodb keeps it, its only
-  // assertion; OpenAPI names base64 `byte`.
-  assert.deepStrictEqual(toJSONSchema(schema, { profile: 'strict' }).properties.id, {
-    type: 'string',
-  });
-  assert.deepStrictEqual(toJSONSchema(schema, { target: 'mongodb' }).properties.id, {
-    bsonType: 'string',
-    pattern: FORMATS.ulid.pattern,
-  });
-  const openapi = toJSONSchema(schema, { target: 'openapi-3.0' });
-  assert.strictEqual(openapi.properties.blob.format, 'byte');
-  // The import reads the format back without its shape, `byte` as base64.
-  for (const document of [json, openapi]) {
-    const definition = fromJSONSchema(document);
-    assert.deepStrictEqual(definition.id, { type: 'string', format: 'ulid' });
-    assert.deepStrictEqual(definition.blob, { type: 'string', format: 'base64' });
-    assert.deepStrictEqual(definition.own, { type: 'string', pattern: '^0', format: 'ulid' });
-  }
-  // Ajv in strict mode refuses a format it does not know; the table is the
-  // one to give it.
-  if (!canEval()) return;
-  const Ajv = require('ajv/dist/2020');
-  const ajv = new Ajv({ strict: true });
-  assert.throws(() => ajv.compile(json), /unknown format "ulid"/);
-  for (const name in FORMATS) if (!ajv.formats[name]) ajv.addFormat(name, FORMATS[name].test);
-  const validate = ajv.compile(json);
-  const value = {
-    id: MORE.ulid.valid[0],
-    mail: 'ann@example.com',
-    blob: 'TWFu',
-    own: MORE.ulid.valid[0],
-  };
-  assert.strictEqual(validate(value), true);
-  assert.strictEqual(validate({ ...value, id: '81ARZ3NDEKTSV4RRFFQ69G5FAV' }), false);
-});
-
-test('Formats: sample draws an example, infer reads a format out of the strings', () => {
-  register();
-  for (const name of Object.keys(TABLE)) {
-    const schemas = pair(name);
-    for (const seed of [1, 2, 3, 42]) {
-      const value = sample(schemas[0], { seed });
-      assert.ok(FORMATS[name].examples.includes(value.s), `${name} seed ${seed}: ${value.s}`);
-      for (const schema of schemas) assert.strictEqual(schema.check(value).valid, true);
+  it('should accept the values of every built-in format and reject the others, on both backends', () => {
+    register();
+    for (const [name, { valid, invalid }] of Object.entries(TABLE)) {
+      const schemas = pair(name);
+      const ajv = ajvOf(name);
+      for (const value of valid) {
+        for (const schema of schemas) {
+          assert.equal(schema.check({ s: value }).valid, true, `${name}: ${value}`);
+        }
+        assert.equal(ajv(value), true, `ajv-formats rejects ${name} ${JSON.stringify(value)}`);
+      }
+      for (const value of invalid) {
+        for (const schema of schemas) {
+          assert.deepEqual(
+            schema.check({ s: value }).errors,
+            [`Field "S.s" is not a valid ${name}`],
+            `${name}: ${value}`,
+          );
+        }
+        assert.equal(ajv(value), false, `ajv-formats accepts ${name} ${JSON.stringify(value)}`);
+      }
+      // A value of another type is a type issue, never a format one.
+      for (const schema of schemas) {
+        assert.deepEqual(schema.check({ s: 42 }).errors, [
+          'Field "S.s" not of expected type: string',
+        ]);
+      }
     }
-  }
-  // The other rules of the field decide whether an example is a value.
-  const [tight] = pair('email', { length: { max: 5 } });
-  assert.throws(() => sample(tight), { code: 'ERR_UNSATISFIABLE' });
-  const [patterned] = pair('email', { pattern: /example\.com$/, length: 64 });
-  assert.strictEqual(sample(patterned).s, 'ann@example.com');
-  // infer: a place whose every string passes a format is that format, the
-  // first registered one; a mixed place, a place with the option off, and a
-  // place of hostnames (every word is one) are strings.
-  const emails = [{ e: 'ann@example.com' }, { e: 'bob@example.org' }, { e: 'cy@mail.example.net' }];
-  assert.deepStrictEqual(infer(emails), { Struct: {}, e: { type: 'string', format: 'email' } });
-  assert.deepStrictEqual(infer(emails, { formats: false }), { Struct: {}, e: 'string' });
-  assert.deepStrictEqual(infer([...emails, { e: 'nope' }]), { Struct: {}, e: 'string' });
-  assert.deepStrictEqual(infer([{ h: 'example.com' }, { h: 'foo.org' }]), {
-    Struct: {},
-    h: 'string',
   });
-  const ids = [
-    { id: '550e8400-e29b-41d4-a716-446655440000' },
-    { id: '123e4567-e89b-12d3-a456-426614174000' },
-  ];
-  assert.deepStrictEqual(infer(ids), { Struct: {}, id: { type: 'string', format: 'uuid' } });
-  assert.deepStrictEqual(infer([{ at: '2026-10-11T12:00:00Z' }, { at: null }, {}]), {
-    Struct: {},
-    at: { type: 'string', format: 'date-time', required: false },
-  });
-  assert.deepStrictEqual(infer([{ ip: '10.0.0.1' }, { ip: '::1' }]), { Struct: {}, ip: 'string' });
-  assert.deepStrictEqual(infer(['2026-10-11', '2000-02-29']), { type: 'string', format: 'date' });
-  // The formats of 3.3: the specific ones first, the ones words pass never.
-  const column = (values) => infer(values.map((value) => ({ v: value })));
-  const formatOf = (values) => column(values).v.format ?? column(values).v;
-  assert.strictEqual(formatOf(MORE.ulid.valid), 'ulid');
-  assert.strictEqual(formatOf(MORE.jwt.valid), 'jwt');
-  assert.strictEqual(formatOf(['2026-10-11T12:00:00', '2026-10-12T08:30:00']), 'iso-date-time');
-  assert.strictEqual(formatOf(['2026-10-11T12:00:00Z', '2026-10-12T08:30:00']), 'iso-date-time');
-  assert.strictEqual(formatOf(['12:00:00', '08:30:00']), 'iso-time');
-  assert.strictEqual(formatOf(['P1D', 'PT15M']), 'duration');
-  assert.strictEqual(formatOf(['https://example.com/a', 'http://localhost:3000/']), 'url');
-  assert.strictEqual(formatOf(['https://example.com/a', 'mailto:ann@example.com']), 'uri');
-  assert.strictEqual(formatOf(['+380501234567', '+14155552671']), 'e164');
-  assert.strictEqual(formatOf(['#fff', '#7c5cff']), 'hex-color');
-  assert.strictEqual(formatOf(['10.0.0.0/8', '192.168.0.0/24']), 'cidrv4');
-  assert.strictEqual(formatOf(MORE.nanoid.valid), 'string');
-  assert.strictEqual(formatOf(['hello-world', 'abc']), 'string');
-  assert.strictEqual(formatOf(['1.2.3', '2.0.0']), 'string');
-  // An enum of few recurring values wins over a format; a union keeps the format.
-  const same = Array.from({ length: 4 }, () => ({ e: 'ann@example.com' }));
-  assert.deepStrictEqual(infer(same), { Struct: {}, e: { enum: ['ann@example.com'] } });
-  assert.deepStrictEqual(infer([{ v: 1 }, { v: 'ann@example.com' }]), {
-    Struct: {},
-    v: { union: ['integer', { type: 'string', format: 'email' }] },
-  });
-  // The elements of lists and the values of dictionaries fuse their formats.
-  assert.deepStrictEqual(infer([{ to: ['a@x.io', 'b@x.io'] }, { to: ['c@x.io'] }]), {
-    Struct: {},
-    to: { array: { type: 'string', format: 'email' } },
-  });
-  assert.deepStrictEqual(infer([{ '2026-01-01': 'a@x.io', '2026-01-02': 'b@x.io' }]), {
-    object: { string: { type: 'string', format: 'email' } },
-  });
-  // The inferred schema accepts the samples (the self-check), on both backends.
-  const inferred = infer(emails, { as: 'schema' });
-  assert.strictEqual(compile(inferred, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
-  for (const value of emails) assert.strictEqual(inferred.check(value).valid, true);
-  assert.throws(() => infer(emails, { formats: 'no' }), {
-    code: 'ERR_INVALID_OPTIONS',
-    message: 'Infer option "formats" must be a boolean',
-  });
-  // A custom format infers unless it says not to.
-  register({
-    word: { test: (value) => /^[a-z]+$/.test(value), examples: ['word'], infer: false },
-    shout: { test: (value) => /^[A-Z]+$/.test(value), examples: ['HEY'] },
-  });
-  assert.deepStrictEqual(infer([{ w: 'hello' }, { w: 'world' }]), { Struct: {}, w: 'string' });
-  assert.deepStrictEqual(infer([{ w: 'HEY' }, { w: 'HO' }]), {
-    Struct: {},
-    w: { type: 'string', format: 'shout' },
-  });
-});
 
-test('Formats: merge keeps one format and refuses two, diff classifies it as a pattern', () => {
-  register();
-  const a = new Schema('S', { a: { type: 'string', format: 'email', length: { max: 64 } } });
-  const b = new Schema('S', { a: { type: 'string', format: 'email', length: { min: 3 } } });
-  assert.deepStrictEqual(merge(a, b).fields.a.toJSON(), {
-    type: 'string',
-    required: true,
-    format: 'email',
-    length: { min: 3, max: 64 },
-  });
-  const c = new Schema('S', { a: { type: 'string', format: 'uri' } });
-  assert.throws(() => merge(a, c), {
-    code: 'ERR_MERGE_CONFLICT',
-    message: 'The format differs between the schemas in "S.a"',
-  });
-  const model = (def) => new Model({}, [['A', { Struct: {}, ...def }]]);
-  const added = diff(model({ a: 'string' }), model({ a: { type: 'string', format: 'email' } }));
-  assert.strictEqual(added.length, 1);
-  assert.strictEqual(added[0].kind, 'field');
-  assert.strictEqual(added[0].op, 'changed');
-  assert.strictEqual(added[0].name, 'a');
-  assert.deepStrictEqual(added[0].detail, { keys: ['format'] });
-  assert.deepStrictEqual(added[0].to, { type: 'string', required: true, format: 'email' });
-  assert.strictEqual(compatibility(added), 'forward');
-  const removed = diff(model({ a: { type: 'string', format: 'email' } }), model({ a: 'string' }));
-  assert.strictEqual(compatibility(removed), 'backward');
-  const changed = diff(
-    model({ a: { type: 'string', format: 'email' } }),
-    model({ a: { type: 'string', format: 'uri' } }),
-  );
-  assert.strictEqual(compatibility(changed), 'none');
-});
-
-test('Formats: a snapshot keeps the format and restores with the formats registered', () => {
-  register();
-  const model = new Model({}, [
-    ['User', { Entity: {}, email: { type: 'string', format: 'email' } }],
-  ]);
-  const snapshot = JSON.parse(JSON.stringify(model));
-  assert.deepStrictEqual(snapshot.entities.User.fields.email, {
-    type: 'string',
-    required: true,
-    format: 'email',
-  });
-  const restored = fromJSON(snapshot);
-  assert.deepStrictEqual(restored.entities.get('User').check({ email: 'nope' }).errors, [
-    'Field "User.email" is not a valid email',
-  ]);
-  assert.deepStrictEqual(restored.toJSON(), snapshot);
-});
-
-test('Formats: the built-in tests are linear', () => {
-  register();
-  const hostile = [
-    `${'a'.repeat(10_000)}@`,
-    `${'a.'.repeat(5_000)}!`,
-    `${'1'.repeat(10_000)}:`,
-    `${'a-'.repeat(5_000)}`,
-    `2026-10-11T12:00:00.${'0'.repeat(10_000)}!`,
-    `${':1'.repeat(5_000)}g`,
-    `P${'1'.repeat(10_000)}!`,
-    `/${'a'.repeat(10_000)}~`,
-    `/${'~0'.repeat(5_000)}~`,
-    `0${'/a'.repeat(5_000)}~`,
-    `{${'a'.repeat(10_000)}`,
-    `1.2.3-${'a.'.repeat(5_000)}!`,
-    `1.2.3-${'0'.repeat(10_000)}!`,
-    `1.2.3+${'a.'.repeat(5_000)}!`,
-    `${'👍'.repeat(5_000)}a`,
-    `${'1 '.repeat(5_000)}x`,
-    `https://${'a.'.repeat(5_000)}!`,
-    `https://${'a'.repeat(10_000)}:`,
-    `https://${'a:'.repeat(5_000)}@`,
-    `${'('.repeat(10_000)}`,
-    `${'a*'.repeat(5_000)}(`,
-    `DE${'1'.repeat(10_000)}`,
-    `1.1.1.1/${'1'.repeat(10_000)}`,
-    `${'00:'.repeat(3_000)}`,
-    `${'a'.repeat(10_000)}.${'b'.repeat(10)}.`,
-    `${'A'.repeat(10_001)}=`,
-    `#${'f'.repeat(10_000)}`,
-  ];
-  for (const name of NAMES) {
-    const { test: check } = FORMATS[name];
-    for (const text of hostile) {
-      const started = performance.now();
-      check(text);
-      const took = performance.now() - started;
-      assert.ok(took < 50, `${name} took ${took.toFixed(0)} ms on ${text.length} characters`);
+  it('should agree with another library on the formats of 3.3, but where they differ on purpose', async () => {
+    register();
+    // ArkType generates code: its verdicts are read where that is allowed.
+    if (canEval()) {
+      const { type } = await import('arktype');
+      const semver = type('string.semver');
+      MORE.semver.oracle = (text) => !(semver(text) instanceof type.errors);
     }
-  }
-});
+    for (const [name, { oracle, valid, invalid, pinned = [] }] of Object.entries(MORE)) {
+      const schemas = pair(name);
+      const pattern = FORMATS[name].pattern;
+      const shape = pattern === undefined ? null : new RegExp(pattern, 'u');
+      for (const value of valid) {
+        for (const schema of schemas) {
+          assert.equal(schema.check({ s: value }).valid, true, `${name}: ${value}`);
+        }
+        if (oracle !== null) {
+          assert.equal(oracle(value), true, `the oracle of ${name}: ${value}`);
+        }
+        if (shape !== null) assert.ok(shape.test(value), `the pattern of ${name}: ${value}`);
+      }
+      for (const value of invalid) {
+        for (const schema of schemas) {
+          assert.deepEqual(
+            schema.check({ s: value }).errors,
+            [`Field "S.s" is not a valid ${name}`],
+            `${name}: ${value}`,
+          );
+        }
+        if (oracle !== null) {
+          assert.equal(oracle(value), false, `the oracle of ${name}: ${value}`);
+        }
+      }
+      for (const value of pinned) {
+        const ours = FORMATS[name].test(value);
+        assert.notEqual(ours, oracle(value), `${name} agrees on ${JSON.stringify(value)}`);
+      }
+    }
+  });
 
-// A repeated group with an alternative in it is linear in time but grows
-// the stack of the engine by one frame per repetition, and a string of
-// megabytes overflowed it out of `check` as a RangeError (a JSON pointer, a
-// URI template, a slug, a semantic version, an email). No built-in test
-// throws on a string of 20 million characters shaped for it.
-test('Formats: no built-in test overflows the stack of the engine', () => {
-  register();
-  const n = 10_000_000;
-  const shaped = {
-    'json-pointer': `/${'a'.repeat(2 * n)}~`,
-    'relative-json-pointer': `0/${'a'.repeat(2 * n)}~`,
-    'uri-template': `${'a'.repeat(n)}{${'a,'.repeat(n / 2)}}`,
-    slug: 'a-'.repeat(n),
-    semver: `1.2.3-${'a.'.repeat(n)}!`,
-    email: `${'a'.repeat(n)}@${'a.'.repeat(n / 2)}!`,
-  };
-  for (const name of Object.keys(shaped)) {
-    assert.doesNotThrow(() => FORMATS[name].test(shaped[name]), name);
-  }
-  const plain = 'a'.repeat(n);
-  for (const name of NAMES) assert.doesNotThrow(() => FORMATS[name].test(plain), name);
+  it('should report the issue in both locales, in the order of the rules, within the bound of length.max', () => {
+    register();
+    const [schema] = pair('email', { length: { min: 2, max: 20 }, pattern: /^[a-z@.]+$/ });
+    const result = schema.check({ s: 'A@' });
+    assert.deepEqual(result.issues, [
+      {
+        code: 'pattern',
+        path: ['s'],
+        message: 'does not match the pattern ^[a-z@.]+$',
+        params: { pattern: '^[a-z@.]+$' },
+      },
+      { code: 'format', path: ['s'], message: 'is not a valid email', params: { format: 'email' } },
+    ]);
+    assert.deepEqual(schema.check({ s: 'A@' }, { messages: uk }).errors, [
+      'Поле "S.s" не відповідає шаблону ^[a-z@.]+$',
+      'Поле "S.s" не є коректним email',
+    ]);
+    assert.deepEqual(
+      schema.check({ s: 'A@' }, { maxErrors: 1 }).issues.map((issue) => issue.code),
+      ['pattern'],
+    );
+    // Too short: length, then the pattern and the format over a short string.
+    assert.deepEqual(
+      schema.check({ s: 'A' }).issues.map((issue) => issue.code),
+      ['length', 'pattern', 'format'],
+    );
+    // Past length.max neither the pattern nor the format is run.
+    const calls = [];
+    register({
+      counted: { test: (value) => calls.push(value) > 0, examples: ['x'], infer: false },
+    });
+    const [bounded] = pair('counted', { length: { max: 4 } });
+    assert.deepEqual(
+      bounded.check({ s: 'abcde' }).issues.map((issue) => issue.code),
+      ['length'],
+    );
+    assert.deepEqual(calls, []);
+    assert.equal(bounded.check({ s: 'abcd' }).valid, true);
+    assert.deepEqual(calls, ['abcd']);
+    // The validate function runs after the format, on a value that passed it.
+    const checked = Schema.from({
+      s: {
+        type: 'string',
+        format: 'email',
+        validate: (value) => !value.endsWith('.test') || 'is a test address',
+      },
+    });
+    assert.deepEqual(checked.check({ s: 'ann@example.test' }).errors, [
+      'Field "s" is a test address',
+    ]);
+    assert.deepEqual(checked.check({ s: 'nope' }).errors, ['Field "s" is not a valid email']);
+    // An optional or nullable formatted field.
+    const optional = Schema.from({
+      's?': { type: 'string', format: 'uuid' },
+      n: { type: 'string', format: 'uuid', nullable: true },
+    });
+    assert.equal(optional.check({ n: null }).valid, true);
+    assert.equal(optional.check({ s: null, n: null }).valid, true);
+    assert.equal(optional.check({ s: 'x', n: null }).valid, false);
+  });
+
+  it('should register the own formats of the program, once per name', () => {
+    register();
+    const phone = { test: (value) => /^\+\d{9,15}$/.test(value), examples: ['+380501234567'] };
+    register({ phone });
+    const schema = Schema.from({ s: { type: 'string', format: 'phone' } });
+    assert.equal(schema.check({ s: '+380501234567' }).valid, true);
+    assert.deepEqual(schema.check({ s: '050' }).errors, ['Field "s" is not a valid phone']);
+    assert.equal(FORMATS.phone.infer, true);
+    // The same test again is nothing; another test under a name the program
+    // registered is an error (a built-in name is formats-override.test.js's).
+    register({ phone });
+    assert.throws(() => register({ phone: { test: () => true, examples: ['x'] } }), {
+      code: 'ALX_ERR_FORMAT_REGISTERED',
+      message: 'Format "phone" is already registered with another test',
+    });
+    assert.equal(schema.check({ s: '050' }).valid, false);
+    // What is not a format.
+    const bad = [
+      ['phone2', null, 'Format "phone2" needs { test, examples }'],
+      ['phone2', { examples: ['x'] }, 'Format "phone2" needs a test function'],
+      ['phone2', { test: () => true }, 'Format "phone2" needs a list of example strings'],
+      [
+        'phone2',
+        { test: () => true, examples: [] },
+        'Format "phone2" needs a list of example strings',
+      ],
+      [
+        'phone2',
+        { test: () => true, examples: [1] },
+        'Format "phone2" needs a list of example strings',
+      ],
+      [
+        'phone2',
+        { test: () => true, examples: ['x'], infer: 1 },
+        'Format "phone2" needs a boolean infer',
+      ],
+      ['', { test: () => true, examples: ['x'] }, 'Format "" needs a name'],
+    ];
+    for (const [name, entry, message] of bad) {
+      assert.throws(() => register({ [name]: entry }), {
+        name: 'SchemaDefinitionError',
+        code: 'ALX_ERR_INVALID_FORMAT',
+        message,
+      });
+      assert.equal(FORMATS.phone2, undefined);
+    }
+    assert.throws(() => register(null), { code: 'ALX_ERR_INVALID_FORMAT' });
+    assert.throws(() => register('phone'), { code: 'ALX_ERR_INVALID_FORMAT' });
+    // A name is a key of a table without a prototype.
+    const odd = Object.defineProperty({}, '__proto__', {
+      value: { test: (value) => value === 'p', examples: ['p'] },
+      enumerable: true,
+    });
+    register(odd);
+    assert.equal(Object.hasOwn(FORMATS, '__proto__'), true);
+    assert.equal(
+      Schema.from({ s: { type: 'string', format: '__proto__' } }).check({ s: 'p' }).valid,
+      true,
+    );
+    register({ constructor: { test: (value) => value === 'c', examples: ['c'] } });
+    assert.equal(Object.hasOwn(FORMATS, 'constructor'), true);
+    assert.equal(
+      Schema.from({ s: { type: 'string', format: 'constructor' } }).check({ s: 'c' }).valid,
+      true,
+    );
+  });
+
+  it('should write the format to JSON Schema and read a registered one back', () => {
+    register();
+    const schema = Schema.from({
+      email: { type: 'string', format: 'email', length: { max: 64 } },
+      'site?': { type: 'string', format: 'uri' },
+    });
+    for (const target of ['draft-2020-12', 'draft-07', 'openapi-3.0']) {
+      const json = toJSONSchema(schema, { target });
+      assert.deepEqual(
+        json.properties.email,
+        { type: 'string', maxLength: 64, format: 'email' },
+        target,
+      );
+    }
+    assert.deepEqual(toJSONSchema(schema, { target: 'mongodb' }).properties.email, {
+      bsonType: 'string',
+      maxLength: 64,
+    });
+    assert.deepEqual(toJSONSchema(schema, { profile: 'strict' }).properties.email, {
+      type: 'string',
+    });
+    // Back: a registered format is the rule, any other the annotation it was.
+    const document = toJSONSchema(schema);
+    assert.deepEqual(fromJSONSchema(document), {
+      Struct: {},
+      email: { type: 'string', length: { min: undefined, max: 64 }, format: 'email' },
+      site: { type: 'string', format: 'uri', required: false },
+    });
+    assert.deepEqual(
+      fromJSONSchema({
+        type: 'object',
+        properties: { x: { type: 'string', format: 'int32' } },
+        required: ['x'],
+        additionalProperties: false,
+      }),
+      { Struct: {}, x: 'string' },
+    );
+    assert.deepEqual(
+      fromJSONSchema({
+        type: 'object',
+        properties: { x: { type: 'integer', format: 'int32' } },
+        required: ['x'],
+        additionalProperties: false,
+      }),
+      { Struct: {}, x: 'integer' },
+    );
+    const imported = fromJSONSchema(document, { as: 'schema', name: 'User' });
+    assert.deepEqual(imported.check({ email: 'nope' }).errors, [
+      'Field "User.email" is not a valid email',
+    ]);
+  });
+
+  it('should write the shape of a format beside its name in the export and drop it in the import', () => {
+    register();
+    const schema = Schema.from({
+      id: { type: 'string', format: 'ulid' },
+      mail: { type: 'string', format: 'email' },
+      blob: { type: 'string', format: 'base64' },
+      own: { type: 'string', format: 'ulid', pattern: '^0' },
+    });
+    const json = toJSONSchema(schema);
+    assert.deepEqual(json.properties.id, {
+      type: 'string',
+      pattern: FORMATS.ulid.pattern,
+      format: 'ulid',
+    });
+    // A format of JSON Schema has no shape; a pattern of the field wins.
+    assert.deepEqual(json.properties.mail, { type: 'string', format: 'email' });
+    assert.deepEqual(json.properties.own, { type: 'string', pattern: '^0', format: 'ulid' });
+    // The strict profile drops it with every rule; mongodb keeps it, its only
+    // assertion; OpenAPI names base64 `byte`.
+    assert.deepEqual(toJSONSchema(schema, { profile: 'strict' }).properties.id, {
+      type: 'string',
+    });
+    assert.deepEqual(toJSONSchema(schema, { target: 'mongodb' }).properties.id, {
+      bsonType: 'string',
+      pattern: FORMATS.ulid.pattern,
+    });
+    const openapi = toJSONSchema(schema, { target: 'openapi-3.0' });
+    assert.equal(openapi.properties.blob.format, 'byte');
+    // The import reads the format back without its shape, `byte` as base64.
+    for (const document of [json, openapi]) {
+      const definition = fromJSONSchema(document);
+      assert.deepEqual(definition.id, { type: 'string', format: 'ulid' });
+      assert.deepEqual(definition.blob, { type: 'string', format: 'base64' });
+      assert.deepEqual(definition.own, { type: 'string', pattern: '^0', format: 'ulid' });
+    }
+    // Ajv in strict mode refuses a format it does not know; the table is the
+    // one to give it.
+    if (!canEval()) return;
+    const Ajv = require('ajv/dist/2020');
+    const ajv = new Ajv({ strict: true });
+    assert.throws(() => ajv.compile(json), /unknown format "ulid"/);
+    for (const name in FORMATS) if (!ajv.formats[name]) ajv.addFormat(name, FORMATS[name].test);
+    const validate = ajv.compile(json);
+    const value = {
+      id: MORE.ulid.valid[0],
+      mail: 'ann@example.com',
+      blob: 'TWFu',
+      own: MORE.ulid.valid[0],
+    };
+    assert.equal(validate(value), true);
+    assert.equal(validate({ ...value, id: '81ARZ3NDEKTSV4RRFFQ69G5FAV' }), false);
+  });
+
+  it('should draw an example in sample and read a format out of the strings in infer', () => {
+    register();
+    for (const name of Object.keys(TABLE)) {
+      const schemas = pair(name);
+      for (const seed of [1, 2, 3, 42]) {
+        const value = sample(schemas[0], { seed });
+        assert.ok(FORMATS[name].examples.includes(value.s), `${name} seed ${seed}: ${value.s}`);
+        for (const schema of schemas) assert.equal(schema.check(value).valid, true);
+      }
+    }
+    // The other rules of the field decide whether an example is a value.
+    const [tight] = pair('email', { length: { max: 5 } });
+    assert.throws(() => sample(tight), { code: 'ALX_ERR_UNSATISFIABLE' });
+    const [patterned] = pair('email', { pattern: /example\.com$/, length: 64 });
+    assert.equal(sample(patterned).s, 'ann@example.com');
+    // infer: a place whose every string passes a format is that format, the
+    // first registered one; a mixed place, a place with the option off, and a
+    // place of hostnames (every word is one) are strings.
+    const emails = [
+      { e: 'ann@example.com' },
+      { e: 'bob@example.org' },
+      { e: 'cy@mail.example.net' },
+    ];
+    assert.deepEqual(infer(emails), { Struct: {}, e: { type: 'string', format: 'email' } });
+    assert.deepEqual(infer(emails, { formats: false }), { Struct: {}, e: 'string' });
+    assert.deepEqual(infer([...emails, { e: 'nope' }]), { Struct: {}, e: 'string' });
+    assert.deepEqual(infer([{ h: 'example.com' }, { h: 'foo.org' }]), {
+      Struct: {},
+      h: 'string',
+    });
+    const ids = [
+      { id: '550e8400-e29b-41d4-a716-446655440000' },
+      { id: '123e4567-e89b-12d3-a456-426614174000' },
+    ];
+    assert.deepEqual(infer(ids), { Struct: {}, id: { type: 'string', format: 'uuid' } });
+    assert.deepEqual(infer([{ at: '2026-10-11T12:00:00Z' }, { at: null }, {}]), {
+      Struct: {},
+      at: { type: 'string', format: 'date-time', required: false },
+    });
+    assert.deepEqual(infer([{ ip: '10.0.0.1' }, { ip: '::1' }]), { Struct: {}, ip: 'string' });
+    assert.deepEqual(infer(['2026-10-11', '2000-02-29']), { type: 'string', format: 'date' });
+    // The formats of 3.3: the specific ones first, the ones words pass never.
+    const column = (values) => infer(values.map((value) => ({ v: value })));
+    const formatOf = (values) => column(values).v.format ?? column(values).v;
+    assert.equal(formatOf(MORE.ulid.valid), 'ulid');
+    assert.equal(formatOf(MORE.jwt.valid), 'jwt');
+    assert.equal(formatOf(['2026-10-11T12:00:00', '2026-10-12T08:30:00']), 'iso-date-time');
+    assert.equal(formatOf(['2026-10-11T12:00:00Z', '2026-10-12T08:30:00']), 'iso-date-time');
+    assert.equal(formatOf(['12:00:00', '08:30:00']), 'iso-time');
+    assert.equal(formatOf(['P1D', 'PT15M']), 'duration');
+    assert.equal(formatOf(['https://example.com/a', 'http://localhost:3000/']), 'url');
+    assert.equal(formatOf(['https://example.com/a', 'mailto:ann@example.com']), 'uri');
+    assert.equal(formatOf(['+380501234567', '+14155552671']), 'e164');
+    assert.equal(formatOf(['#fff', '#7c5cff']), 'hex-color');
+    assert.equal(formatOf(['10.0.0.0/8', '192.168.0.0/24']), 'cidrv4');
+    assert.equal(formatOf(MORE.nanoid.valid), 'string');
+    assert.equal(formatOf(['hello-world', 'abc']), 'string');
+    assert.equal(formatOf(['1.2.3', '2.0.0']), 'string');
+    // An enum of few recurring values wins over a format; a union keeps the format.
+    const same = Array.from({ length: 4 }, () => ({ e: 'ann@example.com' }));
+    assert.deepEqual(infer(same), { Struct: {}, e: { enum: ['ann@example.com'] } });
+    assert.deepEqual(infer([{ v: 1 }, { v: 'ann@example.com' }]), {
+      Struct: {},
+      v: { union: ['integer', { type: 'string', format: 'email' }] },
+    });
+    // The elements of lists and the values of dictionaries fuse their formats.
+    assert.deepEqual(infer([{ to: ['a@x.io', 'b@x.io'] }, { to: ['c@x.io'] }]), {
+      Struct: {},
+      to: { array: { type: 'string', format: 'email' } },
+    });
+    assert.deepEqual(infer([{ '2026-01-01': 'a@x.io', '2026-01-02': 'b@x.io' }]), {
+      object: { string: { type: 'string', format: 'email' } },
+    });
+    // The inferred schema accepts the samples (the self-check), on both backends.
+    const inferred = infer(emails, { as: 'schema' });
+    assert.equal(compile(inferred, { jit: canEval() ? true : 'auto' }).accelerated, canEval());
+    for (const value of emails) assert.equal(inferred.check(value).valid, true);
+    assert.throws(() => infer(emails, { formats: 'no' }), {
+      code: 'ALX_ERR_INVALID_OPTION',
+      message: 'Infer option "formats" must be a boolean',
+    });
+    // A custom format infers unless it says not to.
+    register({
+      word: { test: (value) => /^[a-z]+$/.test(value), examples: ['word'], infer: false },
+      shout: { test: (value) => /^[A-Z]+$/.test(value), examples: ['HEY'] },
+    });
+    assert.deepEqual(infer([{ w: 'hello' }, { w: 'world' }]), { Struct: {}, w: 'string' });
+    assert.deepEqual(infer([{ w: 'HEY' }, { w: 'HO' }]), {
+      Struct: {},
+      w: { type: 'string', format: 'shout' },
+    });
+  });
+
+  it('should keep one format in merge and refuse two, and classify it as a pattern in diff', () => {
+    register();
+    const a = new Schema('S', { a: { type: 'string', format: 'email', length: { max: 64 } } });
+    const b = new Schema('S', { a: { type: 'string', format: 'email', length: { min: 3 } } });
+    assert.deepEqual(merge(a, b).fields.a.toJSON(), {
+      type: 'string',
+      required: true,
+      format: 'email',
+      length: { min: 3, max: 64 },
+    });
+    const c = new Schema('S', { a: { type: 'string', format: 'uri' } });
+    assert.throws(() => merge(a, c), {
+      code: 'ALX_ERR_MERGE_CONFLICT',
+      message: 'The format differs between the schemas in "S.a"',
+    });
+    const model = (def) => new Model({}, [['A', { Struct: {}, ...def }]]);
+    const added = diff(model({ a: 'string' }), model({ a: { type: 'string', format: 'email' } }));
+    assert.equal(added.length, 1);
+    assert.equal(added[0].kind, 'field');
+    assert.equal(added[0].op, 'changed');
+    assert.equal(added[0].name, 'a');
+    assert.deepEqual(added[0].detail, { keys: ['format'] });
+    assert.deepEqual(added[0].to, { type: 'string', required: true, format: 'email' });
+    assert.equal(compatibility(added), 'forward');
+    const removed = diff(model({ a: { type: 'string', format: 'email' } }), model({ a: 'string' }));
+    assert.equal(compatibility(removed), 'backward');
+    const changed = diff(
+      model({ a: { type: 'string', format: 'email' } }),
+      model({ a: { type: 'string', format: 'uri' } }),
+    );
+    assert.equal(compatibility(changed), 'none');
+  });
+
+  it('should keep the format in a snapshot and restore it with the formats registered', () => {
+    register();
+    const model = new Model({}, [
+      ['User', { Entity: {}, email: { type: 'string', format: 'email' } }],
+    ]);
+    const snapshot = JSON.parse(JSON.stringify(model));
+    assert.deepEqual(snapshot.entities.User.fields.email, {
+      type: 'string',
+      required: true,
+      format: 'email',
+    });
+    const restored = fromJSON(snapshot);
+    assert.deepEqual(restored.entities.get('User').check({ email: 'nope' }).errors, [
+      'Field "User.email" is not a valid email',
+    ]);
+    assert.deepEqual(restored.toJSON(), snapshot);
+  });
+
+  it('should run the built-in tests in linear time', () => {
+    register();
+    const hostile = [
+      (part) => `${'a'.repeat(10_000 * part)}@`,
+      (part) => `${'a.'.repeat(5_000 * part)}!`,
+      (part) => `${'1'.repeat(10_000 * part)}:`,
+      (part) => `${'a-'.repeat(5_000 * part)}`,
+      (part) => `2026-10-11T12:00:00.${'0'.repeat(10_000 * part)}!`,
+      (part) => `${':1'.repeat(5_000 * part)}g`,
+      (part) => `P${'1'.repeat(10_000 * part)}!`,
+      (part) => `/${'a'.repeat(10_000 * part)}~`,
+      (part) => `/${'~0'.repeat(5_000 * part)}~`,
+      (part) => `0${'/a'.repeat(5_000 * part)}~`,
+      (part) => `{${'a'.repeat(10_000 * part)}`,
+      (part) => `1.2.3-${'a.'.repeat(5_000 * part)}!`,
+      (part) => `1.2.3-${'0'.repeat(10_000 * part)}!`,
+      (part) => `1.2.3+${'a.'.repeat(5_000 * part)}!`,
+      (part) => `${'👍'.repeat(5_000 * part)}a`,
+      (part) => `${'1 '.repeat(5_000 * part)}x`,
+      (part) => `https://${'a.'.repeat(5_000 * part)}!`,
+      (part) => `https://${'a'.repeat(10_000 * part)}:`,
+      (part) => `https://${'a:'.repeat(5_000 * part)}@`,
+      (part) => `${'('.repeat(10_000 * part)}`,
+      (part) => `${'a*'.repeat(5_000 * part)}(`,
+      (part) => `DE${'1'.repeat(10_000 * part)}`,
+      (part) => `1.1.1.1/${'1'.repeat(10_000 * part)}`,
+      (part) => `${'00:'.repeat(3_000 * part)}`,
+      (part) => `${'a'.repeat(10_000 * part)}.${'b'.repeat(10 * part)}.`,
+      (part) => `${'A'.repeat(10_001 * part)}=`,
+      (part) => `#${'f'.repeat(10_000 * part)}`,
+    ];
+    for (const name of NAMES) {
+      const { test: check } = FORMATS[name];
+      for (const [index, make] of hostile.entries()) {
+        assertLinear(`${name} on hostile string ${index}`, check, make);
+      }
+    }
+  });
+
+  // A repeated group with an alternative in it is linear in time but grows
+  // the stack of the engine by one frame per repetition, and a string of
+  // megabytes overflowed it out of `check` as a RangeError (a JSON pointer, a
+  // URI template, a slug, a semantic version, an email). No built-in test
+  // throws on a string of 20 million characters shaped for it.
+  it('should never overflow the stack of the engine in a built-in test', () => {
+    register();
+    const n = 10_000_000;
+    const shaped = {
+      'json-pointer': `/${'a'.repeat(2 * n)}~`,
+      'relative-json-pointer': `0/${'a'.repeat(2 * n)}~`,
+      'uri-template': `${'a'.repeat(n)}{${'a,'.repeat(n / 2)}}`,
+      slug: 'a-'.repeat(n),
+      semver: `1.2.3-${'a.'.repeat(n)}!`,
+      email: `${'a'.repeat(n)}@${'a.'.repeat(n / 2)}!`,
+    };
+    for (const name of Object.keys(shaped)) {
+      assert.doesNotThrow(() => FORMATS[name].test(shaped[name]), name);
+    }
+    const plain = 'a'.repeat(n);
+    for (const name of NAMES) assert.doesNotThrow(() => FORMATS[name].test(plain), name);
+  });
 });

@@ -27,7 +27,7 @@ user.check({ name: 7 }).errors; // [ 'Field "name" not of expected type: string'
 
 | Export | Meaning |
 | --- | --- |
-| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with the generated one, and returns `{ accelerated, error }`: `accelerated` is `true` when the check runs generated code now and `false` in the fallback, where the closures stay as they were; `error` is what stopped the first check that could not be generated (a `SchemaDefinitionError` with the code `ERR_JIT_BUILD`, the generator's error as its `cause`), absent where the environment allows no code generation at all. `compile(target, { jit: false })` puts the closures a schema was built with back |
+| `compile(target, options?)` | replaces the check of a `Schema`, or of every entity of a `Model`, with the generated one, and returns `{ accelerated, error }`: `accelerated` is `true` when the check runs generated code now and `false` in the fallback, where the closures stay as they were; `error` is what stopped the first check that could not be generated (a `SchemaDefinitionError` with the code `ALX_ERR_JIT_BUILD`, the generator's error as its `cause`), absent where the environment allows no code generation at all. `compile(target, { jit: false })` puts the closures a schema was built with back |
 | `register(options?)` | compiles every schema built from then on, so an application that wants everything fast calls it once at startup; a later call replaces the options, `register({ jit: false })` stops it; a schema built before the call is not touched (pass it to `compile`). `register({ onFallback(schema, error) })` is told of every schema whose check could not be generated |
 | `compiled(target)` | whether a `Schema` (every entity of a `Model`) runs generated code now |
 | `canEval()` | whether this environment allows code generation from strings, probed once with `new Function('')` |
@@ -53,17 +53,17 @@ flowchart TB
     J -->|"false"| CL["the closures"]
     J -->|"'auto' or true"| E{"canEval()"}
     E -->|"no, 'auto'"| CL
-    E -->|"no, true"| NE["throws ERR_NO_EVAL"]
+    E -->|"no, true"| NE["throws ALX_ERR_NO_EVAL"]
     E -->|"yes"| G{"generated?"}
     G -->|"yes"| JIT["schema[RUN] = generated code"]
-    G -->|"no, 'auto'"| FB["the closures,<br/>error: ERR_JIT_BUILD"]
-    G -->|"no, true"| TH["throws ERR_JIT_BUILD"]
+    G -->|"no, 'auto'"| FB["the closures,<br/>error: ALX_ERR_JIT_BUILD"]
+    G -->|"no, true"| TH["throws ALX_ERR_JIT_BUILD"]
 ```
 
 | `jit` | Where code generation is allowed | Where it is not |
 | --- | --- | --- |
 | `'auto'` (the default) | the generated check; a check that cannot be generated keeps its closures, with the reason as `error` and in `onFallback` | the closures stay, silently, and `accelerated` is `false` without an `error` |
-| `true` | the generated check; a check that cannot be generated throws `ERR_JIT_BUILD`, and nothing of a model is installed | throws `SchemaDefinitionError` with the code `ERR_NO_EVAL`; `register` throws at the call, before any schema is built |
+| `true` | the generated check; a check that cannot be generated throws `ALX_ERR_JIT_BUILD`, and nothing of a model is installed | throws `SchemaDefinitionError` with the code `ALX_ERR_NO_EVAL`; `register` throws at the call, before any schema is built |
 | `false` | the closures; `new Function` is never called, and a compiled schema gets its closures back | the same |
 
 `true` is for the places that want to know: a test suite that must run on the JIT (the

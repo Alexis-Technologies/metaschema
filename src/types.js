@@ -27,8 +27,11 @@ const PROTOTYPES = {
 // that a class made from one inherits from it (below), and what the
 // validation half of the core installs on them (their `compile`) reaches
 // every class made from them, in every registry, whenever it is installed.
-for (const prototype of new Set(Object.values(PROTOTYPES))) {
-  Object.setPrototypeOf(prototype, AbstractType.prototype);
+// `one` and `many` meet the object of `reference` again: setting a prototype an
+// object already has changes nothing.
+const builtinNames = Object.keys(PROTOTYPES);
+for (let index = 0; index < builtinNames.length; index += 1) {
+  Object.setPrototypeOf(PROTOTYPES[builtinNames[index]], AbstractType.prototype);
 }
 
 // What the class of a type inherits from: a built-in's prototype object, the
@@ -40,7 +43,9 @@ const parentOf = (prototype) =>
     : Object.assign(Object.create(AbstractType.prototype), prototype);
 
 const customTypeError = (name, reason) =>
-  new SchemaDefinitionError('ERR_INVALID_CUSTOM_TYPE', `Custom type "${name}" ${reason}`);
+  new SchemaDefinitionError(`Custom type "${name}" ${reason}`, {
+    code: 'ALX_ERR_INVALID_CUSTOM_TYPE',
+  });
 
 const createType = (name, prototype) => {
   class Type extends AbstractType {
@@ -65,10 +70,10 @@ const createType = (name, prototype) => {
 
 const createTypes = (prototypes) => {
   const types = Object.create(null);
-  for (const pair of Object.entries(prototypes)) {
-    const name = pair[0];
-    const proto = pair[1];
-    types[name] = createType(name, proto);
+  const names = Object.keys(prototypes);
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
+    types[name] = createType(name, prototypes[name]);
   }
   return types;
 };
@@ -100,15 +105,15 @@ const updateTypeMetadata = (Type, metadata) => {
 
 // A custom prototype brings `construct` and `checkType` (or a `compile` of
 // its own); an alias takes its base's, a registered type.
-const checkCustomType = (name, proto) => {
-  const { construct } = proto;
-  const checkType = proto.checkType || proto.compile;
+const checkCustomType = (name, prototype) => {
+  const { construct } = prototype;
+  const checkType = prototype.checkType || prototype.compile;
   if (!checkType || !construct) {
     throw customTypeError(name, 'must contain "construct" and "checkType" methods');
   }
-  const checkIsFn = typeof checkType === 'function';
-  const constructIsFn = typeof construct === 'function';
-  if (!checkIsFn || !constructIsFn) {
+  const hasCheckType = typeof checkType === 'function';
+  const hasConstruct = typeof construct === 'function';
+  if (!hasCheckType || !hasConstruct) {
     throw customTypeError(name, 'methods "construct" and "checkType" must be functions');
   }
 };
@@ -125,9 +130,10 @@ const redefines = (Type, { js, construct, checkType }) => {
 };
 
 const typeFactory = (customTypes, registry = TYPES) => {
-  for (const pair of Object.entries(customTypes)) {
-    const name = pair[0];
-    const value = pair[1];
+  const names = Object.keys(customTypes);
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index];
+    const value = customTypes[name];
     if (value === null || typeof value !== 'object') {
       throw customTypeError(name, 'must be an object with methods "construct" and "checkType"');
     }
@@ -136,21 +142,21 @@ const typeFactory = (customTypes, registry = TYPES) => {
     if (registered) {
       if (redefines(registered, value)) {
         const reason = `Type "${name}" is already registered; only { metadata } may be added`;
-        throw new SchemaDefinitionError('ERR_TYPE_REGISTERED', reason);
+        throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_TYPE_REGISTERED' });
       }
       updateTypeMetadata(registered, metadata);
       continue;
     }
-    let proto = rest;
+    let prototype = rest;
     if (js !== undefined) {
       const base = registry[js];
       if (!base) {
         const reason = `Unknown js type "${js}" for custom type "${name}"`;
-        throw new SchemaDefinitionError('ERR_UNKNOWN_JS_TYPE', reason);
+        throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNKNOWN_JS_TYPE' });
       }
-      proto = base.prototype;
-    } else checkCustomType(name, proto);
-    const Type = createType(name, proto);
+      prototype = base.prototype;
+    } else checkCustomType(name, prototype);
+    const Type = createType(name, prototype);
     Type.source = { js, construct: rest.construct, checkType: rest.checkType };
     updateTypeMetadata(Type, metadata);
     registry[name] = Type;

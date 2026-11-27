@@ -8,40 +8,63 @@
 // in the default mode. Nothing happens on import.
 const { hasBrand, RUN, HOOK } = require('../util.js');
 const { Schema } = require('../validation.js');
-const { SchemaDefinitionError, invalidTarget } = require('../errors.js');
+const { isThenable, abandon } = require('../issues.js');
+const { SchemaDefinitionError, SchemaUsageError, invalidTarget } = require('../errors.js');
 const { Code } = require('./code.js');
 const { emitRoot } = require('./emit.js');
 
-const invalidOptions = (reason) => new SchemaDefinitionError('ERR_INVALID_OPTIONS', reason);
+// The checks the subpath generated: the closures a schema runs instead may
+// be the ones it was built with or ones compiled later, on first use.
+const GENERATED = new WeakSet();
+
+// The check a schema was built with, kept when the generated one replaces it
+// so that `{ jit: false }` can put it back.
+const ORIGINAL = new WeakMap();
+
+// An option of the call that is not what it must be: the call is wrong.
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
+
+// An observer never fails the operation it watches (alexiskills,
+// library-errors): what the hook throws, or a promise of it that rejects, is
+// dropped. A copy per subpath, as `install`, so the core carries none.
+const notify = (observer, first, second) => {
+  try {
+    const returned = observer(first, second);
+    if (isThenable(returned)) abandon(returned);
+  } catch {
+    // ignore: an observer never fails the operation it watches
+  }
+};
 
 // The options of compile and register: the mode, and the function told of
 // every schema the default mode could not compile.
 const optionsOf = (options) => {
   if (options === null || typeof options !== 'object') {
-    throw invalidOptions(`Compile options must be an object, got ${JSON.stringify(options)}`);
+    throw wrongOption(`Compile options must be an object, got ${JSON.stringify(options)}`);
   }
   const { jit = 'auto', onFallback } = options;
   if (jit !== 'auto' && jit !== true && jit !== false) {
     const got = JSON.stringify(jit);
-    throw invalidOptions(`Compile option "jit" must be "auto", true or false, got ${got}`);
+    throw wrongOption(`Compile option "jit" must be "auto", true or false, got ${got}`);
   }
   if (onFallback !== undefined && typeof onFallback !== 'function') {
-    throw invalidOptions('Compile option "onFallback" must be a function');
+    throw wrongOption('Compile option "onFallback" must be a function');
   }
   return { mode: jit, onFallback };
 };
 
-let evaluates = null;
+let probed = false;
+let evaluates = false;
 
 // Whether this environment builds a function from source, probed once.
 const canEval = () => {
-  if (evaluates === null) {
-    try {
-      // oxlint-disable-next-line no-new-func
-      evaluates = typeof new Function('') === 'function';
-    } catch {
-      evaluates = false;
-    }
+  if (probed) return evaluates;
+  probed = true;
+  try {
+    // oxlint-disable-next-line no-new-func
+    evaluates = typeof new Function('') === 'function';
+  } catch {
+    // ignore: no code generation from strings here, `evaluates` stays false
   }
   return evaluates;
 };
@@ -50,7 +73,7 @@ const noEval = () => {
   const reason =
     'Code generation from strings is not allowed in this environment; ' +
     'jit: "auto" keeps the closure backend instead';
-  return new SchemaDefinitionError('ERR_NO_EVAL', reason);
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_NO_EVAL' });
 };
 
 // Whether a mode generates code here: never for false, where it can for
@@ -66,14 +89,8 @@ const accelerates = (mode) => {
 // error of the emitter or of `new Function` as the cause, under one code.
 const failure = (target, error) => {
   const reason = `The check of "${target.name}" could not be generated: ${error.message}`;
-  const wrapped = new SchemaDefinitionError('ERR_JIT_BUILD', reason);
-  wrapped.cause = error;
-  return wrapped;
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_JIT_BUILD', cause: error });
 };
-
-// The checks the subpath generated: the closures a schema runs instead may
-// be the ones it was built with or ones compiled later, on first use.
-const GENERATED = new WeakSet();
 
 const build = (target) => {
   const code = new Code();
@@ -85,7 +102,7 @@ const build = (target) => {
   return run;
 };
 
-// The generated check, or ERR_JIT_BUILD: the JIT was demanded.
+// The generated check, or ALX_ERR_JIT_BUILD: the JIT was demanded.
 const generate = (target) => {
   try {
     return build(target);
@@ -93,10 +110,6 @@ const generate = (target) => {
     throw failure(target, error);
   }
 };
-
-// The check a schema was built with, kept when the generated one replaces it
-// so that `{ jit: false }` can put it back.
-const ORIGINAL = new WeakMap();
 
 const replace = (target, run) => {
   if (!ORIGINAL.has(target)) ORIGINAL.set(target, target[RUN]);
@@ -111,16 +124,16 @@ const restore = (target) => {
 // Replaces the check of a schema with the generated one; a failure to build
 // it is a fallback, reported to `onFallback` and returned.
 const install = (target, onFallback) => {
-  let run;
+  let run = null;
   try {
     run = build(target);
   } catch (error) {
     const wrapped = failure(target, error);
-    if (onFallback !== undefined) onFallback(target, wrapped);
+    if (onFallback !== undefined) notify(onFallback, target, wrapped);
     return wrapped;
   }
   replace(target, run);
-  return undefined;
+  return null;
 };
 
 const schemasOf = (target) => {
@@ -151,12 +164,12 @@ const compile = (target, options = {}) => {
     for (let index = 0; index < length; index += 1) replace(schemas[index], runs[index]);
     return { accelerated: true };
   }
-  let error;
+  let error = null;
   for (let index = 0; index < length; index += 1) {
     const failed = install(schemas[index], onFallback);
-    if (failed !== undefined && error === undefined) error = failed;
+    if (failed !== null && error === null) error = failed;
   }
-  return error === undefined ? { accelerated: true } : { accelerated: false, error };
+  return error === null ? { accelerated: true } : { accelerated: false, error };
 };
 
 // Whether the check of a schema (of every entity of a model) runs the
