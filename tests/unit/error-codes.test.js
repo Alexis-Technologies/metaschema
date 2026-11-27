@@ -22,7 +22,9 @@ const USAGE = /new SchemaUsageError\([\s\S]*?\bcode: '(ALX_ERR_[A-Z0-9_]+)'/g;
 const MEMBER = /'(ALX_ERR_[A-Z0-9_]+)'/g;
 const ROW = /^\| `(ALX_ERR_[A-Z0-9_]+)` \|/gm;
 
-const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
+// A Windows checkout writes the text files with CRLF (core.autocrlf), and the
+// headings of the API reference are found by their line breaks.
+const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\r\n/g, '\n');
 
 const sorted = (codes) => [...codes].sort();
 
