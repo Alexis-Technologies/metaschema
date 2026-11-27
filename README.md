@@ -110,13 +110,13 @@ event.parse({ name: 'deploy', when: '2026-10-10T12:00:00.000Z' }).value;
   schemas (`merge`) and infers a definition from the values that exist (`infer`); `aliases` and
   `deprecated` let a model carry its history, and `fromJSONSchema` of the generators reads a
   JSON Schema document back.
-- **Zero dependencies, 21.9 KB min+gzip.** CommonJS with ESM named imports, no build step,
-  one package for Node.js and browsers; the generators add 7.9 KB, the JIT backend 4.3 KB, the
+- **Zero dependencies, 22.0 KB min+gzip.** CommonJS with ESM named imports, no build step,
+  one package for Node.js and browsers; the generators add 7.9 KB, the JIT backend 4.4 KB, the
   model tools 12.9 KB, the record tools 1.1 KB, the string formats 3.8 KB, the derive tools
   2.2 KB, the converters of coercion 2.0 KB and the MongoDB tools 3.6 KB (on top of the
   converters, which they require) where they are imported. A program that reads schemas
   without validating them (a client that encodes from their snapshots) imports
-  `@alexify/metaschema/definition`, the half of the core that builds them: 10.6 KB.
+  `@alexify/metaschema/definition`, the half of the core that builds them: 10.7 KB.
 
 ## Benchmarks
 
@@ -848,15 +848,16 @@ and every exported type.
 
 ### From 3.x
 
-4.0 changes the errors and nothing else. Every code has the `ALX_` prefix of the Alexis
+4.0 changes the errors and the hooks that watch a call. Every code has the `ALX_` prefix of the Alexis
 libraries (`ERR_INVALID_RULE` is `ALX_ERR_INVALID_RULE`, and so for every code), and a wrong
 call (a target or an option a call does not take, a method before its `register()`, a promise
 where the call is synchronous, an invalid record of a stream) throws `SchemaUsageError`, a
 subclass of `TypeError`, where it threw a plain `TypeError`; the options of the compile
 subpath, the generators, the model subpath, `Model` and coerce's `register`, which threw
 `SchemaDefinitionError` with `ERR_INVALID_OPTIONS`, are among them (`ALX_ERR_INVALID_OPTION`).
-`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME` of that class, `cause` is
-the standard one, and a hook (`onFallback`, `onError`, `onUnsupported`) no longer fails the
+`saveTypes` in a browser rejects with `ALX_ERR_UNSUPPORTED_RUNTIME` of that class, both
+classes take the arguments of `Error` (`new SchemaDefinitionError(message, { code, cause })`),
+and a hook (`onFallback`, `onError`, `onUnsupported`) no longer fails the
 call it watches. The schema language, the results and their issue codes stay as they are. The before-and-after examples are in
 [Migrating from 3.x](https://metaschema.vercel.app/guide/migrating-from-3).
 

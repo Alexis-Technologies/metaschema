@@ -4,7 +4,7 @@
 them, without the half that validates them. It is for a program that needs the definitions and
 their [snapshots](/guide/model#the-snapshot-of-one-schema) but never checks a value against them:
 the browser client of a codec built from a snapshot, a form builder that renders fields, a tool
-that writes the model down. It is 10.6 KB min+gzip on its own, where the core entry is 21.9 KB.
+that writes the model down. It is 10.7 KB min+gzip on its own, where the core entry is 22.0 KB.
 
 ```js
 import { Schema, Model } from '@alexify/metaschema/definition';

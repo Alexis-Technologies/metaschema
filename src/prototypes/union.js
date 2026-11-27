@@ -1,7 +1,7 @@
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidUnion = (reason) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_UNION', `Union ${reason}`);
+  new SchemaDefinitionError(`Union ${reason}`, { code: 'ALX_ERR_INVALID_UNION' });
 
 // The values of the discriminator field of a branch: the branch must be a
 // struct whose field of that name is an enum, so the branch is known from

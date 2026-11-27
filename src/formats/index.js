@@ -35,7 +35,7 @@ const { FORMATS } = require('../rules.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidFormat = (name, reason) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_FORMAT', `Format "${name}" ${reason}`);
+  new SchemaDefinitionError(`Format "${name}" ${reason}`, { code: 'ALX_ERR_INVALID_FORMAT' });
 
 // ajv-formats' fast email: a local part of its characters, an `@`, and
 // labels of at most 63 characters joined by dots.
@@ -508,10 +508,9 @@ const entryOf = (name, entry) => {
 };
 
 const registered = (name) =>
-  new SchemaDefinitionError(
-    'ALX_ERR_FORMAT_REGISTERED',
-    `Format "${name}" is already registered with another test`,
-  );
+  new SchemaDefinitionError(`Format "${name}" is already registered with another test`, {
+    code: 'ALX_ERR_FORMAT_REGISTERED',
+  });
 
 // A name is registered once: the same test again is nothing, and another
 // test under a registered name is an error, since the schemas built so far
@@ -542,10 +541,9 @@ const add = (name, entry, own) => {
 // what it overrode; an empty list otherwise.
 const register = (custom = {}) => {
   if (custom === null || typeof custom !== 'object') {
-    throw new SchemaDefinitionError(
-      'ALX_ERR_INVALID_FORMAT',
-      'Formats must be an object of entries',
-    );
+    throw new SchemaDefinitionError('Formats must be an object of entries', {
+      code: 'ALX_ERR_INVALID_FORMAT',
+    });
   }
   const replaced = [];
   for (const name of Object.keys(BUILT_IN)) {

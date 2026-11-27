@@ -71,7 +71,7 @@ const STANDARD_TARGETS = new Set(['draft-2020-12', 'draft-07', 'openapi-3.0']);
 const escapePointer = (name) => encodeURIComponent(name.replace(/~/g, '~0').replace(/\//g, '~1'));
 
 // An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 const option = (options, name, allowed) => {
   const value = options[name];
@@ -147,7 +147,7 @@ const createContext = (options, unknown) => {
 const unrepresentable = (context, what) => {
   if (context.any) return {};
   const reason = `${what} cannot be represented in JSON Schema target "${context.name}"`;
-  throw new SchemaDefinitionError('ALX_ERR_UNREPRESENTABLE', reason);
+  throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNREPRESENTABLE' });
 };
 
 const typed = (name, context) =>

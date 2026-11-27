@@ -108,7 +108,7 @@
     "format": "oxfmt index.js browser.js src tests scripts bench",
     "format:check": "oxfmt --check index.js browser.js src tests scripts bench",
     "size": "node scripts/size.js",
-    "size:gate": "node scripts/size.js --max-gzip 22 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 3 --max-gzip-mongodb 4 --max-gzip-definition 11",
+    "size:gate": "node scripts/size.js --max-gzip 23 --max-gzip-generators 8 --max-gzip-compile 5 --max-gzip-model 13 --max-gzip-stream 1.5 --max-gzip-formats 5 --max-gzip-derive 2.5 --max-gzip-coerce 3 --max-gzip-mongodb 4 --max-gzip-definition 11",
     "bench": "node bench/bench.js",
     "bench:compare": "node bench/compare.js",
     "bench:releases": "node bench/releases.js",

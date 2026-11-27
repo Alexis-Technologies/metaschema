@@ -100,7 +100,7 @@ Metadata properties: `name`, `kind`, `scope`, `store`, `allow`, `parent`, `unkno
 
 ## `@alexify/metaschema/definition`
 
-The half of the core that builds schemas and models and reads them, on its own (10.6 KB
+The half of the core that builds schemas and models and reads them, on its own (10.7 KB
 min+gzip); see [The definition entry](/guide/definition). Its exports are the core's own:
 `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `SchemaUsageError` and the six
 constants. Until the
@@ -112,7 +112,7 @@ no `~standard`.
 ## `@alexify/metaschema/generators`
 
 The generators of JSON Schema and TypeScript, and the import of a JSON Schema document, in a
-subpath so that the core entry (21.9 KB min+gzip) does not carry them (7.9 KB more); see
+subpath so that the core entry (22.0 KB min+gzip) does not carry them (7.9 KB more); see
 [The generators subpath](/guide/json-schema#the-generators-subpath).
 
 | Export | Description |
@@ -148,7 +148,7 @@ argument that is not a non-empty iterable.
 
 ## `@alexify/metaschema/compile`
 
-The JIT backend, in a subpath of its own (4.3 KB min+gzip on top of the core); see
+The JIT backend, in a subpath of its own (4.4 KB min+gzip on top of the core); see
 [The JIT backend](/guide/compile).
 
 | Export | Description |
@@ -271,6 +271,10 @@ because of the value, and a broken definition is a
 | `index`, `record`, `result` | on `ALX_ERR_INVALID_RECORD`: the position of the record, the record and its `ValidationResult` |
 | `method` | on the `ALX_ERR_NOT_REGISTERED` of a schema of the definition entry: the method that was called |
 
+`new SchemaUsageError(message, options?)` takes the arguments of `Error`: `options` holds the
+`code` (`ALX_ERR_INVALID_TARGET` without one), the `cause` and the fields above, and goes to
+`Error` whole, so `cause` is set only when given.
+
 | Code | Raised for |
 | --- | --- |
 | `ALX_ERR_ASYNC_VALIDATOR` | a synchronous `check` or `parse` met a promise from a `validate` function, a custom type's `checkType` or a field's `parse` function; `checkAsync` and `parseAsync` await them |
@@ -316,6 +320,13 @@ it; see [Validation](/guide/validation#the-result).
 | `code` | one of the codes below |
 | `schema` | the schema name (`''` for an anonymous schema) |
 | `field` | the field path inside the schema (`address.city`), `''` for the schema itself |
+| `index` | on `ALX_ERR_INFER_MISMATCH`: the sample the inferred definition rejects |
+| `seed` | on `ALX_ERR_UNSATISFIABLE`: the seed of the draw, which fails again with it |
+
+`new SchemaDefinitionError(message, options?)` takes the arguments of `Error`: `options` holds
+the `code` (`ALX_ERR_INVALID_DEFINITION` without one), the `cause`, the place (`schema`,
+`field`) and the fields above. `error.locate(schema, field)` writes the place into the message
+(a `field` of `''` places it at the schema).
 
 | Code | Raised for |
 | --- | --- |

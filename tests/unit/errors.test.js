@@ -1,7 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { Schema, Model, SchemaDefinitionError } = require('../../index.js');
+const { Schema, Model, SchemaDefinitionError, SchemaUsageError } = require('../../index.js');
 
 describe('Errors', () => {
   it('should name the entity and the field of an unknown type', () => {
@@ -70,9 +70,32 @@ describe('Errors', () => {
         error.cause instanceof SyntaxError &&
         !Object.keys(error).includes('cause'),
     );
-    const caused = new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x', { cause: 1 });
+    const caused = new SchemaDefinitionError('x', { code: 'ALX_ERR_INVALID_RULE', cause: 1 });
     assert.equal(caused.cause, 1);
-    assert.equal(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x').cause, undefined);
+    // No own `cause` unless one is given: `options` goes to Error whole.
+    assert.equal(Object.hasOwn(new SchemaDefinitionError('x'), 'cause'), false);
+  });
+
+  it('should take (message, options = {}) as Error does, with the code and the fields in options', () => {
+    const plain = new SchemaDefinitionError('Broken');
+    assert.equal(plain.message, 'Broken');
+    assert.equal(plain.code, 'ALX_ERR_INVALID_DEFINITION');
+    assert.deepEqual([plain.schema, plain.field], ['', '']);
+    assert.equal(Object.hasOwn(plain, 'seed'), false);
+    const drawn = new SchemaDefinitionError('No value', { code: 'ALX_ERR_UNSATISFIABLE', seed: 7 });
+    assert.deepEqual([drawn.code, drawn.seed], ['ALX_ERR_UNSATISFIABLE', 7]);
+    const placed = new SchemaDefinitionError('Bad', { code: 'ALX_ERR_MERGE_CONFLICT', field: 'a' });
+    assert.equal(placed.locate('Order', '').message, 'Bad in "Order.a"');
+    const usage = new SchemaUsageError('Not a Schema');
+    assert.equal(usage.code, 'ALX_ERR_INVALID_TARGET');
+    assert.equal(usage.name, 'SchemaUsageError');
+    const record = { a: 1 };
+    const options = { code: 'ALX_ERR_INVALID_RECORD', index: 2, record, method: 'check' };
+    const invalid = new SchemaUsageError('Record 2 is invalid', options);
+    assert.deepEqual([invalid.index, invalid.record, invalid.method], [2, record, 'check']);
+    assert.equal(Object.hasOwn(invalid, 'result'), false);
+    // A key of the options that is no field of the class stays out.
+    assert.equal(Object.hasOwn(new SchemaUsageError('x', { seed: 1 }), 'seed'), false);
   });
 
   it('should give every definition error its code', () => {

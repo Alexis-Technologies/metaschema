@@ -522,6 +522,20 @@ export type DefinitionErrorCode =
   | 'ALX_ERR_JIT_BUILD';
 
 /**
+ * The options of `new SchemaDefinitionError(message, options)`: the code
+ * (`ALX_ERR_INVALID_DEFINITION` without one), the cause, the place it is at, and the fields some
+ * codes carry.
+ */
+export interface DefinitionErrorOptions {
+  code?: DefinitionErrorCode;
+  cause?: unknown;
+  schema?: string;
+  field?: string;
+  index?: number;
+  seed?: number;
+}
+
+/**
  * What a broken definition throws when the schema is built, never from a check: a TypeError
  * with a code, located at the schema and the field.
  */
@@ -529,7 +543,12 @@ export class SchemaDefinitionError extends TypeError {
   readonly code: DefinitionErrorCode;
   schema: string;
   field: string;
-  constructor(code: DefinitionErrorCode, reason: string, options?: { cause?: unknown });
+  /** The sample `infer` could not accept (`ALX_ERR_INFER_MISMATCH`). */
+  index?: number;
+  /** The seed of the draw no value satisfies (`ALX_ERR_UNSATISFIABLE`): the same call fails again. */
+  seed?: number;
+  /** As Error's: the code and the fields in `options`, which goes to Error whole. */
+  constructor(message: string, options?: DefinitionErrorOptions);
   /**
    * Prefixes the location with a schema and the key of the struct that owns the field; a field
    * of '' locates an error of the schema as a whole.
@@ -574,7 +593,21 @@ export class SchemaUsageError extends TypeError {
   record?: unknown;
   result?: ValidationResult;
   method?: string;
-  constructor(code: RuntimeErrorCode, message: string, options?: { cause?: unknown });
+  /** As Error's: the code and the fields in `options`, which goes to Error whole. */
+  constructor(message: string, options?: UsageErrorOptions);
+}
+
+/**
+ * The options of `new SchemaUsageError(message, options)`: the code (`ALX_ERR_INVALID_TARGET`
+ * without one), the cause, and the fields some codes carry.
+ */
+export interface UsageErrorOptions {
+  code?: RuntimeErrorCode;
+  cause?: unknown;
+  index?: number;
+  record?: unknown;
+  result?: ValidationResult;
+  method?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -264,7 +264,8 @@ src/
   util.js           BRAND/hasBrand identity brand, RUN, HOOK, the state symbols of a schema (TRACKED,
                     COERCES, CODEC, STANDARD, KINDS) and of a model (CYCLES), isMap/isSet/isDate/isBytes, typeOf,
                     shorten, formatters (type '?x', key 'x?', length)
-  errors.js         SchemaDefinitionError (code, schema, field) for broken definitions; asyncReturn (ALX_ERR_ASYNC_VALIDATOR),
+  errors.js         SchemaDefinitionError (code, schema, field, index, seed) for broken definitions and SchemaUsageError
+                    (code, index, record, result, method) for a wrong call, both `(message, options = {})`; asyncReturn (ALX_ERR_ASYNC_VALIDATOR),
                     invalidTarget, notRegistered, noValidation (the definition half without the other), invalidOption
   metautil.js       helpers copied from metautil v5.5.2
   prototypes/       the definition half of the types (what a definition gives a field; their checks are in
@@ -443,7 +444,8 @@ struct). What writes a kind as the first key of a definition holds its name to t
 (`kindKeyOf` of `model/data.js`): `structDefinition` (derive, merge: `ALX_ERR_INVALID_OPTIONS`),
 `entityDef` of `restore.js` (`ALX_ERR_INVALID_SNAPSHOT`) and `infer`.
 
-**Definition errors** are `SchemaDefinitionError` (`src/errors.js`), a `TypeError` with `code`
+**Definition errors** are `SchemaDefinitionError` (`src/errors.js`), made as an `Error` is,
+`new SchemaDefinitionError(message, { code, cause, ... })`: a `TypeError` with `code`
 (`ALX_ERR_UNKNOWN_TYPE`, `ALX_ERR_INVALID_DEFINITION`, `ALX_ERR_MISSING_SCHEMA`, `ALX_ERR_INVALID_TUPLE`,
 `ALX_ERR_PROJECTION`, `ALX_ERR_INVALID_CUSTOM_TYPE`, `ALX_ERR_INVALID_ENUM`, `ALX_ERR_INVALID_LENGTH`,
 `ALX_ERR_INVALID_REFERENCE`, `ALX_ERR_RESERVED_KEY`, `ALX_ERR_TYPE_REGISTERED`, `ALX_ERR_UNKNOWN_JS_TYPE`,
@@ -704,6 +706,16 @@ and `parent`, after its references, one entity per name (`ALX_ERR_UNREPRESENTABL
 interface of each entity in that order. `entities` is any iterable of `[name, definition]`.
 
 ## Budgets
+
+**The error classes of alexiskills 1.2 (2026-11-27, unreleased) moved the core gate to 23 KB**:
+`(message, options = {})` puts every code of a construction into an object (`{ code: '…' }`,
+about 28 calls in the core), which took the core to 22491 / 22508 bytes (22.0 KB, +89), 20 bytes
+under the 22 KB gate; the gate moved to the next whole KB by the rule of the review of 3.3
+(Alex's decision, 2026-11-27). The calls that threw `ALX_ERR_INVALID_DEFINITION` leave the code
+out, since it is the default (that gave 25 bytes back). The generators measure 8052, the compile
+subpath 4467, the model subpath 13177, the stream subpath 1086, the formats subpath 3908, the
+derive subpath 2294, the coerce subpath 2048, the mongodb subpath 3717 and `./definition`
+10960 (10.7 KB). The paragraph that follows is the review of 4.0.
 
 **The review of 4.0 against alexiskills 1.1.2 (2026-11-25, unreleased) moved the coerce gate to
 3 KB**: the observer guard (`notify`, a copy per subpath) took `./coerce` to 2027 bytes, 21
@@ -1071,7 +1083,7 @@ file means updating the `browser` map keys.
 
 ## Conventions (oxlint/oxfmt + review)
 
-The style is `js-conventions` of alexiskills 1.1.2, its Library profile (CommonJS, hand-written
+The style is `js-conventions` of alexiskills 1.2.0, its Library profile (CommonJS, hand-written
 `.d.ts`, `node:test` with c8, no runtime dependency), and the tests follow
 `node-tooling-testing`. This section is what metaschema adds to them or does otherwise, and it
 wins.
@@ -1105,8 +1117,13 @@ wins.
     `DefinitionErrorCode` or `RuntimeErrorCode` of `index.d.ts` and a row of the table of its
     class in `docs/api/exports.md`, and `tests/unit/error-codes.test.js` holds them to the
     source. Issue codes (`required`, `type`, `unexpected`, `format`, …) are data of a result,
-    not error codes. An error that wraps another passes it as the standard `cause` (the
-    `options` of the constructor), never by assignment;
+    not error codes. Every error is made `new X(message, { code, cause, ...fields })`, the
+    arguments of `Error` (alexiskills 1.2: `options` goes to `super` whole, so `cause` is set
+    only when given), and no field is set on it afterwards: the constructor reads the fields of
+    its class from `options` (`schema`, `field`, `index`, `seed`; `index`, `record`, `result`,
+    `method`), and `locate` is the one method that writes the place into the message. Without a code a
+    `SchemaDefinitionError` is `ALX_ERR_INVALID_DEFINITION` and a `SchemaUsageError`
+    `ALX_ERR_INVALID_TARGET` (Alex's decision, 2026-11-27);
   - a hook that watches a call (`onFallback` of `./compile`, `onError` of `./coerce`,
     `onUnsupported` of `fromJSONSchema`) is an observer: `notify`, a copy per subpath as
     `install` is, drops what it throws and a promise of it that rejects (alexiskills,
@@ -1143,7 +1160,7 @@ wins.
 
 ## Skills
 
-The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.1.2, a
+The skills are [alexiskills](https://alexiskills.vercel.app), `@alexify/metaskills` 1.2.0, a
 devDependency: the skills of the Alexis libraries, forked from
 [metarhia/metaskills](https://github.com/metarhia/metaskills) 1.0.6. All 37 of them are linked,
 from the seven packs (`core`, `design`, `library`, `runtime`, `backend`, `security`,
@@ -1156,7 +1173,8 @@ now. 1.0.1 came on 2026-11-24, 1.1.0 on 2026-11-25 (the skills made to agree wit
 `return void`, `describe`/`it` with `should` titles, `ALX_ERR_*` codes, named exceptions in
 place of the bans this file used to list as its own), 1.1.1 and 1.1.2 the same day (a CI matrix
 that starts where the package manager runs, `for...of` and `for...in` in library code, the holes
-of a caller's array).
+of a caller's array), 1.2.0 on 2026-11-27 (every error class takes `(message, options = {})`,
+the skills describe metaschema 4.0).
 
 - **The skills are not edited here.** A change to one goes to `Alexis-Technologies/metaskills`
   and comes back with a release of the package. A skill of this repository's own beside them
@@ -1181,8 +1199,8 @@ of a caller's array).
   place: the callback runs at load time, before any test, as the top level did.
 - `tests/unit/error-codes.test.js` holds the codes of `src/`, the unions `DefinitionErrorCode` and
   `RuntimeErrorCode` of `index.d.ts` and the tables of the two classes in `docs/api/exports.md`
-  to one set (a code a `SchemaUsageError` is built with, `new SchemaUsageError('ALX_ERR_…'`, is
-  a runtime code), fails on a code of `src/` without the `ALX_` prefix, and throws every runtime
+  to one set (a code a `SchemaUsageError` is built with, the first `code: 'ALX_ERR_…'` after a
+  `new SchemaUsageError(`, is a runtime code, so a call writes its code as a literal), fails on a code of `src/` without the `ALX_` prefix, and throws every runtime
   code once to see its class. A new code goes into its union and its table in the same change.
 - `pnpm test` passes the glob unquoted (`tests/unit/*.test.js`) so the shell expands it on Node
   18/20; Node ≥ 22 expands it itself, which is why CI runs Windows only on 22/24.

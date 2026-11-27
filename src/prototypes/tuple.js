@@ -2,7 +2,7 @@ const { formatters } = require('../util.js');
 const { SchemaDefinitionError } = require('../errors.js');
 
 const invalidTuple = (reason) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_TUPLE', `Tuple ${reason}`);
+  new SchemaDefinitionError(`Tuple ${reason}`, { code: 'ALX_ERR_INVALID_TUPLE' });
 
 // A named element is `{ name: 'type' }`: one key that is not `type` or a type
 // name, holding a type name (a string is no metadata of a kind, so `{ X:

@@ -22,7 +22,7 @@ const GENERATED = new WeakSet();
 const ORIGINAL = new WeakMap();
 
 // An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 // An observer never fails the operation it watches (alexiskills,
 // library-errors): what the hook throws, or a promise of it that rejects, is
@@ -73,7 +73,7 @@ const noEval = () => {
   const reason =
     'Code generation from strings is not allowed in this environment; ' +
     'jit: "auto" keeps the closure backend instead';
-  return new SchemaDefinitionError('ALX_ERR_NO_EVAL', reason);
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_NO_EVAL' });
 };
 
 // Whether a mode generates code here: never for false, where it can for
@@ -89,7 +89,7 @@ const accelerates = (mode) => {
 // error of the emitter or of `new Function` as the cause, under one code.
 const failure = (target, error) => {
   const reason = `The check of "${target.name}" could not be generated: ${error.message}`;
-  return new SchemaDefinitionError('ALX_ERR_JIT_BUILD', reason, { cause: error });
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_JIT_BUILD', cause: error });
 };
 
 const build = (target) => {

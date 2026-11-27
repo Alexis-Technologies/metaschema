@@ -14,7 +14,7 @@ const { isKindKey } = require('../kinds.js');
 const MAX_DEPTH = 128;
 
 const invalidSnapshot = (reason, options) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_SNAPSHOT', reason, options);
+  new SchemaDefinitionError(reason, { ...options, code: 'ALX_ERR_INVALID_SNAPSHOT' });
 
 const tooDeep = () => invalidSnapshot(`A snapshot nested deeper than ${MAX_DEPTH} levels`);
 
@@ -139,7 +139,7 @@ const structDefinition = (base, metadata, fields) => {
   const kindKey = kindKeyOf(kind);
   if (kindKey === null) {
     const reason = `Metadata "kind" must be the name of a kind, got ${JSON.stringify(kind)}`;
-    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_OPTIONS' });
   }
   const definition = { [kindKey]: rest };
   for (const key of Object.keys(fields)) define(definition, key, fields[key]);

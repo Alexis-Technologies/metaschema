@@ -22,10 +22,10 @@ const FORMATS = Object.create(null);
 const NAMED = new WeakMap();
 
 const invalidRule = (reason, options) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_RULE', reason, options);
+  new SchemaDefinitionError(reason, { ...options, code: 'ALX_ERR_INVALID_RULE' });
 
 const invalidLength = (reason = 'needs a number, [min, max] or { min, max }') =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_LENGTH', `Rule "length" ${reason}`);
+  new SchemaDefinitionError(`Rule "length" ${reason}`, { code: 'ALX_ERR_INVALID_LENGTH' });
 
 const isBound = (value) => value === undefined || typeof value === 'number';
 

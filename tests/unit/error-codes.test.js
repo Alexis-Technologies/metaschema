@@ -10,14 +10,15 @@ const { noValidation } = require('../../src/errors.js');
 const browser = require('../../src/runtime/browser.js');
 
 // Every code the source throws is a union of index.d.ts and a row of the tables of the API
-// reference, and the three are held to one set here. A code a SchemaUsageError is built with is
-// a code of a wrong call (RuntimeErrorCode); every other one is the code of a
-// SchemaDefinitionError (DefinitionErrorCode). Every code is `ALX_ERR_*` since 4.0.
+// reference, and the three are held to one set here. A code a SchemaUsageError is built with
+// (`new SchemaUsageError(message, { code: '…' })`, the constructor of Error) is a code of a
+// wrong call (RuntimeErrorCode); every other one is the code of a SchemaDefinitionError
+// (DefinitionErrorCode). Every code is `ALX_ERR_*` since 4.0.
 
 const ROOT = path.join(__dirname, '..', '..');
 const CODE = /\bALX_ERR_[A-Z0-9_]+\b/g;
 const BARE = /(?<![A-Z_])ERR_[A-Z0-9_]+/g;
-const USAGE = /new SchemaUsageError\(\s*'(ALX_ERR_[A-Z0-9_]+)'/g;
+const USAGE = /new SchemaUsageError\([\s\S]*?\bcode: '(ALX_ERR_[A-Z0-9_]+)'/g;
 const MEMBER = /'(ALX_ERR_[A-Z0-9_]+)'/g;
 const ROW = /^\| `(ALX_ERR_[A-Z0-9_]+)` \|/gm;
 

@@ -241,7 +241,9 @@ const fromJSON = (snapshot, options = {}) => {
   }
   checkRoot(snapshot);
   if (!isObject(options)) {
-    throw new SchemaUsageError('ALX_ERR_INVALID_OPTION', 'Restore options must be an object');
+    throw new SchemaUsageError('Restore options must be an object', {
+      code: 'ALX_ERR_INVALID_OPTION',
+    });
   }
   const { registry = 'isolated', types: given = {} } = options;
   const context = { name: 'types', at: 'types', given, shared: registry === 'shared' };

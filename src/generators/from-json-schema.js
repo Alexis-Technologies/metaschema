@@ -62,7 +62,7 @@ const DECIMALS = [];
 const MAX_DEPTH = 128;
 
 // An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 for (let count = 0; count <= 15; count += 1) DECIMALS.push(10 ** -count);
 
@@ -138,7 +138,7 @@ const unsupported = (context, what) => {
     return;
   }
   const reason = `${what} is not supported in a JSON Schema at "${where}"`;
-  throw new SchemaDefinitionError('ALX_ERR_UNSUPPORTED_SCHEMA', reason);
+  throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNSUPPORTED_SCHEMA' });
 };
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -515,7 +515,7 @@ const longOf = (context, node) => {
   if (context.depth > MAX_DEPTH) {
     const where = pointerOf(context.path);
     const reason = `Nesting deeper than ${MAX_DEPTH} levels at "${where}"`;
-    throw new SchemaDefinitionError('ALX_ERR_UNSUPPORTED_SCHEMA', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNSUPPORTED_SCHEMA' });
   }
   if (node === true || (isObject(node) && Object.keys(node).length === 0)) return { type: 'any' };
   if (node === false) {

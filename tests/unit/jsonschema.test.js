@@ -1104,7 +1104,9 @@ describe('JSON Schema', () => {
     }
     // The mongodb target has no definitions and ignores the pointer.
     assert.equal(schema.toJSONSchema({ target: 'mongodb', definitions: 'x' }).bsonType, 'object');
-    assert.ok(new SchemaDefinitionError('ALX_ERR_UNREPRESENTABLE', 'x') instanceof TypeError);
+    assert.ok(
+      new SchemaDefinitionError('x', { code: 'ALX_ERR_UNREPRESENTABLE' }) instanceof TypeError,
+    );
   });
 
   it('should locate an error in the schema and the field', () => {

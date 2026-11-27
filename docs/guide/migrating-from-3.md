@@ -100,8 +100,26 @@ An error that wraps another (a pattern the engine cannot compile, a snapshot val
 read, a check the JIT could not generate) carries it as `error.cause`, set by the option of the
 `Error` constructor: not an own enumerable key any more, so `JSON.stringify(error)` and
 `Object.keys(error)` leave it out, and the errors of a snapshot that did not read keep the
-error of the engine, which 3.x dropped. `new SchemaDefinitionError(code, reason, { cause })`
-and `new SchemaUsageError(code, message, { cause })` take it.
+error of the engine, which 3.x dropped.
+
+## The error classes take the arguments of `Error`
+
+A program that builds the errors itself (a custom type that throws one, a test) writes the
+message first and the code among the options, as `new Error(message, { cause })` does:
+
+```js
+const { SchemaDefinitionError } = require('@alexify/metaschema');
+
+// 3.x
+new SchemaDefinitionError('ERR_INVALID_RULE', 'Rule "min" does not apply');
+// 4.0
+new SchemaDefinitionError('Rule "min" does not apply', { code: 'ALX_ERR_INVALID_RULE' });
+```
+
+`options` also holds the `cause` and the fields of the class (`schema`, `field`, `seed`,
+`index` of a `SchemaDefinitionError`; `index`, `record`, `result`, `method` of a
+`SchemaUsageError`). Without a code a `SchemaDefinitionError` is `ALX_ERR_INVALID_DEFINITION`
+and a `SchemaUsageError` `ALX_ERR_INVALID_TARGET`.
 
 ## A hook never fails the call it watches
 

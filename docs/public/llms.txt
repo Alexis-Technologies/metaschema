@@ -10,11 +10,11 @@
 Key facts:
 - Package (npm): `@alexify/metaschema`, installed with `npm install @alexify/metaschema`
 - Node.js >= 18 and browsers; CommonJS with ESM named-import interop; hand-written `index.d.ts`
-- Zero runtime dependencies, 21.9 KB min+gzip for the core entry (the generators subpath adds
-  7.9 KB, the compile subpath 4.3 KB, the model subpath 12.9 KB, the stream subpath 1.1 KB, the
+- Zero runtime dependencies, 22.0 KB min+gzip for the core entry (the generators subpath adds
+  7.9 KB, the compile subpath 4.4 KB, the model subpath 12.9 KB, the stream subpath 1.1 KB, the
   formats subpath 3.8 KB, the derive subpath 2.2 KB, the coerce subpath 2.0 KB, the mongodb
   subpath 3.6 KB on top of coerce; the definition subpath, the half of the core that builds and
-  reads schemas without validating, is 10.6 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
+  reads schemas without validating, is 10.7 KB on its own); only the entries have side effects (`sideEffects`); about 10 million checks a second of a flat
   struct on the closures, about 30 million compiled
 - Exports: `Schema`, `Model`, `getKindMetadata`, `SchemaDefinitionError`, `ValidationResult`,
   the constants `KIND`, `KIND_STORED`, `KIND_MEMORY`, `SCOPE`, `STORE`, `ALLOW`, the types
@@ -160,7 +160,8 @@ Key facts:
 - A broken definition throws `SchemaDefinitionError` (a `TypeError`) with `code`, `schema` and
   `field`, when the schema is built, never during `check`; a wrong call (a target or an option
   it does not take, a method before its `register()`, a promise where the call is synchronous)
-  throws `SchemaUsageError` (a `TypeError`) with `code`. Every code is `ALX_ERR_*` since 4.0
+  throws `SchemaUsageError` (a `TypeError`) with `code`. Every code is `ALX_ERR_*` since 4.0;
+  both classes take the arguments of `Error`, `new SchemaDefinitionError(message, { code, cause })`
 - Safe to bundle and minify: identity checks use a global symbol brand, not class names
 - Field syntax: `'string'`, `'?string'` (optional), `'key?'`, `{ type, ...options }` (`type`
   first), `{ type, nullable: true }`, `{ array: T }`, `{ set: T }`, `{ object: { string: T } }`,

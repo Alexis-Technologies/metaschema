@@ -200,28 +200,45 @@ expectType<boolean>(result.valid);
 expectError((result.valid = true));
 expectType<boolean>(ValidationResult.isInstance(result));
 
-const error = new SchemaDefinitionError('ALX_ERR_UNKNOWN_TYPE', 'Unknown type "strng"');
+const error = new SchemaDefinitionError('Unknown type "strng"', { code: 'ALX_ERR_UNKNOWN_TYPE' });
 expectAssignable<TypeError>(error);
 expectType<DefinitionErrorCode>(error.code);
 expectType<string>(error.schema);
 expectType<string>(error.field);
+expectType<number | undefined>(error.seed);
 expectType<SchemaDefinitionError>(error.locate('Order', 'total'));
-expectError(new SchemaDefinitionError('ERR_NOPE', 'x'));
-expectType<SchemaDefinitionError>(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x'));
+// (message, options = {}), as Error: the code is an option, and the old order is an error.
+expectType<SchemaDefinitionError>(new SchemaDefinitionError('x'));
+expectError(new SchemaDefinitionError('x', { code: 'ERR_NOPE' }));
+expectError(new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x'));
 expectType<SchemaDefinitionError>(
-  new SchemaDefinitionError('ALX_ERR_INVALID_RULE', 'x', { cause: new SyntaxError('y') }),
+  new SchemaDefinitionError('x', { code: 'ALX_ERR_INVALID_RULE', cause: new SyntaxError('y') }),
 );
+expectType<SchemaDefinitionError>(
+  new SchemaDefinitionError('x', { code: 'ALX_ERR_UNSATISFIABLE', seed: 3, field: 'a' }),
+);
+expectError(new SchemaDefinitionError('x', { code: 'ALX_ERR_INVALID_TARGET' }));
 // The code of an error is what it was thrown with.
 expectError((error.code = 'ALX_ERR_INVALID_RULE'));
 
-const usage = new SchemaUsageError('ALX_ERR_INVALID_TARGET', 'not a Schema');
+const usage = new SchemaUsageError('not a Schema', { code: 'ALX_ERR_INVALID_TARGET' });
 expectAssignable<TypeError>(usage);
 expectType<RuntimeErrorCode>(usage.code);
 expectType<number | undefined>(usage.index);
 expectType<string | undefined>(usage.method);
-expectError(new SchemaUsageError('ALX_ERR_UNKNOWN_TYPE', 'x'));
-expectError(new SchemaUsageError('ERR_INVALID_TARGET', 'x'));
-expectType<SchemaUsageError>(new SchemaUsageError('ALX_ERR_INVALID_TARGET', 'x', { cause: 1 }));
+expectType<SchemaUsageError>(new SchemaUsageError('x'));
+expectError(new SchemaUsageError('x', { code: 'ALX_ERR_UNKNOWN_TYPE' }));
+expectError(new SchemaUsageError('x', { code: 'ERR_INVALID_TARGET' }));
+expectType<SchemaUsageError>(
+  new SchemaUsageError('x', { code: 'ALX_ERR_INVALID_OPTION', cause: 1 }),
+);
+expectType<SchemaUsageError>(
+  new SchemaUsageError('Record 2 is invalid', {
+    code: 'ALX_ERR_INVALID_RECORD',
+    index: 2,
+    record: {},
+  }),
+);
 expectError((usage.code = 'ALX_ERR_INVALID_TARGET'));
 expectAssignable<RuntimeErrorCode>('ALX_ERR_UNSUPPORTED_RUNTIME');
 

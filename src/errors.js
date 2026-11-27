@@ -7,24 +7,23 @@ const VALIDATION = Symbol.for('alexify.metaschema.validation');
 // synchronous check or parse: a programming error of the call, not of the
 // value, so it throws with a code of its own and names the method to use.
 const asyncReturn = (what, where, method) =>
-  new SchemaUsageError(
-    'ALX_ERR_ASYNC_VALIDATOR',
-    `The ${what} of "${where}" returned a promise; use ${method}`,
-  );
+  new SchemaUsageError(`The ${what} of "${where}" returned a promise; use ${method}`, {
+    code: 'ALX_ERR_ASYNC_VALIDATOR',
+  });
 
 // A function of a subpath was given something other than what it takes (a
 // Schema, a Model, a snapshot, a list of changes): the call is wrong, not a
 // definition.
-const invalidTarget = (message) => new SchemaUsageError('ALX_ERR_INVALID_TARGET', message);
+const invalidTarget = (message) =>
+  new SchemaUsageError(message, { code: 'ALX_ERR_INVALID_TARGET' });
 
 // A call that needs what `register()` of a subpath installs (the converters
 // of coercion, the module of the mongodb driver) before that ran: the
 // program is wired wrong, not a value or a definition.
 const notRegistered = (what, where) =>
-  new SchemaUsageError(
-    'ALX_ERR_NOT_REGISTERED',
-    `${what} needs register() of @alexify/metaschema/${where} first`,
-  );
+  new SchemaUsageError(`${what} needs register() of @alexify/metaschema/${where} first`, {
+    code: 'ALX_ERR_NOT_REGISTERED',
+  });
 
 // A schema of `./definition` asked to validate before the core entry was
 // loaded: the half of the core that validates is not installed into its
@@ -37,9 +36,7 @@ const noValidation = (what) => {
       'schema (deduplicate @alexify/metaschema)'
     : './definition alone does not validate';
   const message = `${what} needs the core entry @alexify/metaschema: ${reason}`;
-  const error = new SchemaUsageError('ALX_ERR_NOT_REGISTERED', message);
-  error.method = what;
-  return error;
+  return new SchemaUsageError(message, { code: 'ALX_ERR_NOT_REGISTERED', method: what });
 };
 
 // A symbol has no JSON, and a template literal throws on it.
@@ -49,26 +46,32 @@ const shown = (value) =>
 // An option of a call that is not what it must be (`maxErrors`, the options
 // of the stream subpath): an error naming it, with a code of its own.
 const invalidOption = (name, expected, value) =>
-  new SchemaUsageError(
-    'ALX_ERR_INVALID_OPTION',
-    `${name} must be ${expected}, got ${shown(value)}`,
-  );
+  new SchemaUsageError(`${name} must be ${expected}, got ${shown(value)}`, {
+    code: 'ALX_ERR_INVALID_OPTION',
+  });
 
 // A broken definition is a programming error, so it throws instead of being
 // collected like a validation error. The throw sites (type parsing, custom type
 // registration, projections) rarely know which entity and field they are
 // parsing; the struct that owns the field does, and calls `locate` on the way
-// up, so the message ends with `in "Entity.field"`. An error of another kind
-// that caused it travels as the standard `cause` (`options` of the Error).
+// up, so the message ends with `in "Entity.field"`. Its constructor is
+// Error's, `(message, options = {})`: `options` holds the code, the cause, the
+// place it is at (`schema`, `field`, which `locate` writes into the message)
+// and the fields some codes carry (`index`, the sample infer could not
+// accept; `seed`, the draw nothing satisfies), and goes to `super` whole, so
+// `cause` is set only when given. Every field is set here, none afterwards.
 class SchemaDefinitionError extends TypeError {
   #reason;
 
-  constructor(code, reason, options) {
-    super(reason, options);
+  constructor(message, options = {}) {
+    super(message, options);
+    const { code = 'ALX_ERR_INVALID_DEFINITION', schema = '', field = '', index, seed } = options;
     this.code = code;
-    this.schema = '';
-    this.field = '';
-    this.#reason = reason;
+    this.schema = schema;
+    this.field = field;
+    this.#reason = message;
+    if (index !== undefined) this.index = index;
+    if (seed !== undefined) this.seed = seed;
   }
 
   // A `field` of '' locates an error of the schema as a whole at the schema.
@@ -87,11 +90,20 @@ SchemaDefinitionError.prototype.name = 'SchemaDefinitionError';
 // A call that is wrong, where a definition is not: a target or an option
 // it does not take, a method that needs what a `register()` installs, a
 // promise where the call is synchronous, an invalid record a stream was
-// not told to drop. A TypeError, as it was a plain one until 4.0.
+// not told to drop. A TypeError, as it was a plain one until 4.0, made as
+// SchemaDefinitionError is: `(message, options = {})`, with the code, the
+// cause and the fields some codes carry in `options` (the record of a stream,
+// its position and its result; the method a schema of `./definition` was
+// asked for).
 class SchemaUsageError extends TypeError {
-  constructor(code, message, options) {
+  constructor(message, options = {}) {
     super(message, options);
+    const { code = 'ALX_ERR_INVALID_TARGET', index, record, result, method } = options;
     this.code = code;
+    if (index !== undefined) this.index = index;
+    if (record !== undefined) this.record = record;
+    if (result !== undefined) this.result = result;
+    if (method !== undefined) this.method = method;
   }
 }
 

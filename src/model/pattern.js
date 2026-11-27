@@ -22,7 +22,7 @@ const PATTERNS = new WeakMap();
 // pool, since \P{L} matches no letter in any locale.
 const POOL = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_- ';
 
-const invalid = (reason) => new SchemaDefinitionError('ALX_ERR_SAMPLE_PATTERN', reason);
+const invalid = (reason) => new SchemaDefinitionError(reason, { code: 'ALX_ERR_SAMPLE_PATTERN' });
 
 // A whole number in [0, max], and an element of a list, from the random
 // source of a sample.

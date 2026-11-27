@@ -41,10 +41,9 @@ const optionsOf = (options = {}) => {
   }
   const { metadata } = options;
   if (metadata !== undefined && (metadata === null || typeof metadata !== 'object')) {
-    throw new SchemaDefinitionError(
-      'ALX_ERR_INVALID_OPTIONS',
-      'Option "metadata" must be an object',
-    );
+    throw new SchemaDefinitionError('Option "metadata" must be an object', {
+      code: 'ALX_ERR_INVALID_OPTIONS',
+    });
   }
   return options;
 };
@@ -59,7 +58,7 @@ const namesOf = (schema, keys) => {
   for (const key of keys) {
     if (typeof key !== 'string') throw invalidOption('keys', 'a list of field names', keys);
     if (!(key in schema.fields)) {
-      throw new SchemaDefinitionError('ALX_ERR_UNKNOWN_FIELD', 'No such field').locate(
+      throw new SchemaDefinitionError('No such field', { code: 'ALX_ERR_UNKNOWN_FIELD' }).locate(
         schema.name,
         key,
       );
@@ -193,7 +192,7 @@ const extend = (schema, extension, options) => {
     const first = firstKey(extension);
     if (isKindKey(first, extension[first])) {
       const reason = 'An extension has fields only; the kind is options.metadata';
-      throw new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason).locate(schema.name, '');
+      throw new SchemaDefinitionError(reason).locate(schema.name, '');
     }
   }
   const keys = new Map();
@@ -222,7 +221,10 @@ const keyof = (schema, options) => {
   const { name = schema.name, metadata } = optionsOf(options);
   if (metadata !== undefined) {
     const reason = 'keyof takes a name only: a schema of an enum has no kind';
-    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason).locate(schema.name, '');
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_OPTIONS' }).locate(
+      schema.name,
+      '',
+    );
   }
   const id = idOf(schema);
   const names = [];

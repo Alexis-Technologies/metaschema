@@ -55,10 +55,8 @@ const ITEM = Symbol('item');
 // A key a program would write as a field: a letter, a digit after it.
 const NAME = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 
-const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
-
 // An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 // The summary of one place: one shape for every node. `strings` is the
 // distinct strings while there are few enough for an enum (undefined before
@@ -90,11 +88,11 @@ const where = (state) => {
   return text;
 };
 
-const tooDeep = (state) =>
-  invalid(
-    'ALX_ERR_INFER_DEPTH',
-    `Sample ${state.index} nests deeper than ${state.maxDepth} levels at "${where(state)}" (a cycle?)`,
-  );
+const tooDeep = (state) => {
+  const levels = `${state.maxDepth} levels at "${where(state)}"`;
+  const message = `Sample ${state.index} nests deeper than ${levels} (a cycle?)`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_INFER_DEPTH' });
+};
 
 // The formats of a place narrow with every string: the candidates are the
 // registered formats that infer (a format every word passes says not to),
@@ -400,12 +398,8 @@ const formOf = (target, state) => {
 const mismatch = (state, index, issue) => {
   finalize([issue], en);
   const at = toDotPath(issue.path, state.name);
-  const error = invalid(
-    'ALX_ERR_INFER_MISMATCH',
-    `The inferred definition rejects sample ${index} at "${at}": ${issue.message}`,
-  );
-  error.index = index;
-  return error;
+  const message = `The inferred definition rejects sample ${index} at "${at}": ${issue.message}`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_INFER_MISMATCH', index });
 };
 
 const option = (name, expected) => wrongOption(`Infer option "${name}" must be ${expected}`);

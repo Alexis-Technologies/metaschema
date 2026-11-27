@@ -5,7 +5,7 @@ const { SchemaUsageError } = require('../errors.js');
 
 const writeFile = () => {
   const message = 'saveTypes is not available in the browser';
-  return Promise.reject(new SchemaUsageError('ALX_ERR_UNSUPPORTED_RUNTIME', message));
+  return Promise.reject(new SchemaUsageError(message, { code: 'ALX_ERR_UNSUPPORTED_RUNTIME' }));
 };
 
 module.exports = { writeFile };

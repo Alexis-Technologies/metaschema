@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.0.0] - 2026-11-25
+## [4.0.0] - 2026-11-27
 
 4.0 brings the errors of the package to the rules of the Alexis libraries (alexiskills 1.1).
 Every error code carries the `ALX_` prefix, and a wrong call throws a class of the package,
@@ -38,8 +38,9 @@ The same guide with before-and-after examples is
   `merge`, `sample`, `infer`, the `Model` constructor and `register` of the coerce subpath threw
   `SchemaDefinitionError` with `ERR_INVALID_OPTIONS` (`ERR_INVALID_COERCION` for coerce);
   `ALX_ERR_INVALID_OPTIONS` is the code of the metadata of a definition only.
-- **`error.cause` is the standard one**: set through the options of the constructor, so not an
-  own enumerable key (`JSON.stringify(error)` leaves it out).
+- **The error classes take `(message, options = {})`**: a program that builds one writes
+  `new SchemaDefinitionError(message, { code })` where it wrote `(code, message)`. `error.cause`
+  is the standard one, not an own enumerable key (`JSON.stringify(error)` leaves it out).
 
 ### Changed (breaking)
 
@@ -59,11 +60,16 @@ The same guide with before-and-after examples is
   `infer`, of `Model` and of `register` of the coerce subpath were `SchemaDefinitionError` with
   `ALX_ERR_INVALID_OPTIONS` (`ALX_ERR_INVALID_COERCION`). The metadata of a definition keeps
   `ALX_ERR_INVALID_OPTIONS`.
-- **The cause of an error is the standard `cause`.** `SchemaDefinitionError` and
-  `SchemaUsageError` take `options` as the third argument of the constructor, as `Error` does,
-  and pass it on; the errors that wrapped another assigned `cause` as an own enumerable key, and
-  an error of a snapshot that did not read (a bigint, a pattern) lost the engine's error, which
-  is its cause now. `code` is `readonly` in the typings.
+- **The error classes take `(message, options = {})`, as `Error` does** (alexiskills 1.2):
+  `new SchemaDefinitionError(message, { code, cause, schema, field, index, seed })` and
+  `new SchemaUsageError(message, { code, cause, index, record, result, method })`, where
+  `SchemaDefinitionError` took `(code, reason)` in 3.x. `options` goes to `Error` whole, so `cause` is the standard one and set
+  only when given (the errors that wrapped another assigned it as an own enumerable key, and an
+  error of a snapshot that did not read lost the engine's error, which is its cause now). Every
+  field is set by the constructor, none afterwards. Without a code a `SchemaDefinitionError` is
+  `ALX_ERR_INVALID_DEFINITION` and a `SchemaUsageError` `ALX_ERR_INVALID_TARGET`; `code` is
+  `readonly` in the typings, and `DefinitionErrorOptions` and `UsageErrorOptions` type the
+  options.
 
 ### Changed
 
@@ -109,7 +115,7 @@ The same guide with before-and-after examples is
 
 ### Tooling
 
-- **The agent skills are alexiskills.** `@alexify/metaskills` 1.1.2, a devDependency, links its
+- **The agent skills are alexiskills.** `@alexify/metaskills` 1.2.0, a devDependency, links its
   37 skills into `.claude/skills` from the `prepare` script (`alexiskills claude`) on every
   `pnpm install`, and `.gitignore` leaves the link out. The seven skills of metarhia/metaskills
   1.0.5 the repository kept there are gone; what two of them said of metaschema alone (the steps
@@ -140,6 +146,8 @@ The same guide with before-and-after examples is
   array. No loop of these changes replaced one, and a list with holes (an `enum`, a tuple, a
   union, `flags`, `aliases`, an index, an array value, the records of a stream, the keys of
   `pick`, the changes of `compatibility`) gives what it gave in 3.4.1 on both backends.
+- **alexiskills 1.2.0.** Every error class of a library takes `(message, options = {})`, and
+  metaschema's do (see Changed (breaking)); the skills describe metaschema 4.0.
 - **The review against alexiskills 1.1.2** (no behaviour changed beyond what Fixed and Changed
   say):
   - `src/` keeps the order of a module (constants, functions, classes, exports in that order),
@@ -156,6 +164,8 @@ The same guide with before-and-after examples is
     `release` script: a release runs `pnpm publish`.
   - The coerce subpath's gate is 3 KB: the observer guard took it to 2027 bytes, 21 under the
     2 KB gate (2049 at the end of the review); the core measures 22402 bytes (21.9 KB).
+- **The core gate is 23 KB.** The error classes of alexiskills 1.2 write every code as an
+  option, which took the core to 22508 bytes (22.0 KB), 20 under the 22 KB gate.
 
 ## [3.4.1] - 2026-11-24
 

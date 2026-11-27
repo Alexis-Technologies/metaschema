@@ -16,7 +16,7 @@ const CODEC_KEYS = new Set(['validate', 'parse', 'serialize']);
 
 const ALIASES = 'Option "aliases" needs a list of key names';
 
-const invalidAliases = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_DEFINITION', reason);
+const invalidAliases = (reason) => new SchemaDefinitionError(reason);
 
 // A key a value may carry: a field, a calculated field or an alias, each
 // once.

@@ -45,10 +45,8 @@ const RETRIED = new Set(['ALX_ERR_UNSATISFIABLE', 'ALX_ERR_SAMPLE_PATTERN', 'ALX
 const REFERENCES = new Set(['kind', 'embed', 'id']);
 const MAX_DEPTH = 32;
 
-const invalid = (code, reason) => new SchemaDefinitionError(code, reason);
-
 // An option of the call that is not what it must be: the call is wrong.
-const wrongOption = (reason) => new SchemaUsageError('ALX_ERR_INVALID_OPTION', reason);
+const wrongOption = (reason) => new SchemaUsageError(reason, { code: 'ALX_ERR_INVALID_OPTION' });
 
 // mulberry32: a 32-bit generator, the same numbers for a seed everywhere.
 const prng = (seed) => {
@@ -258,10 +256,8 @@ const customOf = (state, field, key) => {
   const { sample: given } = field.constructor.metadata;
   if (given === undefined) {
     const hint = `Type "${field.type}" needs metadata.sample to be sampled`;
-    throw invalid(
-      'ALX_ERR_SAMPLE_TYPE',
-      `${hint} in "${toDotPath(pathOf(state, key), state.root.name)}"`,
-    );
+    const where = toDotPath(pathOf(state, key), state.root.name);
+    throw new SchemaDefinitionError(`${hint} in "${where}"`, { code: 'ALX_ERR_SAMPLE_TYPE' });
   }
   return typeof given === 'function' ? given(field, state.random) : given;
 };
@@ -273,12 +269,8 @@ const pathOf = (state, key) => (key === undefined ? state.path : state.path.conc
 const unsatisfiable = (state, key, reason) => {
   const where = toDotPath(pathOf(state, key), state.root.name);
   const { seed } = state;
-  const error = invalid(
-    'ALX_ERR_UNSATISFIABLE',
-    `No value satisfies "${where}" (seed ${seed}): ${reason}`,
-  );
-  error.seed = seed;
-  return error;
+  const message = `No value satisfies "${where}" (seed ${seed}): ${reason}`;
+  return new SchemaDefinitionError(message, { code: 'ALX_ERR_UNSATISFIABLE', seed });
 };
 
 // A draw by the built-in type a field validates as; a type of the program's

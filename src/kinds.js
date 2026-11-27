@@ -28,7 +28,7 @@ const KIND_METADATA = Object.create(null);
 const constants = { KIND, KIND_STORED, KIND_MEMORY, SCOPE, STORE, ALLOW };
 
 const projectionError = (name, reason) =>
-  new SchemaDefinitionError('ALX_ERR_PROJECTION', `Projection "${name}" ${reason}`);
+  new SchemaDefinitionError(`Projection "${name}" ${reason}`, { code: 'ALX_ERR_PROJECTION' });
 
 const isMetadata = (value) => {
   if (value === null || typeof value !== 'object' || hasBrand(value, 'Struct')) return false;

@@ -2,7 +2,7 @@ const { SchemaDefinitionError } = require('../errors.js');
 
 const missingEnum = (type) => {
   const hint = `Type "${type}" needs a list of values: { type: '${type}', enum: [...] }`;
-  return new SchemaDefinitionError('ALX_ERR_INVALID_ENUM', hint);
+  return new SchemaDefinitionError(hint, { code: 'ALX_ERR_INVALID_ENUM' });
 };
 
 // The scalar types: what a field of each holds (its check is `COMPILE` of

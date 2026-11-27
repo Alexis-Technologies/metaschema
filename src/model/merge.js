@@ -25,9 +25,7 @@ const BOOLEANS = new Set(['unique', 'index', 'primary', 'deprecated']);
 // A conflict carries the path of the field it is at; `merge` locates it in
 // the schema on the way out, as a struct does with a definition error.
 const conflict = (reason, path = '') => {
-  const error = new SchemaDefinitionError('ALX_ERR_MERGE_CONFLICT', reason);
-  error.field = path;
-  return error;
+  return new SchemaDefinitionError(reason, { code: 'ALX_ERR_MERGE_CONFLICT', field: path });
 };
 
 // Both validate functions, as one that returns what both returned (an
@@ -224,7 +222,9 @@ const merge = (a, b, options = {}) => {
     throw invalidTarget('Two Schemas are expected');
   }
   if (options === null || typeof options !== 'object') {
-    throw new SchemaUsageError('ALX_ERR_INVALID_OPTION', 'Merge options must be an object');
+    throw new SchemaUsageError('Merge options must be an object', {
+      code: 'ALX_ERR_INVALID_OPTION',
+    });
   }
   const { name = a.name, metadata = {} } = options;
   const namespaces = namespacesOf([a, b]);
@@ -261,12 +261,11 @@ const merge = (a, b, options = {}) => {
     }
     return new Schema(name, definition, namespaces);
   } catch (error) {
-    if (error instanceof SchemaDefinitionError && error.code === 'ALX_ERR_MERGE_CONFLICT') {
-      const { field } = error;
-      error.field = '';
-      if (field) error.locate(name, field);
-      else error.locate(name, '');
-    }
+    // A conflict carries its field from where it was found: located at the
+    // schema, its message names the place.
+    const isConflict =
+      error instanceof SchemaDefinitionError && error.code === 'ALX_ERR_MERGE_CONFLICT';
+    if (isConflict) error.locate(name, '');
     throw error;
   }
 };

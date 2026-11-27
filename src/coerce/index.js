@@ -223,7 +223,8 @@ const BUILT_IN = {
   map: toMap,
 };
 
-const invalidCoercion = (reason) => new SchemaDefinitionError('ALX_ERR_INVALID_COERCION', reason);
+const invalidCoercion = (reason) =>
+  new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_COERCION' });
 
 // The converter of a field: its type's, or the one of the type it is an
 // alias of (`{ money: { js: 'number' } }` converts as a number); an alias
@@ -299,7 +300,7 @@ const check = (name, converter) => {
   const known = COERCIONS[name] ?? BUILT_IN[name];
   if (known !== undefined && known !== converter) {
     const reason = `Converter "${name}" is registered already with another function`;
-    throw new SchemaDefinitionError('ALX_ERR_COERCION_REGISTERED', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_COERCION_REGISTERED' });
   }
 };
 

@@ -12,7 +12,7 @@ const unknownOf = (unknown) => {
   if (unknown === undefined) return 'reject';
   if (unknown !== 'reject' && unknown !== 'ignore') {
     const reason = `Schema metadata "unknown" must be "reject" or "ignore", got ${JSON.stringify(unknown)}`;
-    throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+    throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_OPTIONS' });
   }
   return unknown;
 };
@@ -60,7 +60,7 @@ class SchemaMetadata {
     const { kind, scope, store, allow, parent, unknown, ...custom } = values;
     if (custom.coerce !== undefined && typeof custom.coerce !== 'boolean') {
       const reason = `Schema metadata "coerce" must be a boolean, got ${JSON.stringify(custom.coerce)}`;
-      throw new SchemaDefinitionError('ALX_ERR_INVALID_OPTIONS', reason);
+      throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_INVALID_OPTIONS' });
     }
     this.kind = kind || this.kind;
     this.scope = scope || this.scope;

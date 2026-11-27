@@ -184,11 +184,8 @@ const parseEachAsync = (schema, records, options) => {
 // The error a stream ends with: the record, its position and its result
 // travel on it, since the stream carries them no further.
 const invalidRecord = (index, record, result) => {
-  const error = new SchemaUsageError('ALX_ERR_INVALID_RECORD', `Record ${index} is invalid`);
-  error.index = index;
-  error.record = record;
-  error.result = result;
-  return error;
+  const message = `Record ${index} is invalid`;
+  return new SchemaUsageError(message, { code: 'ALX_ERR_INVALID_RECORD', index, record, result });
 };
 
 // A TransformStream over the records of a stream: a valid record goes on as

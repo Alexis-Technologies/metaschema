@@ -139,10 +139,9 @@ const typeOf = (Type) => {
 };
 
 const typeClash = (name) =>
-  new SchemaDefinitionError(
-    'ALX_ERR_UNREPRESENTABLE',
-    `Two types named "${name}" cannot be represented in one snapshot`,
-  );
+  new SchemaDefinitionError(`Two types named "${name}" cannot be represented in one snapshot`, {
+    code: 'ALX_ERR_UNREPRESENTABLE',
+  });
 
 // The types the entities use, by name, and the custom types their aliases
 // name down the chain (a model is restored from them): each from the table
@@ -204,10 +203,9 @@ const snapshotOf = (model) => {
 };
 
 const clash = (name) =>
-  new SchemaDefinitionError(
-    'ALX_ERR_UNREPRESENTABLE',
-    `Two schemas named "${name}" cannot be represented in one snapshot`,
-  );
+  new SchemaDefinitionError(`Two schemas named "${name}" cannot be represented in one snapshot`, {
+    code: 'ALX_ERR_UNREPRESENTABLE',
+  });
 
 // The order of the entities of a model and of a snapshot: depth first from
 // each start in turn, every entity after the ones its edges reach

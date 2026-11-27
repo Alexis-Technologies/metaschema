@@ -43,7 +43,9 @@ const parentOf = (prototype) =>
     : Object.assign(Object.create(AbstractType.prototype), prototype);
 
 const customTypeError = (name, reason) =>
-  new SchemaDefinitionError('ALX_ERR_INVALID_CUSTOM_TYPE', `Custom type "${name}" ${reason}`);
+  new SchemaDefinitionError(`Custom type "${name}" ${reason}`, {
+    code: 'ALX_ERR_INVALID_CUSTOM_TYPE',
+  });
 
 const createType = (name, prototype) => {
   class Type extends AbstractType {
@@ -140,7 +142,7 @@ const typeFactory = (customTypes, registry = TYPES) => {
     if (registered) {
       if (redefines(registered, value)) {
         const reason = `Type "${name}" is already registered; only { metadata } may be added`;
-        throw new SchemaDefinitionError('ALX_ERR_TYPE_REGISTERED', reason);
+        throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_TYPE_REGISTERED' });
       }
       updateTypeMetadata(registered, metadata);
       continue;
@@ -150,7 +152,7 @@ const typeFactory = (customTypes, registry = TYPES) => {
       const base = registry[js];
       if (!base) {
         const reason = `Unknown js type "${js}" for custom type "${name}"`;
-        throw new SchemaDefinitionError('ALX_ERR_UNKNOWN_JS_TYPE', reason);
+        throw new SchemaDefinitionError(reason, { code: 'ALX_ERR_UNKNOWN_JS_TYPE' });
       }
       prototype = base.prototype;
     } else checkCustomType(name, prototype);
